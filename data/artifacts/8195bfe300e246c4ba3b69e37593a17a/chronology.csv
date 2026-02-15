@@ -1,0 +1,12 @@
+event_id,date,provider,type,confidence,facts,pages
+dfbc832ee76c436e,2024-03-15,dr sarah johnson,office_visit,80,"Patient presents with lower back pain radiating to left leg following motor vehicle accident on
+03/01/2024.
+History of Present Illness:
+45-year-old male involved in rear-end collision on 03/01/2024. Reports onset of low back pain
+immediately after accident. Pain rated 7/10.
+Physical Exam:
+Vital Signs: BP 130/85, HR 78, Temp 98.6F. Lumbar spine: tenderness at L4-L5. Straight leg raise
+positive on l; 1. Lumbar disc herniation, L4-L5 2. Left-sided radiculopathy 3. Cervical strain; 1. Order MRI lumbar spine 2. Prescribe Naproxen 500mg BID 3. Refer to physical therapy 2-3x/week 4.; Follow up in 2 weeks; Restrictions: No lifting over 10 lbs, no prolonged sitting. Light duty only.",p. 1
+dd4f86f9609643cd,2024-03-18,dr sarah johnson,imaging_study,80,1. L4-L5 disc herniation with left foraminal narrowing and L5 nerve root impingement. 2. No fracture or; significant stenosis identified. 3. Recommend clinical correlation.,p. 2
+71e0720881674eb4,2024-03-22,dr sarah johnson,pt_visit,70,PT sessions documented: 1; Patient tolerated treatment well. Goals: reduce pain to 3/10 by week 6.,p. 3
+6406995cd70e41f3,2024-04-01,dr sarah johnson,billing_event,70,Total amount: $250.00,p. 4

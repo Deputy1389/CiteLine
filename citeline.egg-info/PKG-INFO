@@ -1,0 +1,19 @@
+Metadata-Version: 2.4
+Name: citeline
+Version: 0.1.0
+Summary: CiteLine – Citeable medical chronologies for PI law firms
+Requires-Python: >=3.11
+Requires-Dist: fastapi>=0.109
+Requires-Dist: uvicorn[standard]>=0.27
+Requires-Dist: python-multipart>=0.0.6
+Requires-Dist: sqlalchemy>=2.0
+Requires-Dist: pydantic>=2.5
+Requires-Dist: pymupdf>=1.23
+Requires-Dist: pytesseract>=0.3.10
+Requires-Dist: Pillow>=10.0
+Requires-Dist: reportlab>=4.0
+Requires-Dist: jsonschema>=4.20
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: httpx>=0.26; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23; extra == "dev"

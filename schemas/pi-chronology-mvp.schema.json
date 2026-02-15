@@ -1,0 +1,1168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clearcase.example/schemas/pi-chronology-mvp.schema.json",
+  "title": "PI Chronology MVP — Case Evidence Graph (v0.1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "case",
+    "inputs",
+    "outputs"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "firm_id",
+        "title",
+        "timezone"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 80
+        },
+        "firm_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 80
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 64,
+          "default": "America/Los_Angeles"
+        },
+        "client_ref": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_documents"
+      ],
+      "properties": {
+        "source_documents": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/SourceDocument"
+          }
+        },
+        "run_config": {
+          "$ref": "#/$defs/RunConfig"
+        }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run",
+        "evidence_graph",
+        "chronology"
+      ],
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/RunRecord"
+        },
+        "evidence_graph": {
+          "$ref": "#/$defs/EvidenceGraph"
+        },
+        "chronology": {
+          "$ref": "#/$defs/ChronologyOutput"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "RunConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_pages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000,
+          "default": 500
+        },
+        "include_billing_events_in_timeline": {
+          "type": "boolean",
+          "default": false
+        },
+        "pt_mode": {
+          "type": "string",
+          "enum": [
+            "aggregate",
+            "per_visit"
+          ],
+          "default": "aggregate"
+        },
+        "pt_aggregate_window_days": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 30,
+          "default": 7
+        },
+        "gap_threshold_days": {
+          "type": "integer",
+          "minimum": 14,
+          "maximum": 180,
+          "default": 45
+        },
+        "low_confidence_event_behavior": {
+          "type": "string",
+          "enum": [
+            "exclude_from_export",
+            "include_with_flag"
+          ],
+          "default": "exclude_from_export"
+        },
+        "event_confidence_min_export": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 60
+        },
+        "retention_policy_days": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3650,
+          "default": 30
+        },
+        "no_training_on_customer_data": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "SourceDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_id",
+        "filename",
+        "mime_type",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "document_id": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 120
+        },
+        "filename": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 260
+        },
+        "mime_type": {
+          "type": "string",
+          "enum": [
+            "application/pdf"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "uploaded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "origin": {
+          "type": "string",
+          "enum": [
+            "upload_ui",
+            "email_ingest",
+            "api"
+          ],
+          "default": "upload_ui"
+        },
+        "declared_document_type": {
+          "type": "string",
+          "enum": [
+            "medical_record",
+            "medical_bill",
+            "correspondence",
+            "unknown"
+          ],
+          "default": "unknown"
+        },
+        "page_count_hint": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000
+        }
+      }
+    },
+    "RunRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "started_at",
+        "finished_at",
+        "status",
+        "warnings",
+        "metrics",
+        "provenance"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 120
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "finished_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "success",
+            "partial",
+            "failed"
+          ]
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Warning"
+          }
+        },
+        "metrics": {
+          "$ref": "#/$defs/Metrics"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      }
+    },
+    "Warning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 64
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "document_id": {
+          "type": "string"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "details": {
+          "type": "object"
+        }
+      }
+    },
+    "Metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "documents",
+        "pages_total",
+        "pages_ocr",
+        "events_total",
+        "events_exported",
+        "providers_total"
+      ],
+      "properties": {
+        "documents": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "pages_total": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "pages_ocr": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "events_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "events_exported": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "providers_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pt_events_aggregated": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "billing_events_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "processing_seconds": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "Provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pipeline_version",
+        "extractor",
+        "ocr",
+        "hashes"
+      ],
+      "properties": {
+        "pipeline_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "extractor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "version"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        },
+        "ocr": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "engine",
+            "version",
+            "language"
+          ],
+          "properties": {
+            "engine": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "language": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 16,
+              "default": "en"
+            }
+          }
+        },
+        "hashes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "inputs_sha256",
+            "outputs_sha256"
+          ],
+          "properties": {
+            "inputs_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "outputs_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "EvidenceGraph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "documents",
+        "pages",
+        "providers",
+        "events",
+        "citations",
+        "gaps"
+      ],
+      "properties": {
+        "documents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Document"
+          }
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Page"
+          }
+        },
+        "providers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Provider"
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Event"
+          }
+        },
+        "citations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Citation"
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Gap"
+          }
+        }
+      }
+    },
+    "Document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_id",
+        "source_document_id",
+        "page_start",
+        "page_end",
+        "page_types"
+      ],
+      "properties": {
+        "document_id": {
+          "type": "string"
+        },
+        "source_document_id": {
+          "type": "string"
+        },
+        "page_start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "page_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "page_types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PageTypeSpan"
+          },
+          "minItems": 1
+        },
+        "detected_title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "declared_document_type": {
+          "type": "string",
+          "enum": [
+            "medical_record",
+            "medical_bill",
+            "correspondence",
+            "unknown"
+          ]
+        },
+        "confidence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "PageTypeSpan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "page_start",
+        "page_end",
+        "page_type"
+      ],
+      "properties": {
+        "page_start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "page_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "page_type": {
+          "$ref": "#/$defs/PageType"
+        }
+      }
+    },
+    "PageType": {
+      "type": "string",
+      "enum": [
+        "clinical_note",
+        "imaging_report",
+        "operative_report",
+        "pt_note",
+        "billing",
+        "lab_report",
+        "administrative",
+        "other"
+      ]
+    },
+    "Page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "page_id",
+        "source_document_id",
+        "page_number",
+        "text",
+        "text_source"
+      ],
+      "properties": {
+        "page_id": {
+          "type": "string"
+        },
+        "source_document_id": {
+          "type": "string"
+        },
+        "page_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "text": {
+          "type": "string"
+        },
+        "text_source": {
+          "type": "string",
+          "enum": [
+            "embedded_pdf_text",
+            "ocr"
+          ]
+        },
+        "layout": {
+          "$ref": "#/$defs/PageLayout"
+        },
+        "page_type": {
+          "$ref": "#/$defs/PageType"
+        }
+      }
+    },
+    "PageLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "width": {
+          "type": "number",
+          "minimum": 0
+        },
+        "height": {
+          "type": "number",
+          "minimum": 0
+        },
+        "units": {
+          "type": "string",
+          "enum": [
+            "pt",
+            "px"
+          ],
+          "default": "pt"
+        }
+      }
+    },
+    "Provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_id",
+        "detected_name_raw",
+        "normalized_name",
+        "provider_type",
+        "confidence"
+      ],
+      "properties": {
+        "provider_id": {
+          "type": "string"
+        },
+        "detected_name_raw": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "normalized_name": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "provider_type": {
+          "type": "string",
+          "enum": [
+            "er",
+            "pt",
+            "imaging",
+            "specialist",
+            "pcp",
+            "hospital",
+            "unknown"
+          ]
+        },
+        "confidence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProviderEvidence"
+          },
+          "default": []
+        }
+      }
+    },
+    "ProviderEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "page_number",
+        "snippet",
+        "bbox"
+      ],
+      "properties": {
+        "page_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "snippet": {
+          "type": "string",
+          "maxLength": 260
+        },
+        "bbox": {
+          "$ref": "#/$defs/BBox"
+        }
+      }
+    },
+    "Event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "provider_id",
+        "event_type",
+        "date",
+        "confidence",
+        "facts",
+        "citation_ids",
+        "source_page_numbers"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "provider_id": {
+          "type": "string"
+        },
+        "event_type": {
+          "$ref": "#/$defs/EventType"
+        },
+        "date": {
+          "$ref": "#/$defs/EventDate"
+        },
+        "encounter_type_raw": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "facts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/Fact"
+          }
+        },
+        "diagnoses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Fact"
+          },
+          "default": []
+        },
+        "procedures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Fact"
+          },
+          "default": []
+        },
+        "imaging": {
+          "$ref": "#/$defs/ImagingDetails"
+        },
+        "billing": {
+          "$ref": "#/$defs/BillingDetails"
+        },
+        "confidence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "default": []
+        },
+        "citation_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_page_numbers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "EventType": {
+      "type": "string",
+      "enum": [
+        "er_visit",
+        "office_visit",
+        "pt_visit",
+        "imaging_study",
+        "procedure",
+        "hospital_admission",
+        "hospital_discharge",
+        "work_status",
+        "billing_event",
+        "administrative"
+      ]
+    },
+    "EventDate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "value",
+        "source"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "single",
+            "range"
+          ]
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "start",
+                "end"
+              ],
+              "properties": {
+                "start": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date"
+                }
+              }
+            }
+          ]
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "tier1",
+            "tier2"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 80
+        }
+      }
+    },
+    "Fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "kind",
+        "verbatim",
+        "citation_id"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "chief_complaint",
+            "assessment",
+            "plan",
+            "finding",
+            "impression",
+            "restriction",
+            "medication",
+            "other"
+          ]
+        },
+        "verbatim": {
+          "type": "boolean"
+        },
+        "citation_id": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "ImagingDetails": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "modality",
+        "body_part"
+      ],
+      "properties": {
+        "modality": {
+          "type": "string",
+          "enum": [
+            "mri",
+            "ct",
+            "xray",
+            "ultrasound",
+            "other"
+          ]
+        },
+        "body_part": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "impression": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Fact"
+          },
+          "default": []
+        }
+      }
+    },
+    "BillingDetails": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement_date",
+        "total_amount",
+        "currency"
+      ],
+      "properties": {
+        "statement_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "service_date_range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start",
+            "end"
+          ],
+          "properties": {
+            "start": {
+              "type": "string",
+              "format": "date"
+            },
+            "end": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        },
+        "total_amount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "enum": [
+            "USD"
+          ],
+          "default": "USD"
+        },
+        "line_item_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "has_cpt_codes": {
+          "type": "boolean",
+          "default": false
+        },
+        "has_icd_codes": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "Citation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "citation_id",
+        "source_document_id",
+        "page_number",
+        "snippet",
+        "bbox"
+      ],
+      "properties": {
+        "citation_id": {
+          "type": "string"
+        },
+        "source_document_id": {
+          "type": "string"
+        },
+        "page_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "snippet": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "bbox": {
+          "$ref": "#/$defs/BBox"
+        },
+        "text_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "BBox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": 0
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0
+        },
+        "w": {
+          "type": "number",
+          "minimum": 0
+        },
+        "h": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "Gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gap_id",
+        "start_date",
+        "end_date",
+        "duration_days",
+        "threshold_days",
+        "confidence",
+        "related_event_ids"
+      ],
+      "properties": {
+        "gap_id": {
+          "type": "string"
+        },
+        "start_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "end_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "duration_days": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "threshold_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "confidence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "related_event_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ChronologyOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "export_format_version",
+        "events_exported",
+        "exports"
+      ],
+      "properties": {
+        "export_format_version": {
+          "type": "string",
+          "const": "0.1.0"
+        },
+        "events_exported": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exports": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pdf",
+            "csv"
+          ],
+          "properties": {
+            "pdf": {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            "csv": {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            "json": {
+              "$ref": "#/$defs/ArtifactRef"
+            }
+          }
+        }
+      }
+    },
+    "ArtifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "uri",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

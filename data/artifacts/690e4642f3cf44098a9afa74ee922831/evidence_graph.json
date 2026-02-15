@@ -1,0 +1,732 @@
+{
+  "schema_version": "0.1.0",
+  "generated_at": "2026-02-15T18:44:23.079899Z",
+  "case": {
+    "case_id": "c944ba3d4f5a48bea07cddedb59eca04",
+    "firm_id": "a30e160c6dee4979b29a90c4980137c4",
+    "title": "Smith v. Doe \u2014 MVA 03/01/2024",
+    "timezone": "America/Los_Angeles",
+    "client_ref": null,
+    "notes": null
+  },
+  "inputs": {
+    "source_documents": [
+      {
+        "document_id": "6340d48be7c84842a659f0019fdf156a",
+        "filename": "synthetic_medical_record.pdf",
+        "mime_type": "application/pdf",
+        "sha256": "0f6e269142d6a163fd897c2cf3dafec40c3684311d2806ca38e14dcc76756fce",
+        "bytes": 5374,
+        "uploaded_at": "2026-02-15T18:44:22.756279",
+        "page_count": null
+      }
+    ],
+    "run_config": {
+      "ocr_enabled": true,
+      "ocr_language": "eng",
+      "max_pages": 500,
+      "pt_mode": "aggregate",
+      "pt_aggregate_window_days": 7,
+      "gap_threshold_days": 60,
+      "event_confidence_min_export": 50,
+      "low_confidence_event_behavior": "exclude"
+    }
+  },
+  "outputs": {
+    "run": {
+      "run_id": "690e4642f3cf44098a9afa74ee922831",
+      "started_at": "2026-02-15T18:44:23.011783Z",
+      "finished_at": "2026-02-15T18:44:23.079899Z",
+      "status": "success",
+      "warnings": [
+        {
+          "code": "BBOX_FALLBACK",
+          "message": "Citation d1f5c3d015784d73 on page 1 uses whole-page bbox fallback",
+          "page": 1,
+          "document_id": "6340d48be7c84842a659f0019fdf156a"
+        },
+        {
+          "code": "BBOX_FALLBACK",
+          "message": "Citation 2e2707b76ff442c6 on page 1 uses whole-page bbox fallback",
+          "page": 1,
+          "document_id": "6340d48be7c84842a659f0019fdf156a"
+        },
+        {
+          "code": "BBOX_FALLBACK",
+          "message": "Citation 08a5251c23e94a01 on page 1 uses whole-page bbox fallback",
+          "page": 1,
+          "document_id": "6340d48be7c84842a659f0019fdf156a"
+        },
+        {
+          "code": "BBOX_FALLBACK",
+          "message": "Citation 962a60e8c65b4617 on page 1 uses whole-page bbox fallback",
+          "page": 1,
+          "document_id": "6340d48be7c84842a659f0019fdf156a"
+        },
+        {
+          "code": "BBOX_FALLBACK",
+          "message": "Citation c3304dc88d414d51 on page 1 uses whole-page bbox fallback",
+          "page": 1,
+          "document_id": "6340d48be7c84842a659f0019fdf156a"
+        },
+        {
+          "code": "BBOX_FALLBACK",
+          "message": "Citation a5863aa954174623 on page 2 uses whole-page bbox fallback",
+          "page": 2,
+          "document_id": "6340d48be7c84842a659f0019fdf156a"
+        },
+        {
+          "code": "BBOX_FALLBACK",
+          "message": "Citation d6a15dd620bb4b78 on page 2 uses whole-page bbox fallback",
+          "page": 2,
+          "document_id": "6340d48be7c84842a659f0019fdf156a"
+        },
+        {
+          "code": "BBOX_FALLBACK",
+          "message": "Citation 55f752e9ae114ce0 on page 3 uses whole-page bbox fallback",
+          "page": 3,
+          "document_id": "6340d48be7c84842a659f0019fdf156a"
+        },
+        {
+          "code": "BBOX_FALLBACK",
+          "message": "Citation 4ff2b64a6f4f491f on page 3 uses whole-page bbox fallback",
+          "page": 3,
+          "document_id": "6340d48be7c84842a659f0019fdf156a"
+        },
+        {
+          "code": "BBOX_FALLBACK",
+          "message": "Citation 702ffd4b25564e10 on page 4 uses whole-page bbox fallback",
+          "page": 4,
+          "document_id": "6340d48be7c84842a659f0019fdf156a"
+        }
+      ],
+      "metrics": {
+        "documents": 1,
+        "pages_total": 4,
+        "pages_ocr": 0,
+        "events_total": 4,
+        "events_exported": 4,
+        "providers_total": 6,
+        "pt_events_aggregated": 1,
+        "billing_events_total": 1,
+        "processing_seconds": 0.05
+      },
+      "provenance": {
+        "pipeline_version": "0.1.0",
+        "extractor": {
+          "name": "citeline-deterministic",
+          "version": "0.1.0"
+        },
+        "ocr": {
+          "engine": "tesseract",
+          "version": "5",
+          "language": "en"
+        },
+        "hashes": {
+          "inputs_sha256": "278535b0b334530d99e8457b5214200fd707e59949d5603a32241c58e47ecc8e",
+          "outputs_sha256": "66e00c41389b607f2cf0541532821dc62bb1d9c662544d4bf42cf18381932d24"
+        }
+      }
+    },
+    "evidence_graph": {
+      "documents": [
+        {
+          "document_id": "3c708247c6ba4414",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_start": 1,
+          "page_end": 3,
+          "page_types": [
+            {
+              "page_start": 1,
+              "page_end": 1,
+              "page_type": "clinical_note"
+            },
+            {
+              "page_start": 2,
+              "page_end": 2,
+              "page_type": "imaging_report"
+            },
+            {
+              "page_start": 3,
+              "page_end": 3,
+              "page_type": "pt_note"
+            }
+          ],
+          "detected_title": null,
+          "declared_document_type": "medical_record",
+          "confidence": 70
+        },
+        {
+          "document_id": "d9eeb226cba148b6",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_start": 4,
+          "page_end": 4,
+          "page_types": [
+            {
+              "page_start": 4,
+              "page_end": 4,
+              "page_type": "billing"
+            }
+          ],
+          "detected_title": null,
+          "declared_document_type": "medical_bill",
+          "confidence": 70
+        }
+      ],
+      "pages": [
+        {
+          "page_id": "3a8e72970cd34379",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_number": 1,
+          "text": "Southwest Regional Medical Center\nProvider: Dr. Sarah Johnson, MD\nDate of Service: 03/15/2024\nPatient: John Smith\nChief Complaint:\nPatient presents with lower back pain radiating to left leg following motor vehicle accident on\n03/01/2024.\nHistory of Present Illness:\n45-year-old male involved in rear-end collision on 03/01/2024. Reports onset of low back pain\nimmediately after accident. Pain rated 7/10.\nPhysical Exam:\nVital Signs: BP 130/85, HR 78, Temp 98.6F. Lumbar spine: tenderness at L4-L5. Straight leg raise\npositive on left.\nAssessment:\n1. Lumbar disc herniation, L4-L5 2. Left-sided radiculopathy 3. Cervical strain\nPlan:\n1. Order MRI lumbar spine 2. Prescribe Naproxen 500mg BID 3. Refer to physical therapy 2-3x/week 4.\nFollow up in 2 weeks\nWork Status:\nRestrictions: No lifting over 10 lbs, no prolonged sitting. Light duty only.\n",
+          "text_source": "embedded_pdf_text",
+          "layout": {
+            "width": 612.0,
+            "height": 792.0,
+            "orientation": "portrait"
+          },
+          "page_type": "clinical_note"
+        },
+        {
+          "page_id": "6229bbb3ee0448ac",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_number": 2,
+          "text": "Southwest Radiology Associates\nRadiology Report\nExam Date: 03/18/2024\nStudy: MRI Lumbar Spine without contrast\nReferring Provider: Dr. Sarah Johnson\nTechnique:\nStandard MRI protocol for lumbar spine was performed without IV contrast.\nFindings:\nL4-L5: Posterior disc herniation measuring 5mm, causing mild left foraminal narrowing and\nimpingement of the left L5 nerve root. No spinal canal stenosis.\nImpression:\n1. L4-L5 disc herniation with left foraminal narrowing and L5 nerve root impingement. 2. No fracture or\nsignificant stenosis identified. 3. Recommend clinical correlation.\n",
+          "text_source": "embedded_pdf_text",
+          "layout": {
+            "width": 612.0,
+            "height": 792.0,
+            "orientation": "portrait"
+          },
+          "page_type": "imaging_report"
+        },
+        {
+          "page_id": "f9de7368826d4c05",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_number": 3,
+          "text": "Pinnacle Physical Therapy & Rehabilitation\nPhysical Therapy Daily Note\nVisit Date: 03/22/2024\nVisit #1\nPlan of Care: Lumbar stabilization\nSubjective:\nPatient reports continued low back pain 6/10, with radiating left leg symptoms.\nExercise:\nTherapeutic exercise: core stabilization, nerve glides, gentle ROM. 20 minutes total.\nProgress:\nPatient tolerated treatment well. Goals: reduce pain to 3/10 by week 6.\n",
+          "text_source": "embedded_pdf_text",
+          "layout": {
+            "width": 612.0,
+            "height": 792.0,
+            "orientation": "portrait"
+          },
+          "page_type": "pt_note"
+        },
+        {
+          "page_id": "476e7331e341488a",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_number": 4,
+          "text": "Southwest Regional Medical Center\nPatient Statement of Charges\nStatement Date: 04/01/2024\nPatient: John Smith\nOffice Visit 03/15/2024 \u2014 CPT 99214 \u2014 $250.00\nX-Ray Cervical Spine \u2014 CPT 72040 \u2014 $175.00\nTotal Due: $425.00\nBalance Due: $425.00\n",
+          "text_source": "embedded_pdf_text",
+          "layout": {
+            "width": 612.0,
+            "height": 792.0,
+            "orientation": "portrait"
+          },
+          "page_type": "billing"
+        }
+      ],
+      "providers": [
+        {
+          "provider_id": "07487b7d394345f0",
+          "detected_name_raw": "Dr. Sarah Johnson, MD",
+          "normalized_name": "dr sarah johnson",
+          "provider_type": "er",
+          "confidence": 80,
+          "evidence": [
+            {
+              "page_number": 1,
+              "snippet": "Dr. Sarah Johnson, MD",
+              "bbox": {
+                "x": 0.0,
+                "y": 0.0,
+                "w": 0.0,
+                "h": 0.0
+              }
+            },
+            {
+              "page_number": 2,
+              "snippet": "Dr. Sarah Johnson",
+              "bbox": {
+                "x": 0.0,
+                "y": 0.0,
+                "w": 0.0,
+                "h": 0.0
+              }
+            }
+          ]
+        },
+        {
+          "provider_id": "d9d447bd0fa945bd",
+          "detected_name_raw": "Southwest Regional Medical Center",
+          "normalized_name": "southwest regional medical ctr",
+          "provider_type": "er",
+          "confidence": 70,
+          "evidence": [
+            {
+              "page_number": 1,
+              "snippet": "Southwest Regional Medical Center",
+              "bbox": {
+                "x": 0.0,
+                "y": 0.0,
+                "w": 0.0,
+                "h": 0.0
+              }
+            },
+            {
+              "page_number": 4,
+              "snippet": "Southwest Regional Medical Center",
+              "bbox": {
+                "x": 0.0,
+                "y": 0.0,
+                "w": 0.0,
+                "h": 0.0
+              }
+            }
+          ]
+        },
+        {
+          "provider_id": "aa796a83bc75444b",
+          "detected_name_raw": "Southwest Radiology Associates",
+          "normalized_name": "southwest radiology associates",
+          "provider_type": "er",
+          "confidence": 70,
+          "evidence": [
+            {
+              "page_number": 2,
+              "snippet": "Southwest Radiology Associates",
+              "bbox": {
+                "x": 0.0,
+                "y": 0.0,
+                "w": 0.0,
+                "h": 0.0
+              }
+            }
+          ]
+        },
+        {
+          "provider_id": "f78c9697e28547de",
+          "detected_name_raw": "Radiology Report",
+          "normalized_name": "radiology report",
+          "provider_type": "er",
+          "confidence": 70,
+          "evidence": [
+            {
+              "page_number": 2,
+              "snippet": "Radiology Report",
+              "bbox": {
+                "x": 0.0,
+                "y": 0.0,
+                "w": 0.0,
+                "h": 0.0
+              }
+            }
+          ]
+        },
+        {
+          "provider_id": "c02a87c7f2b34a9f",
+          "detected_name_raw": "Pinnacle Physical Therapy & Rehabilitation",
+          "normalized_name": "pinnacle physical therapy rehabilitation",
+          "provider_type": "er",
+          "confidence": 70,
+          "evidence": [
+            {
+              "page_number": 3,
+              "snippet": "Pinnacle Physical Therapy & Rehabilitation",
+              "bbox": {
+                "x": 0.0,
+                "y": 0.0,
+                "w": 0.0,
+                "h": 0.0
+              }
+            }
+          ]
+        },
+        {
+          "provider_id": "1ad0ecd9846c4b08",
+          "detected_name_raw": "Physical Therapy Daily Note",
+          "normalized_name": "physical therapy daily note",
+          "provider_type": "er",
+          "confidence": 70,
+          "evidence": [
+            {
+              "page_number": 3,
+              "snippet": "Physical Therapy Daily Note",
+              "bbox": {
+                "x": 0.0,
+                "y": 0.0,
+                "w": 0.0,
+                "h": 0.0
+              }
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "event_id": "0f7668b85c3f4b9b",
+          "provider_id": "07487b7d394345f0",
+          "event_type": "office_visit",
+          "date": {
+            "kind": "single",
+            "value": "2024-03-15",
+            "source": "tier1"
+          },
+          "encounter_type_raw": "office_visit",
+          "facts": [
+            {
+              "text": "Patient presents with lower back pain radiating to left leg following motor vehicle accident on\n03/01/2024.\nHistory of Present Illness:\n45-year-old male involved in rear-end collision on 03/01/2024. Reports onset of low back pain\nimmediately after accident. Pain rated 7/10.\nPhysical Exam:\nVital Signs: BP 130/85, HR 78, Temp 98.6F. Lumbar spine: tenderness at L4-L5. Straight leg raise\npositive on l",
+              "kind": "chief_complaint",
+              "verbatim": false,
+              "citation_id": "d1f5c3d015784d73",
+              "confidence": null
+            },
+            {
+              "text": "1. Lumbar disc herniation, L4-L5 2. Left-sided radiculopathy 3. Cervical strain",
+              "kind": "assessment",
+              "verbatim": false,
+              "citation_id": "2e2707b76ff442c6",
+              "confidence": null
+            },
+            {
+              "text": "1. Order MRI lumbar spine 2. Prescribe Naproxen 500mg BID 3. Refer to physical therapy 2-3x/week 4.",
+              "kind": "plan",
+              "verbatim": false,
+              "citation_id": "08a5251c23e94a01",
+              "confidence": null
+            },
+            {
+              "text": "Follow up in 2 weeks",
+              "kind": "plan",
+              "verbatim": false,
+              "citation_id": "962a60e8c65b4617",
+              "confidence": null
+            },
+            {
+              "text": "Restrictions: No lifting over 10 lbs, no prolonged sitting. Light duty only.",
+              "kind": "restriction",
+              "verbatim": false,
+              "citation_id": "c3304dc88d414d51",
+              "confidence": null
+            }
+          ],
+          "diagnoses": [],
+          "medications": [],
+          "procedures": [],
+          "imaging": null,
+          "billing": null,
+          "confidence": 80,
+          "flags": [],
+          "citation_ids": [
+            "d1f5c3d015784d73",
+            "2e2707b76ff442c6",
+            "08a5251c23e94a01",
+            "962a60e8c65b4617",
+            "c3304dc88d414d51"
+          ],
+          "source_page_numbers": [
+            1
+          ]
+        },
+        {
+          "event_id": "d97e0b5397674bdf",
+          "provider_id": "07487b7d394345f0",
+          "event_type": "imaging_study",
+          "date": {
+            "kind": "single",
+            "value": "2024-03-18",
+            "source": "tier1"
+          },
+          "encounter_type_raw": null,
+          "facts": [
+            {
+              "text": "1. L4-L5 disc herniation with left foraminal narrowing and L5 nerve root impingement. 2. No fracture or",
+              "kind": "impression",
+              "verbatim": true,
+              "citation_id": "a5863aa954174623",
+              "confidence": null
+            },
+            {
+              "text": "significant stenosis identified. 3. Recommend clinical correlation.",
+              "kind": "impression",
+              "verbatim": true,
+              "citation_id": "d6a15dd620bb4b78",
+              "confidence": null
+            }
+          ],
+          "diagnoses": [],
+          "medications": [],
+          "procedures": [],
+          "imaging": {
+            "modality": "mri",
+            "body_part": "lumbar spine",
+            "impression": [
+              {
+                "text": "1. L4-L5 disc herniation with left foraminal narrowing and L5 nerve root impingement. 2. No fracture or",
+                "kind": "impression",
+                "verbatim": true,
+                "citation_id": "a5863aa954174623",
+                "confidence": null
+              },
+              {
+                "text": "significant stenosis identified. 3. Recommend clinical correlation.",
+                "kind": "impression",
+                "verbatim": true,
+                "citation_id": "d6a15dd620bb4b78",
+                "confidence": null
+              }
+            ]
+          },
+          "billing": null,
+          "confidence": 80,
+          "flags": [],
+          "citation_ids": [
+            "a5863aa954174623",
+            "d6a15dd620bb4b78"
+          ],
+          "source_page_numbers": [
+            2
+          ]
+        },
+        {
+          "event_id": "6801b34138d54363",
+          "provider_id": "07487b7d394345f0",
+          "event_type": "pt_visit",
+          "date": {
+            "kind": "single",
+            "value": "2024-03-22",
+            "source": "tier1"
+          },
+          "encounter_type_raw": null,
+          "facts": [
+            {
+              "text": "PT sessions documented: 1",
+              "kind": "other",
+              "verbatim": false,
+              "citation_id": "55f752e9ae114ce0",
+              "confidence": null
+            },
+            {
+              "text": "Patient tolerated treatment well. Goals: reduce pain to 3/10 by week 6.",
+              "kind": "other",
+              "verbatim": false,
+              "citation_id": "4ff2b64a6f4f491f",
+              "confidence": null
+            }
+          ],
+          "diagnoses": [],
+          "medications": [],
+          "procedures": [],
+          "imaging": null,
+          "billing": null,
+          "confidence": 70,
+          "flags": [],
+          "citation_ids": [
+            "55f752e9ae114ce0",
+            "4ff2b64a6f4f491f"
+          ],
+          "source_page_numbers": [
+            3
+          ]
+        },
+        {
+          "event_id": "b950dcea22854825",
+          "provider_id": "07487b7d394345f0",
+          "event_type": "billing_event",
+          "date": {
+            "kind": "single",
+            "value": "2024-04-01",
+            "source": "tier1"
+          },
+          "encounter_type_raw": null,
+          "facts": [
+            {
+              "text": "Total amount: $250.00",
+              "kind": "other",
+              "verbatim": false,
+              "citation_id": "702ffd4b25564e10",
+              "confidence": null
+            }
+          ],
+          "diagnoses": [],
+          "medications": [],
+          "procedures": [],
+          "imaging": null,
+          "billing": {
+            "statement_date": "2024-04-01",
+            "service_date_range": null,
+            "total_amount": 250.0,
+            "currency": "USD",
+            "line_item_count": 0,
+            "has_cpt_codes": true,
+            "has_icd_codes": false
+          },
+          "confidence": 70,
+          "flags": [],
+          "citation_ids": [
+            "702ffd4b25564e10"
+          ],
+          "source_page_numbers": [
+            4
+          ]
+        }
+      ],
+      "citations": [
+        {
+          "citation_id": "d1f5c3d015784d73",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_number": 1,
+          "snippet": "Patient presents with lower back pain radiating to left leg following motor vehicle accident on\n03/01/2024.\nHistory of Present Illness:\n45-year-old male involved in rear-end collision on 03/01/2024. Reports onset of low back pain\nimmediately after accident. Pain rated 7/10.\nPhysical Exam:\nVital Signs: BP 130/85, HR 78, Temp 98.6F. Lumbar spine: tenderness at L4-L5. Straight leg raise\npositive on left.",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          },
+          "text_hash": "f81b4ad1c7074cd749aaceaf25b995aa37072fcb963a500a65b68db6b1fab622"
+        },
+        {
+          "citation_id": "2e2707b76ff442c6",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_number": 1,
+          "snippet": "1. Lumbar disc herniation, L4-L5 2. Left-sided radiculopathy 3. Cervical strain",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          },
+          "text_hash": "5f264afd6431858f323d6c4dafa082d740d7179ecee54c4260ba40baf027e6a0"
+        },
+        {
+          "citation_id": "08a5251c23e94a01",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_number": 1,
+          "snippet": "1. Order MRI lumbar spine 2. Prescribe Naproxen 500mg BID 3. Refer to physical therapy 2-3x/week 4.",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          },
+          "text_hash": "0d96ef71831cbb369ef9e4030304c65d2d49dd3bc9674563d681c962861e90f8"
+        },
+        {
+          "citation_id": "962a60e8c65b4617",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_number": 1,
+          "snippet": "Follow up in 2 weeks",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          },
+          "text_hash": "f94b4de3b733d097b5d0bb05c2107f29d6832386938926b491b89da4f3de5ff7"
+        },
+        {
+          "citation_id": "c3304dc88d414d51",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_number": 1,
+          "snippet": "Restrictions: No lifting over 10 lbs, no prolonged sitting. Light duty only.",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          },
+          "text_hash": "c5a4ff3d92834a93bde28012f517fc3b9bd4c0440686c798698b7437d6f5c66a"
+        },
+        {
+          "citation_id": "a5863aa954174623",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_number": 2,
+          "snippet": "1. L4-L5 disc herniation with left foraminal narrowing and L5 nerve root impingement. 2. No fracture or",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          },
+          "text_hash": "dbca84fd7d465df7da66513be0776d46fa81c8613ee0c3d3f8ebe1b4b90d1bfe"
+        },
+        {
+          "citation_id": "d6a15dd620bb4b78",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_number": 2,
+          "snippet": "significant stenosis identified. 3. Recommend clinical correlation.",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          },
+          "text_hash": "7b63b8e35c822f9821a34cbe786ea8825ae985aaf500d3ccfde6e04a7a78d2d9"
+        },
+        {
+          "citation_id": "55f752e9ae114ce0",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_number": 3,
+          "snippet": "PT sessions documented: 1",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          },
+          "text_hash": "e287d7e7786ad634b5f1265a37a742632841d3bb23a820ceb4d8c6f6b9ee3a46"
+        },
+        {
+          "citation_id": "4ff2b64a6f4f491f",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_number": 3,
+          "snippet": "Patient tolerated treatment well. Goals: reduce pain to 3/10 by week 6.",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          },
+          "text_hash": "0f65e472003419fc184a282bcea886f30dfc819b1c590bad2b646b41a402bb43"
+        },
+        {
+          "citation_id": "702ffd4b25564e10",
+          "source_document_id": "6340d48be7c84842a659f0019fdf156a",
+          "page_number": 4,
+          "snippet": "Total amount: $250.00",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          },
+          "text_hash": "1638e7ac1ffeee0b4e0668761056f0ace6f063f0d4b1f73e836bd76ac5359ec4"
+        }
+      ],
+      "gaps": []
+    },
+    "chronology": {
+      "export_format_version": "0.1.0",
+      "events_exported": [
+        "0f7668b85c3f4b9b",
+        "d97e0b5397674bdf",
+        "6801b34138d54363",
+        "b950dcea22854825"
+      ],
+      "exports": {
+        "pdf": {
+          "uri": "C:\\CiteLine\\data\\artifacts\\690e4642f3cf44098a9afa74ee922831\\chronology.pdf",
+          "sha256": "032bf8a3a1b4b33125d74980265a2bb506efc4b41ef75a77bc490bc5d65971a1",
+          "bytes": 3441
+        },
+        "csv": {
+          "uri": "C:\\CiteLine\\data\\artifacts\\690e4642f3cf44098a9afa74ee922831\\chronology.csv",
+          "sha256": "bf847cda102bff9e8b21101954561250bc1a9c6975abf40a483e40624b0f1ef0",
+          "bytes": 1297
+        },
+        "json_export": null
+      }
+    }
+  }
+}
