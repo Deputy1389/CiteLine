@@ -301,6 +301,17 @@ def run_pipeline(run_id: str) -> None:
                 run_row.warnings_json = json.dumps([w.model_dump() for w in all_warnings])
                 run_row.provenance_json = run_record.provenance.model_dump_json()
 
+                # ── Idempotency: Clear existing data ──────────────────
+                # Clear all related tables to prevent duplicates on retry
+                session.query(PageORM).filter_by(run_id=run_id).delete()
+                session.query(DocumentSegmentORM).filter_by(run_id=run_id).delete()
+                session.query(ProviderORM).filter_by(run_id=run_id).delete()
+                session.query(EventORM).filter_by(run_id=run_id).delete()
+                session.query(CitationORM).filter_by(run_id=run_id).delete()
+                session.query(GapORM).filter_by(run_id=run_id).delete()
+                session.query(ArtifactORM).filter_by(run_id=run_id).delete()
+                session.flush()
+
                 # ── Persist Evidence Graph ────────────────────────────
                 # 1. Pages
                 for page in evidence_graph.pages:

@@ -62,6 +62,7 @@ class Run(Base):
     id = Column(String(120), primary_key=True, default=_uuid)
     matter_id = Column(String(120), ForeignKey("matters.id"), nullable=False)
     status = Column(String(20), default="pending")  # pending | running | success | partial | failed
+    created_at = Column(DateTime, default=datetime.now(dt_timezone.utc))
     config_json = Column(JSON, nullable=True)
     metrics_json = Column(JSON, nullable=True)
     warnings_json = Column(JSON, nullable=True)
@@ -70,6 +71,11 @@ class Run(Base):
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
     provenance_json = Column(JSON, nullable=True)
+    
+    # Worker management
+    claimed_at = Column(DateTime, nullable=True)
+    worker_id = Column(String(100), nullable=True)
+    heartbeat_at = Column(DateTime, nullable=True)
     
     matter = relationship("Matter", back_populates="runs")
     artifacts = relationship("Artifact", back_populates="run", cascade="all, delete-orphan")

@@ -112,6 +112,9 @@ def get_run(run_id: str, db: Session = Depends(get_db)):
 @router.get("/runs/{run_id}/artifacts/{artifact_type}")
 def download_artifact(run_id: str, artifact_type: str, db: Session = Depends(get_db)):
     """Download a run artifact (pdf, csv, json)."""
+    if artifact_type not in ["pdf", "csv", "json"]:
+        raise HTTPException(status_code=400, detail="Invalid artifact type")
+
     artifact = (
         db.query(Artifact)
         .filter_by(run_id=run_id, artifact_type=artifact_type)
@@ -119,9 +122,28 @@ def download_artifact(run_id: str, artifact_type: str, db: Session = Depends(get
     )
     if not artifact:
         raise HTTPException(status_code=404, detail="Artifact not found")
+        
+    # Security check: Ensure file is within valid data directory to prevent path traversal
+    # usage of os.path.abspath and commonprefix is a robust way if strict pathlib isn't available,
+    # but pathlib is better.
+    from pathlib import Path
+    import os
+    
+    data_dir = Path(os.environ.get("DATA_DIR", "data")).resolve()
+    file_path = Path(artifact.storage_uri).resolve()
+    
+    if not str(file_path).startswith(str(data_dir)):
+        # For security, standard is 404 to avoid leaking existence, or 403.
+        # But if DB says it exists but path is weird, it's a server error or attack.
+        # Let's log and return 404 for safety.
+        # logger.warning(f"Path traversal attempt: {file_path} not in {data_dir}")
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    if not file_path.exists():
+         raise HTTPException(status_code=404, detail="Artifact file missing")
 
     return FileResponse(
-        path=artifact.storage_uri,
+        path=str(file_path),
         filename=f"run_{run_id}_{artifact_type}.{artifact_type}",
         media_type="application/octet-stream",
     )
