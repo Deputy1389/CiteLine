@@ -75,8 +75,12 @@ class TestApiE2E:
         run_data = resp.json()
         run_id = run_data["id"]
         assert run_data["status"] == "pending"
+        
+        # Execute pipeline manually (simulating worker)
+        from apps.worker.pipeline import run_pipeline
+        run_pipeline(run_id)
 
-        # 5. Poll Status
+        # 5. Poll Status (should be done)
         for _ in range(30):  # Wait up to 30s
             time.sleep(1)
             resp = client.get(f"/runs/{run_id}")
@@ -102,3 +106,10 @@ class TestApiE2E:
         # Verify URIs exist
         for a in artifacts:
             assert Path(a["storage_uri"]).exists()
+
+        # 7. Download Artifacts via API
+        for artifact_type in ["pdf", "csv", "json"]:
+            resp = client.get(f"/runs/{run_id}/artifacts/{artifact_type}")
+            assert resp.status_code == 200, f"Failed to download {artifact_type}"
+            assert len(resp.content) > 0
+            assert resp.headers["content-type"] == "application/octet-stream"

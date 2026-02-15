@@ -23,6 +23,7 @@ def extract_pt_events(
     dates: dict[int, list[EventDate]],
     providers: list[Provider],
     config: RunConfig,
+    page_provider_map: dict[int, str] = {},
 ) -> tuple[list[Event], list[Citation], list[Warning]]:
     """
     Extract PT events. Default: aggregate mode (bucket by window).
@@ -34,8 +35,6 @@ def extract_pt_events(
     pt_pages = [p for p in pages if p.page_type == PageType.PT_NOTE]
     if not pt_pages:
         return events, citations, warnings
-
-    provider = providers[0] if providers else None
 
     # Collect all PT page dates
     pt_visits: list[tuple[Page, EventDate]] = []
@@ -97,10 +96,16 @@ def extract_pt_events(
                 )
             else:
                 event_date = first_date
+            
+            # Determine provider (use first page of group)
+            provider_id = page_provider_map.get(first_page.page_number)
+            if not provider_id and providers:
+                provider_id = providers[0].provider_id
+            provider_id = provider_id or "unknown"
 
             events.append(Event(
                 event_id=uuid.uuid4().hex[:16],
-                provider_id=provider.provider_id if provider else "unknown",
+                provider_id=provider_id,
                 event_type=EventType.PT_VISIT,
                 date=event_date,
                 facts=facts[:6],
@@ -115,9 +120,16 @@ def extract_pt_events(
             cit = _make_citation(page, snippet)
             citations.append(cit)
 
+            
+            # Determine provider
+            provider_id = page_provider_map.get(page.page_number)
+            if not provider_id and providers:
+                provider_id = providers[0].provider_id
+            provider_id = provider_id or "unknown"
+
             events.append(Event(
                 event_id=uuid.uuid4().hex[:16],
-                provider_id=provider.provider_id if provider else "unknown",
+                provider_id=provider_id,
                 event_type=EventType.PT_VISIT,
                 date=event_date,
                 facts=[_make_fact(snippet, FactKind.OTHER, cit.citation_id)],

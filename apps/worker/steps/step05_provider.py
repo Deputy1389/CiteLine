@@ -105,10 +105,10 @@ def _simple_fuzzy_match(a: str, b: str) -> float:
 def detect_providers(
     pages: list[Page],
     documents: list[Document],
-) -> tuple[list[Provider], list[Warning]]:
+) -> tuple[list[Provider], dict[int, str], list[Warning]]:
     """
     Detect and normalize providers across all pages.
-    Returns (providers, warnings).
+    Returns (providers, page_provider_map, warnings).
     """
     warnings: list[Warning] = []
     raw_candidates: list[tuple[str, int, int]] = []  # (raw_name, confidence, page_number)
@@ -130,7 +130,7 @@ def detect_providers(
             code="NO_PROVIDERS_DETECTED",
             message="No provider names could be detected from any page",
         ))
-        return [default], warnings
+        return [default], {}, warnings
 
     # Cluster by normalized name with fuzzy matching
     providers: list[Provider] = []
@@ -173,4 +173,38 @@ def detect_providers(
             seen_normalized[normalized] = prov
             providers.append(prov)
 
-    return providers, warnings
+    # Build page_provider_map (best provider per page)
+    page_provider_map: dict[int, str] = {}
+    
+    # First, map normalized names to the final provider objects
+    norm_to_provider = {p.normalized_name: p for p in providers}
+    
+    # Group candidates by page
+    page_candidates: dict[int, list[tuple[str, int]]] = {}
+    for raw, conf, pnum in raw_candidates:
+        if pnum not in page_candidates:
+            page_candidates[pnum] = []
+        page_candidates[pnum].append((raw, conf))
+        
+    for pnum, cands in page_candidates.items():
+        # Find best candidate on this page
+        best_cand = max(cands, key=lambda x: x[1]) # max by confidence
+        raw_name = best_cand[0]
+        norm = _normalize_name(raw_name)
+        
+        # Find which provider cluster this belongs to
+        # (Re-use the same fuzzy logic or just direct lookup if we can)
+        # Since we already clustered everyone in `providers`, we can try to find the match.
+        
+        # Optimization: fast lookup first
+        if norm in norm_to_provider:
+            page_provider_map[pnum] = norm_to_provider[norm].provider_id
+            continue
+            
+        # Fallback fuzzy lookup (same as above loop)
+        for key, prov in seen_normalized.items():
+             if _simple_fuzzy_match(norm, key) >= 0.6:
+                 page_provider_map[pnum] = prov.provider_id
+                 break
+
+    return providers, page_provider_map, warnings

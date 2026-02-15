@@ -10,9 +10,17 @@ import traceback
 from datetime import datetime, timezone
 
 from packages.db.database import get_session
-from packages.db.models import Artifact as ArtifactORM
-from packages.db.models import Run as RunORM
-from packages.db.models import SourceDocument as SourceDocORM
+from packages.db.models import (
+    Page as PageORM,
+    DocumentSegment as DocumentSegmentORM,
+    Provider as ProviderORM,
+    Event as EventORM,
+    Citation as CitationORM,
+    Gap as GapORM,
+    Run as RunORM,
+    SourceDocument as SourceDocORM,
+    Artifact as ArtifactORM,
+)
 from packages.shared.models import (
     CaseInfo,
     ChronologyOutput,
@@ -147,7 +155,7 @@ def run_pipeline(run_id: str) -> None:
 
         # ── Step 5: Provider detection ────────────────────────────────
         logger.info(f"[{run_id}] Step 5: Provider detection")
-        providers, step_warnings = detect_providers(all_pages, all_documents)
+        providers, page_provider_map, step_warnings = detect_providers(all_pages, all_documents)
         all_warnings.extend(step_warnings)
 
         # ── Step 6: Date extraction ───────────────────────────────────
@@ -159,22 +167,22 @@ def run_pipeline(run_id: str) -> None:
         all_events = []
         all_citations = []
 
-        clin_events, clin_cits, clin_warns = extract_clinical_events(all_pages, dates, providers)
+        clin_events, clin_cits, clin_warns = extract_clinical_events(all_pages, dates, providers, page_provider_map)
         all_events.extend(clin_events)
         all_citations.extend(clin_cits)
         all_warnings.extend(clin_warns)
 
-        img_events, img_cits, img_warns = extract_imaging_events(all_pages, dates, providers)
+        img_events, img_cits, img_warns = extract_imaging_events(all_pages, dates, providers, page_provider_map)
         all_events.extend(img_events)
         all_citations.extend(img_cits)
         all_warnings.extend(img_warns)
 
-        pt_events, pt_cits, pt_warns = extract_pt_events(all_pages, dates, providers, config)
+        pt_events, pt_cits, pt_warns = extract_pt_events(all_pages, dates, providers, config, page_provider_map)
         all_events.extend(pt_events)
         all_citations.extend(pt_cits)
         all_warnings.extend(pt_warns)
 
-        billing_events, bill_cits, bill_warns = extract_billing_events(all_pages, dates, providers)
+        billing_events, bill_cits, bill_warns = extract_billing_events(all_pages, dates, providers, page_provider_map)
         all_events.extend(billing_events)
         all_citations.extend(bill_cits)
         all_warnings.extend(bill_warns)
@@ -292,6 +300,103 @@ def run_pipeline(run_id: str) -> None:
                 run_row.metrics_json = run_record.metrics.model_dump_json()
                 run_row.warnings_json = json.dumps([w.model_dump() for w in all_warnings])
                 run_row.provenance_json = run_record.provenance.model_dump_json()
+
+                # ── Persist Evidence Graph ────────────────────────────
+                # 1. Pages
+                for page in evidence_graph.pages:
+                    p_orm = PageORM(
+                        id=page.page_id,
+                        run_id=run_id,
+                        source_document_id=page.source_document_id,
+                        page_number=page.page_number,
+                        text=page.text,
+                        text_source=page.text_source,
+                        page_type=page.page_type.value if page.page_type else None,
+                        layout_json=page.layout.model_dump(mode='json') if page.layout else None,
+                    )
+                    session.add(p_orm)
+
+                # 2. Document Segments
+                for doc in evidence_graph.documents:
+                    seg_orm = DocumentSegmentORM(
+                        id=doc.document_id,
+                        run_id=run_id,
+                        source_document_id=doc.source_document_id,
+                        page_start=doc.page_start,
+                        page_end=doc.page_end,
+                        page_types_json=[pt.model_dump(mode='json') for pt in doc.page_types],
+                        declared_document_type=doc.declared_document_type.value if doc.declared_document_type else None,
+                        confidence=doc.confidence,
+                    )
+                    session.add(seg_orm)
+
+                # 3. Providers
+                for prov in evidence_graph.providers:
+                    prov_orm = ProviderORM(
+                        id=prov.provider_id,
+                        run_id=run_id,
+                        detected_name_raw=prov.detected_name_raw,
+                        normalized_name=prov.normalized_name,
+                        provider_type=prov.provider_type.value,
+                        confidence=prov.confidence,
+                        evidence_json=[e.model_dump(mode='json') for e in prov.evidence],
+                    )
+                    session.add(prov_orm)
+
+                # 4. Citations
+                for cit in evidence_graph.citations:
+                    cit_orm = CitationORM(
+                        id=cit.citation_id,
+                        run_id=run_id,
+                        source_document_id=cit.source_document_id,
+                        page_number=cit.page_number,
+                        snippet=cit.snippet,
+                        bbox_json=cit.bbox.model_dump(mode='json'),
+                        text_hash=cit.text_hash,
+                    )
+                    session.add(cit_orm)
+
+                # 5. Events
+                for evt in evidence_graph.events:
+                    # Handle provider_id FK
+                    pid = evt.provider_id
+                    if pid == "unknown" or not pid:
+                        pid_fk = None
+                    else:
+                        pid_fk = pid
+                    
+                    evt_orm = EventORM(
+                        id=evt.event_id,
+                        run_id=run_id,
+                        provider_id=pid_fk,
+                        event_type=evt.event_type.value,
+                        date_json=evt.date.model_dump(mode='json'),
+                        encounter_type_raw=evt.encounter_type_raw,
+                        facts_json=[f.model_dump(mode='json') for f in evt.facts],
+                        diagnoses_json=[d.model_dump(mode='json') for d in evt.diagnoses],
+                        procedures_json=[p.model_dump(mode='json') for p in evt.procedures],
+                        imaging_json=evt.imaging.model_dump(mode='json') if evt.imaging else None,
+                        billing_json=evt.billing.model_dump(mode='json') if evt.billing else None,
+                        confidence=evt.confidence,
+                        flags_json=evt.flags,
+                        citation_ids_json=evt.citation_ids,
+                        source_page_numbers_json=evt.source_page_numbers,
+                    )
+                    session.add(evt_orm)
+
+                # 6. Gaps
+                for gap in evidence_graph.gaps:
+                    gap_orm = GapORM(
+                        id=gap.gap_id,
+                        run_id=run_id,
+                        start_date=gap.start_date.isoformat(), # Stored as string in DB for now? or Date? Model says String(20)
+                        end_date=gap.end_date.isoformat(),
+                        duration_days=gap.duration_days,
+                        threshold_days=gap.threshold_days,
+                        confidence=gap.confidence,
+                        related_event_ids_json=gap.related_event_ids,
+                    )
+                    session.add(gap_orm)
 
                 # Store artifact references
                 for atype, aref in [

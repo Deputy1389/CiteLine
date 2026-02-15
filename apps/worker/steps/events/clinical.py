@@ -31,6 +31,7 @@ def extract_clinical_events(
     pages: list[Page],
     dates: dict[int, list[EventDate]],
     providers: list[Provider],
+    page_provider_map: dict[int, str] = {},
 ) -> tuple[list[Event], list[Citation], list[Warning]]:
     """Extract clinical note events from pages classified as clinical/operative."""
     events: list[Event] = []
@@ -47,7 +48,12 @@ def extract_clinical_events(
 
         event_date = page_dates[0]  # Best date
         encounter_type = _detect_encounter_type(page.text)
-        provider = providers[0] if providers else None
+        
+        # Determine provider
+        provider_id = page_provider_map.get(page.page_number)
+        if not provider_id and providers:
+            provider_id = providers[0].provider_id
+        provider_id = provider_id or "unknown"
 
         facts: list[Fact] = []
         citation_ids: list[str] = []
@@ -101,7 +107,7 @@ def extract_clinical_events(
 
         events.append(Event(
             event_id=uuid.uuid4().hex[:16],
-            provider_id=provider.provider_id if provider else "unknown",
+            provider_id=provider_id,
             event_type=encounter_type,
             date=event_date,
             encounter_type_raw=encounter_type.value,

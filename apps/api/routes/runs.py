@@ -7,11 +7,12 @@ import json
 import threading
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from packages.db.database import get_db
-from packages.db.models import Matter, Run, SourceDocument
+from packages.db.models import Artifact, Matter, Run, SourceDocument
 
 router = APIRouter(tags=["runs"])
 
@@ -36,11 +37,6 @@ class RunResponse(BaseModel):
     error_message: str | None
     processing_seconds: float | None
 
-
-def _run_in_background(run_id: str) -> None:
-    """Run the pipeline in a background thread."""
-    from apps.worker.pipeline import run_pipeline
-    run_pipeline(run_id)
 
 
 @router.post("/matters/{matter_id}/runs", response_model=RunResponse, status_code=202)
@@ -77,10 +73,6 @@ def start_run(
     db.flush()
     run_id = run.id
 
-    # Launch background thread
-    t = threading.Thread(target=_run_in_background, args=(run_id,), daemon=True)
-    t.start()
-
     return RunResponse(
         id=run.id,
         matter_id=run.matter_id,
@@ -114,4 +106,22 @@ def get_run(run_id: str, db: Session = Depends(get_db)):
         warnings=warnings,
         error_message=run.error_message,
         processing_seconds=run.processing_seconds,
+    )
+
+
+@router.get("/runs/{run_id}/artifacts/{artifact_type}")
+def download_artifact(run_id: str, artifact_type: str, db: Session = Depends(get_db)):
+    """Download a run artifact (pdf, csv, json)."""
+    artifact = (
+        db.query(Artifact)
+        .filter_by(run_id=run_id, artifact_type=artifact_type)
+        .first()
+    )
+    if not artifact:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    return FileResponse(
+        path=artifact.storage_uri,
+        filename=f"run_{run_id}_{artifact_type}.{artifact_type}",
+        media_type="application/octet-stream",
     )

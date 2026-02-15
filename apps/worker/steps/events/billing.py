@@ -37,6 +37,7 @@ def extract_billing_events(
     pages: list[Page],
     dates: dict[int, list[EventDate]],
     providers: list[Provider],
+    page_provider_map: dict[int, str] = {},
 ) -> tuple[list[Event], list[Citation], list[Warning]]:
     """Extract billing events (always stored; export based on config)."""
     events: list[Event] = []
@@ -55,7 +56,12 @@ def extract_billing_events(
             continue
 
         event_date = page_dates[0]
-        provider = providers[0] if providers else None
+        
+        # Determine provider
+        provider_id = page_provider_map.get(page.page_number)
+        if not provider_id and providers:
+            provider_id = providers[0].provider_id
+        provider_id = provider_id or "unknown"
         text_lower = page.text.lower()
 
         snippet = f"Total amount: ${amount:.2f}"
@@ -77,7 +83,7 @@ def extract_billing_events(
 
         events.append(Event(
             event_id=uuid.uuid4().hex[:16],
-            provider_id=provider.provider_id if provider else "unknown",
+            provider_id=provider_id,
             event_type=EventType.BILLING_EVENT,
             date=event_date,
             facts=[_make_fact(snippet, FactKind.OTHER, cit.citation_id)],

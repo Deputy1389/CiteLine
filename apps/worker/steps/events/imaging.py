@@ -48,6 +48,7 @@ def extract_imaging_events(
     pages: list[Page],
     dates: dict[int, list[EventDate]],
     providers: list[Provider],
+    page_provider_map: dict[int, str] = {},
 ) -> tuple[list[Event], list[Citation], list[Warning]]:
     """Extract imaging events from imaging report pages."""
     events: list[Event] = []
@@ -70,7 +71,12 @@ def extract_imaging_events(
         event_date = page_dates[0]
         modality = _detect_modality(page.text)
         body_part = _detect_body_part(page.text)
-        provider = providers[0] if providers else None
+        
+        # Determine provider
+        provider_id = page_provider_map.get(page.page_number)
+        if not provider_id and providers:
+            provider_id = providers[0].provider_id
+        provider_id = provider_id or "unknown"
 
         facts: list[Fact] = []
         citation_ids: list[str] = []
@@ -91,7 +97,7 @@ def extract_imaging_events(
 
         events.append(Event(
             event_id=uuid.uuid4().hex[:16],
-            provider_id=provider.provider_id if provider else "unknown",
+            provider_id=provider_id,
             event_type=EventType.IMAGING_STUDY,
             date=event_date,
             facts=facts,

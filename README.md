@@ -37,13 +37,18 @@
 
 ## Running the Application
 
-Start the API server (the worker runs in a background thread within the same process for the MVP):
+1.  **Start the API server:**
+    ```powershell
+    uvicorn apps.api.main:app --reload --port 8000
+    ```
 
-```powershell
-uvicorn apps.api.main:app --reload --port 8000
-```
+2.  **Start the Worker Runner (in a new terminal):**
+    ```powershell
+    python -m apps.worker.runner
+    ```
+    The runner polls the database for pending runs and executes the pipeline.
 
-Processing logs will appear in the console.
+Processing logs will appear in the worker console.
 
 ## Usage Guide (API)
 
@@ -91,6 +96,16 @@ Repeat until `status` is `"success"`.
 curl "http://localhost:8000/matters/{matter_456}/exports/latest"
 ```
 This returns URIs for the generated PDF, CSV, and JSON evidence graph.
+
+### 7. Download Artifacts
+You can also download artifacts directly:
+```powershell
+# Download PDF
+curl -O -J "http://localhost:8000/runs/{run_abc}/artifacts/pdf"
+
+# Download CSV
+curl -O -J "http://localhost:8000/runs/{run_abc}/artifacts/csv"
+```
 
 ## Running Tests
 
