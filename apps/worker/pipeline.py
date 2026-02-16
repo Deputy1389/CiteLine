@@ -40,6 +40,7 @@ from apps.worker.steps.step00_validate import validate_inputs
 from apps.worker.steps.step01_page_split import split_pages
 from apps.worker.steps.step02_text_acquire import acquire_text
 from apps.worker.steps.step03_classify import classify_pages
+from apps.worker.steps.step03a_demographics import extract_demographics
 from apps.worker.steps.step04_segment import segment_documents
 from apps.worker.steps.step05_provider import detect_providers
 from apps.worker.steps.step06_dates import extract_dates_for_pages
@@ -153,6 +154,11 @@ def run_pipeline(run_id: str) -> None:
         all_pages, step_warnings = classify_pages(all_pages)
         all_warnings.extend(step_warnings)
 
+        # ── Step 3a: Demographics extraction ──────────────────────────
+        logger.info(f"[{run_id}] Step 3a: Demographics extraction")
+        patient, step_warnings = extract_demographics(all_pages)
+        all_warnings.extend(step_warnings)
+
         # ── Step 4: Document segmentation ─────────────────────────────
         logger.info(f"[{run_id}] Step 4: Document segmentation")
         all_documents = []
@@ -169,7 +175,10 @@ def run_pipeline(run_id: str) -> None:
 
         # ── Step 6: Date extraction ───────────────────────────────────
         logger.info(f"[{run_id}] Step 6: Date extraction")
-        dates = extract_dates_for_pages(all_pages)
+        anchor_year_hint = None
+        if patient and patient.dob and patient.age:
+            anchor_year_hint = patient.dob.year + patient.age
+        dates = extract_dates_for_pages(all_pages, anchor_year_hint=anchor_year_hint)
 
         # ── Step 7: Event extraction ──────────────────────────────────
         logger.info(f"[{run_id}] Step 7: Event extraction")
@@ -317,6 +326,7 @@ def run_pipeline(run_id: str) -> None:
             firm_id=firm_id,
             title=matter_title,
             timezone=tz,
+            patient=patient,
         )
 
         # Temporary chronology output (will be replaced after rendering)

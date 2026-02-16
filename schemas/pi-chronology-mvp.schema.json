@@ -65,6 +65,16 @@
             "null"
           ],
           "maxLength": 2000
+        },
+        "patient": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Patient"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       }
     },
@@ -905,6 +915,7 @@
         "procedure",
         "hospital_admission",
         "hospital_discharge",
+        "inpatient_daily_note",
         "work_status",
         "billing_event",
         "administrative",
@@ -1313,6 +1324,51 @@
         "bytes": {
           "type": "integer",
           "minimum": 1
+        }
+      }
+    },
+    "Patient": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sex": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "male",
+            "female",
+            "null"
+          ]
+        },
+        "age": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 120
+        },
+        "dob": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "sex_confidence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 0
+        },
+        "evidence_citation_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
         }
       }
     }

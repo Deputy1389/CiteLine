@@ -34,8 +34,13 @@ def _detect_encounter_type(text: str) -> EventType:
         return EventType.ER_VISIT
     if any(kw in text_lower for kw in ["discharge summary", "discharged"]):
         return EventType.HOSPITAL_DISCHARGE
-    if any(kw in text_lower for kw in ["admitted", "admission"]):
+    if any(kw in text_lower for kw in ["admitted", "admission", "triage", "er admission", "inpatient admission"]):
         return EventType.HOSPITAL_ADMISSION
+    if any(kw in text_lower for kw in [
+        "oncology floor", "nursing flowsheet", "mar ", "medication administration record",
+        "i&o", "daily progress note", "flowsheet", "vital signs flowsheet"
+    ]):
+        return EventType.INPATIENT_DAILY_NOTE
     if any(kw in text_lower for kw in ["operative report", "procedure"]):
         return EventType.PROCEDURE
     return EventType.OFFICE_VISIT
@@ -43,9 +48,10 @@ def _detect_encounter_type(text: str) -> EventType:
 from apps.worker.lib.grouping import group_clinical_pages
 
 PRIORITY_MAP = {
-    EventType.ER_VISIT: 5,
-    EventType.HOSPITAL_ADMISSION: 4,
-    EventType.HOSPITAL_DISCHARGE: 3,
+    EventType.ER_VISIT: 6,
+    EventType.HOSPITAL_ADMISSION: 5,
+    EventType.HOSPITAL_DISCHARGE: 4,
+    EventType.INPATIENT_DAILY_NOTE: 3,
     EventType.PROCEDURE: 2,
     EventType.OFFICE_VISIT: 1,
 }
@@ -158,11 +164,31 @@ def _get_best_date(page_dates: list[EventDate]) -> EventDate | None:
         return tier1[0]
     return page_dates[0]
 
+def _is_boilerplate(text: str) -> bool:
+    """Filter out common medical record legends, instructions, and non-clinical text."""
+    boilerplate_patterns = [
+        r"(?i)see nursing notes",
+        r"(?i)fluid measurements legend",
+        r"(?i)mar legend",
+        r"(?i)electronically signed by",
+        r"(?i)confidential medical record",
+        r"(?i)page \d+ of \d+",
+        r"(?i)continued on next page",
+        r"(?i)this document contains privileged",
+        r"_{5,}", # Long underscores (forms)
+        r"[-]{5,}",
+    ]
+    return any(re.search(p, text) for p in boilerplate_patterns)
+
 def _extract_page_content(page: Page) -> tuple[list[Fact], list[Citation]]:
     """Extract facts/citations from a single page."""
     facts: list[Fact] = []
     citations: list[Citation] = []
     
+    # ── Strategy 0: Boilerplate Check ─────────────────────────────────
+    if len(page.text.strip()) < 50 or _is_boilerplate(page.text):
+        return [], []
+
     # ── Strategy 1: Explicit Indicators (Keywords) ────────────────────
     indicator_facts, indicator_cits = _extract_indicators(page)
     facts.extend(indicator_facts)

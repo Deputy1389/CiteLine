@@ -106,6 +106,14 @@ class Page(BaseModel):
     page_type: Optional[PageType] = None
 
 
+class Patient(BaseModel):
+    sex: Optional[str] = None
+    age: Optional[int] = None
+    dob: Optional[date] = None
+    sex_confidence: int = Field(default=0, ge=0, le=100)
+    evidence_citation_ids: list[str] = Field(default_factory=list)
+
+
 class ProviderEvidence(BaseModel):
     page_number: int = Field(ge=1)
     snippet: str = Field(max_length=260)
@@ -227,6 +235,7 @@ class CaseInfo(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     timezone: str = "America/Los_Angeles"
     client_ref: Optional[str] = None
+    patient: Optional[Patient] = None
     notes: Optional[str] = None
 
 

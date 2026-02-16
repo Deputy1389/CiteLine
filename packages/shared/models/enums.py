@@ -24,6 +24,7 @@ class EventType(str, Enum):
     ER_VISIT = "er_visit"
     HOSPITAL_ADMISSION = "hospital_admission"
     HOSPITAL_DISCHARGE = "hospital_discharge"
+    INPATIENT_DAILY_NOTE = "inpatient_daily_note"
     OTHER_EVENT = "other_event"
 
 

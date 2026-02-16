@@ -151,7 +151,7 @@ def _parse_date_from_match(match: re.Match, pattern_index: int) -> date | None:
         else:
             return None
 
-        if 1 <= month <= 12 and 1 <= day <= 31 and 1900 <= year <= 2100:
+        if 1 <= month <= 12 and 1 <= day <= 31 and 1990 <= year <= 2027:
             return date(year, month, day)
     except (ValueError, IndexError):
         pass
@@ -284,17 +284,19 @@ def _resolve_relative_dates(page: Page, anchor: date | None) -> list[EventDate]:
                 except Exception:
                     pass
             
-            key = (resolved_value, day_num)
-            if key not in seen_dates:
-                seen_dates.add(key)
-                results.append(
-                    EventDate(
-                        kind=DateKind.SINGLE,
-                        value=resolved_value,
-                        relative_day=day_num if kind == "day" else None,
-                        source=DateSource.ANCHOR if anchor else DateSource.TIER2,
+            # FIXED: Do not set synthetic 'relative_day' if we can't resolve it to a real date.
+            # Only set it if we have an anchor and resolved_value.
+            if resolved_value:
+                key = (resolved_value, None)
+                if key not in seen_dates:
+                    seen_dates.add(key)
+                    results.append(
+                        EventDate(
+                            kind=DateKind.SINGLE,
+                            value=resolved_value,
+                            source=DateSource.ANCHOR if anchor else DateSource.TIER2,
+                        )
                     )
-                )
 
     return results
 
@@ -350,13 +352,14 @@ def extract_dates(page: Page) -> list[tuple[EventDate, str]]:
         if label_type == "reject":
             continue
 
-        # We'll store partials as EventDates with negative relative_day to signal partial (MMDD)
+        # Store partials as EventDates with negative relative_day to signal partial (MMDD).
+        # We use a large negative integer as a internal sentinel to be resolved in a later pass.
         ed = EventDate(
             kind=DateKind.SINGLE,
             value=None,
             source=DateSource.TIER2 if label_type == "tier2" else DateSource.TIER1 if label_type == "tier1" else DateSource.TIER2,
         )
-        ed.relative_day = -(month * 100 + day)
+        ed.relative_day = -(month * 100 + day) # Sentinel for resolution pass
         results.append((ed, "partial"))
 
     return results
@@ -365,7 +368,7 @@ def extract_dates(page: Page) -> list[tuple[EventDate, str]]:
 # ── Multi-page extraction with propagation ───────────────────────────────
 
 
-def extract_dates_for_pages(pages: list[Page]) -> dict[int, list[EventDate]]:
+def extract_dates_for_pages(pages: list[Page], anchor_year_hint: int | None = None) -> dict[int, list[EventDate]]:
     """
     Extract dates for all pages with multi-layer resolution.
     Returns {page_number: [EventDate, ...]}.
@@ -415,6 +418,10 @@ def extract_dates_for_pages(pages: list[Page]) -> dict[int, list[EventDate]]:
                         anchor_year = ed.value.year
                         break
             if anchor_year: break
+            
+        # Fallback to hint if no anchor found in this document
+        if not anchor_year and anchor_year_hint:
+            anchor_year = anchor_year_hint
 
         for page in doc_page_list:
             if page.page_number in result:

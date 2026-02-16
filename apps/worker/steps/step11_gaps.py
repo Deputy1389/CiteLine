@@ -36,7 +36,17 @@ def detect_gaps(
 
         prev_date = non_billing[i - 1].date.sort_date()
         curr_date = non_billing[i].date.sort_date()
+        
+        # FIXED: Enforce minimum year to prevent impossible gaps (e.g. 1897)
+        if prev_date.year < 1990 or curr_date.year < 1990:
+            continue
+            
         delta_days = (curr_date - prev_date).days
+
+        # FIXED: Special handling for inpatient daily notes - 
+        # Treat them as same-day if within the same admission context (simulated by <1 day delta)
+        if delta_days == 0:
+            continue
 
         if delta_days >= threshold:
             gaps.append(Gap(
