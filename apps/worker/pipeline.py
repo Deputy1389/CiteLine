@@ -55,6 +55,8 @@ from apps.worker.steps.step10_confidence import apply_confidence_scoring, filter
 from apps.worker.steps.step11_gaps import detect_gaps
 from apps.worker.steps.step12_export import render_exports
 from apps.worker.steps.step13_receipt import create_run_record
+from apps.worker.lib.provider_normalize import normalize_provider_entities, compute_coverage_spans
+from apps.worker.steps.step14_provider_directory import render_provider_directory
 
 logger = logging.getLogger(__name__)
 
@@ -224,6 +226,16 @@ def run_pipeline(run_id: str) -> None:
             gaps=gaps,
             skipped_events=all_skipped,
         )
+        # ── Step 14a: Provider normalization + coverage ────────────────
+        logger.info(f"[{run_id}] Step 14a: Provider normalization")
+        providers_normalized = normalize_provider_entities(evidence_graph)
+        coverage_spans = compute_coverage_spans(providers_normalized)
+        evidence_graph.extensions["providers_normalized"] = providers_normalized
+        evidence_graph.extensions["coverage_spans"] = coverage_spans
+
+        # ── Step 14b: Provider directory artifact ──────────────────────
+        logger.info(f"[{run_id}] Step 14b: Provider directory artifact")
+        prov_csv_ref, prov_json_ref = render_provider_directory(run_id, providers_normalized)
 
         # ── Step 12: Export rendering ─────────────────────────────────
         logger.info(f"[{run_id}] Step 12: Export rendering")
@@ -387,7 +399,7 @@ def run_pipeline(run_id: str) -> None:
                         run_id=run_id,
                         provider_id=pid_fk,
                         event_type=evt.event_type.value,
-                        date_json=evt.date.model_dump(mode='json'),
+                        date_json=evt.date.model_dump(mode='json') if evt.date else None,
                         encounter_type_raw=evt.encounter_type_raw,
                         facts_json=[f.model_dump(mode='json') for f in evt.facts],
                         diagnoses_json=[d.model_dump(mode='json') for d in evt.diagnoses],
@@ -420,6 +432,8 @@ def run_pipeline(run_id: str) -> None:
                     ("pdf", chronology.exports.pdf),
                     ("csv", chronology.exports.csv),
                     ("json", chronology.exports.json_export),
+                    ("provider_directory_csv", prov_csv_ref),
+                    ("provider_directory_json", prov_json_ref),
                 ]:
                     if aref:
                         artifact = ArtifactORM(

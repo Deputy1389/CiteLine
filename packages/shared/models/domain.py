@@ -190,6 +190,7 @@ class Event(BaseModel):
 
 
 class EvidenceGraph(BaseModel):
+    schema_version: str = "1.0"
     documents: list[Document] = Field(default_factory=list)
     pages: list[Page] = Field(default_factory=list)
     providers: list[Provider] = Field(default_factory=list)
@@ -197,6 +198,7 @@ class EvidenceGraph(BaseModel):
     citations: list[Citation] = Field(default_factory=list)
     gaps: list[Gap] = Field(default_factory=list)
     skipped_events: list[SkippedEvent] = Field(default_factory=list)
+    extensions: dict = Field(default_factory=dict)
 
 
 class ArtifactRef(BaseModel):
