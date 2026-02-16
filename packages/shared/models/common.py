@@ -21,27 +21,47 @@ class DateRange(BaseModel):
 class EventDate(BaseModel):
     kind: DateKind
     value: date | DateRange | None = None
-    relative_day: int | None = None  # e.g. 1 for "Day 1"
+    relative_day: int | None = None  # e.g. 1 for "Day 1" (ADMISSION RELATIVE ONLY)
     source: DateSource
+    partial_month: int | None = None
+    partial_day: int | None = None
+    extensions: dict | None = None
 
-    def sort_key(self) -> tuple[date, int]:
-        """Return a sortable tuple. Uses year 1900 for relative dates."""
+    def sort_key(self) -> tuple[int, str]:
+        """Return a sortable tuple. Strict priority logic."""
+        # 1) Full date wins
         v = self.value
         if v is not None:
             if isinstance(v, date):
-                return (v, 0)
-            return (v.start, 0)
+                return (0, v.isoformat())
+            return (0, v.start.isoformat())
         
+        # 2) True relative day (positive) is allowed ONLY when it is genuinely relative to an anchor
         rd = self.relative_day
         if rd is not None:
-            # Sort relative dates as if they were in 1900
-            # relative_day 1 -> 1900-01-01
-            try:
-                d = date(1900, 1, 1) + timedelta(days=rd - 1)
-                return (d, 1)  # 1 indicates relative
-            except Exception:
-                return (date.min, 0)
-        return (date.min, 0)
+            if rd >= 0:
+                # interpret as offset from 1900-01-01 for stable sorting
+                try:
+                    d = date(1900, 1, 1) + timedelta(days=rd - 1)
+                    return (1, f"REL:{rd:06d}")
+                except Exception:
+                    pass
+            else:
+                # Defensive: should not happen
+                return (9, f"RELNEG:{rd}")
+
+        # 3) Partial date: month/day ordering, no year fabricated
+        ext = self.extensions or {}
+        if ext.get("partial_date") and ext.get("partial_month") and ext.get("partial_day"):
+            m = int(ext["partial_month"])
+            d = int(ext["partial_day"])
+            return (2, f"PART:{m:02d}-{d:02d}")
+
+        # Fallback to model fields if extensions missing but fields set
+        if self.partial_month is not None:
+            return (2, f"PART:{self.partial_month:02d}-{self.partial_day:02d}")
+            
+        return (99, "UNKNOWN")
 
     def sort_date(self) -> date:
         """Deprecated. Use sort_key()."""

@@ -20,25 +20,31 @@ def detect_gaps(
     """
     warnings: list[Warning] = []
 
-    # Sort events by date (guarded against None date)
-    sorted_events = sorted(events, key=lambda e: e.date.sort_date() if e.date else date.min)
+    def has_full_date(e: Event):
+        return e.date and e.date.value is not None
 
-    # Filter to non-billing for gap detection
-    non_billing = [e for e in sorted_events if e.event_type != EventType.BILLING_EVENT]
+    # Sort events by date using the robust sort_key
+    sorted_events = sorted(events, key=lambda e: e.date.sort_key() if e.date else (99, "UNKNOWN"))
+
+    # Filter to non-billing for gap detection AND only events with actual resolved dates
+    dated_events = [e for e in sorted_events if e.event_type != EventType.BILLING_EVENT and has_full_date(e)]
+
+    # If not enough real dates, do not emit gaps
+    if len(dated_events) < 2:
+        return sorted_events, [], warnings
 
     gaps: list[Gap] = []
     threshold = config.gap_threshold_days
 
-    for i in range(1, len(non_billing)):
-        # Guard against potentially missing dates even after sorting
-        if not non_billing[i-1].date or not non_billing[i].date:
-            continue
-
-        prev_date = non_billing[i - 1].date.sort_date()
-        curr_date = non_billing[i].date.sort_date()
+    for i in range(1, len(dated_events)):
+        prev_date = dated_events[i - 1].date.value
+        curr_date = dated_events[i].date.value
         
-        # FIXED: Enforce minimum year to prevent impossible gaps (e.g. 1897)
-        if prev_date.year < 1990 or curr_date.year < 1990:
+        # Guard against DateRange (take start)
+        if hasattr(prev_date, "start"): prev_date = prev_date.start
+        if hasattr(curr_date, "start"): curr_date = curr_date.start
+
+        if not isinstance(prev_date, date) or not isinstance(curr_date, date):
             continue
             
         delta_days = (curr_date - prev_date).days
@@ -57,8 +63,8 @@ def detect_gaps(
                 threshold_days=threshold,
                 confidence=80,
                 related_event_ids=[
-                    non_billing[i - 1].event_id,
-                    non_billing[i].event_id,
+                    dated_events[i - 1].event_id,
+                    dated_events[i].event_id,
                 ],
             ))
 

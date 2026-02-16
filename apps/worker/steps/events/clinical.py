@@ -38,7 +38,8 @@ def _detect_encounter_type(text: str) -> EventType:
         return EventType.HOSPITAL_ADMISSION
     if any(kw in text_lower for kw in [
         "oncology floor", "nursing flowsheet", "mar ", "medication administration record",
-        "i&o", "daily progress note", "flowsheet", "vital signs flowsheet"
+        "i&o", "daily progress note", "flowsheet", "vital signs flowsheet",
+        "nurse initials", "record | temp", "nursing care", "intake/output"
     ]):
         return EventType.INPATIENT_DAILY_NOTE
     if any(kw in text_lower for kw in ["operative report", "procedure"]):
@@ -166,19 +167,29 @@ def _get_best_date(page_dates: list[EventDate]) -> EventDate | None:
 
 def _is_boilerplate(text: str) -> bool:
     """Filter out common medical record legends, instructions, and non-clinical text."""
+    s = " ".join(text.lower().split())
     boilerplate_patterns = [
-        r"(?i)see nursing notes",
-        r"(?i)fluid measurements legend",
-        r"(?i)mar legend",
+        "medication administration record",
+        "intramuscular legend",
+        "subcutaneous site code",
+        "fluid measurements",
+        "sample measurements",
+        "time: site: initials",
+        "pressure ulcer stage",
+        "i – incision",
+        "r – rash",
+        "see nursing notes",
+        "see mar",
+        "chart materials",
+        "national league for nursing",
         r"(?i)electronically signed by",
         r"(?i)confidential medical record",
         r"(?i)page \d+ of \d+",
         r"(?i)continued on next page",
-        r"(?i)this document contains privileged",
         r"_{5,}", # Long underscores (forms)
         r"[-]{5,}",
     ]
-    return any(re.search(p, text) for p in boilerplate_patterns)
+    return any(re.search(p, s) if "\\" in p else p in s for p in boilerplate_patterns)
 
 def _extract_page_content(page: Page) -> tuple[list[Fact], list[Citation]]:
     """Extract facts/citations from a single page."""
@@ -258,8 +269,12 @@ def _extract_page_content(page: Page) -> tuple[list[Fact], list[Citation]]:
     for header in ["Vital Signs", "Vitals"]:
         vitals = _find_section(page.text, header)
         if vitals:
-            # Condense into single fact
-            summary = " | ".join(l.strip() for l in vitals.split("\n") if l.strip())[:400]
+            # Clean up the flowsheet pipes and condense
+            lines = [l.strip() for l in vitals.split("\n") if l.strip()]
+            condensed = " ".join(lines)
+            # Remove excessive pipes and spaces
+            cleaned = re.sub(r'\s*\|\s*', ' | ', condensed)
+            summary = cleaned[:400].strip()
             cit = _make_citation(page, summary)
             citations.append(cit)
             facts.append(_make_fact(summary, FactKind.OTHER, cit.citation_id))

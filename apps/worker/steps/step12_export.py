@@ -45,18 +45,28 @@ def _date_str(event: Event) -> str:
     if not event.date:
         return ""
     
+    # 1) Full date wins
     d = event.date.value
     if d:
-        if isinstance(d, dict):
-            return f"{d.get('start', '')} to {d.get('end', '')}"
         if isinstance(d, date):
-            return str(d)
+            return d.isoformat()
         # DateRange object
         s = str(d.start)
         e = str(d.end) if d.end else ""
         return f"{s} to {e}"
     
-    if event.date.relative_day is not None:
+    # 2) Partial date via extensions (User Patch)
+    ext = event.date.extensions or {}
+    if ext.get("partial_date") and ext.get("partial_month") and ext.get("partial_day"):
+        # do NOT invent a year
+        return f"{int(ext['partial_month']):02d}/{int(ext['partial_day']):02d} (year unknown)"
+
+    # Fallback to model fields
+    if event.date.partial_month is not None:
+        return f"{event.date.partial_month:02d}/{event.date.partial_day:02d} (year unknown)"
+    
+    # 3) True relative day (positive) is allowed
+    if event.date.relative_day is not None and event.date.relative_day >= 0:
         return f"Day {event.date.relative_day}"
     
     return ""
@@ -214,7 +224,7 @@ def generate_csv(
     ])
 
     for event in events:
-        date_display = str(event.date.sort_date()) if event.date else ""
+        date_display = _date_str(event)
         writer.writerow([
             event.event_id,
             date_display,

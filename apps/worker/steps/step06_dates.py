@@ -130,6 +130,28 @@ _RELATIVE_PATTERNS = [
 ]
 
 
+def make_partial_date(month: int, day: int) -> EventDate:
+    return EventDate(
+        kind=DateKind.SINGLE,
+        value=None,
+        relative_day=None,  # IMPORTANT: never set sentinel here
+        source=DateSource.TIER2,
+        partial_month=month,
+        partial_day=day,
+        extensions={
+            "partial_date": True,
+            "partial_month": month,
+            "partial_day": day,
+            "year_missing": True,
+        },
+    )
+
+
+def is_copyright_or_footer_context(line: str) -> bool:
+    s = line.lower()
+    return ("©" in s) or ("national league for nursing" in s) or ("chart materials" in s)
+
+
 # ── Parsing helpers ──────────────────────────────────────────────────────
 
 
@@ -162,14 +184,27 @@ def _find_dates_in_text(text: str) -> list[tuple[date, int]]:
     """Find all dates in text with their character positions."""
     results: list[tuple[date, int]] = []
     seen: set[tuple[date, int]] = set()
-    for i, pattern in enumerate(_DATE_PATTERNS):
-        for m in re.finditer(pattern, text, re.IGNORECASE):
-            d = _parse_date_from_match(m, i)
-            if d:
-                key = (d, m.start())
-                if key not in seen:
-                    seen.add(key)
-                    results.append((d, m.start()))
+    
+    # Split by lines to check context
+    lines = text.split("\n")
+    current_pos = 0
+    
+    for line in lines:
+        if is_copyright_or_footer_context(line):
+            current_pos += len(line) + 1
+            continue
+            
+        for i, pattern in enumerate(_DATE_PATTERNS):
+            for m in re.finditer(pattern, line, re.IGNORECASE):
+                d = _parse_date_from_match(m, i)
+                if d:
+                    pos = current_pos + m.start()
+                    key = (d, pos)
+                    if key not in seen:
+                        seen.add(key)
+                        results.append((d, pos))
+        current_pos += len(line) + 1
+        
     return results
 
 
@@ -352,14 +387,8 @@ def extract_dates(page: Page) -> list[tuple[EventDate, str]]:
         if label_type == "reject":
             continue
 
-        # Store partials as EventDates with negative relative_day to signal partial (MMDD).
-        # We use a large negative integer as a internal sentinel to be resolved in a later pass.
-        ed = EventDate(
-            kind=DateKind.SINGLE,
-            value=None,
-            source=DateSource.TIER2 if label_type == "tier2" else DateSource.TIER1 if label_type == "tier1" else DateSource.TIER2,
-        )
-        ed.relative_day = -(month * 100 + day) # Sentinel for resolution pass
+        # Store partials as EventDates using explicit partial fields and extensions.
+        ed = make_partial_date(month, day)
         results.append((ed, "partial"))
 
     return results
@@ -427,13 +456,10 @@ def extract_dates_for_pages(pages: list[Page], anchor_year_hint: int | None = No
             if page.page_number in result:
                 # 1. Resolve partials if possible
                 for ed in result[page.page_number]:
-                    if ed.value is None and ed.relative_day and ed.relative_day < 0:
-                        val = abs(ed.relative_day)
-                        month, day = val // 100, val % 100
+                    if ed.value is None and ed.partial_month is not None:
                         if anchor_year:
                              try:
-                                 ed.value = date(anchor_year, month, day)
-                                 ed.relative_day = None
+                                 ed.value = date(anchor_year, ed.partial_month, ed.partial_day)
                              except ValueError:
                                  pass
                 
