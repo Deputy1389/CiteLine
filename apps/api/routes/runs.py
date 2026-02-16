@@ -111,8 +111,14 @@ def get_run(run_id: str, db: Session = Depends(get_db)):
 
 @router.get("/runs/{run_id}/artifacts/{artifact_type}")
 def download_artifact(run_id: str, artifact_type: str, db: Session = Depends(get_db)):
-    """Download a run artifact (pdf, csv, json, provider_directory_csv, provider_directory_json)."""
-    valid_types = ["pdf", "csv", "json", "provider_directory_csv", "provider_directory_json"]
+    """Download a run artifact."""
+    valid_types = [
+        "pdf", "csv", "json",
+        "provider_directory_csv", "provider_directory_json",
+        "missing_records_csv", "missing_records_json",
+        "billing_lines_csv", "billing_lines_json",
+        "specials_summary_csv", "specials_summary_json",
+    ]
     if artifact_type not in valid_types:
         raise HTTPException(status_code=400, detail="Invalid artifact type")
 

@@ -57,6 +57,9 @@ from apps.worker.steps.step12_export import render_exports
 from apps.worker.steps.step13_receipt import create_run_record
 from apps.worker.lib.provider_normalize import normalize_provider_entities, compute_coverage_spans
 from apps.worker.steps.step14_provider_directory import render_provider_directory
+from apps.worker.steps.step15_missing_records import detect_missing_records, render_missing_records
+from apps.worker.steps.step16_billing_lines import extract_billing_lines, render_billing_lines
+from apps.worker.steps.step17_specials_summary import compute_specials_summary, render_specials_summary
 
 logger = logging.getLogger(__name__)
 
@@ -236,6 +239,24 @@ def run_pipeline(run_id: str) -> None:
         # ── Step 14b: Provider directory artifact ──────────────────────
         logger.info(f"[{run_id}] Step 14b: Provider directory artifact")
         prov_csv_ref, prov_json_ref = render_provider_directory(run_id, providers_normalized)
+
+        # ── Step 15: Missing record detection ─────────────────────────
+        logger.info(f"[{run_id}] Step 15: Missing record detection")
+        missing_records_payload = detect_missing_records(evidence_graph, providers_normalized)
+        evidence_graph.extensions["missing_records"] = missing_records_payload
+        mr_csv_ref, mr_json_ref = render_missing_records(run_id, missing_records_payload)
+
+        # ── Step 16: Billing lines extraction ─────────────────────────
+        logger.info(f"[{run_id}] Step 16: Billing lines extraction")
+        billing_lines_payload = extract_billing_lines(evidence_graph, providers_normalized)
+        evidence_graph.extensions["billing_lines"] = billing_lines_payload
+        bl_csv_ref, bl_json_ref = render_billing_lines(run_id, billing_lines_payload)
+
+        # ── Step 17: Specials summary ─────────────────────────────────
+        logger.info(f"[{run_id}] Step 17: Specials summary")
+        specials_payload = compute_specials_summary(billing_lines_payload, providers_normalized)
+        evidence_graph.extensions["specials_summary"] = specials_payload
+        ss_csv_ref, ss_json_ref = render_specials_summary(run_id, specials_payload)
 
         # ── Step 12: Export rendering ─────────────────────────────────
         logger.info(f"[{run_id}] Step 12: Export rendering")
@@ -434,6 +455,12 @@ def run_pipeline(run_id: str) -> None:
                     ("json", chronology.exports.json_export),
                     ("provider_directory_csv", prov_csv_ref),
                     ("provider_directory_json", prov_json_ref),
+                    ("missing_records_csv", mr_csv_ref),
+                    ("missing_records_json", mr_json_ref),
+                    ("billing_lines_csv", bl_csv_ref),
+                    ("billing_lines_json", bl_json_ref),
+                    ("specials_summary_csv", ss_csv_ref),
+                    ("specials_summary_json", ss_json_ref),
                 ]:
                     if aref:
                         artifact = ArtifactORM(
