@@ -27,6 +27,8 @@ class EventType(str, Enum):
 class DateSource(str, Enum):
     TIER1 = "tier1"  # Explicit label (e.g. "Date of Service")
     TIER2 = "tier2"  # Contextual/Header date
+    PROPAGATED = "propagated"  # Inherited from previous page in same document
+    ANCHOR = "anchor"  # Derived from anchor date + relative offset (e.g. "Day 2")
 
 
 class DateKind(str, Enum):
