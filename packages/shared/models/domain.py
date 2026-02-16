@@ -216,6 +216,7 @@ class ChronologyExports(BaseModel):
 
 class ChronologyOutput(BaseModel):
     export_format_version: str = "0.1.0"
+    summary: Optional[str] = None
     events_exported: list[str] = Field(default_factory=list)
     exports: ChronologyExports
 

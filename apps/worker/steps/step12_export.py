@@ -112,69 +112,77 @@ def generate_pdf(
     styles = getSampleStyleSheet()
     story = []
 
-    # Title page
-    title_style = ParagraphStyle(
-        "TitlePage", parent=styles["Title"], fontSize=24, spaceAfter=20,
-    )
-    story.append(Spacer(1, 1.5 * inch))
-    story.append(Paragraph("CiteLine Chronology", title_style))
-    story.append(Spacer(1, 0.3 * inch))
-    story.append(Paragraph(f"<b>Matter:</b> {matter_title}", styles["Normal"]))
-    story.append(Paragraph(f"<b>Run ID:</b> {run_id}", styles["Normal"]))
-    story.append(Paragraph(
-        f"<b>Generated:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
-        styles["Normal"],
-    ))
     story.append(Spacer(1, 0.5 * inch))
 
-    disclaimer_style = ParagraphStyle(
-        "Disclaimer", parent=styles["Normal"], fontSize=9,
-        textColor=colors.grey, spaceAfter=20,
-    )
-    story.append(Paragraph(
-        "<i>Factual extraction with citations. Requires human review. "
-        "This document does not constitute legal or medical advice.</i>",
-        disclaimer_style,
-    ))
-    story.append(Spacer(1, 0.5 * inch))
+    # Executive Summary (New)
+    if hasattr(events, "__iter__"): # Check if we have events
+        from packages.shared.models import ChronologyOutput
+        summary_text = generate_executive_summary(events, matter_title)
+        
+        summary_header_style = ParagraphStyle(
+            "SummaryHeader", parent=styles["Heading2"], fontSize=14, spaceAfter=10, textColor=colors.HexColor("#2C3E50")
+        )
+        summary_body_style = ParagraphStyle(
+            "SummaryBody", parent=styles["Normal"], fontSize=10, leading=14, spaceAfter=20, alignment=4 # Justified
+        )
+        
+        story.append(Paragraph("Executive Case Summary", summary_header_style))
+        story.append(Paragraph(summary_text.replace("\n", "<br/>"), summary_body_style))
+        story.append(Spacer(1, 0.2 * inch))
 
-    # Events table
+    # Events table (Grouped by Date)
     if events:
+        story.append(Paragraph("Clinical Timeline", styles["Heading2"]))
+        story.append(Spacer(1, 0.1 * inch))
+
         fact_style = ParagraphStyle("FactStyle", parent=styles["Normal"], fontSize=8, leading=10)
         header_style = ParagraphStyle("HeaderStyle", parent=styles["Normal"], fontSize=9, textColor=colors.white)
+        date_header_style = ParagraphStyle("DateHeader", parent=styles["Normal"], fontSize=10, textColor=colors.HexColor("#2C3E50"), fontName="Helvetica-Bold")
 
-        table_data = [[
-            Paragraph("<b>Date</b>", header_style),
-            Paragraph("<b>Provider</b>", header_style),
-            Paragraph("<b>Type</b>", header_style),
-            Paragraph("<b>Key Facts</b>", header_style),
-            Paragraph("<b>Source</b>", header_style),
-        ]]
+        # Group events by date
+        from collections import OrderedDict
+        events_by_date = OrderedDict()
+        sorted_events = sorted(events, key=lambda x: x.date.sort_key() if x.date else (date.min, 0))
+        for e in sorted_events:
+            d_str = _date_str(e) or "Undated"
+            if d_str not in events_by_date:
+                events_by_date[d_str] = []
+            events_by_date[d_str].append(e)
 
-        for event in events:
-            facts_bullets = "<br/>".join(f"• {f.text}" for f in event.facts[:6])
-            table_data.append([
-                Paragraph(str(event.date.sort_date()), fact_style),
-                Paragraph(_provider_name(event, providers), fact_style),
-                Paragraph(event.event_type.value.replace("_", " ").title(), fact_style),
-                Paragraph(facts_bullets, fact_style),
-                Paragraph(_pages_ref(event, page_map), fact_style),
-            ])
+        for d_str, day_events in events_by_date.items():
+            story.append(Paragraph(f"Date: {d_str}", date_header_style))
+            story.append(Spacer(1, 0.05 * inch))
 
-        col_widths = [1.0 * inch, 1.3 * inch, 1.0 * inch, 2.2 * inch, 1.5 * inch]
-        t = Table(table_data, colWidths=col_widths, repeatRows=1)
-        t.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTSIZE", (0, 0), (-1, 0), 9),
-            ("FONTSIZE", (0, 1), (-1, -1), 8),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8F9FA")]),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ]))
-        story.append(t)
+            table_data = [[
+                Paragraph("<b>Provider</b>", header_style),
+                Paragraph("<b>Encounter Type</b>", header_style),
+                Paragraph("<b>Clinical Facts & Findings</b>", header_style),
+                Paragraph("<b>Source</b>", header_style),
+            ]]
+
+            for event in day_events:
+                facts_bullets = "<br/>".join(f"• {f.text}" for f in event.facts[:10])
+                table_data.append([
+                    Paragraph(_provider_name(event, providers), fact_style),
+                    Paragraph(event.event_type.value.replace("_", " ").title(), fact_style),
+                    Paragraph(facts_bullets, fact_style),
+                    Paragraph(_pages_ref(event, page_map), fact_style),
+                ])
+
+            col_widths = [1.5 * inch, 1.2 * inch, 3.3 * inch, 1.0 * inch]
+            t = Table(table_data, colWidths=col_widths, repeatRows=1)
+            t.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#34495E")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#ECF0F1")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9F9F9")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]))
+            story.append(t)
+            story.append(Spacer(1, 0.2 * inch))
 
     # Gap appendix
     if gaps:
@@ -206,9 +214,10 @@ def generate_csv(
     ])
 
     for event in events:
+        date_display = str(event.date.sort_date()) if event.date else ""
         writer.writerow([
             event.event_id,
-            str(event.date.sort_date()),
+            date_display,
             _provider_name(event, providers),
             event.event_type.value,
             event.confidence,
@@ -445,8 +454,12 @@ def render_exports(
     docx_path = save_artifact(run_id, "chronology.docx", docx_bytes)
     docx_sha = hashlib.sha256(docx_bytes).hexdigest()
 
+    # Summary
+    summary_text = generate_executive_summary(events, matter_title)
+
     return ChronologyOutput(
         export_format_version="0.1.0",
+        summary=summary_text,
         events_exported=exported_ids,
         exports=ChronologyExports(
             pdf=ArtifactRef(uri=str(pdf_path), sha256=pdf_sha, bytes=len(pdf_bytes)),
@@ -455,3 +468,56 @@ def render_exports(
             json_export=None,
         ),
     )
+
+
+def generate_executive_summary(events: list[Event], matter_title: str) -> str:
+    """Generate a high-level narrative summary of the chronology."""
+    if not events:
+        return "No events documented."
+    
+    summary = f"Summary for {matter_title}:\n\n"
+    
+    # Heuristic: Find first major admission, first procedure, and last discharge or status
+    admissions = [e for e in events if e.event_type == EventType.HOSPITAL_ADMISSION]
+    discharges = [e for e in events if e.event_type == EventType.HOSPITAL_DISCHARGE]
+    procedures = [e for e in events if e.event_type == EventType.PROCEDURE]
+    
+    sorted_evts = sorted(events, key=lambda e: e.date.sort_key() if e.date else (date.min, 0))
+    
+    if admissions:
+        first_adm = sorted(admissions, key=lambda e: e.date.sort_key())[0]
+        date_str = _date_str(first_adm)
+        summary += f"Documented care began with a hospital admission on {date_str}. "
+    elif sorted_evts:
+        summary += f"Medical records begin on {_date_str(sorted_evts[0])}. "
+        
+    if procedures:
+        p_count = len(procedures)
+        summary += f"The clinical course included {p_count} significant procedures or operations. "
+        
+    if discharges:
+        last_dis = sorted(discharges, key=lambda e: e.date.sort_key(), reverse=True)[0]
+        date_str = _date_str(last_dis)
+        summary += f"The latest documented discharge occurred on {date_str}. "
+    elif sorted_evts:
+        summary += f"The records conclude on {_date_str(sorted_evts[-1])}. "
+        
+    # Mention specific indicators found?
+    pain_facts = []
+    functional_facts = []
+    for e in events:
+        for f in e.facts:
+            if "Pain Level:" in f.text:
+                pain_facts.append(f.text)
+            if "Functional Status:" in f.text:
+                functional_facts.append(f.text)
+    
+    if pain_facts:
+        highlights = pain_facts[0].split(":")[-1].strip()
+        summary += f"\n\nKey highlights include reports of significant pain ({highlights}). "
+    
+    if functional_facts:
+        summary += f"Functional decline or assistance requirements were noted, including: {functional_facts[0].split(':')[-1].strip()}. "
+        
+    summary += "\n\nRefer to the timeline below for a complete clinical history with citations."
+    return summary

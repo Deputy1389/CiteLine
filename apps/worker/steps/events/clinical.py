@@ -14,6 +14,18 @@ from packages.shared.models import (
     Warning,
 )
 from .common import _make_citation, _make_fact, _find_section
+import re
+
+_CLINICAL_INDICATORS = [
+    (r"(?i)\bpain\s*(?:level|score)?\s*:?\s*(\d{1,2}/10)\b", "Pain Level"),
+    (r"(?i)\b(vomiting|vomit|emesis|nausea)\b", "GI Symptom"),
+    (r"(?i)\b(shortness of breath|sob|dyspnea)\b", "Respiratory Symptom"),
+    (r"(?i)\b(cough|forceful coughing)\b", "Respiratory Symptom"),
+    (r"(?i)\b(hospice|end of life)\b", "Care Planning"),
+    (r"(?i)\b(dependent|assistance|requires help|requires partner)\b", "Functional Status"),
+    (r"(?i)\b(discharge home|discharged to home)\b", "Disposition"),
+]
+
 
 def _detect_encounter_type(text: str) -> EventType:
     """Detect encounter type from clinical note text."""
@@ -151,7 +163,12 @@ def _extract_page_content(page: Page) -> tuple[list[Fact], list[Citation]]:
     facts: list[Fact] = []
     citations: list[Citation] = []
     
-    # Extract chief complaint
+    # ── Strategy 1: Explicit Indicators (Keywords) ────────────────────
+    indicator_facts, indicator_cits = _extract_indicators(page)
+    facts.extend(indicator_facts)
+    citations.extend(indicator_cits)
+
+    # ── Strategy 2: Sectional extraction ──────────────────────────────
     cc = _find_section(page.text, "Chief Complaint")
     if cc:
         cit = _make_citation(page, cc)
@@ -230,5 +247,30 @@ def _extract_page_content(page: Page) -> tuple[list[Fact], list[Citation]]:
             citations.append(cit)
             facts.append(_make_fact(section, FactKind.RESTRICTION, cit.citation_id))
             break
+            
+    return facts, citations
+
+def _extract_indicators(page: Page) -> tuple[list[Fact], list[Citation]]:
+    """Scan for specific clinical markers that might be buried in text."""
+    facts: list[Fact] = []
+    citations: list[Citation] = []
+    text = page.text
+    
+    seen_snippets = set()
+
+    for pattern, label in _CLINICAL_INDICATORS:
+        for m in re.finditer(pattern, text):
+            # Extract sentence-like context
+            start = max(0, m.start() - 50)
+            end = min(len(text), m.end() + 100)
+            snippet = text[start:end].replace("\n", " ").strip()
+            
+            # Basic dedupe of overlapping markers on same page
+            if snippet in seen_snippets: continue
+            seen_snippets.add(snippet)
+
+            cit = _make_citation(page, snippet)
+            citations.append(cit)
+            facts.append(_make_fact(f"{label}: {snippet}", FactKind.OTHER, cit.citation_id))
             
     return facts, citations

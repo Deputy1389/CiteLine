@@ -539,6 +539,7 @@ def run_pipeline(run_id: str) -> None:
                     ("billing_lines_json", bl_json_ref),
                     ("specials_summary_csv", ss_csv_ref),
                     ("specials_summary_json", ss_json_ref),
+                    ("specials_summary_pdf", ss_pdf_ref),
                 ]:
                     if aref:
                         artifact = ArtifactORM(

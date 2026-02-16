@@ -217,13 +217,22 @@ export default function MatterDetail() {
                                             <FileText size={14} /> Docx
                                         </a>
                                         <a
-                                            href={getArtifactUrl(run.id, 'specials_summary_pdf')}
+                                            href={getArtifactUrl(run.id, 'pdf')}
                                             target="_blank"
                                             className="artifact-link"
                                             style={{ color: '#d8b4fe', borderColor: 'rgba(216, 180, 254, 0.2)' }}
                                             rel="noreferrer"
                                         >
-                                            <FileText size={14} /> PDF
+                                            <FileText size={14} /> Chronology (PDF)
+                                        </a>
+                                        <a
+                                            href={getArtifactUrl(run.id, 'specials_summary_pdf')}
+                                            target="_blank"
+                                            className="artifact-link"
+                                            style={{ color: '#d8b4fe', opacity: 0.6, borderColor: 'rgba(216, 180, 254, 0.1)' }}
+                                            rel="noreferrer"
+                                        >
+                                            <FileText size={14} /> Bills
                                         </a>
                                         <a
                                             href={getArtifactUrl(run.id, 'csv')}

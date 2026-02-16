@@ -164,13 +164,38 @@ def download_artifact(run_id: str, artifact_type: str, db: Session = Depends(get
     from pathlib import Path
     import os
     
-    data_dir = Path(os.environ.get("DATA_DIR", "data")).resolve()
+    from packages.shared.storage import DATA_DIR
+    
+    data_dir = DATA_DIR.resolve()
     file_path = Path(artifact.storage_uri).resolve()
     
-    if not str(file_path).startswith(str(data_dir)):
-        # For security, standard is 404 to avoid leaking existence, or 403.
-        # But if DB says it exists but path is weird, it's a server error or attack.
-        # Let's log and return 404 for safety.
+    # Check if file is within data directory
+    # verification using pathlib
+    # Map internal artifact types to file extensions
+    extension_map = {
+        "pdf": "pdf",
+        "csv": "csv",
+        "json": "json",
+        "docx": "docx",
+        "provider_directory_csv": "csv",
+        "provider_directory_json": "json",
+        "missing_records_csv": "csv",
+        "missing_records_json": "json",
+        "billing_lines_csv": "csv",
+        "billing_lines_json": "json",
+        "specials_summary_csv": "csv",
+        "specials_summary_json": "json",
+        "specials_summary_pdf": "pdf",
+    }
+    
+    ext = extension_map.get(artifact_type, artifact_type)
+    
+    # Check if file is within data directory
+    # verification using pathlib
+    try:
+        file_path.relative_to(data_dir)
+    except ValueError:
+        # Not relative to data_dir
         # logger.warning(f"Path traversal attempt: {file_path} not in {data_dir}")
         raise HTTPException(status_code=404, detail="Artifact not found")
 
@@ -179,6 +204,6 @@ def download_artifact(run_id: str, artifact_type: str, db: Session = Depends(get
 
     return FileResponse(
         path=str(file_path),
-        filename=f"run_{run_id}_{artifact_type}.{artifact_type}",
+        filename=f"run_{run_id}_{artifact_type}.{ext}",
         media_type="application/octet-stream",
     )

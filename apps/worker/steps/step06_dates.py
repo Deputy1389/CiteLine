@@ -45,6 +45,15 @@ _DATE_PATTERNS = [
     rf"(\d{{1,2}})\s+({_ABBREV_MONTHS}),?\s+(\d{{4}})",
 ]
 
+_PARTIAL_DATE_PATTERNS = [
+    # 0: Month DD (e.g. September 24)
+    rf"({_FULL_MONTHS})\s+(\d{{1,2}})(?!\s*,\s*\d{{4}})(?!\s+\d{{4}})",
+    # 1: Mon DD (e.g. Sep 24)
+    rf"({_ABBREV_MONTHS})\s+(\d{{1,2}})(?!\s*,\s*\d{{4}})(?!\s+\d{{4}})",
+    # 2: MM/DD (e.g. 09/24)
+    r"(\d{1,2})/(\d{1,2})(?![/\-]\d{2,4})",
+]
+
 _MONTH_MAP = {
     "january": 1, "february": 2, "march": 3, "april": 4,
     "may": 5, "june": 6, "july": 7, "august": 8,
@@ -164,6 +173,26 @@ def _find_dates_in_text(text: str) -> list[tuple[date, int]]:
     return results
 
 
+def _find_partial_dates_in_text(text: str) -> list[tuple[int, int, int]]:
+    """Find (month, day, pos) in text for yearless dates."""
+    results: list[tuple[int, int, int]] = []
+    for i, pattern in enumerate(_PARTIAL_DATE_PATTERNS):
+        for m in re.finditer(pattern, text, re.IGNORECASE):
+            try:
+                groups = m.groups()
+                if i in (0, 1):  # Month DD
+                    month = _MONTH_MAP.get(groups[0].lower(), 0)
+                    day = int(groups[1])
+                else:  # MM/DD
+                    month, day = int(groups[0]), int(groups[1])
+
+                if 1 <= month <= 12 and 1 <= day <= 31:
+                    results.append((month, day, m.start()))
+            except Exception:
+                continue
+    return results
+
+
 def _find_best_label(text: str, date_pos: int) -> str | None:
     """
     Find the closest label preceding the date within a context window.
@@ -247,10 +276,13 @@ def _resolve_relative_dates(page: Page, anchor: date | None) -> list[EventDate]:
             resolved_value: date | None = None
             
             if anchor:
-                if kind == "day":
-                    resolved_value = anchor + timedelta(days=max(0, day_num - 1))
-                else:  # postop
-                    resolved_value = anchor + timedelta(days=day_num)
+                try:
+                    if kind == "day":
+                        resolved_value = anchor + timedelta(days=max(0, day_num - 1))
+                    else:  # postop
+                        resolved_value = anchor + timedelta(days=day_num)
+                except Exception:
+                    pass
             
             key = (resolved_value, day_num)
             if key not in seen_dates:
@@ -307,6 +339,26 @@ def extract_dates(page: Page) -> list[tuple[EventDate, str]]:
                     "header_date",
                 ))
 
+    # Second pass: Partial dates
+    partials = _find_partial_dates_in_text(text)
+    for month, day, pos in partials:
+        # Check if we already covered this position with a full date
+        if any(abs(pos - p) < 5 for _, p in found_dates):
+            continue
+
+        label_type = _find_best_label(text, pos)
+        if label_type == "reject":
+            continue
+
+        # We'll store partials as EventDates with negative relative_day to signal partial (MMDD)
+        ed = EventDate(
+            kind=DateKind.SINGLE,
+            value=None,
+            source=DateSource.TIER2 if label_type == "tier2" else DateSource.TIER1 if label_type == "tier1" else DateSource.TIER2,
+        )
+        ed.relative_day = -(month * 100 + day)
+        results.append((ed, "partial"))
+
     return results
 
 
@@ -344,36 +396,41 @@ def extract_dates_for_pages(pages: list[Page]) -> dict[int, list[EventDate]]:
         # Try to find an anchor date from this document's pages
         anchor = _find_anchor_date(doc_page_list)
 
-        # Resolve relative dates on pages that are still missing dates
-        # OR add relative dates as secondary info?
-        # Current logic: only if page missing dates? 
-        # Better: extract relative dates everywhere, merge?
-        # For now, stick to "fill gaps" strategy but enable it even if no date found yet
         for page in doc_page_list:
             if page.page_number not in result:
                 resolved = _resolve_relative_dates(page, anchor)
                 if resolved:
                     result[page.page_number] = resolved
-                    
-                    if anchor:
-                         logger.debug(
-                            f"Resolved absolute date on page {page.page_number}: "
-                            f"{resolved[0].value}"
-                        )
-                    else:
-                        logger.debug(
-                            f"Extracted relative date on page {page.page_number}: "
-                            f"Day {resolved[0].relative_day}"
-                        )
 
-    # ── Pass 3: header propagation ───────────────────────────────────────
+    # ── Pass 3: Year Inference & Header propagation ───────────────────────
     for doc_id, doc_page_list in doc_pages.items():
         last_valid_date: EventDate | None = None
+        
+        # Determine anchor year for this document
+        anchor_year = None
+        for p in doc_page_list:
+            if p.page_number in result:
+                for ed in result[p.page_number]:
+                    if ed.value and isinstance(ed.value, date):
+                        anchor_year = ed.value.year
+                        break
+            if anchor_year: break
 
         for page in doc_page_list:
             if page.page_number in result:
-                # This page has dates — update the propagation source
-                # Prefer one with a Value if possible
+                # 1. Resolve partials if possible
+                for ed in result[page.page_number]:
+                    if ed.value is None and ed.relative_day and ed.relative_day < 0:
+                        val = abs(ed.relative_day)
+                        month, day = val // 100, val % 100
+                        if anchor_year:
+                             try:
+                                 ed.value = date(anchor_year, month, day)
+                                 ed.relative_day = None
+                             except ValueError:
+                                 pass
+                
+                # Update propagation source
                 candidates = result[page.page_number]
                 best_candidate = candidates[0]
                 for c in candidates:
@@ -390,9 +447,5 @@ def extract_dates_for_pages(pages: list[Page]) -> dict[int, list[EventDate]]:
                     source=DateSource.PROPAGATED,
                 )
                 result[page.page_number] = [propagated]
-                val_str = str(propagated.value) if propagated.value else f"Day {propagated.relative_day}"
-                logger.debug(
-                    f"Propagated date to page {page.page_number}: {val_str}"
-                )
 
     return result

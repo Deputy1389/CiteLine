@@ -5,6 +5,7 @@ Sort events by date and detect treatment gaps.
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
 from packages.shared.models import Event, EventType, Gap, RunConfig, Warning
 
@@ -19,8 +20,8 @@ def detect_gaps(
     """
     warnings: list[Warning] = []
 
-    # Sort events by date
-    sorted_events = sorted(events, key=lambda e: e.date.sort_date())
+    # Sort events by date (guarded against None date)
+    sorted_events = sorted(events, key=lambda e: e.date.sort_date() if e.date else date.min)
 
     # Filter to non-billing for gap detection
     non_billing = [e for e in sorted_events if e.event_type != EventType.BILLING_EVENT]
@@ -29,6 +30,10 @@ def detect_gaps(
     threshold = config.gap_threshold_days
 
     for i in range(1, len(non_billing)):
+        # Guard against potentially missing dates even after sorting
+        if not non_billing[i-1].date or not non_billing[i].date:
+            continue
+
         prev_date = non_billing[i - 1].date.sort_date()
         curr_date = non_billing[i].date.sort_date()
         delta_days = (curr_date - prev_date).days
