@@ -20,7 +20,30 @@ from packages.shared.models import (
 _PROVIDER_LABEL_PATTERNS = [
     r"(?:facility|provider|rendering provider|attending|clinic|hospital|radiology)\s*:\s*(.+)",
     r"(?:physician|doctor|md|do)\s*:\s*(.+)",
+    # New: seen-by, referred-by, ordering provider
+    r"(?:seen by|referred by|ordering provider|treating provider|rendered by)\s*:?\s*(.+)",
+    # New: signed-by blocks (often at bottom of page)
+    r"(?:electronically signed by|signed by|authenticated by|dictated by)\s*:?\s*(.+)",
 ]
+
+# Patterns for individual physician names (Dr. Last, Last MD, etc.)
+_PHYSICIAN_NAME_PATTERNS = [
+    # "Dr. Smith" or "Dr. John Smith"
+    re.compile(r"\bDr\.?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\b"),
+    # "Smith, John MD" or "Smith, John A. DO"
+    re.compile(r"\b([A-Z][a-z]+,\s+[A-Z][a-z]+(?:\s+[A-Z]\.?)?)\s+(?:MD|DO|NP|PA|DC|DPM|DDS|OD)\b"),
+    # "John Smith, MD" or "John A. Smith, DO"
+    re.compile(r"\b([A-Z][a-z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]+),?\s+(?:MD|DO|NP|PA-?C?|DC|DPM|DDS|OD)\b"),
+]
+
+# False positive names to reject
+_NEGATIVE_LIST = {
+    "patient", "the patient", "chief complaint", "assessment", "plan",
+    "date of service", "date of birth", "medical records", "page",
+    "history of present illness", "review of systems", "vital signs",
+    "physical exam", "medications", "allergies", "impression",
+    "findings", "technique", "clinical indication", "comparison",
+}
 
 _SUFFIX_STRIP = re.compile(
     r"\b(llc|inc|corp|medical group|pa|pc|pllc|md|do|dpm|dc|pt|dds)\b",
@@ -28,12 +51,18 @@ _SUFFIX_STRIP = re.compile(
 )
 
 _PROVIDER_TYPE_KEYWORDS: dict[ProviderType, list[str]] = {
-    ProviderType.ER: ["emergency", "er ", "ed ", "emergency department"],
-    ProviderType.PT: ["physical therapy", "rehabilitation", "pt "],
-    ProviderType.IMAGING: ["radiology", "imaging", "mri", "ct scan"],
-    ProviderType.HOSPITAL: ["hospital", "medical center"],
-    ProviderType.PCP: ["family medicine", "primary care", "internal medicine"],
-    ProviderType.SPECIALIST: ["orthopedic", "neurology", "cardiology", "surgery"],
+    ProviderType.ER: ["emergency", "er ", "ed ", "emergency department", "urgent care"],
+    ProviderType.PT: ["physical therapy", "rehabilitation", "pt ", "chiropractic", "physiotherapy"],
+    ProviderType.IMAGING: ["radiology", "imaging", "mri", "ct scan", "x-ray", "ultrasound", "diagnostic"],
+    ProviderType.HOSPITAL: ["hospital", "medical center", "surgery center", "health system", "infirmary"],
+    ProviderType.PCP: ["family medicine", "primary care", "internal medicine", "general practice", "pediatrics", "family practice"],
+    ProviderType.SPECIALIST: [
+        "orthopedic", "neurology", "cardiology", "surgery", "dermatology",
+        "oncology", "gastroenterology", "urology", "nephrology", "pulmonology",
+        "rheumatology", "endocrinology", "hematology", "infectious disease",
+        "pain management", "anesthesiology", "pathology", "psychiatry",
+        "podiatry", "ophthalmology", "ent ", "otolaryngology",
+    ],
 }
 
 
@@ -56,6 +85,9 @@ def _is_valid_candidate(name: str) -> bool:
         return False
     # Reject if ends with period (sentence-like)
     if stripped.endswith("."):
+        return False
+    # Negative list check
+    if stripped.lower() in _NEGATIVE_LIST:
         return False
     # Word count: reject > 12 words
     words = stripped.split()
@@ -95,6 +127,14 @@ def _extract_candidates_from_page(page: Page) -> list[tuple[str, int]]:
                 name = m.group(1).strip()
                 if _is_valid_candidate(name):
                     candidates.append((name, 80))
+
+    # Check for individual physician name patterns (medium confidence)
+    full_text = page.text
+    for pattern in _PHYSICIAN_NAME_PATTERNS:
+        for m in pattern.finditer(full_text):
+            name = m.group(1).strip()
+            if _is_valid_candidate(name) and len(name) > 4:
+                candidates.append((name, 65))
 
     # Check letterhead (top 20% of page text = first few lines)
     top_lines = lines[:max(3, len(lines) // 5)]

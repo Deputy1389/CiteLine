@@ -158,6 +158,17 @@ def _extract_page_content(page: Page) -> tuple[list[Fact], list[Citation]]:
         citations.append(cit)
         facts.append(_make_fact(cc, FactKind.CHIEF_COMPLAINT, cit.citation_id))
 
+    # Extract HPI narrative
+    for header in ["History of Present Illness", "HPI"]:
+        hpi = _find_section(page.text, header)
+        if hpi:
+            # Take first 400 chars as summary
+            summary = hpi[:400].strip()
+            cit = _make_citation(page, summary)
+            citations.append(cit)
+            facts.append(_make_fact(summary, FactKind.OTHER, cit.citation_id))
+            break
+
     # Extract assessment/diagnosis
     for header in ["Assessment", "Diagnosis", "Diagnoses", "Impression"]:
         section = _find_section(page.text, header)
@@ -177,6 +188,39 @@ def _extract_page_content(page: Page) -> tuple[list[Fact], list[Citation]]:
             cit = _make_citation(page, line)
             citations.append(cit)
             facts.append(_make_fact(line, FactKind.PLAN, cit.citation_id))
+
+    # Extract medications
+    for header in ["Medications", "Current Medications", "Medications Prescribed", "Rx"]:
+        meds = _find_section(page.text, header)
+        if meds:
+            lines = [l.strip() for l in meds.split("\n") if l.strip()][:5]
+            for line in lines:
+                cit = _make_citation(page, line)
+                citations.append(cit)
+                facts.append(_make_fact(line, FactKind.MEDICATION, cit.citation_id))
+            break
+
+    # Extract procedures performed
+    for header in ["Procedures Performed", "Procedures", "Procedure"]:
+        procs = _find_section(page.text, header)
+        if procs:
+            lines = [l.strip() for l in procs.split("\n") if l.strip()][:3]
+            for line in lines:
+                cit = _make_citation(page, line)
+                citations.append(cit)
+                facts.append(_make_fact(line, FactKind.PROCEDURE_NOTE, cit.citation_id))
+            break
+
+    # Extract vitals summary
+    for header in ["Vital Signs", "Vitals"]:
+        vitals = _find_section(page.text, header)
+        if vitals:
+            # Condense into single fact
+            summary = " | ".join(l.strip() for l in vitals.split("\n") if l.strip())[:400]
+            cit = _make_citation(page, summary)
+            citations.append(cit)
+            facts.append(_make_fact(summary, FactKind.OTHER, cit.citation_id))
+            break
 
     # Extract restrictions / work status
     for header in ["Work Status", "Restrictions", "Work Restrictions"]:

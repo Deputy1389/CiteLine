@@ -36,7 +36,7 @@ class TestConfidenceScoring:
             fact_kinds=[FactKind.CHIEF_COMPLAINT],
         )
         score = score_event(event)
-        assert score >= 80  # 40 (tier1) + 30 (provider) + 20 (strong type) + 10 (anchor) = 100
+        assert score >= 75  # 35 (tier1) + 20 (provider) + 15 (strong type) + 5 (anchor) = 75
 
     def test_tier2_lower_confidence(self):
         event = _make_event(

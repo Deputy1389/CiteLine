@@ -177,7 +177,7 @@ class Event(BaseModel):
     event_type: EventType
     date: Optional[EventDate] = None
     encounter_type_raw: Optional[str] = None
-    facts: list[Fact] = Field(min_length=1, max_length=10)
+    facts: list[Fact] = Field(min_length=1, max_length=30)
     diagnoses: list[Fact] = Field(default_factory=list)
     medications: list[Fact] = Field(default_factory=list)
     procedures: list[Fact] = Field(default_factory=list)

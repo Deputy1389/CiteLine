@@ -1,0 +1,490 @@
+[
+  {
+    "file": "eval_01_amfs_packet.pdf",
+    "pages": 172,
+    "page_types": {
+      "imaging_report": 39,
+      "clinical_note": 32,
+      "lab_report": 22,
+      "operative_report": 39,
+      "pt_note": 24,
+      "other": 15,
+      "discharge_summary": 1
+    },
+    "providers": 33,
+    "provider_names": [
+      "Erick Brick, M.D. (Radiology)",
+      "Daffy Cobbler, M.D. (Diagnostic Radiology)",
+      "Sharon Stone, M.D. (Radiology)",
+      "Dawson",
+      "Mouse",
+      "Stoke",
+      "Interim LSU Public Hospital",
+      "(Diagnostic Radiology)",
+      "Radiology/Diagnostics",
+      "Clinical Indication:",
+      "Stone",
+      "(Orthopedic Surgery)",
+      "Orthopedics Consultation Report",
+      "Hayden",
+      "Seuss",
+      "Hospital.pdf_Page",
+      "Seles",
+      "Witty",
+      "Wizard",
+      "Scholls",
+      "Clinical Indications:",
+      "Schwarzenegger",
+      "Hunter",
+      "Broad",
+      "Fisherman",
+      "Potter",
+      "Xray Chest",
+      "Imaging Results",
+      "Clinical History",
+      "Hospital Outpatient",
+      "Past Medical History",
+      "____",
+      "same"
+    ],
+    "events": 29,
+    "events_by_type": {
+      "office_visit": 6,
+      "procedure": 4,
+      "hospital_discharge": 2,
+      "er_visit": 1,
+      "hospital_admission": 1,
+      "imaging_study": 13,
+      "pt_visit": 2
+    },
+    "events_with_date": 29,
+    "events_dateless": 0,
+    "facts_total": 169,
+    "fact_kinds": {
+      "chief_complaint": 4,
+      "other": 19,
+      "assessment": 38,
+      "plan": 22,
+      "procedure_note": 18,
+      "medication": 19,
+      "impression": 49
+    },
+    "citations": 430,
+    "skipped": 11,
+    "avg_confidence": 67.4,
+    "low_confidence_count": 0,
+    "confidence_distribution": {
+      "0-19": 0,
+      "20-39": 0,
+      "40-59": 2,
+      "60-79": 20,
+      "80-100": 7
+    }
+  },
+  {
+    "file": "eval_02_millie_day1.pdf",
+    "pages": 12,
+    "page_types": {
+      "clinical_note": 7,
+      "other": 2,
+      "billing": 2,
+      "lab_report": 1
+    },
+    "providers": 3,
+    "provider_names": [
+      "Eric Lund                                       \n \n \n \n \n \n \nPatient",
+      "Eric Lund \n \nNursing",
+      "Intravenous Therapy"
+    ],
+    "events": 4,
+    "events_by_type": {
+      "office_visit": 4
+    },
+    "events_with_date": 0,
+    "events_dateless": 4,
+    "facts_total": 10,
+    "fact_kinds": {
+      "medication": 1,
+      "other": 1,
+      "assessment": 8
+    },
+    "citations": 10,
+    "skipped": 4,
+    "avg_confidence": 38.8,
+    "low_confidence_count": 2,
+    "confidence_distribution": {
+      "0-19": 0,
+      "20-39": 2,
+      "40-59": 2,
+      "60-79": 0,
+      "80-100": 0
+    }
+  },
+  {
+    "file": "eval_03_millie_day2.pdf",
+    "pages": 12,
+    "page_types": {
+      "clinical_note": 6,
+      "other": 4,
+      "billing": 2
+    },
+    "providers": 2,
+    "provider_names": [
+      "Eric Lund                                       \n \n \nPatient",
+      "Intravenous Therapy"
+    ],
+    "events": 4,
+    "events_by_type": {
+      "office_visit": 4
+    },
+    "events_with_date": 0,
+    "events_dateless": 4,
+    "facts_total": 7,
+    "fact_kinds": {
+      "other": 1,
+      "assessment": 6
+    },
+    "citations": 7,
+    "skipped": 3,
+    "avg_confidence": 31.2,
+    "low_confidence_count": 3,
+    "confidence_distribution": {
+      "0-19": 0,
+      "20-39": 3,
+      "40-59": 1,
+      "60-79": 0,
+      "80-100": 0
+    }
+  },
+  {
+    "file": "eval_04_millie_day3.pdf",
+    "pages": 11,
+    "page_types": {
+      "clinical_note": 6,
+      "other": 4,
+      "billing": 1
+    },
+    "providers": 1,
+    "provider_names": [
+      "Eric Lund                                       \n \n \n \nNursing"
+    ],
+    "events": 4,
+    "events_by_type": {
+      "hospital_admission": 1,
+      "office_visit": 3
+    },
+    "events_with_date": 0,
+    "events_dateless": 4,
+    "facts_total": 9,
+    "fact_kinds": {
+      "other": 1,
+      "assessment": 8
+    },
+    "citations": 9,
+    "skipped": 1,
+    "avg_confidence": 41.2,
+    "low_confidence_count": 1,
+    "confidence_distribution": {
+      "0-19": 0,
+      "20-39": 1,
+      "40-59": 3,
+      "60-79": 0,
+      "80-100": 0
+    }
+  },
+  {
+    "file": "eval_05_millie_day4.pdf",
+    "pages": 10,
+    "page_types": {
+      "clinical_note": 6,
+      "other": 2,
+      "billing": 1,
+      "lab_report": 1
+    },
+    "providers": 1,
+    "provider_names": [
+      "Eric Lund                                       \n \n \nPatient"
+    ],
+    "events": 4,
+    "events_by_type": {
+      "hospital_admission": 1,
+      "office_visit": 3
+    },
+    "events_with_date": 0,
+    "events_dateless": 4,
+    "facts_total": 9,
+    "fact_kinds": {
+      "other": 1,
+      "assessment": 8
+    },
+    "citations": 9,
+    "skipped": 1,
+    "avg_confidence": 41.2,
+    "low_confidence_count": 1,
+    "confidence_distribution": {
+      "0-19": 0,
+      "20-39": 1,
+      "40-59": 3,
+      "60-79": 0,
+      "80-100": 0
+    }
+  },
+  {
+    "file": "eval_06_julia_day1.pdf",
+    "pages": 12,
+    "page_types": {
+      "other": 2,
+      "clinical_note": 8,
+      "billing": 2
+    },
+    "providers": 1,
+    "provider_names": [
+      "Ann Davis                               \n \nNursing"
+    ],
+    "events": 4,
+    "events_by_type": {
+      "hospital_discharge": 1,
+      "office_visit": 3
+    },
+    "events_with_date": 0,
+    "events_dateless": 4,
+    "facts_total": 14,
+    "fact_kinds": {
+      "assessment": 12,
+      "medication": 1,
+      "other": 1
+    },
+    "citations": 14,
+    "skipped": 2,
+    "avg_confidence": 48.8,
+    "low_confidence_count": 1,
+    "confidence_distribution": {
+      "0-19": 0,
+      "20-39": 1,
+      "40-59": 2,
+      "60-79": 1,
+      "80-100": 0
+    }
+  },
+  {
+    "file": "eval_07_julia_day2.pdf",
+    "pages": 13,
+    "page_types": {
+      "other": 3,
+      "clinical_note": 8,
+      "billing": 2
+    },
+    "providers": 1,
+    "provider_names": [
+      "Ann Davis                               \n \nNursing"
+    ],
+    "events": 5,
+    "events_by_type": {
+      "hospital_admission": 1,
+      "office_visit": 4
+    },
+    "events_with_date": 0,
+    "events_dateless": 5,
+    "facts_total": 14,
+    "fact_kinds": {
+      "assessment": 12,
+      "medication": 1,
+      "other": 1
+    },
+    "citations": 14,
+    "skipped": 2,
+    "avg_confidence": 43.0,
+    "low_confidence_count": 2,
+    "confidence_distribution": {
+      "0-19": 0,
+      "20-39": 2,
+      "40-59": 2,
+      "60-79": 1,
+      "80-100": 0
+    }
+  },
+  {
+    "file": "eval_08_julia_day3.pdf",
+    "pages": 12,
+    "page_types": {
+      "other": 2,
+      "clinical_note": 8,
+      "billing": 2
+    },
+    "providers": 2,
+    "provider_names": [
+      "Ann Davis                               \n \nNursing",
+      "Davis"
+    ],
+    "events": 4,
+    "events_by_type": {
+      "hospital_admission": 1,
+      "office_visit": 3
+    },
+    "events_with_date": 0,
+    "events_dateless": 4,
+    "facts_total": 16,
+    "fact_kinds": {
+      "medication": 6,
+      "other": 1,
+      "assessment": 9
+    },
+    "citations": 16,
+    "skipped": 2,
+    "avg_confidence": 45.0,
+    "low_confidence_count": 1,
+    "confidence_distribution": {
+      "0-19": 0,
+      "20-39": 1,
+      "40-59": 3,
+      "60-79": 0,
+      "80-100": 0
+    }
+  },
+  {
+    "file": "eval_09_head_ct_report.pdf",
+    "pages": 4,
+    "page_types": {
+      "imaging_report": 4
+    },
+    "providers": 1,
+    "provider_names": [
+      "Unknown Provider"
+    ],
+    "events": 2,
+    "events_by_type": {
+      "imaging_study": 2
+    },
+    "events_with_date": 0,
+    "events_dateless": 2,
+    "facts_total": 6,
+    "fact_kinds": {
+      "impression": 6
+    },
+    "citations": 6,
+    "skipped": 2,
+    "avg_confidence": 45.0,
+    "low_confidence_count": 0,
+    "confidence_distribution": {
+      "0-19": 0,
+      "20-39": 0,
+      "40-59": 2,
+      "60-79": 0,
+      "80-100": 0
+    }
+  },
+  {
+    "file": "eval_10_brain_mri_report.pdf",
+    "pages": 4,
+    "page_types": {
+      "imaging_report": 4
+    },
+    "providers": 1,
+    "provider_names": [
+      "How to Read Your Brain MRI Radiology Report"
+    ],
+    "events": 2,
+    "events_by_type": {
+      "imaging_study": 2
+    },
+    "events_with_date": 0,
+    "events_dateless": 2,
+    "facts_total": 6,
+    "fact_kinds": {
+      "impression": 6
+    },
+    "citations": 6,
+    "skipped": 2,
+    "avg_confidence": 45.0,
+    "low_confidence_count": 0,
+    "confidence_distribution": {
+      "0-19": 0,
+      "20-39": 0,
+      "40-59": 2,
+      "60-79": 0,
+      "80-100": 0
+    }
+  },
+  {
+    "file": "sample-medical-chronology172.pdf",
+    "pages": 172,
+    "page_types": {
+      "imaging_report": 39,
+      "clinical_note": 32,
+      "lab_report": 22,
+      "operative_report": 39,
+      "pt_note": 24,
+      "other": 15,
+      "discharge_summary": 1
+    },
+    "providers": 33,
+    "provider_names": [
+      "Erick Brick, M.D. (Radiology)",
+      "Daffy Cobbler, M.D. (Diagnostic Radiology)",
+      "Sharon Stone, M.D. (Radiology)",
+      "Dawson",
+      "Mouse",
+      "Stoke",
+      "Interim LSU Public Hospital",
+      "(Diagnostic Radiology)",
+      "Radiology/Diagnostics",
+      "Clinical Indication:",
+      "Stone",
+      "(Orthopedic Surgery)",
+      "Orthopedics Consultation Report",
+      "Hayden",
+      "Seuss",
+      "Hospital.pdf_Page",
+      "Seles",
+      "Witty",
+      "Wizard",
+      "Scholls",
+      "Clinical Indications:",
+      "Schwarzenegger",
+      "Hunter",
+      "Broad",
+      "Fisherman",
+      "Potter",
+      "Xray Chest",
+      "Imaging Results",
+      "Clinical History",
+      "Hospital Outpatient",
+      "Past Medical History",
+      "____",
+      "same"
+    ],
+    "events": 29,
+    "events_by_type": {
+      "office_visit": 6,
+      "procedure": 4,
+      "hospital_discharge": 2,
+      "er_visit": 1,
+      "hospital_admission": 1,
+      "imaging_study": 13,
+      "pt_visit": 2
+    },
+    "events_with_date": 29,
+    "events_dateless": 0,
+    "facts_total": 169,
+    "fact_kinds": {
+      "chief_complaint": 4,
+      "other": 19,
+      "assessment": 38,
+      "plan": 22,
+      "procedure_note": 18,
+      "medication": 19,
+      "impression": 49
+    },
+    "citations": 430,
+    "skipped": 11,
+    "avg_confidence": 67.4,
+    "low_confidence_count": 0,
+    "confidence_distribution": {
+      "0-19": 0,
+      "20-39": 0,
+      "40-59": 2,
+      "60-79": 20,
+      "80-100": 7
+    }
+  }
+]

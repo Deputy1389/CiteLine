@@ -14,6 +14,9 @@ def _events_match(a: Event, b: Event) -> bool:
         return False
     if a.event_type != b.event_type:
         return False
+    # Guard: dateless events never merge
+    if not a.date or not b.date:
+        return False
     if a.date.sort_date() != b.date.sort_date():
         return False
     # Check page overlap or contiguity

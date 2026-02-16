@@ -22,6 +22,7 @@ _TYPE_TO_DOC_TYPE: dict[PageType, DocumentType] = {
     PageType.OPERATIVE_REPORT: DocumentType.MEDICAL_RECORD,
     PageType.PT_NOTE: DocumentType.MEDICAL_RECORD,
     PageType.LAB_REPORT: DocumentType.MEDICAL_RECORD,
+    PageType.DISCHARGE_SUMMARY: DocumentType.MEDICAL_RECORD,
     PageType.ADMINISTRATIVE: DocumentType.UNKNOWN,
     PageType.OTHER: DocumentType.UNKNOWN,
 }

@@ -9,6 +9,7 @@ class PageType(str, Enum):
     BILLING = "billing"
     ADMINISTRATIVE = "administrative"
     LAB_REPORT = "lab_report"
+    DISCHARGE_SUMMARY = "discharge_summary"
     OTHER = "other"
 
 
@@ -17,6 +18,8 @@ class EventType(str, Enum):
     PT_VISIT = "pt_visit"
     IMAGING_STUDY = "imaging_study"  # Was IMAGING_EVENT
     PROCEDURE = "procedure"
+    LAB_RESULT = "lab_result"
+    DISCHARGE = "discharge"
     BILLING_EVENT = "billing_event"
     ER_VISIT = "er_visit"
     HOSPITAL_ADMISSION = "hospital_admission"

@@ -19,16 +19,17 @@ def score_event(event: Event) -> int:
     score = 0
 
     # Date tier contribution
-    if event.date.source == DateSource.TIER1:
-        score += 40
-    elif event.date.source == DateSource.TIER2:
-        score += 25
+    if event.date:
+        if event.date.source == DateSource.TIER1:
+            score += 35
+        elif event.date.source == DateSource.TIER2:
+            score += 20
+        elif event.date.source in (DateSource.PROPAGATED, DateSource.ANCHOR):
+            score += 15
 
-    # Provider confidence (approximation)
+    # Provider confidence
     if event.provider_id and event.provider_id != "unknown":
-        score += 30  # Assume tier1 if identified
-    else:
-        score += 5
+        score += 20
 
     # Encounter type strong cue
     strong_types = {
@@ -36,12 +37,24 @@ def score_event(event: Event) -> int:
         EventType.HOSPITAL_DISCHARGE, EventType.PROCEDURE,
     }
     if event.event_type in strong_types:
-        score += 20
+        score += 15
 
-    # Content anchor present
+    # Content anchors — +5 each, max 15
     anchor_kinds = {FactKind.CHIEF_COMPLAINT, FactKind.ASSESSMENT, FactKind.PLAN, FactKind.IMPRESSION}
-    if any(f.kind in anchor_kinds for f in event.facts):
-        score += 10
+    anchor_count = sum(1 for f in event.facts if f.kind in anchor_kinds)
+    score += min(anchor_count * 5, 15)
+
+    # Fact richness — reward events with ≥3 facts
+    if len(event.facts) >= 3:
+        score += 5
+
+    # Citation coverage — reward events with multiple citations
+    if len(event.citation_ids) >= 2:
+        score += 5
+
+    # Multi-page events are stronger
+    if len(event.source_page_numbers) > 1:
+        score += 5
 
     return min(score, 100)
 

@@ -18,6 +18,17 @@ _RULES: list[tuple[PageType, tuple[str, ...]]] = [
         "impression", "findings", "technique", "radiology", "mri ", " ct ",
         "x-ray", "ultrasound", "imaging", "study date",
     )),
+    (PageType.LAB_REPORT, (
+        "lab results", "complete blood count", "cbc", "cmp", "bmp",
+        "urinalysis", "hemoglobin", "hematocrit", "reference range",
+        "specimen", "collected date", "resulted", "glucose",
+        "platelet", "white blood cell", "wbc", "lipid panel",
+    )),
+    (PageType.DISCHARGE_SUMMARY, (
+        "discharge summary", "hospital course", "discharge diagnosis",
+        "discharge instructions", "final diagnosis", "condition on discharge",
+        "discharge medications", "admission date", "discharge date",
+    )),
     (PageType.BILLING, (
         "statement", "charges", "balance", "total due", "cpt", "hcfa",
         "ub-04", "invoice", "ledger", "amount due", "billing",

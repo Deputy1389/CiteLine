@@ -48,7 +48,11 @@ from apps.worker.steps.step07_events import (
     extract_clinical_events,
     extract_imaging_events,
     extract_pt_events,
+    extract_lab_events,
+    extract_discharge_events,
+    extract_operative_events,
 )
+
 from apps.worker.steps.step08_citations import post_process_citations
 from apps.worker.steps.step09_dedup import deduplicate_events
 from apps.worker.steps.step10_confidence import apply_confidence_scoring, filter_for_export
@@ -197,6 +201,42 @@ def run_pipeline(run_id: str) -> None:
         all_warnings.extend(bill_warns)
         all_skipped.extend(bill_skipped)
 
+        lab_events, lab_cits, lab_warns, lab_skipped = extract_lab_events(all_pages, dates, providers, page_provider_map)
+        all_events.extend(lab_events)
+        all_citations.extend(lab_cits)
+        all_warnings.extend(lab_warns)
+        all_skipped.extend(lab_skipped)
+
+        ds_events, ds_cits, ds_warns, ds_skipped = extract_discharge_events(all_pages, dates, providers, page_provider_map)
+        all_events.extend(ds_events)
+        all_citations.extend(ds_cits)
+        all_warnings.extend(ds_warns)
+        all_skipped.extend(ds_skipped)
+
+        op_events, op_cits, op_warns, op_skipped = extract_operative_events(all_pages, dates, providers, page_provider_map)
+        all_events.extend(op_events)
+        all_citations.extend(op_cits)
+        all_warnings.extend(op_warns)
+        all_skipped.extend(op_skipped)
+
+        lab_events, lab_cits, lab_warns, lab_skipped = extract_lab_events(all_pages, dates, providers, page_provider_map)
+        all_events.extend(lab_events)
+        all_citations.extend(lab_cits)
+        all_warnings.extend(lab_warns)
+        all_skipped.extend(lab_skipped)
+
+        ds_events, ds_cits, ds_warns, ds_skipped = extract_discharge_events(all_pages, dates, providers, page_provider_map)
+        all_events.extend(ds_events)
+        all_citations.extend(ds_cits)
+        all_warnings.extend(ds_warns)
+        all_skipped.extend(ds_skipped)
+
+        op_events, op_cits, op_warns, op_skipped = extract_operative_events(all_pages, dates, providers, page_provider_map)
+        all_events.extend(op_events)
+        all_citations.extend(op_cits)
+        all_warnings.extend(op_warns)
+        all_skipped.extend(op_skipped)
+
         # ── Step 8: Citation post-processing ──────────────────────────
         logger.info(f"[{run_id}] Step 8: Citation capture")
         all_citations, step_warnings = post_process_citations(all_citations)
@@ -229,6 +269,33 @@ def run_pipeline(run_id: str) -> None:
             gaps=gaps,
             skipped_events=all_skipped,
         )
+
+        # ── Extraction metrics ─────────────────────────────────────────
+        page_type_counts: dict[str, int] = {}
+        for p in all_pages:
+            pt = (p.page_type or "other").value if hasattr(p.page_type, "value") else str(p.page_type or "other")
+            page_type_counts[pt] = page_type_counts.get(pt, 0) + 1
+
+        event_type_counts: dict[str, int] = {}
+        for e in all_events:
+            et = e.event_type.value if hasattr(e.event_type, "value") else str(e.event_type)
+            event_type_counts[et] = event_type_counts.get(et, 0) + 1
+
+        evidence_graph.extensions["extraction_metrics"] = {
+            "pages_total": len(all_pages),
+            "pages_classified": page_type_counts,
+            "providers_detected": len(providers),
+            "events_total": len(all_events),
+            "events_by_type": event_type_counts,
+            "events_with_date": sum(1 for e in all_events if e.date),
+            "events_dateless": sum(1 for e in all_events if not e.date),
+            "events_low_confidence": sum(1 for e in all_events if e.confidence < config.event_confidence_min_export),
+            "events_exported": len(export_events),
+            "skipped_events": len(all_skipped),
+            "facts_total": sum(len(e.facts) for e in all_events),
+            "citations_total": len(all_citations),
+        }
+        logger.info(f"[{run_id}] Extraction metrics: {evidence_graph.extensions['extraction_metrics']}")
         # ── Step 14a: Provider normalization + coverage ────────────────
         logger.info(f"[{run_id}] Step 14a: Provider normalization")
         providers_normalized = normalize_provider_entities(evidence_graph)
