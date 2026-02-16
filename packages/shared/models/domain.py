@@ -177,7 +177,7 @@ class Event(BaseModel):
     event_type: EventType
     date: Optional[EventDate] = None
     encounter_type_raw: Optional[str] = None
-    facts: list[Fact] = Field(min_length=1, max_length=30)
+    facts: list[Fact] = Field(default_factory=list, max_length=30)
     diagnoses: list[Fact] = Field(default_factory=list)
     medications: list[Fact] = Field(default_factory=list)
     procedures: list[Fact] = Field(default_factory=list)
@@ -185,8 +185,8 @@ class Event(BaseModel):
     billing: Optional[BillingDetails] = None
     confidence: int = Field(ge=0, le=100)
     flags: list[str] = Field(default_factory=list)
-    citation_ids: list[str] = Field(min_length=1)
-    source_page_numbers: list[int] = Field(min_length=1)
+    citation_ids: list[str] = Field(default_factory=list)
+    source_page_numbers: list[int] = Field(default_factory=list)
 
 
 class EvidenceGraph(BaseModel):

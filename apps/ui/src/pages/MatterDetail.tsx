@@ -23,7 +23,6 @@ export default function MatterDetail() {
     useEffect(() => {
         if (matterId) {
             loadData();
-            // Poll for run updates every 5s if there are pending runs
             const interval = setInterval(checkRuns, 5000);
             return () => clearInterval(interval);
         }
@@ -47,13 +46,9 @@ export default function MatterDetail() {
     };
 
     const checkRuns = async () => {
-        // Optimistic check: only fetch if we know we have actve runs? 
-        // Or just fetch latest runs list to keep UI sync.
-        // Fetching runs list is cheap.
         try {
             if (!matterId) return;
             const r = await getMatterRuns(matterId);
-            // Determine if visual update needed? React handles diff.
             setRuns(r);
         } catch (err) {
             console.error(err);
@@ -86,19 +81,19 @@ export default function MatterDetail() {
         }
     };
 
-    if (loading) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin mr-2" /> Loading...</div>;
-    if (!matter) return <div className="p-8">Matter not found</div>;
+    if (loading) return <div className="container"><Loader2 className="animate-spin mr-2" /> Loading...</div>;
+    if (!matter) return <div className="container">Matter not found</div>;
 
     return (
-        <div className="max-w-6xl mx-auto p-6">
-            <Link to={`/firms/${matter.firm_id}`} className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors">
+        <div className="container">
+            <Link to={`/firms/${matter.firm_id}`} className="text-muted hover:text-white flex items-center gap-2 mb-4" style={{ display: 'inline-flex', marginBottom: '1.5rem' }}>
                 <ArrowLeft size={16} /> Back to Matter List
             </Link>
 
-            <header className="mb-8 border-b border-gray-800 pb-6 flex justify-between items-start">
+            <header className="flex justify-between items-start" style={{ marginBottom: '2rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem' }}>
                 <div>
-                    <h1 className="text-3xl font-bold mb-2">{matter.title}</h1>
-                    <div className="flex gap-4 text-gray-400">
+                    <h1>{matter.title}</h1>
+                    <div className="flex gap-4 text-muted">
                         {matter.client_ref && <span>Ref: {matter.client_ref}</span>}
                         <span>ID: {matter.id.slice(0, 8)}</span>
                     </div>
@@ -106,32 +101,33 @@ export default function MatterDetail() {
                 <button
                     onClick={handleStartRun}
                     disabled={docs.length === 0}
-                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2 shadow-lg hover:shadow-green-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="btn"
+                    style={{ backgroundColor: 'var(--success)', color: 'white' }}
                 >
                     <Play size={20} fill="currentColor" /> Start Analysis
                 </button>
             </header>
 
-            <div className="grid md:grid-cols-[1fr_1.2fr] gap-8">
+            <div className="grid grid-cols-main gap-8">
 
                 {/* Left Column: Documents */}
-                <section className="bg-[#1e1e1e] rounded-xl border border-gray-800 shadow-xl overflow-hidden">
-                    <div className="p-4 border-b border-gray-800 bg-gray-900/50 flex justify-between items-center">
-                        <h2 className="text-lg font-semibold flex items-center gap-2">
-                            <FileText className="text-blue-400" /> Source Documents
+                <section className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h2 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <FileText style={{ color: 'var(--primary)' }} /> Source Documents
                         </h2>
-                        <div className="text-xs font-mono bg-gray-800 px-2 py-1 rounded text-gray-400">
+                        <div className="text-xs font-mono bg-input px-2 py-1 rounded text-muted">
                             {docs.length} Files
                         </div>
                     </div>
 
-                    <div className="p-4 space-y-3 max-h-[500px] overflow-y-auto">
+                    <div style={{ padding: '1rem', maxHeight: '500px', overflowY: 'auto' }}>
                         {docs.map(doc => (
-                            <div key={doc.id} className="bg-gray-800/50 p-3 rounded flex items-center gap-3 border border-gray-700 hover:border-blue-500/50 transition-colors">
-                                <FileText size={20} className="text-gray-500 flex-shrink-0" />
-                                <div className="min-w-0 flex-1">
-                                    <div className="text-sm font-medium truncate" title={doc.filename}>{doc.filename}</div>
-                                    <div className="text-xs text-gray-500 flex gap-3">
+                            <div key={doc.id} className="file-item" style={{ marginBottom: '0.5rem' }}>
+                                <FileText size={20} className="text-muted flex-shrink-0" />
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                    <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={doc.filename}>{doc.filename}</div>
+                                    <div className="text-xs text-muted flex gap-3">
                                         <span>{(doc.bytes / 1024 / 1024).toFixed(2)} MB</span>
                                         <span>{new Date(doc.uploaded_at).toLocaleDateString()}</span>
                                     </div>
@@ -139,24 +135,26 @@ export default function MatterDetail() {
                             </div>
                         ))}
                         {docs.length === 0 && (
-                            <div className="text-center py-8 text-gray-500 border border-dashed border-gray-800 rounded">
+                            <div className="empty-state" style={{ padding: '2rem' }}>
                                 No documents uploaded yet.
                             </div>
                         )}
                     </div>
 
-                    <div className="p-4 border-t border-gray-800 bg-gray-900/30">
+                    <div style={{ padding: '1rem', borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
                         <input
                             type="file"
                             ref={fileInputRef}
                             onChange={handleUpload}
                             className="hidden"
                             accept=".pdf"
+                            style={{ display: 'none' }}
                         />
                         <button
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading}
-                            className="w-full border-2 border-dashed border-gray-700 hover:border-blue-500 bg-gray-800/50 hover:bg-gray-800 text-gray-300 py-4 rounded-lg flex items-center justify-center gap-2 transition-all"
+                            className="btn"
+                            style={{ width: '100%', justifyContent: 'center', border: '2px dashed var(--border)', background: 'transparent' }}
                         >
                             {uploading ? (
                                 <>
@@ -172,38 +170,38 @@ export default function MatterDetail() {
                 </section>
 
                 {/* Right Column: Runs */}
-                <section className="bg-[#1e1e1e] rounded-xl border border-gray-800 shadow-xl overflow-hidden">
-                    <div className="p-4 border-b border-gray-800 bg-gray-900/50 flex justify-between items-center">
-                        <h2 className="text-lg font-semibold flex items-center gap-2">
-                            <RefreshCw className="text-purple-400" /> Run History
+                <section className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h2 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <RefreshCw style={{ color: 'var(--warning)' }} /> Run History
                         </h2>
-                        <button onClick={loadData} className="text-gray-500 hover:text-white" title="Refresh">
+                        <button onClick={loadData} className="text-muted hover:text-white" title="Refresh" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
                             <RefreshCw size={16} />
                         </button>
                     </div>
 
-                    <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
+                    <div style={{ padding: '1rem', maxHeight: '600px', overflowY: 'auto' }}>
                         {runs.map(run => (
-                            <div key={run.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                                <div className="flex justify-between items-start mb-3">
+                            <div key={run.id} className="run-item">
+                                <div className="flex justify-between items-start" style={{ marginBottom: '0.75rem' }}>
                                     <div className="flex items-center gap-2">
-                                        {run.status === 'success' && <CheckCircle className="text-green-500" size={18} />}
-                                        {run.status === 'pending' && <Clock className="text-yellow-500" size={18} />}
-                                        {run.status === 'running' && <Loader2 className="text-blue-500 animate-spin" size={18} />}
-                                        {run.status === 'failed' && <AlertTriangle className="text-red-500" size={18} />}
-                                        <span className="font-semibold capitalize text-gray-200">{run.status}</span>
+                                        {run.status === 'success' && <CheckCircle style={{ color: 'var(--success)' }} size={18} />}
+                                        {run.status === 'pending' && <Clock style={{ color: 'var(--warning)' }} size={18} />}
+                                        {run.status === 'running' && <Loader2 style={{ color: 'var(--primary)' }} className="animate-spin" size={18} />}
+                                        {run.status === 'failed' && <AlertTriangle style={{ color: 'var(--danger)' }} size={18} />}
+                                        <span className="font-semibold capitalize">{run.status}</span>
                                     </div>
-                                    <div className="text-xs text-gray-500 font-mono">
+                                    <div className="text-xs text-muted font-mono">
                                         {new Date(run.started_at || Date.now()).toLocaleString()}
                                     </div>
                                 </div>
 
                                 {run.metrics && (
-                                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-400 mb-3 bg-gray-900/50 p-2 rounded">
-                                        <div>Pages: <span className="text-white">{run.metrics.page_count}</span></div>
-                                        <div>Events: <span className="text-white">{run.metrics.event_count}</span></div>
-                                        <div>Providers: <span className="text-white">{run.metrics.provider_count}</span></div>
-                                        <div>Duration: <span className="text-white">{(run.processing_seconds || 0).toFixed(1)}s</span></div>
+                                    <div className="grid grid-cols-2 gap-2 text-xs text-muted mb-3" style={{ background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '4px' }}>
+                                        <div>Pages: <span className="text-main">{run.metrics.page_count}</span></div>
+                                        <div>Events: <span className="text-main">{run.metrics.event_count}</span></div>
+                                        <div>Providers: <span className="text-main">{run.metrics.provider_count}</span></div>
+                                        <div>Duration: <span className="text-main">{(run.processing_seconds || 0).toFixed(1)}s</span></div>
                                     </div>
                                 )}
 
@@ -212,43 +210,50 @@ export default function MatterDetail() {
                                         <a
                                             href={getArtifactUrl(run.id, 'docx')}
                                             target="_blank"
-                                            className="flex items-center gap-1.5 bg-blue-900/30 hover:bg-blue-900/50 text-blue-300 px-3 py-1.5 rounded text-sm transition-colors border border-blue-900/50"
+                                            className="artifact-link"
+                                            style={{ color: '#93c5fd', borderColor: 'rgba(147, 197, 253, 0.2)' }}
+                                            rel="noreferrer"
                                         >
-                                            <FileText size={14} /> Chronology (DOCX)
+                                            <FileText size={14} /> Docx
                                         </a>
                                         <a
                                             href={getArtifactUrl(run.id, 'specials_summary_pdf')}
                                             target="_blank"
-                                            className="flex items-center gap-1.5 bg-purple-900/30 hover:bg-purple-900/50 text-purple-300 px-3 py-1.5 rounded text-sm transition-colors border border-purple-900/50"
+                                            className="artifact-link"
+                                            style={{ color: '#d8b4fe', borderColor: 'rgba(216, 180, 254, 0.2)' }}
+                                            rel="noreferrer"
                                         >
-                                            <FileText size={14} /> Specials (PDF)
+                                            <FileText size={14} /> PDF
                                         </a>
                                         <a
                                             href={getArtifactUrl(run.id, 'csv')}
                                             target="_blank"
-                                            className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1.5 rounded text-sm transition-colors border border-gray-600"
+                                            className="artifact-link"
+                                            rel="noreferrer"
                                         >
                                             <FileSpreadsheet size={14} /> CSV
                                         </a>
                                         <a
                                             href={getArtifactUrl(run.id, 'missing_records_csv')}
                                             target="_blank"
-                                            className="flex items-center gap-1.5 bg-red-900/20 hover:bg-red-900/40 text-red-300 px-3 py-1.5 rounded text-sm transition-colors border border-red-900/50"
+                                            className="artifact-link"
+                                            style={{ color: '#fca5a5', borderColor: 'rgba(252, 165, 165, 0.2)' }}
+                                            rel="noreferrer"
                                         >
                                             <AlertTriangle size={14} /> Gaps
                                         </a>
                                     </div>
                                 )}
                                 {run.error_message && (
-                                    <div className="mt-2 text-xs text-red-400 bg-red-900/20 p-2 rounded border border-red-900/30">
+                                    <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.1)', padding: '0.5rem', borderRadius: '4px' }}>
                                         Error: {run.error_message}
                                     </div>
                                 )}
                             </div>
                         ))}
                         {runs.length === 0 && (
-                            <div className="text-center py-12 text-gray-500">
-                                No runs yet. Upload documents and click "Start Analysis".
+                            <div className="empty-state" style={{ border: 'none', padding: '1rem' }}>
+                                No runs yet.
                             </div>
                         )}
                     </div>

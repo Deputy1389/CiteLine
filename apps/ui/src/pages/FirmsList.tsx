@@ -36,51 +36,50 @@ export default function FirmsList() {
         }
     };
 
-    if (loading) return <div className="p-8">Loading firms...</div>;
+    if (loading) return <div className="container">Loading firms...</div>;
 
     return (
-        <div className="max-w-4xl mx-auto p-6">
-            <header className="mb-8 flex justify-between items-center">
+        <div className="container">
+            <header className="flex justify-between items-center" style={{ marginBottom: '2rem' }}>
                 <div>
-                    <h1 className="text-3xl font-bold mb-2">Law Firms</h1>
-                    <p className="text-gray-400">Select a firm to view matters</p>
+                    <h1>Law Firms</h1>
+                    <p className="text-muted">Select a firm to view matters</p>
                 </div>
-                <div className="bg-gray-800 p-4 rounded-lg flex items-center gap-2">
-                    <Building2 className="text-blue-400" />
-                    <span className="font-mono text-xl">{firms.length}</span>
+                <div className="card flex items-center gap-2" style={{ padding: '0.5rem 1rem' }}>
+                    <Building2 style={{ color: 'var(--primary)' }} />
+                    <span className="font-mono" style={{ fontSize: '1.25rem' }}>{firms.length}</span>
                 </div>
             </header>
 
-            <div className="grid gap-4 mb-8">
+            <div className="grid gap-4" style={{ marginBottom: '2rem' }}>
                 {firms.map(firm => (
                     <Link
                         key={firm.id}
                         to={`/firms/${firm.id}`}
-                        className="block bg-gray-800 p-6 rounded-lg hover:bg-gray-750 transition-colors border border-gray-700 hover:border-blue-500 group"
+                        className="card flex justify-between items-center"
+                        style={{ textDecoration: 'none' }}
                     >
-                        <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-4">
-                                <div className="bg-blue-900/30 p-3 rounded-full text-blue-400">
-                                    <Building2 size={24} />
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-semibold group-hover:text-blue-400 transition-colors">{firm.name}</h2>
-                                    <code className="text-xs text-gray-500">{firm.id}</code>
-                                </div>
+                        <div className="flex items-center gap-4">
+                            <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '12px', borderRadius: '50%', color: 'var(--primary)' }}>
+                                <Building2 size={24} />
                             </div>
-                            <ArrowRight className="text-gray-600 group-hover:text-blue-400 transition-colors" />
+                            <div>
+                                <h2 style={{ marginBottom: 0, fontSize: '1.25rem' }}>{firm.name}</h2>
+                                <code className="text-muted text-xs">{firm.id}</code>
+                            </div>
                         </div>
+                        <ArrowRight className="text-muted" />
                     </Link>
                 ))}
                 {firms.length === 0 && (
-                    <div className="text-center py-12 text-gray-500 bg-gray-800/50 rounded-lg border border-dashed border-gray-700">
+                    <div className="empty-state">
                         No firms found. Create one to get started.
                     </div>
                 )}
             </div>
 
-            <form onSubmit={handleCreate} className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <form onSubmit={handleCreate} className="card">
+                <h3 className="flex items-center gap-2">
                     <Plus size={20} /> New Firm
                 </h3>
                 <div className="flex gap-4">
@@ -89,11 +88,11 @@ export default function FirmsList() {
                         value={newFirmName}
                         onChange={e => setNewFirmName(e.target.value)}
                         placeholder="e.g. Smith & Associates"
-                        className="flex-1 bg-gray-900 border border-gray-700 rounded px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+                        style={{ flex: 1 }}
                     />
                     <button
                         type="submit"
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-medium disabled:opacity-50"
+                        className="btn btn-primary"
                         disabled={!newFirmName.trim()}
                     >
                         Create

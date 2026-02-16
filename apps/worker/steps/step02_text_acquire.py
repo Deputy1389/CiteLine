@@ -55,7 +55,12 @@ def _ocr_page(pdf_path: str, page_index: int) -> str:
         doc = fitz.open(pdf_path)
         page = doc[page_index]
         # Render at 300 DPI for good OCR quality
-        pix = page.get_pixmap(dpi=300)
+        try:
+            pix = page.get_pixmap(dpi=300)
+        except Exception as exc:
+            logger.error(f"Could not render page {page_index} for OCR: {exc}")
+            doc.close()
+            return ""
         img_data = pix.tobytes("png")
         doc.close()
 

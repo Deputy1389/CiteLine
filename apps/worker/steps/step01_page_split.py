@@ -56,7 +56,18 @@ def split_pages(
     for i in range(limit):
         fitz_page = doc[i]
         page_number = page_offset + i + 1
-        text = fitz_page.get_text("text") or ""
+        try:
+            text = fitz_page.get_text("text") or ""
+        except Exception as exc:
+            # Some PDFs have font metadata PyMuPDF can't parse
+            # (e.g. textfont.LAID). Fall back to empty text → OCR in step02.
+            text = ""
+            warnings.append(Warning(
+                code="TEXT_EXTRACT_ERROR",
+                message=f"Page {page_number}: embedded text extraction failed ({exc})",
+                page=page_number,
+                document_id=source_document_id,
+            ))
         rect = fitz_page.rect
 
         layout = PageLayout(

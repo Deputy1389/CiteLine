@@ -61,6 +61,9 @@ class FactKind(str, Enum):
     PROCEDURE_NOTE = "procedure_note"
     BILLING_ITEM = "billing_item"
     RESTRICTION = "restriction"
+    LAB = "lab"
+    PROCEDURE = "procedure"
+    PROVIDER = "provider"
     OTHER = "other"
 
 

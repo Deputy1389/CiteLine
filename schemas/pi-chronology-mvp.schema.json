@@ -461,7 +461,7 @@
     },
     "EvidenceGraph": {
       "type": "object",
-      "additionalProperties": false,
+      "additionalProperties": true,
       "required": [
         "documents",
         "pages",
@@ -506,12 +506,21 @@
           "items": {
             "$ref": "#/$defs/Gap"
           }
+        },
+        "skipped_events": {
+          "type": "array"
+        },
+        "schema_version": {
+          "type": "string"
+        },
+        "extensions": {
+          "type": "object"
         }
       }
     },
     "Document": {
       "type": "object",
-      "additionalProperties": false,
+      "additionalProperties": true,
       "required": [
         "document_id",
         "source_document_id",
@@ -595,6 +604,7 @@
         "pt_note",
         "billing",
         "lab_report",
+        "discharge_summary",
         "administrative",
         "other"
       ]
@@ -640,7 +650,7 @@
     },
     "PageLayout": {
       "type": "object",
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "width": {
           "type": "number",
@@ -699,6 +709,7 @@
             "specialist",
             "pcp",
             "hospital",
+            "physician",
             "unknown"
           ]
         },
@@ -740,15 +751,12 @@
     },
     "Event": {
       "type": "object",
-      "additionalProperties": false,
+      "additionalProperties": true,
       "required": [
         "event_id",
         "provider_id",
         "event_type",
-        "date",
         "confidence",
-        "facts",
-        "citation_ids",
         "source_page_numbers"
       ],
       "properties": {
@@ -765,13 +773,15 @@
           "$ref": "#/$defs/EventDate"
         },
         "encounter_type_raw": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "maxLength": 120
         },
         "facts": {
           "type": "array",
-          "minItems": 1,
-          "maxItems": 10,
+          "maxItems": 30,
           "items": {
             "$ref": "#/$defs/Fact"
           }
@@ -832,14 +842,12 @@
         },
         "citation_ids": {
           "type": "array",
-          "minItems": 1,
           "items": {
             "type": "string"
           }
         },
         "source_page_numbers": {
           "type": "array",
-          "minItems": 1,
           "items": {
             "type": "integer",
             "minimum": 1
@@ -859,12 +867,15 @@
         "hospital_discharge",
         "work_status",
         "billing_event",
-        "administrative"
+        "administrative",
+        "lab_result",
+        "discharge",
+        "other_event"
       ]
     },
     "EventDate": {
       "type": "object",
-      "additionalProperties": false,
+      "additionalProperties": true,
       "required": [
         "kind",
         "value",
@@ -901,14 +912,25 @@
                   "format": "date"
                 }
               }
+            },
+            {
+              "type": "null"
             }
+          ]
+        },
+        "relative_day": {
+          "type": [
+            "integer",
+            "null"
           ]
         },
         "source": {
           "type": "string",
           "enum": [
             "tier1",
-            "tier2"
+            "tier2",
+            "propagated",
+            "anchor"
           ]
         },
         "label": {
@@ -942,6 +964,12 @@
             "impression",
             "restriction",
             "medication",
+            "diagnosis",
+            "procedure_note",
+            "billing_item",
+            "lab",
+            "procedure",
+            "provider",
             "other"
           ]
         },
@@ -1177,7 +1205,7 @@
         },
         "exports": {
           "type": "object",
-          "additionalProperties": false,
+          "additionalProperties": true,
           "required": [
             "pdf",
             "csv"
@@ -1188,6 +1216,16 @@
             },
             "csv": {
               "$ref": "#/$defs/ArtifactRef"
+            },
+            "docx": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/ArtifactRef"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "json_export": {
               "oneOf": [

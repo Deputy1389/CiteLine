@@ -79,10 +79,10 @@ def extract_lab_events(
                 citations.append(cit)
                 facts.append(_make_fact("Lab report content", FactKind.LAB, cit.citation_id))
         
-        if not facts and not event_date:
+        if not facts:
             skipped.append(SkippedEvent(
                 page_numbers=[page.page_number],
-                reason_code="NO_FACTS_OR_DATE",
+                reason_code="NO_FACTS",
                 snippet=page.text[:100]
             ))
             continue

@@ -7,12 +7,12 @@ import { LayoutDashboard } from 'lucide-react';
 function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-[#1a1a1a] text-gray-100 font-sans">
-        <nav className="border-b border-gray-800 bg-[#242424] sticky top-0 z-10">
-          <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-3 text-xl font-bold tracking-tight hover:text-blue-400 transition-colors">
-              <div className="bg-blue-600 p-1.5 rounded">
-                <LayoutDashboard size={20} className="text-white" />
+      <div className="app-root">
+        <nav className="nav-header">
+          <div className="container" style={{ padding: '0 2rem', height: '64px', display: 'flex', alignItems: 'center' }}>
+            <Link to="/" className="flex items-center gap-2" style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
+              <div style={{ background: 'var(--primary)', padding: '6px', borderRadius: '4px', display: 'flex' }}>
+                <LayoutDashboard size={20} color="white" />
               </div>
               CiteLine
             </Link>

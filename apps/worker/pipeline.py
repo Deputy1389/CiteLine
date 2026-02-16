@@ -404,6 +404,8 @@ def run_pipeline(run_id: str) -> None:
                     message=err[:500],
                 ))
             logger.warning(f"[{run_id}] Schema validation failed with {len(errors)} errors")
+            for i, err in enumerate(errors):
+                logger.warning(f"[{run_id}] SCHEMA_ERR[{i}]: {err[:300]}")
 
         # ── Persist results ───────────────────────────────────────────
         with get_session() as session:
