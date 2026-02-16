@@ -142,3 +142,102 @@ class TestIsBillingText:
     def test_minimal_billing(self):
         text = "Statement date: EOB attached"
         assert is_billing_text(text) is True
+
+
+# ── Provider header extraction ────────────────────────────────────────────
+
+
+class TestExtractProviderFromHeader:
+    def test_billed_by_prefix(self):
+        from apps.worker.lib.billing_extract import extract_provider_from_header
+        text = "Billed by: ABC Medical Group\nAccount: 12345\n$500.00"
+        assert extract_provider_from_header(text) == "ABC Medical Group"
+
+    def test_facility_pattern(self):
+        from apps.worker.lib.billing_extract import extract_provider_from_header
+        text = "Springfield General Hospital\n123 Main St\nDate: 01/15/2024\n$200.00"
+        result = extract_provider_from_header(text)
+        assert result is not None
+        assert "Hospital" in result
+
+    def test_doctor_with_credentials(self):
+        from apps.worker.lib.billing_extract import extract_provider_from_header
+        text = "Dr. John Smith, M.D.\nSpecialty: Orthopedics\n$300.00"
+        result = extract_provider_from_header(text)
+        assert result is not None
+        assert "Smith" in result
+
+    def test_no_provider_found(self):
+        from apps.worker.lib.billing_extract import extract_provider_from_header
+        text = "$100.00\n$200.00\n$300.00"
+        assert extract_provider_from_header(text) is None
+
+    def test_max_lines_limit(self):
+        from apps.worker.lib.billing_extract import extract_provider_from_header
+        # Provider after max_lines should not be found
+        lines = ["line " + str(i) for i in range(15)]
+        lines.append("Billed by: Late Provider")
+        text = "\n".join(lines)
+        assert extract_provider_from_header(text, max_lines=8) is None
+
+
+# ── Table parsing ─────────────────────────────────────────────────────────
+
+
+class TestParseBillingTable:
+    def test_simple_table(self):
+        from apps.worker.lib.billing_extract import parse_billing_table
+        text = (
+            "Description         Charges\n"
+            "Office Visit 99213  $150.00\n"
+            "Lab Work            $75.00\n"
+            "X-Ray               $200.00\n"
+        )
+        items = parse_billing_table(text)
+        assert len(items) >= 1
+        # Check amounts were extracted
+        all_amounts = [a for item in items for a in item["amounts"]]
+        assert any(abs(a - 150.0) < 0.01 for a in all_amounts)
+
+    def test_no_table_structure(self):
+        from apps.worker.lib.billing_extract import parse_billing_table
+        text = "Some plain text without any dollar amounts."
+        items = parse_billing_table(text)
+        assert items == []
+
+    def test_short_text_returns_empty(self):
+        from apps.worker.lib.billing_extract import parse_billing_table
+        text = "$100.00"
+        items = parse_billing_table(text)
+        assert items == []
+
+    def test_multi_line_entry(self):
+        from apps.worker.lib.billing_extract import parse_billing_table
+        text = (
+            "Office Visit\n"
+            "Level 4 Follow-up\n"
+            "99214                $250.00\n"
+            "\n"
+            "Lab CBC              $45.00\n"
+        )
+        items = parse_billing_table(text)
+        # Should have at least one item with code 99214
+        codes_found = [c for item in items for c in item["codes"]]
+        assert "99214" in codes_found
+
+
+# ── Extended amount type classification ───────────────────────────────────
+
+
+class TestExtendedAmountTypes:
+    def test_insurance_paid(self):
+        assert classify_amount_type("Insurance Paid: $300") == "payment"
+
+    def test_net_due(self):
+        assert classify_amount_type("Net Due: $75") == "balance"
+
+    def test_net_balance(self):
+        assert classify_amount_type("Net Balance: $120") == "balance"
+
+    def test_patient_balance(self):
+        assert classify_amount_type("Patient Balance: $50") == "balance"

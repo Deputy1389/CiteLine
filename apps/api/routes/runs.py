@@ -113,11 +113,11 @@ def get_run(run_id: str, db: Session = Depends(get_db)):
 def download_artifact(run_id: str, artifact_type: str, db: Session = Depends(get_db)):
     """Download a run artifact."""
     valid_types = [
-        "pdf", "csv", "json",
+        "pdf", "csv", "json", "docx",
         "provider_directory_csv", "provider_directory_json",
         "missing_records_csv", "missing_records_json",
         "billing_lines_csv", "billing_lines_json",
-        "specials_summary_csv", "specials_summary_json",
+        "specials_summary_csv", "specials_summary_json", "specials_summary_pdf",
     ]
     if artifact_type not in valid_types:
         raise HTTPException(status_code=400, detail="Invalid artifact type")

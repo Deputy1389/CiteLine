@@ -21,8 +21,10 @@ from apps.worker.lib.billing_extract import (
     classify_amount_type,
     extract_billing_date,
     extract_codes,
+    extract_provider_from_header,
     is_billing_text,
     parse_amounts,
+    parse_billing_table,
 )
 
 
@@ -67,49 +69,82 @@ def extract_billing_lines(
             if c.page_number == page.page_number
         ]
 
-        for line_text in text_lines:
-            amounts = parse_amounts(line_text)
-            if not amounts:
-                continue
+        # Try to resolve provider from page header if not already mapped
+        provider_norm = page_to_provider.get(page.page_number)
+        if not provider_norm:
+            header_provider = extract_provider_from_header(text)
+            if header_provider:
+                provider_norm = header_provider
 
-            # Extract codes and date for this line
-            codes = extract_codes(line_text)
-            service_date = extract_billing_date(line_text)
-            amount_type = classify_amount_type(line_text)
+        flags_base = []
+        if not provider_norm:
+            flags_base.append("PROVIDER_UNRESOLVED")
 
-            # Try to get description (text before first $ or amount)
-            description = line_text.strip()
-            if len(description) > 200:
-                description = description[:200]
+        # Try table-aware parsing first
+        table_items = parse_billing_table(text)
+        if table_items:
+            for item in table_items:
+                for amount_val in item["amounts"]:
+                    actual_amount = amount_val
+                    actual_type = item["amount_type"]
+                    if actual_amount < 0 and actual_type == "unknown":
+                        actual_type = "payment"
+                        actual_amount = abs(actual_amount)
 
-            provider_norm = page_to_provider.get(page.page_number)
-            flags = []
-            if not provider_norm:
-                flags.append("PROVIDER_UNRESOLVED")
+                    lines.append({
+                        "id": uuid.uuid4().hex[:16],
+                        "provider_entity_id": provider_norm,
+                        "service_date": item["service_date"].isoformat() if item["service_date"] else None,
+                        "post_date": None,
+                        "description": item["description"],
+                        "code": item["codes"][0] if item["codes"] else None,
+                        "units": None,
+                        "amount": f"{actual_amount:.2f}",
+                        "amount_type": actual_type,
+                        "source_page_numbers": [page.page_number],
+                        "source_document_id": page.source_document_id,
+                        "citation_ids": sorted(page_cits[:3]),
+                        "confidence": 0.7 if item["codes"] else 0.5,
+                        "flags": list(flags_base),
+                    })
+        else:
+            # Fallback: line-by-line parsing
+            for line_text in text_lines:
+                amounts = parse_amounts(line_text)
+                if not amounts:
+                    continue
 
-            for amount_val, _, _ in amounts:
-                # Normalize sign for payment bucket
-                actual_amount = amount_val
-                actual_type = amount_type
-                if actual_amount < 0 and actual_type == "unknown":
-                    actual_type = "payment"
-                    actual_amount = abs(actual_amount)
+                codes = extract_codes(line_text)
+                service_date = extract_billing_date(line_text)
+                amount_type = classify_amount_type(line_text)
 
-                lines.append({
-                    "id": uuid.uuid4().hex[:16],
-                    "provider_entity_id": provider_norm,
-                    "service_date": service_date.isoformat() if service_date else None,
-                    "post_date": None,  # Not reliably extractable
-                    "description": description,
-                    "code": codes[0] if codes else None,
-                    "units": None,
-                    "amount": f"{actual_amount:.2f}",
-                    "amount_type": actual_type,
-                    "source_page_numbers": [page.page_number],
-                    "citation_ids": sorted(page_cits[:3]),
-                    "confidence": 0.7 if codes else 0.5,
-                    "flags": flags,
-                })
+                description = line_text.strip()
+                if len(description) > 200:
+                    description = description[:200]
+
+                for amount_val, _, _ in amounts:
+                    actual_amount = amount_val
+                    actual_type = amount_type
+                    if actual_amount < 0 and actual_type == "unknown":
+                        actual_type = "payment"
+                        actual_amount = abs(actual_amount)
+
+                    lines.append({
+                        "id": uuid.uuid4().hex[:16],
+                        "provider_entity_id": provider_norm,
+                        "service_date": service_date.isoformat() if service_date else None,
+                        "post_date": None,
+                        "description": description,
+                        "code": codes[0] if codes else None,
+                        "units": None,
+                        "amount": f"{actual_amount:.2f}",
+                        "amount_type": actual_type,
+                        "source_page_numbers": [page.page_number],
+                        "source_document_id": page.source_document_id,
+                        "citation_ids": sorted(page_cits[:3]),
+                        "confidence": 0.7 if codes else 0.5,
+                        "flags": list(flags_base),
+                    })
 
     # Stable sort: service_date, provider, amount, page
     lines.sort(key=lambda l: (
@@ -131,7 +166,7 @@ def extract_billing_lines(
 _CSV_COLUMNS = [
     "id", "provider_entity_id", "service_date", "post_date",
     "description", "code", "units", "amount", "amount_type",
-    "source_page_numbers", "citation_ids", "confidence", "flags",
+    "source_page_numbers", "source_document_id", "citation_ids", "confidence", "flags",
 ]
 
 

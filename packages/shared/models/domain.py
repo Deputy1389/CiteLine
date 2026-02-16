@@ -210,6 +210,7 @@ class ArtifactRef(BaseModel):
 class ChronologyExports(BaseModel):
     pdf: ArtifactRef
     csv: ArtifactRef
+    docx: Optional[ArtifactRef] = None
     json_export: Optional[ArtifactRef] = Field(default=None, alias="json")
 
 

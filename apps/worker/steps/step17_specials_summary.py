@@ -220,6 +220,16 @@ def compute_specials_summary(
 
 # ── Artifact rendering ───────────────────────────────────────────────────
 
+import io
+from decimal import Decimal
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import LETTER
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import (
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
+)
+
 _CSV_COLUMNS = [
     "provider_display_name", "provider_entity_id",
     "charges", "payments", "adjustments", "balance",
@@ -228,25 +238,205 @@ _CSV_COLUMNS = [
 
 
 def generate_specials_csv(summary: dict) -> bytes:
-    buf = io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=_CSV_COLUMNS, extrasaction="ignore")
+    buf_s = io.StringIO()
+    writer = csv.DictWriter(buf_s, fieldnames=_CSV_COLUMNS, extrasaction="ignore")
     writer.writeheader()
     for provider in summary.get("by_provider", []):
         row = dict(provider)
         row["flags"] = ";".join(row.get("flags", []))
         writer.writerow(row)
-    return buf.getvalue().encode("utf-8")
+    return buf_s.getvalue().encode("utf-8")
 
 
 def generate_specials_json(summary: dict) -> bytes:
     return json.dumps(summary, indent=2, default=str).encode("utf-8")
 
 
+def generate_specials_pdf(
+    summary: dict,
+    matter_title: str = "Specials Summary",
+) -> bytes:
+    """
+    Generate a formatted PDF report for the Specials Summary.
+
+    Includes:
+    - Title page with matter name and date range
+    - Summary totals table
+    - Per-provider breakdown table
+    - Flags and confidence section
+    - Disclaimer
+    """
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=LETTER,
+        leftMargin=0.75 * inch,
+        rightMargin=0.75 * inch,
+        topMargin=0.75 * inch,
+        bottomMargin=0.75 * inch,
+    )
+    styles = getSampleStyleSheet()
+    story = []
+
+    # ── Title ─────────────────────────────────────────────────────────
+    title_style = ParagraphStyle(
+        "SpecialsTitle", parent=styles["Title"],
+        fontSize=18, textColor=colors.HexColor("#2C3E50"),
+    )
+    story.append(Paragraph(f"{matter_title} — Specials Summary", title_style))
+    story.append(Spacer(1, 12))
+
+    # Coverage subtitle
+    coverage = summary.get("coverage", {})
+    earliest = coverage.get("earliest_service_date") or "N/A"
+    latest = coverage.get("latest_service_date") or "N/A"
+    billing_pages = coverage.get("billing_pages_count", 0)
+    sub_text = f"Date Range: {earliest} to {latest} &nbsp;|&nbsp; Billing Pages: {billing_pages}"
+    story.append(Paragraph(sub_text, styles["Normal"]))
+    story.append(Spacer(1, 20))
+
+    # ── Summary Totals Table ──────────────────────────────────────────
+    header_style = ParagraphStyle(
+        "TblHeader", parent=styles["Normal"],
+        fontSize=10, textColor=colors.white,
+    )
+    cell_style = ParagraphStyle(
+        "TblCell", parent=styles["Normal"], fontSize=10,
+    )
+
+    totals = summary.get("totals", {})
+    totals_data = [
+        [Paragraph("<b>Metric</b>", header_style),
+         Paragraph("<b>Amount</b>", header_style)],
+        [Paragraph("Total Charges", cell_style),
+         Paragraph(f"${totals.get('total_charges', '0.00')}", cell_style)],
+    ]
+    if totals.get("total_payments") is not None:
+        totals_data.append([
+            Paragraph("Total Payments", cell_style),
+            Paragraph(f"${totals['total_payments']}", cell_style),
+        ])
+    if totals.get("total_adjustments") is not None:
+        totals_data.append([
+            Paragraph("Total Adjustments", cell_style),
+            Paragraph(f"${totals['total_adjustments']}", cell_style),
+        ])
+    if totals.get("total_balance") is not None:
+        totals_data.append([
+            Paragraph("Total Balance", cell_style),
+            Paragraph(f"${totals['total_balance']}", cell_style),
+        ])
+
+    t = Table(totals_data, colWidths=[3.0 * inch, 2.5 * inch])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8F9FA")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(Paragraph("<b>Summary Totals</b>", styles["Heading2"]))
+    story.append(Spacer(1, 6))
+    story.append(t)
+    story.append(Spacer(1, 20))
+
+    # ── Per-Provider Breakdown ────────────────────────────────────────
+    by_provider = summary.get("by_provider", [])
+    if by_provider:
+        story.append(Paragraph("<b>Per-Provider Breakdown</b>", styles["Heading2"]))
+        story.append(Spacer(1, 6))
+
+        prov_header = [
+            Paragraph("<b>Provider</b>", header_style),
+            Paragraph("<b>Charges</b>", header_style),
+            Paragraph("<b>Payments</b>", header_style),
+            Paragraph("<b>Adj.</b>", header_style),
+            Paragraph("<b>Balance</b>", header_style),
+            Paragraph("<b>Lines</b>", header_style),
+            Paragraph("<b>Conf.</b>", header_style),
+        ]
+        prov_data = [prov_header]
+
+        for prov in by_provider:
+            prov_data.append([
+                Paragraph(prov.get("provider_display_name", "Unknown"), cell_style),
+                Paragraph(f"${prov.get('charges', '0.00')}", cell_style),
+                Paragraph(f"${prov.get('payments', '0.00')}" if prov.get("payments") else "—", cell_style),
+                Paragraph(f"${prov.get('adjustments', '0.00')}" if prov.get("adjustments") else "—", cell_style),
+                Paragraph(f"${prov.get('balance', '0.00')}" if prov.get("balance") else "—", cell_style),
+                Paragraph(str(prov.get("line_count", 0)), cell_style),
+                Paragraph(f"{prov.get('confidence', 0):.0%}", cell_style),
+            ])
+
+        pt = Table(prov_data, colWidths=[
+            2.0 * inch, 1.0 * inch, 1.0 * inch, 0.8 * inch,
+            1.0 * inch, 0.6 * inch, 0.6 * inch,
+        ], repeatRows=1)
+        pt.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTSIZE", (0, 0), (-1, 0), 9),
+            ("FONTSIZE", (0, 1), (-1, -1), 9),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8F9FA")]),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(pt)
+        story.append(Spacer(1, 20))
+
+    # ── Flags ─────────────────────────────────────────────────────────
+    flags = summary.get("flags", [])
+    if flags:
+        story.append(Paragraph("<b>Flags &amp; Notes</b>", styles["Heading2"]))
+        story.append(Spacer(1, 6))
+        flag_labels = {
+            "NO_BILLING_DATA": "⚠ No billing data found in documents.",
+            "MISSING_EOB_DATA": "⚠ No Explanation of Benefits (EOB) / payment data found.",
+            "PARTIAL_BILLING_ONLY": "⚠ Only charge data found; no adjustments or write-offs.",
+        }
+        for flag in flags:
+            label = flag_labels.get(flag, f"⚠ {flag}")
+            story.append(Paragraph(label, styles["Normal"]))
+        story.append(Spacer(1, 12))
+
+    # ── Dedup & Confidence ────────────────────────────────────────────
+    dedupe = summary.get("dedupe", {})
+    overall_conf = summary.get("confidence", 0)
+    meta_text = (
+        f"Deduplication: {dedupe.get('lines_deduped', 0)} unique lines from "
+        f"{dedupe.get('lines_raw', 0)} raw lines (strategy: {dedupe.get('strategy', 'keyed_hash')}). "
+        f"Overall Confidence: {overall_conf:.0%}"
+    )
+    story.append(Paragraph(meta_text, styles["Normal"]))
+    story.append(Spacer(1, 20))
+
+    # ── Disclaimer ────────────────────────────────────────────────────
+    disclaimer_style = ParagraphStyle(
+        "Disclaimer", parent=styles["Normal"],
+        fontSize=8, textColor=colors.HexColor("#7F8C8D"),
+        leading=10,
+    )
+    story.append(Paragraph(
+        "This summary was generated by CiteLine from machine-extracted billing data. "
+        "Amounts should be verified against original source documents. "
+        "This summary is not a substitute for professional review.",
+        disclaimer_style,
+    ))
+
+    doc.build(story)
+    return buf.getvalue()
+
+
 def render_specials_summary(
     run_id: str,
     summary: dict,
-) -> tuple[Optional[ArtifactRef], Optional[ArtifactRef]]:
-    """Save specials_summary artifacts."""
+    matter_title: str = "Specials Summary",
+) -> tuple[Optional[ArtifactRef], Optional[ArtifactRef], Optional[ArtifactRef]]:
+    """Save specials_summary artifacts (CSV, JSON, PDF)."""
     csv_bytes = generate_specials_csv(summary)
     csv_path = save_artifact(run_id, "specials_summary.csv", csv_bytes)
     csv_sha = hashlib.sha256(csv_bytes).hexdigest()
@@ -257,4 +447,9 @@ def render_specials_summary(
     json_sha = hashlib.sha256(json_bytes).hexdigest()
     json_ref = ArtifactRef(uri=str(json_path), sha256=json_sha, bytes=len(json_bytes))
 
-    return csv_ref, json_ref
+    pdf_bytes = generate_specials_pdf(summary, matter_title)
+    pdf_path = save_artifact(run_id, "specials_summary.pdf", pdf_bytes)
+    pdf_sha = hashlib.sha256(pdf_bytes).hexdigest()
+    pdf_ref = ArtifactRef(uri=str(pdf_path), sha256=pdf_sha, bytes=len(pdf_bytes))
+
+    return csv_ref, json_ref, pdf_ref

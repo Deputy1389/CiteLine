@@ -208,3 +208,70 @@ class TestComputeSpecialsSummary:
         assert summary["dedupe"]["lines_deduped"] == 1
         # Only one line after dedupe, so charges = 150 not 300
         assert Decimal(summary["totals"]["total_charges"]) == Decimal("150.00")
+
+
+# ── PDF generation ────────────────────────────────────────────────────────
+
+
+class TestGenerateSpecialsPdf:
+    def _sample_summary(self):
+        return {
+            "totals": {
+                "total_charges": "350.00",
+                "total_payments": "50.00",
+                "total_adjustments": None,
+                "total_balance": None,
+            },
+            "by_provider": [{
+                "provider_entity_id": "dr smith",
+                "provider_display_name": "Dr. Smith, MD",
+                "charges": "350.00",
+                "payments": "50.00",
+                "adjustments": None,
+                "balance": None,
+                "line_count": 3,
+                "confidence": 0.7,
+                "flags": [],
+                "citation_ids_sample": ["c1", "c2"],
+            }],
+            "coverage": {
+                "earliest_service_date": "2024-01-15",
+                "latest_service_date": "2024-02-15",
+                "billing_pages_count": 2,
+            },
+            "dedupe": {
+                "strategy": "keyed_hash",
+                "lines_raw": 3,
+                "lines_deduped": 3,
+            },
+            "confidence": 0.7,
+            "flags": ["MISSING_EOB_DATA"],
+        }
+
+    def test_pdf_bytes_produced(self):
+        from apps.worker.steps.step17_specials_summary import generate_specials_pdf
+        pdf_bytes = generate_specials_pdf(self._sample_summary())
+        assert len(pdf_bytes) > 100
+        assert pdf_bytes[:5] == b"%PDF-"
+
+    def test_pdf_with_matter_title(self):
+        from apps.worker.steps.step17_specials_summary import generate_specials_pdf
+        pdf_bytes = generate_specials_pdf(self._sample_summary(), matter_title="Smith v Jones")
+        assert len(pdf_bytes) > 100
+
+    def test_pdf_empty_summary(self):
+        from apps.worker.steps.step17_specials_summary import generate_specials_pdf
+        empty_summary = {
+            "totals": {"total_charges": "0.00", "total_payments": None,
+                       "total_adjustments": None, "total_balance": None},
+            "by_provider": [],
+            "coverage": {"earliest_service_date": None,
+                         "latest_service_date": None,
+                         "billing_pages_count": 0},
+            "dedupe": {"strategy": "keyed_hash", "lines_raw": 0, "lines_deduped": 0},
+            "confidence": 0.0,
+            "flags": ["NO_BILLING_DATA"],
+        }
+        pdf_bytes = generate_specials_pdf(empty_summary)
+        assert len(pdf_bytes) > 100
+        assert pdf_bytes[:5] == b"%PDF-"

@@ -219,24 +219,6 @@ def run_pipeline(run_id: str) -> None:
         all_warnings.extend(op_warns)
         all_skipped.extend(op_skipped)
 
-        lab_events, lab_cits, lab_warns, lab_skipped = extract_lab_events(all_pages, dates, providers, page_provider_map)
-        all_events.extend(lab_events)
-        all_citations.extend(lab_cits)
-        all_warnings.extend(lab_warns)
-        all_skipped.extend(lab_skipped)
-
-        ds_events, ds_cits, ds_warns, ds_skipped = extract_discharge_events(all_pages, dates, providers, page_provider_map)
-        all_events.extend(ds_events)
-        all_citations.extend(ds_cits)
-        all_warnings.extend(ds_warns)
-        all_skipped.extend(ds_skipped)
-
-        op_events, op_cits, op_warns, op_skipped = extract_operative_events(all_pages, dates, providers, page_provider_map)
-        all_events.extend(op_events)
-        all_citations.extend(op_cits)
-        all_warnings.extend(op_warns)
-        all_skipped.extend(op_skipped)
-
         # ── Step 8: Citation post-processing ──────────────────────────
         logger.info(f"[{run_id}] Step 8: Citation capture")
         all_citations, step_warnings = post_process_citations(all_citations)
@@ -323,7 +305,7 @@ def run_pipeline(run_id: str) -> None:
         logger.info(f"[{run_id}] Step 17: Specials summary")
         specials_payload = compute_specials_summary(billing_lines_payload, providers_normalized)
         evidence_graph.extensions["specials_summary"] = specials_payload
-        ss_csv_ref, ss_json_ref = render_specials_summary(run_id, specials_payload)
+        ss_csv_ref, ss_json_ref, ss_pdf_ref = render_specials_summary(run_id, specials_payload, matter_title)
 
         # ── Step 12: Export rendering ─────────────────────────────────
         logger.info(f"[{run_id}] Step 12: Export rendering")
@@ -338,9 +320,36 @@ def run_pipeline(run_id: str) -> None:
         )
 
         # Temporary chronology output (will be replaced after rendering)
+        # Build page map for explicit provenance in exports
+        page_map: dict[int, tuple[str, int]] = {}
+        doc_filename_map = {d.document_id: d.filename for d in source_documents}
+        
+        # We assume all_pages is ordered by document as constructed in Steps 1-2
+        # Use a robust way: group pages by doc_id, sort, then assign local numbers?
+        # Or simplistic iteration if we trust the order?
+        # Trusting order is fine for now, but let's be robust against non-contiguous pages if that ever happens.
+        # Actually, split_pages returns sequential pages. pipeline appends them.
+        # So simplistic iteration with doc_id check is fine.
+        
+        # Reset per document
+        _current_doc_id = None
+        _local_page_counter = 0
+        
+        # Sort all_pages by page_number just in case? 
+        # They should be sorted by global page number already.
+        for p in all_pages:
+            if p.source_document_id != _current_doc_id:
+                _current_doc_id = p.source_document_id
+                _local_page_counter = 0
+            _local_page_counter += 1
+            
+            fname = doc_filename_map.get(p.source_document_id, "Unknown.pdf")
+            page_map[p.page_number] = (fname, _local_page_counter)
+
         # First render exports
         chronology = render_exports(
-            run_id, matter_title, export_events, gaps, providers, {}
+            run_id, matter_title, export_events, gaps, providers,
+            page_map=page_map,
         )
 
         # ── Step 13: Run receipt ──────────────────────────────────────
