@@ -71,6 +71,9 @@ PRIORITY_MAP = {
     EventType.OFFICE_VISIT: 1,
 }
 
+# Some lines are just Time: "1900"
+TIME_ONLY_RE = re.compile(r"^\s*(\d{3,4})\s*$")
+
 def extract_clinical_events(
     pages: list[Page],
     dates: dict[int, list[EventDate]],
@@ -128,6 +131,39 @@ def extract_clinical_events(
 
     return events, citations, warnings, skipped
 
+    return events, citations
+
+def _is_admin_line(text: str) -> bool:
+    """Check if line is a header, signature, or template label."""
+    n = text.lower().strip()
+    
+    # 1. Exact or starts-with template labels
+    prefixes = (
+        "patient name:", "mrn:", "doctor name:", "dob:", 
+        "chart materials", "simulation", "nurse signatures", 
+        "medication administration record", "vital signs record",
+        "nursing assessment flowsheet", "physician’s orders",
+        "physician's orders", "page "
+    )
+    if n.startswith(prefixes):
+        # Exception for real orders
+        if "physician" in n and ("admit" in n or "discharge" in n):
+            return False
+        return True
+        
+    return False
+
+def _is_eventworthy(text: str) -> bool:
+    """Check if line contains clinical signal words."""
+    n = text.lower()
+    keywords = (
+        "pain", "c/o", "complained", "vomit", "emesis", "nause", 
+        "cough", "ambulat", "discharg", "admit", "admission",
+        "orders received", "repositioned", "medicated", "ate", "denies",
+        "evaluated", "seen by", "stable", "distress", "noted"
+    )
+    return any(k in n for k in keywords)
+
 def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Event], list[Citation]]:
     """Scan block for flowsheet rows with date context."""
     events: list[Event] = []
@@ -136,26 +172,23 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
     current_month: int | None = None
     current_day: int | None = None
     
-    # Initialize from block primary date if available (Handling split blocks)
+    # Initialize from block primary date
     if block.primary_date:
-         # Check for partial date extensions first
          ext = block.primary_date.extensions or {}
          if ext.get("partial_month") and ext.get("partial_day"):
              current_month = int(ext["partial_month"])
              current_day = int(ext["partial_day"])
          elif block.primary_date.value:
-             # Full date
              d = block.primary_date.value
              if isinstance(d, date):
                  current_month = d.month
                  current_day = d.day
-             # date range?
              elif hasattr(d, "start"):
                   current_month = d.start.month
                   current_day = d.start.day
 
-    # Track the last event created to handle facts split across lines
     last_event: Event | None = None
+    pending_time: str | None = None
     
     for page in block.pages:
         lines = page.text.splitlines()
@@ -163,82 +196,78 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
             line = line.strip()
             if not line: continue
             
-            # 1. Check for standalone date line "9/24" or "9/24/2016"
-            # Support 1-2 digit month, 1-2 digit day
-            m = DATE_LINE_RE.match(line)
-            if m:
-                current_month = int(m.group(1))
-                current_day = int(m.group(2))
-                last_event = None
-                continue
-            
-            # 2. Check for date+time+text "9/24 1600 ..."
-            m = DATE_TIME_TEXT_RE.match(line)
-            if m:
-                current_month = int(m.group(1))
-                current_day = int(m.group(2))
-                hhmm = m.group(3)
-                text = m.group(4)
-                
-                if _is_boilerplate(text) and not _is_clinical_sentence(text):
-                    continue
-                
-                last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers)
+            # --- TASK 2: ADMIN FILTER ---
+            if _is_admin_line(line):
                 continue
                 
-            # 3. Check for time+text "1600 ..."
-            # OR Check for single line date without time: "9/24 Patient..." (scanning for DATE pattern at start)
+            # --- TASK 1: ROW PARSING ---
             
-            # State: We have a current date context
+            # Pattern A: One-line "9/24 1600 Text"
+            m_full = DATE_TIME_TEXT_RE.match(line)
+            if m_full:
+                current_month = int(m_full.group(1))
+                current_day = int(m_full.group(2))
+                hhmm = m_full.group(3)
+                text = m_full.group(4)
+                
+                if _is_eventworthy(text):
+                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers)
+                else:
+                    last_event = None # Reset if not worthy
+                pending_time = None
+                continue
+                
+            # Pattern B1: Date Line "9/24"
+            m_date = DATE_LINE_RE.match(line)
+            if m_date:
+                current_month = int(m_date.group(1))
+                current_day = int(m_date.group(2))
+                last_event = None # New date, reset event context
+                pending_time = None
+                continue
+                
+            # Pattern B2: Standalone Time Line "1900"
+            m_time_only = TIME_ONLY_RE.match(line)
+            if m_time_only:
+                pending_time = m_time_only.group(1)
+                continue
+
+            # Pattern B3: Time Line "1900 Text..."
+            # ONLY if we have a valid date context
             if current_month and current_day:
-                # 3a. Check for time+text "1600 ..."
                 m_time = TIME_TEXT_RE.match(line)
                 if m_time:
                     hhmm = m_time.group(1)
                     text = m_time.group(2)
                     
-                    if _is_boilerplate(text) and not _is_clinical_sentence(text):
-                        continue
-                    
-                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers)
+                    if _is_eventworthy(text):
+                         last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers)
+                    else:
+                         last_event = None
+                    pending_time = None
                     continue
-
-                # 3b. Check for text without time (e.g. "Discharge Summary")
-                # If we have a date, and the line is not boilerplate, and it looks like a distinct start (not just continuation)
-                # We typically treat this as "0000" or just date-only if we can.
-                # For safety, we only do this for specific high-value phrases or if we just set the date (last_event is None)
-                if last_event is None and not _is_boilerplate(line):
-                     # If it looks clinical or is a header like "Discharge Summary"
-                     # We reuse the logic but pass None/empty for time if supported, or "0000"
-                     if _is_clinical_sentence(line) or any(k in line.lower() for k in ["discharge", "admit", "procedure", "note"]):
-                        
-                        last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, "0000", line, page_provider_map, providers)
-                        continue
             
-            # 4. Continuation line / Stitching (Part 2)
-            if last_event and not _is_boilerplate(line):
-                # Stitching logic: If the previous line ended with a hyphen or this line starts lower case, join it.
-                # Otherwise, append as a new fact.
-                
-                # Check for "Time Text" pattern on a new line that missed the regex? 
-                # e.g. "1900 Patient..."
-                m_time_late = TIME_TEXT_RE.match(line)
-                if m_time_late and current_month:
-                     # This is actually a NEW event sharing the same date
-                     hhmm = m_time_late.group(1)
-                     txt = m_time_late.group(2)
-                     last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, txt, page_provider_map, providers)
-                     continue
+            # Pattern C: Standalone Event check (e.g. "Admit to Oncology")
+            # If valid date check if it's a critical event that needs its own row
+            if current_month and current_day:
+                 if _is_eventworthy(line):
+                      # Use pending time if available, else default to 0000
+                      hhmm = pending_time or "0000"
+                      last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, line, page_provider_map, providers)
+                      pending_time = None
+                      continue
 
+            # Pattern D: Continuation / Untimed Clinical Text
+            # If we have an active event, append text
+            if last_event:
                 # Append to last event as a new fact if it looks clinical
                 if _is_clinical_sentence(line) or len(line) > 10: 
                     cit = _make_citation(page, line)
                     citations.append(cit)
                     last_event.facts.append(_make_fact(line, FactKind.OTHER, cit.citation_id))
                     last_event.citation_ids.append(cit.citation_id)
-            else:
-                # Debug why we skipped this line if it looks clinical
-                pass
+                    continue
+
 
     return events, citations
 
