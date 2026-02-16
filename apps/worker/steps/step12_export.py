@@ -66,6 +66,7 @@ def _date_str(event: Event) -> str:
         return f"{event.date.partial_month:02d}/{event.date.partial_day:02d} (year unknown)"
     
     # 3) True relative day (positive) is allowed
+    # STRICTLY positive only
     if event.date.relative_day is not None and event.date.relative_day >= 0:
         return f"Day {event.date.relative_day}"
     

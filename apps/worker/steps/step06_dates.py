@@ -134,7 +134,7 @@ def make_partial_date(month: int, day: int) -> EventDate:
     return EventDate(
         kind=DateKind.SINGLE,
         value=None,
-        relative_day=None,  # IMPORTANT: never set sentinel here
+        relative_day=None,  # STRICTLY None for partials
         source=DateSource.TIER2,
         partial_month=month,
         partial_day=day,
@@ -149,7 +149,14 @@ def make_partial_date(month: int, day: int) -> EventDate:
 
 def is_copyright_or_footer_context(line: str) -> bool:
     s = line.lower()
-    return ("©" in s) or ("national league for nursing" in s) or ("chart materials" in s)
+    blocklist = [
+        "©",
+        "national league for nursing",
+        "chart materials",
+        "copyright",
+        "all rights reserved",
+    ]
+    return any(b in s for b in blocklist)
 
 
 # ── Parsing helpers ──────────────────────────────────────────────────────
@@ -457,11 +464,14 @@ def extract_dates_for_pages(pages: list[Page], anchor_year_hint: int | None = No
                 # 1. Resolve partials if possible
                 for ed in result[page.page_number]:
                     if ed.value is None and ed.partial_month is not None:
-                        if anchor_year:
-                             try:
-                                 ed.value = date(anchor_year, ed.partial_month, ed.partial_day)
-                             except ValueError:
-                                 pass
+                        # BUG FIX: Never fabricate a year for partial dates.
+                        # User invariant: year_missing=True implies value=None.
+                        # if anchor_year:
+                        #      try:
+                        #          ed.value = date(anchor_year, ed.partial_month, ed.partial_day)
+                        #      except ValueError:
+                        #          pass
+                        pass
                 
                 # Update propagation source
                 candidates = result[page.page_number]

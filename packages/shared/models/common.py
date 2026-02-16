@@ -38,28 +38,21 @@ class EventDate(BaseModel):
         
         # 2) True relative day (positive) is allowed ONLY when it is genuinely relative to an anchor
         rd = self.relative_day
-        if rd is not None:
-            if rd >= 0:
-                # interpret as offset from 1900-01-01 for stable sorting
-                try:
-                    d = date(1900, 1, 1) + timedelta(days=rd - 1)
-                    return (1, f"REL:{rd:06d}")
-                except Exception:
-                    pass
-            else:
-                # Defensive: should not happen
-                return (9, f"RELNEG:{rd}")
+        if rd is not None and rd >= 0:
+            # Sort relative days after all absolute dates, but ordered among themselves
+            # We use a distinct prefix so they don't mix with ISO dates
+            return (1, f"{rd:06d}")
 
         # 3) Partial date: month/day ordering, no year fabricated
         ext = self.extensions or {}
         if ext.get("partial_date") and ext.get("partial_month") and ext.get("partial_day"):
             m = int(ext["partial_month"])
             d = int(ext["partial_day"])
-            return (2, f"PART:{m:02d}-{d:02d}")
+            return (2, f"{m:02d}-{d:02d}")
 
         # Fallback to model fields if extensions missing but fields set
         if self.partial_month is not None:
-            return (2, f"PART:{self.partial_month:02d}-{self.partial_day:02d}")
+            return (2, f"{self.partial_month:02d}-{self.partial_day:02d}")
             
         return (99, "UNKNOWN")
 

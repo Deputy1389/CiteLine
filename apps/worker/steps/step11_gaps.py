@@ -26,7 +26,7 @@ def detect_gaps(
     # Sort events by date using the robust sort_key
     sorted_events = sorted(events, key=lambda e: e.date.sort_key() if e.date else (99, "UNKNOWN"))
 
-    # Filter to non-billing for gap detection AND only events with actual resolved dates
+    # Filter to non-billing for gap detection AND only events with actual resolved dates (no partials)
     dated_events = [e for e in sorted_events if e.event_type != EventType.BILLING_EVENT and has_full_date(e)]
 
     # If not enough real dates, do not emit gaps

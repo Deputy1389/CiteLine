@@ -40,21 +40,25 @@ _CLINICAL_INDICATORS = [
 def _detect_encounter_type(text: str) -> EventType:
     """Detect encounter type from clinical note text."""
     n = text.lower()
-    if any(kw in n for kw in ["discharge summary", "discharged", "discharge teaching", "orders received for discharge", "discharged to home"]):
+    
+    # 1. Discharge (High Priority)
+    if any(kw in n for kw in ["discharge summary", "discharged", "discharge teaching", "orders received for discharge", "discharged to home", "discharge order"]):
         return EventType.HOSPITAL_DISCHARGE
-    if any(kw in n for kw in ["admitted", "admission", "admit to oncology", "date admitted", "triage", "er admission", "inpatient admission"]):
+        
+    # 2. Admission
+    if any(kw in n for kw in ["admitted", "admission", "admit to oncology", "date admitted", "triage", "er admission", "inpatient admission", "admit to"]):
         if any(kw in n for kw in ["emergency department", "ed provider", "triage", "er visit"]):
             return EventType.ER_VISIT
         return EventType.HOSPITAL_ADMISSION
-    if any(kw in n for kw in [
-        "oncology floor", "nursing flowsheet", "mar ", "medication administration record",
-        "i&o", "daily progress note", "flowsheet", "vital signs flowsheet",
-        "nurse initials", "record | temp", "nursing care", "intake/output"
-    ]):
-        return EventType.INPATIENT_DAILY_NOTE
-    if any(kw in n for kw in ["operative report", "procedure"]):
+        
+    # 3. Procedure
+    if any(kw in n for kw in ["operative report", "procedure", "surgery"]):
         return EventType.PROCEDURE
-    return EventType.OFFICE_VISIT
+        
+    # 4. Inpatient Daily Note (Default for flowsheet context)
+    # If it's not an admission/discharge/procedure, but appears in these charts, it's a daily note
+    # We explicitly avoid "OFFICE_VISIT" for these types of records
+    return EventType.INPATIENT_DAILY_NOTE
 
 from apps.worker.lib.grouping import group_clinical_pages
 
@@ -132,6 +136,24 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
     current_month: int | None = None
     current_day: int | None = None
     
+    # Initialize from block primary date if available (Handling split blocks)
+    if block.primary_date:
+         # Check for partial date extensions first
+         ext = block.primary_date.extensions or {}
+         if ext.get("partial_month") and ext.get("partial_day"):
+             current_month = int(ext["partial_month"])
+             current_day = int(ext["partial_day"])
+         elif block.primary_date.value:
+             # Full date
+             d = block.primary_date.value
+             if isinstance(d, date):
+                 current_month = d.month
+                 current_day = d.day
+             # date range?
+             elif hasattr(d, "start"):
+                  current_month = d.start.month
+                  current_day = d.start.day
+
     # Track the last event created to handle facts split across lines
     last_event: Event | None = None
     
@@ -141,7 +163,8 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
             line = line.strip()
             if not line: continue
             
-            # 1. Check for standalone date line "9/24"
+            # 1. Check for standalone date line "9/24" or "9/24/2016"
+            # Support 1-2 digit month, 1-2 digit day
             m = DATE_LINE_RE.match(line)
             if m:
                 current_month = int(m.group(1))
@@ -164,25 +187,58 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
                 continue
                 
             # 3. Check for time+text "1600 ..."
-            m = TIME_TEXT_RE.match(line)
-            if m and current_month and current_day:
-                hhmm = m.group(1)
-                text = m.group(2)
-                
-                if _is_boilerplate(text) and not _is_clinical_sentence(text):
-                    continue
-                
-                last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers)
-                continue
+            # OR Check for single line date without time: "9/24 Patient..." (scanning for DATE pattern at start)
             
-            # 4. Continuation line
+            # State: We have a current date context
+            if current_month and current_day:
+                # 3a. Check for time+text "1600 ..."
+                m_time = TIME_TEXT_RE.match(line)
+                if m_time:
+                    hhmm = m_time.group(1)
+                    text = m_time.group(2)
+                    
+                    if _is_boilerplate(text) and not _is_clinical_sentence(text):
+                        continue
+                    
+                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers)
+                    continue
+
+                # 3b. Check for text without time (e.g. "Discharge Summary")
+                # If we have a date, and the line is not boilerplate, and it looks like a distinct start (not just continuation)
+                # We typically treat this as "0000" or just date-only if we can.
+                # For safety, we only do this for specific high-value phrases or if we just set the date (last_event is None)
+                if last_event is None and not _is_boilerplate(line):
+                     # If it looks clinical or is a header like "Discharge Summary"
+                     # We reuse the logic but pass None/empty for time if supported, or "0000"
+                     if _is_clinical_sentence(line) or any(k in line.lower() for k in ["discharge", "admit", "procedure", "note"]):
+                        
+                        last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, "0000", line, page_provider_map, providers)
+                        continue
+            
+            # 4. Continuation line / Stitching (Part 2)
             if last_event and not _is_boilerplate(line):
+                # Stitching logic: If the previous line ended with a hyphen or this line starts lower case, join it.
+                # Otherwise, append as a new fact.
+                
+                # Check for "Time Text" pattern on a new line that missed the regex? 
+                # e.g. "1900 Patient..."
+                m_time_late = TIME_TEXT_RE.match(line)
+                if m_time_late and current_month:
+                     # This is actually a NEW event sharing the same date
+                     hhmm = m_time_late.group(1)
+                     txt = m_time_late.group(2)
+                     last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, txt, page_provider_map, providers)
+                     continue
+
                 # Append to last event as a new fact if it looks clinical
-                if _is_clinical_sentence(line):
+                if _is_clinical_sentence(line) or len(line) > 10: 
                     cit = _make_citation(page, line)
                     citations.append(cit)
                     last_event.facts.append(_make_fact(line, FactKind.OTHER, cit.citation_id))
                     last_event.citation_ids.append(cit.citation_id)
+            else:
+                # Debug why we skipped this line if it looks clinical
+                pass
 
     return events, citations
 
@@ -232,25 +288,42 @@ def _get_best_date(page_dates: list[EventDate]) -> EventDate | None:
 def _is_boilerplate(text: str) -> bool:
     """Filter out common medical record legends, instructions, and non-clinical text."""
     s = " ".join(text.lower().split())
-    # Header-style boilerplate (only if line starts with these or is very short with these)
-    boilerplate_headers = [
-        "medication administration record",
-        "intramuscular legend",
-        "subcutaneous site code",
-        "fluid measurements",
-        "sample measurements",
-        "time: site: initials",
-        "pressure ulcer stage",
-        "i – incision",
-        "r – rash",
+    # Strict Boilerplate Filter (Bug 2)
+    lower_s = s.lower()
+    
+    # 1) Strong blocklist keywords
+    blocklist_terms = [
+        "flowsheet",
+        "general appearance:", # colon important? user said general appearance
+        "general appearance",
+        "pressure ulcer",
+        "incision",
+        "rash",
         "see nursing notes",
         "see mar",
-        "chart materials",
+        "medication administration record",
         "national league for nursing",
+        "copyright",
+        "all rights reserved",
     ]
-    for h in boilerplate_headers:
-        if s.startswith(h): return True
+    
+    has_blocklist = any(term in lower_s for term in blocklist_terms)
+
+    if has_blocklist:
+        # Check whitelist (override) - Step 3: Relaxed Filters
+        whitelist_terms = [
+            "patient", "admitted", "complained", "vomited", "medicated", 
+            "discharged", "pain", "nausea", "coughing", "emesis", "orders received",
+            "c/o", "denies", "ambulat", "reposition", "ate"
+        ]
+        has_whitelist = any(term in lower_s for term in whitelist_terms)
         
+        if has_whitelist:
+            return False # Keep it!
+            
+        return True
+
+    # Header-style boilerplate (legacy)
     boilerplate_patterns = [
         r"(?i)electronically signed by",
         r"(?i)confidential medical record",
