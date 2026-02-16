@@ -86,6 +86,34 @@ def start_run(
     )
 
 
+@router.get("/matters/{matter_id}/runs", response_model=list[RunResponse])
+def list_runs(matter_id: str, db: Session = Depends(get_db)):
+    """List all processing runs for a matter."""
+    matter = db.query(Matter).filter_by(id=matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+
+    runs = db.query(Run).filter_by(matter_id=matter_id).order_by(Run.created_at.desc()).all()
+    
+    response = []
+    for r in runs:
+        metrics = json.loads(r.metrics_json) if r.metrics_json else None
+        warnings = json.loads(r.warnings_json) if r.warnings_json else None
+        
+        response.append(RunResponse(
+            id=r.id,
+            matter_id=r.matter_id,
+            status=r.status,
+            started_at=r.started_at.isoformat() if r.started_at else None,
+            finished_at=r.finished_at.isoformat() if r.finished_at else None,
+            metrics=metrics,
+            warnings=warnings,
+            error_message=r.error_message,
+            processing_seconds=r.processing_seconds,
+        ))
+    return response
+
+
 @router.get("/runs/{run_id}", response_model=RunResponse)
 def get_run(run_id: str, db: Session = Depends(get_db)):
     """Get run status and metrics."""

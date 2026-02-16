@@ -33,3 +33,29 @@ def create_firm(req: CreateFirmRequest, db: Session = Depends(get_db)):
         name=firm.name,
         created_at=firm.created_at.isoformat(),
     )
+
+@router.get("", response_model=list[FirmResponse])
+def list_firms(db: Session = Depends(get_db)):
+    """List all firms."""
+    firms = db.query(Firm).all()
+    return [
+        FirmResponse(
+            id=f.id,
+            name=f.name,
+            created_at=f.created_at.isoformat(),
+        )
+        for f in firms
+    ]
+
+
+@router.get("/{firm_id}", response_model=FirmResponse)
+def get_firm(firm_id: str, db: Session = Depends(get_db)):
+    """Get firm details."""
+    firm = db.query(Firm).filter_by(id=firm_id).first()
+    if not firm:
+        raise HTTPException(status_code=404, detail="Firm not found")
+    return FirmResponse(
+        id=firm.id,
+        name=firm.name,
+        created_at=firm.created_at.isoformat(),
+    )

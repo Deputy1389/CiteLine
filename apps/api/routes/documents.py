@@ -90,3 +90,28 @@ async def upload_document(
         storage_uri=doc.storage_uri,
         uploaded_at=doc.uploaded_at.isoformat(),
     )
+
+@router.get(
+    "/matters/{matter_id}/documents",
+    response_model=list[DocumentResponse],
+)
+def list_documents(matter_id: str, db: Session = Depends(get_db)):
+    """List documents for a matter."""
+    matter = db.query(Matter).filter_by(id=matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+
+    docs = db.query(SourceDocument).filter_by(matter_id=matter_id).all()
+    return [
+        DocumentResponse(
+            id=d.id,
+            matter_id=d.matter_id,
+            filename=d.filename,
+            mime_type=d.mime_type,
+            sha256=d.sha256,
+            bytes=d.bytes,
+            storage_uri=d.storage_uri or "",
+            uploaded_at=d.uploaded_at.isoformat(),
+        )
+        for d in docs
+    ]

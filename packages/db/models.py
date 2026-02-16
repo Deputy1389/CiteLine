@@ -12,6 +12,9 @@ from sqlalchemy.orm import DeclarativeBase, relationship
 def _uuid():
     return uuid.uuid4().hex
 
+def utcnow():
+    return datetime.now(dt_timezone.utc)
+
 class Base(DeclarativeBase):
     pass
 
@@ -20,7 +23,7 @@ class Firm(Base):
     __tablename__ = "firms"
     id = Column(String(120), primary_key=True, default=_uuid)
     name = Column(String(200), nullable=False)
-    created_at = Column(DateTime, default=datetime.now(dt_timezone.utc))
+    created_at = Column(DateTime, default=utcnow)
     
     matters = relationship("Matter", back_populates="firm", cascade="all, delete-orphan")
 
@@ -33,7 +36,7 @@ class Matter(Base):
     client_ref = Column(String(200), nullable=True)
     timezone = Column(String(50), default="America/Los_Angeles")
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(dt_timezone.utc))
+    created_at = Column(DateTime, default=utcnow)
     
     firm = relationship("Firm", back_populates="matters")
     runs = relationship("Run", back_populates="matter", cascade="all, delete-orphan")
@@ -50,7 +53,7 @@ class SourceDocument(Base):
     storage_uri = Column(String(500), nullable=True)
     sha256 = Column(String(64), nullable=False)
     bytes = Column(Integer, nullable=False)
-    uploaded_at = Column(DateTime, default=datetime.now(dt_timezone.utc))
+    uploaded_at = Column(DateTime, default=utcnow)
     page_count = Column(Integer, nullable=True)
 
     matter = relationship("Matter", back_populates="documents")
@@ -62,7 +65,7 @@ class Run(Base):
     id = Column(String(120), primary_key=True, default=_uuid)
     matter_id = Column(String(120), ForeignKey("matters.id"), nullable=False)
     status = Column(String(20), default="pending")  # pending | running | success | partial | failed
-    created_at = Column(DateTime, default=datetime.now(dt_timezone.utc))
+    created_at = Column(DateTime, default=utcnow)
     config_json = Column(JSON, nullable=True)
     metrics_json = Column(JSON, nullable=True)
     warnings_json = Column(JSON, nullable=True)
