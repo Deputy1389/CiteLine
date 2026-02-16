@@ -38,26 +38,25 @@ _CLINICAL_INDICATORS = [
 ]
 
 def _detect_encounter_type(text: str) -> EventType:
-    """Detect encounter type from clinical note text."""
+    """Detect encounter type from clinical note text with deterministic rules."""
     n = text.lower()
     
-    # 1. Discharge (High Priority)
-    if any(kw in n for kw in ["discharge summary", "discharged", "discharge teaching", "orders received for discharge", "discharged to home", "discharge order"]):
+    # 1. Discharge
+    if any(kw in n for kw in ["discharge summary", "discharged", "discharge teaching", "orders received for discharge", "discharged to home", "discharge order", "patient discharged"]):
         return EventType.HOSPITAL_DISCHARGE
         
-    # 2. Admission
-    if any(kw in n for kw in ["admitted", "admission", "admit to oncology", "date admitted", "triage", "er admission", "inpatient admission", "admit to"]):
-        if any(kw in n for kw in ["emergency department", "ed provider", "triage", "er visit"]):
-            return EventType.ER_VISIT
-        return EventType.HOSPITAL_ADMISSION
+    # 2. Admission (Avoid labels like "Date Admitted:")
+    if re.search(r"\b(admitted|admission|admit to oncology|triage|er admission|inpatient admission|admit to oncology floor)\b", n):
+        if not re.search(r"date\s+admitted\s*:", n): # Skip labels
+            if any(kw in n for kw in ["emergency department", "ed provider", "triage", "er visit"]):
+                return EventType.ER_VISIT
+            return EventType.HOSPITAL_ADMISSION
         
     # 3. Procedure
     if any(kw in n for kw in ["operative report", "procedure", "surgery"]):
         return EventType.PROCEDURE
         
-    # 4. Inpatient Daily Note (Default for flowsheet context)
-    # If it's not an admission/discharge/procedure, but appears in these charts, it's a daily note
-    # We explicitly avoid "OFFICE_VISIT" for these types of records
+    # Default for inpatient records
     return EventType.INPATIENT_DAILY_NOTE
 
 from apps.worker.lib.grouping import group_clinical_pages
@@ -133,21 +132,81 @@ def extract_clinical_events(
 
     return events, citations
 
-def _is_admin_line(text: str) -> bool:
-    """Check if line is a header, signature, or template label."""
-    n = text.lower().strip()
+def _is_boilerplate_line(text: str) -> bool:
+    """Hard drop deterministic boilerplate/admin lines."""
+    # Normalize whitespace for matching
+    n = " ".join(text.lower().split())
     
-    # 1. Exact or starts-with template labels
+    # 1. Staff Signatures / Names (e.g. "Teri Smyth, RN", "Maria Reyes, RN")
+    if re.search(r",\s*rn\b", n):
+        # If the line is JUST the name or mostly just name/dashes
+        # " ----T. Smyth, RN"
+        if len(re.sub(r"[^a-z]", "", n)) < 25: 
+             return True
+             
+    # 2. Separators and Lines
+    if re.match(r"^[_\-\s\*=]{3,}$", n):
+        return True
+        
+    # 3. Bug 2: Hard drop patterns (Flexible whitespace)
+    boilerplate_patterns = [
+        r"national league for nursing",
+        r"chart materials",
+        r"simulation",
+        r"patient name\s*:",
+        r"mrn\s*:",
+        r"doctor name\s*:",
+        r"dob\s*:",
+        r"nurse signatures?",
+        r"scheduled & routine drugs",
+        r"allergies\s*:",
+        r"medication administration record",
+        r"intramuscular legend",
+        r"subcutaneous site code",
+        r"fluid measurements",
+        r"sample measurements",
+        r"time: site: initials",
+        r"see nurs[ei]s? notes",
+        r"see mar",
+        r"pain type\s*:",
+        r"pain interventions?\s*:",
+        r"positioning\s*:",
+        r"pt\. hygiene\s*:",
+        r"wound assessment",
+        r"wound drainage",
+        r"wound care\s*:",
+        r"braden scale",
+        r"fall risk score",
+        r"today’s wt\s*:",
+        r"yesterday’s wt\s*:",
+        r"hourly",
+        r"iv solution",
+        r"rate ordered\s*:",
+        r"date/time hung\s*:",
+        r"intensity \(1-10/10\)",
+        r"mucous membranes\s*:",
+        r"iv site/rate",
+        r"patient hygiene",
+        r"po fluids",
+        r"nurse initials",
+        r"legend\s*\)",
+        r"[a-z]=\s*[a-z]{4} ventrogluteal", # Legend codes
+        r"\d=[a-z]{3} abdomen",
+        r"hours to be given",
+    ]
+    
+    if any(re.search(p, n) for p in boilerplate_patterns):
+        return True
+        
+    # 4. Template noise
     prefixes = (
-        "patient name:", "mrn:", "doctor name:", "dob:", 
-        "chart materials", "simulation", "nurse signatures", 
-        "medication administration record", "vital signs record",
-        "nursing assessment flowsheet", "physician’s orders",
-        "physician's orders", "page "
+        "page ", "vital signs record", "nursing assessment flowsheet", 
+        "physician’s orders", "physician's orders", "dates", "time hourly",
+        "pain assessment", "intensity ("
     )
     if n.startswith(prefixes):
         # Exception for real orders
-        if "physician" in n and ("admit" in n or "discharge" in n):
+        if "admit" in n or "discharge" in n:
             return False
         return True
         
@@ -165,44 +224,56 @@ def _is_eventworthy(text: str) -> bool:
     return any(k in n for k in keywords)
 
 def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Event], list[Citation]]:
-    """Scan block for flowsheet rows with date context."""
+    """Scan block for flowsheet rows with date context and rowization."""
     events: list[Event] = []
     citations: list[Citation] = []
     
-    current_month: int | None = None
-    current_day: int | None = None
+    # Block-level default context
+    block_month: int | None = None
+    block_day: int | None = None
     
-    # Initialize from block primary date
     if block.primary_date:
          ext = block.primary_date.extensions or {}
          if ext.get("partial_month") and ext.get("partial_day"):
-             current_month = int(ext["partial_month"])
-             current_day = int(ext["partial_day"])
+             block_month = int(ext["partial_month"])
+             block_day = int(ext["partial_day"])
          elif block.primary_date.value:
              d = block.primary_date.value
              if isinstance(d, date):
-                 current_month = d.month
-                 current_day = d.day
+                 block_month = d.month
+                 block_day = d.day
              elif hasattr(d, "start"):
-                  current_month = d.start.month
-                  current_day = d.start.day
+                  block_month = d.start.month
+                  block_day = d.start.day
 
-    last_event: Event | None = None
-    pending_time: str | None = None
-    
     for page in block.pages:
+        # Per-page context starts with block context
+        current_month = block_month
+        current_day = block_day
+        
+        last_event: Event | None = None
+        pending_time: str | None = None
+        
         lines = page.text.splitlines()
         for line in lines:
             line = line.strip()
             if not line: continue
             
-            # --- TASK 2: ADMIN FILTER ---
-            if _is_admin_line(line):
+            # 1. Deterministic Boilerplate Filter
+            if _is_boilerplate_line(line):
                 continue
                 
-            # --- TASK 1: ROW PARSING ---
-            
-            # Pattern A: One-line "9/24 1600 Text"
+            # 2. Date Line Pattern: ^\d{1,2}/\d{1,2}$
+            m_date = DATE_LINE_RE.match(line)
+            if m_date:
+                current_month = int(m_date.group(1))
+                current_day = int(m_date.group(2))
+                last_event = None 
+                pending_time = None
+                # print(f"DEBUG: Found Date Line {current_month}/{current_day} on page {page.page_number}")
+                continue
+                
+            # 3. One-line Pattern: ^\d{1,2}/\d{1,2}\s+\d{3,4}\s+<text>
             m_full = DATE_TIME_TEXT_RE.match(line)
             if m_full:
                 current_month = int(m_full.group(1))
@@ -213,74 +284,79 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
                 if _is_eventworthy(text):
                     last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers)
                 else:
-                    last_event = None # Reset if not worthy
+                    last_event = None
                 pending_time = None
                 continue
+
+            # 4. Time Line Pattern: ^\d{3,4}\s+<text>
+            m_time_text = TIME_TEXT_RE.match(line)
+            if m_time_text:
+                hhmm = m_time_text.group(1)
+                text = m_time_text.group(2)
                 
-            # Pattern B1: Date Line "9/24"
-            m_date = DATE_LINE_RE.match(line)
-            if m_date:
-                current_month = int(m_date.group(1))
-                current_day = int(m_date.group(2))
-                last_event = None # New date, reset event context
+                if current_month and current_day:
+                    if _is_eventworthy(text):
+                        last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers)
+                    else:
+                        last_event = None
+                else:
+                    # Mark undated / skip from calculations as per Rule 4
+                    last_event = None
                 pending_time = None
                 continue
-                
-            # Pattern B2: Standalone Time Line "1900"
+
+            # 5. Standalone Time Pattern: ^\d{3,4}$
             m_time_only = TIME_ONLY_RE.match(line)
             if m_time_only:
                 pending_time = m_time_only.group(1)
                 continue
 
-            # Pattern B3: Time Line "1900 Text..."
-            # ONLY if we have a valid date context
+            # 6. Continuation or Standalone Clinical Text
             if current_month and current_day:
-                m_time = TIME_TEXT_RE.match(line)
-                if m_time:
-                    hhmm = m_time.group(1)
-                    text = m_time.group(2)
-                    
-                    if _is_eventworthy(text):
-                         last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers)
+                if _is_eventworthy(line) or (last_event and (_is_clinical_sentence(line) or len(line) > 10)):
+                    if last_event and not _is_eventworthy(line):
+                        # Append to last event
+                        cit = _make_citation(page, line)
+                        citations.append(cit)
+                        last_event.facts.append(_make_fact(line, FactKind.OTHER, cit.citation_id))
+                        last_event.citation_ids.append(cit.citation_id)
                     else:
-                         last_event = None
-                    pending_time = None
-                    continue
-            
-            # Pattern C: Standalone Event check (e.g. "Admit to Oncology")
-            # If valid date check if it's a critical event that needs its own row
-            if current_month and current_day:
-                 if _is_eventworthy(line):
-                      # Use pending time if available, else default to 0000
-                      hhmm = pending_time or "0000"
-                      last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, line, page_provider_map, providers)
-                      pending_time = None
-                      continue
-
-            # Pattern D: Continuation / Untimed Clinical Text
-            # If we have an active event, append text
-            if last_event:
-                # Append to last event as a new fact if it looks clinical
-                if _is_clinical_sentence(line) or len(line) > 10: 
-                    cit = _make_citation(page, line)
-                    citations.append(cit)
-                    last_event.facts.append(_make_fact(line, FactKind.OTHER, cit.citation_id))
-                    last_event.citation_ids.append(cit.citation_id)
-                    continue
-
+                        # New event with pending or default time
+                        hhmm = pending_time or "0000"
+                        last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, line, page_provider_map, providers)
+                        pending_time = None
+                continue
 
     return events, citations
 
 def _add_flowsheet_event(events, citations, page, month, day, hhmm, text, page_provider_map, providers):
+    if not month or not day:
+        return None
+
+    # Task 4: Staff Filter before creation
+    clean_txt = text.strip()
+    
+    # Drop separators
+    if re.match(r"^[_\-\s\*=]{3,}$", clean_txt):
+        return None
+        
+    # Drop name-only lines
+    if re.search(r",\s*rn\s*$", clean_txt.lower()):
+         if len(clean_txt) < 30: # Likely just name
+              return None
+
     # Create the EventDate
     ed = make_partial_date(month, day)
     # Append time if we can
     ed.extensions["time"] = hhmm
     
     # Try to refine text (e.g. remove trailing initials/signatures)
-    # Match: " ----T. Smyth, RN" or " --T. Smyth, RN"
-    clean_txt = re.sub(r"\s*-{2,}\s*[A-Z]\.\s*[A-Za-z]+,\s*RN\s*$", "", text).strip()
-    
+    clean_txt = re.sub(r"\s*-{2,}\s*[A-Z]\.\s*[A-Za-z]+,\s*RN\s*$", "", clean_txt).strip()
+    clean_txt = re.sub(r"\s*[A-Z]\.\s*[A-Za-z]+,\s*RN\s*$", "", clean_txt).strip()
+
+    if not clean_txt:
+        return None
+
     cit = _make_citation(page, f"{month}/{day} {hhmm} {text}")
     citations.append(cit)
     
@@ -297,6 +373,10 @@ def _add_flowsheet_event(events, citations, page, month, day, hhmm, text, page_p
         citation_ids=[cit.citation_id],
         source_page_numbers=[page.page_number],
     )
+    
+    # DEBUG Print Task 1
+    # print(f"EMITTING: [{month:02d}/{day:02d} {hhmm}] {evt.event_type.value}: {clean_txt[:60]}... (Source: {page.source_document_id} p.{page.page_number})")
+    
     events.append(evt)
     return evt
 

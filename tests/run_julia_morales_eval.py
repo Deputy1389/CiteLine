@@ -93,12 +93,24 @@ def run_eval():
     print(f"Total Events: {len(events)}")
     print(f"Total Gaps: {len(gaps)}")
     
-    # Print the first 10 events
-    print("\nSAMPLE TIMELINE:")
-    for e in events[:10]:
-        d_str = str(e.date.value) if e.date and e.date.value else "NO DATE"
+    print("\nEXECUTIVE SUMMARY:")
+    print("-" * 20)
+    print(chronology.summary)
+    print("-" * 20)
+
+    # Print the first 15 events
+    print("\nSAMPLE TIMELINE (First 15 events):")
+    from apps.worker.steps.step12_export import _date_str
+    for e in events[:15]:
+        d_str = _date_str(e) or "UNDATED"
         facts = "; ".join(f.text for f in e.facts[:2])
         print(f"[{d_str}] {e.event_type.value}: {facts[:100]}...")
+
+    print("\nSPECIFIC 09/26 EVENTS:")
+    for e in events:
+        if _date_str(e) == "09/26 (year unknown)":
+            facts = "; ".join(f.text for f in e.facts)
+            print(f"[{_date_str(e)}] {e.event_type.value}: {facts}")
     
     if gaps:
         print("\nGAPS DETECTED:")

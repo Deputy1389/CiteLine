@@ -486,21 +486,26 @@ def generate_executive_summary(events: list[Event], matter_title: str) -> str:
     if not events:
         return "No events documented."
     
+    # Filter to dated events for the range calculation
+    dated_events = [e for e in events if e.date and e.date.sort_key()[0] < 99]
+    if not dated_events:
+        return "No dated events documented."
+    
+    # Sort by the robust sort_key
+    dated_events.sort(key=lambda e: e.date.sort_key())
+    
     summary = f"Summary for {matter_title}:\n\n"
     
     # Heuristic: Find first major admission, first procedure, and last discharge or status
-    admissions = [e for e in events if e.event_type == EventType.HOSPITAL_ADMISSION]
-    discharges = [e for e in events if e.event_type == EventType.HOSPITAL_DISCHARGE]
-    procedures = [e for e in events if e.event_type == EventType.PROCEDURE]
-    
-    sorted_evts = sorted(events, key=lambda e: e.date.sort_key() if e.date else (date.min, 0))
+    admissions = [e for e in dated_events if e.event_type == EventType.HOSPITAL_ADMISSION]
+    discharges = [e for e in dated_events if e.event_type == EventType.HOSPITAL_DISCHARGE]
+    procedures = [e for e in dated_events if e.event_type == EventType.PROCEDURE]
     
     if admissions:
         first_adm = sorted(admissions, key=lambda e: e.date.sort_key())[0]
-        date_str = _date_str(first_adm)
-        summary += f"Documented care began with a hospital admission on {date_str}. "
-    elif sorted_evts:
-        summary += f"Medical records begin on {_date_str(sorted_evts[0])}. "
+        summary += f"Documented care began with a hospital admission on {_date_str(first_adm)}. "
+    else:
+        summary += f"Medical records begin on {_date_str(dated_events[0])}. "
         
     if procedures:
         p_count = len(procedures)
@@ -508,10 +513,9 @@ def generate_executive_summary(events: list[Event], matter_title: str) -> str:
         
     if discharges:
         last_dis = sorted(discharges, key=lambda e: e.date.sort_key(), reverse=True)[0]
-        date_str = _date_str(last_dis)
-        summary += f"The latest documented discharge occurred on {date_str}. "
-    elif sorted_evts:
-        summary += f"The records conclude on {_date_str(sorted_evts[-1])}. "
+        summary += f"The latest documented discharge occurred on {_date_str(last_dis)}. "
+    else:
+        summary += f"The records conclude on {_date_str(dated_events[-1])}. "
         
     # Mention specific indicators found?
     pain_facts = []
