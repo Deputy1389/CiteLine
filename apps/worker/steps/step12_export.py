@@ -7,7 +7,7 @@ import csv
 import hashlib
 import io
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -36,10 +36,24 @@ from packages.shared.storage import save_artifact
 
 def _date_str(event: Event) -> str:
     """Format event date for display."""
+    if not event.date:
+        return ""
+    
     d = event.date.value
-    if isinstance(d, dict):
-        return f"{d.get('start', '')} to {d.get('end', '')}"
-    return str(d)
+    if d:
+        if isinstance(d, dict):
+            return f"{d.get('start', '')} to {d.get('end', '')}"
+        if isinstance(d, date):
+            return str(d)
+        # DateRange object
+        s = str(d.start)
+        e = str(d.end) if d.end else ""
+        return f"{s} to {e}"
+    
+    if event.date.relative_day is not None:
+        return f"Day {event.date.relative_day}"
+    
+    return ""
 
 
 def _provider_name(event: Event, providers: list[Provider]) -> str:

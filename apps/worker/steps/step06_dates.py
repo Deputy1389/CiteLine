@@ -229,32 +229,38 @@ def _find_anchor_date(pages: list[Page]) -> date | None:
 # ── Relative date resolution ─────────────────────────────────────────────
 
 
-def _resolve_relative_dates(page: Page, anchor: date) -> list[EventDate]:
+def _resolve_relative_dates(page: Page, anchor: date | None) -> list[EventDate]:
     """
-    Detect relative date patterns ("Day 1", "Hospital Day 3", "Post-op Day 2")
-    and resolve them to absolute dates using the anchor date.
+    Detect relative date patterns ("Day 1", "Hospital Day 3", "Post-op Day 2").
+    If anchor is provided, resolves to absolute date.
+    If no anchor, returns EventDate with relative_day set.
 
     Day X    → anchor + (X - 1) days  (Day 1 = anchor date itself)
     POD X    → anchor + X days        (Post-op Day 0 = surgery day)
     """
     results: list[EventDate] = []
-    seen_dates: set[date] = set()
+    seen_dates: set[tuple[date | None, int | None]] = set()
 
     for pattern, kind in _RELATIVE_PATTERNS:
         for m in re.finditer(pattern, page.text, re.IGNORECASE):
             day_num = int(m.group(1))
-            if kind == "day":
-                resolved = anchor + timedelta(days=max(0, day_num - 1))
-            else:  # postop
-                resolved = anchor + timedelta(days=day_num)
-
-            if resolved not in seen_dates:
-                seen_dates.add(resolved)
+            resolved_value: date | None = None
+            
+            if anchor:
+                if kind == "day":
+                    resolved_value = anchor + timedelta(days=max(0, day_num - 1))
+                else:  # postop
+                    resolved_value = anchor + timedelta(days=day_num)
+            
+            key = (resolved_value, day_num)
+            if key not in seen_dates:
+                seen_dates.add(key)
                 results.append(
                     EventDate(
                         kind=DateKind.SINGLE,
-                        value=resolved,
-                        source=DateSource.ANCHOR,
+                        value=resolved_value,
+                        relative_day=day_num if kind == "day" else None,
+                        source=DateSource.ANCHOR if anchor else DateSource.TIER2,
                     )
                 )
 
@@ -314,7 +320,7 @@ def extract_dates_for_pages(pages: list[Page]) -> dict[int, list[EventDate]]:
 
     Resolution order:
       1. Per-page regex extraction (tier 1 / tier 2)
-      2. Relative date resolution against an anchor date
+      2. Relative date resolution (absolute if anchor found, else relative)
       3. Header propagation from the previous page in the same document
     """
     result: dict[int, list[EventDate]] = {}
@@ -338,16 +344,26 @@ def extract_dates_for_pages(pages: list[Page]) -> dict[int, list[EventDate]]:
         # Try to find an anchor date from this document's pages
         anchor = _find_anchor_date(doc_page_list)
 
-        if anchor:
-            # Resolve relative dates on pages that are still missing dates
-            for page in doc_page_list:
-                if page.page_number not in result:
-                    resolved = _resolve_relative_dates(page, anchor)
-                    if resolved:
-                        result[page.page_number] = resolved
+        # Resolve relative dates on pages that are still missing dates
+        # OR add relative dates as secondary info?
+        # Current logic: only if page missing dates? 
+        # Better: extract relative dates everywhere, merge?
+        # For now, stick to "fill gaps" strategy but enable it even if no date found yet
+        for page in doc_page_list:
+            if page.page_number not in result:
+                resolved = _resolve_relative_dates(page, anchor)
+                if resolved:
+                    result[page.page_number] = resolved
+                    
+                    if anchor:
+                         logger.debug(
+                            f"Resolved absolute date on page {page.page_number}: "
+                            f"{resolved[0].value}"
+                        )
+                    else:
                         logger.debug(
-                            f"Resolved relative date on page {page.page_number}: "
-                            f"{resolved[0].sort_date()}"
+                            f"Extracted relative date on page {page.page_number}: "
+                            f"Day {resolved[0].relative_day}"
                         )
 
     # ── Pass 3: header propagation ───────────────────────────────────────
@@ -357,18 +373,26 @@ def extract_dates_for_pages(pages: list[Page]) -> dict[int, list[EventDate]]:
         for page in doc_page_list:
             if page.page_number in result:
                 # This page has dates — update the propagation source
-                last_valid_date = result[page.page_number][0]
+                # Prefer one with a Value if possible
+                candidates = result[page.page_number]
+                best_candidate = candidates[0]
+                for c in candidates:
+                    if c.value is not None:
+                        best_candidate = c
+                        break
+                last_valid_date = best_candidate
             elif last_valid_date is not None:
                 # No dates on this page — propagate from previous
                 propagated = EventDate(
                     kind=DateKind.SINGLE,
-                    value=last_valid_date.sort_date(),
+                    value=last_valid_date.value,
+                    relative_day=last_valid_date.relative_day,
                     source=DateSource.PROPAGATED,
                 )
                 result[page.page_number] = [propagated]
+                val_str = str(propagated.value) if propagated.value else f"Day {propagated.relative_day}"
                 logger.debug(
-                    f"Propagated date to page {page.page_number}: "
-                    f"{propagated.sort_date()}"
+                    f"Propagated date to page {page.page_number}: {val_str}"
                 )
 
     return result

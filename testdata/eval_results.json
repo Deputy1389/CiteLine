@@ -47,38 +47,38 @@
       "____",
       "same"
     ],
-    "events": 29,
+    "events": 34,
     "events_by_type": {
-      "office_visit": 6,
-      "procedure": 4,
+      "office_visit": 7,
+      "procedure": 5,
       "hospital_discharge": 2,
       "er_visit": 1,
-      "hospital_admission": 1,
-      "imaging_study": 13,
-      "pt_visit": 2
+      "hospital_admission": 2,
+      "imaging_study": 14,
+      "pt_visit": 3
     },
-    "events_with_date": 29,
+    "events_with_date": 34,
     "events_dateless": 0,
-    "facts_total": 169,
+    "facts_total": 202,
     "fact_kinds": {
       "chief_complaint": 4,
-      "other": 19,
-      "assessment": 38,
-      "plan": 22,
-      "procedure_note": 18,
-      "medication": 19,
-      "impression": 49
+      "other": 21,
+      "assessment": 47,
+      "plan": 26,
+      "procedure_note": 21,
+      "medication": 24,
+      "impression": 59
     },
-    "citations": 430,
+    "citations": 431,
     "skipped": 11,
     "avg_confidence": 67.4,
     "low_confidence_count": 0,
     "confidence_distribution": {
       "0-19": 0,
       "20-39": 0,
-      "40-59": 2,
-      "60-79": 20,
-      "80-100": 7
+      "40-59": 3,
+      "60-79": 22,
+      "80-100": 9
     }
   },
   {
@@ -96,12 +96,12 @@
       "Eric Lund \n \nNursing",
       "Intravenous Therapy"
     ],
-    "events": 4,
+    "events": 2,
     "events_by_type": {
-      "office_visit": 4
+      "office_visit": 2
     },
-    "events_with_date": 0,
-    "events_dateless": 4,
+    "events_with_date": 2,
+    "events_dateless": 0,
     "facts_total": 10,
     "fact_kinds": {
       "medication": 1,
@@ -110,13 +110,13 @@
     },
     "citations": 10,
     "skipped": 4,
-    "avg_confidence": 38.8,
-    "low_confidence_count": 2,
+    "avg_confidence": 57.5,
+    "low_confidence_count": 0,
     "confidence_distribution": {
       "0-19": 0,
-      "20-39": 2,
-      "40-59": 2,
-      "60-79": 0,
+      "20-39": 0,
+      "40-59": 1,
+      "60-79": 1,
       "80-100": 0
     }
   },
@@ -133,12 +133,12 @@
       "Eric Lund                                       \n \n \nPatient",
       "Intravenous Therapy"
     ],
-    "events": 4,
+    "events": 3,
     "events_by_type": {
-      "office_visit": 4
+      "office_visit": 3
     },
-    "events_with_date": 0,
-    "events_dateless": 4,
+    "events_with_date": 3,
+    "events_dateless": 0,
     "facts_total": 7,
     "fact_kinds": {
       "other": 1,
@@ -146,13 +146,13 @@
     },
     "citations": 7,
     "skipped": 3,
-    "avg_confidence": 31.2,
-    "low_confidence_count": 3,
+    "avg_confidence": 50.0,
+    "low_confidence_count": 0,
     "confidence_distribution": {
       "0-19": 0,
-      "20-39": 3,
-      "40-59": 1,
-      "60-79": 0,
+      "20-39": 0,
+      "40-59": 2,
+      "60-79": 1,
       "80-100": 0
     }
   },
@@ -168,13 +168,13 @@
     "provider_names": [
       "Eric Lund                                       \n \n \n \nNursing"
     ],
-    "events": 4,
+    "events": 3,
     "events_by_type": {
       "hospital_admission": 1,
-      "office_visit": 3
+      "office_visit": 2
     },
-    "events_with_date": 0,
-    "events_dateless": 4,
+    "events_with_date": 3,
+    "events_dateless": 0,
     "facts_total": 9,
     "fact_kinds": {
       "other": 1,
@@ -182,13 +182,13 @@
     },
     "citations": 9,
     "skipped": 1,
-    "avg_confidence": 41.2,
-    "low_confidence_count": 1,
+    "avg_confidence": 61.7,
+    "low_confidence_count": 0,
     "confidence_distribution": {
       "0-19": 0,
-      "20-39": 1,
-      "40-59": 3,
-      "60-79": 0,
+      "20-39": 0,
+      "40-59": 0,
+      "60-79": 3,
       "80-100": 0
     }
   },
@@ -205,13 +205,13 @@
     "provider_names": [
       "Eric Lund                                       \n \n \nPatient"
     ],
-    "events": 4,
+    "events": 2,
     "events_by_type": {
       "hospital_admission": 1,
-      "office_visit": 3
+      "office_visit": 1
     },
-    "events_with_date": 0,
-    "events_dateless": 4,
+    "events_with_date": 2,
+    "events_dateless": 0,
     "facts_total": 9,
     "fact_kinds": {
       "other": 1,
@@ -219,13 +219,13 @@
     },
     "citations": 9,
     "skipped": 1,
-    "avg_confidence": 41.2,
-    "low_confidence_count": 1,
+    "avg_confidence": 62.5,
+    "low_confidence_count": 0,
     "confidence_distribution": {
       "0-19": 0,
-      "20-39": 1,
-      "40-59": 3,
-      "60-79": 0,
+      "20-39": 0,
+      "40-59": 0,
+      "60-79": 2,
       "80-100": 0
     }
   },
@@ -453,38 +453,38 @@
       "____",
       "same"
     ],
-    "events": 29,
+    "events": 34,
     "events_by_type": {
-      "office_visit": 6,
-      "procedure": 4,
+      "office_visit": 7,
+      "procedure": 5,
       "hospital_discharge": 2,
       "er_visit": 1,
-      "hospital_admission": 1,
-      "imaging_study": 13,
-      "pt_visit": 2
+      "hospital_admission": 2,
+      "imaging_study": 14,
+      "pt_visit": 3
     },
-    "events_with_date": 29,
+    "events_with_date": 34,
     "events_dateless": 0,
-    "facts_total": 169,
+    "facts_total": 202,
     "fact_kinds": {
       "chief_complaint": 4,
-      "other": 19,
-      "assessment": 38,
-      "plan": 22,
-      "procedure_note": 18,
-      "medication": 19,
-      "impression": 49
+      "other": 21,
+      "assessment": 47,
+      "plan": 26,
+      "procedure_note": 21,
+      "medication": 24,
+      "impression": 59
     },
-    "citations": 430,
+    "citations": 431,
     "skipped": 11,
     "avg_confidence": 67.4,
     "low_confidence_count": 0,
     "confidence_distribution": {
       "0-19": 0,
       "20-39": 0,
-      "40-59": 2,
-      "60-79": 20,
-      "80-100": 7
+      "40-59": 3,
+      "60-79": 22,
+      "80-100": 9
     }
   }
 ]
