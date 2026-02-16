@@ -166,26 +166,31 @@ def run_pipeline(run_id: str) -> None:
         logger.info(f"[{run_id}] Step 7: Event extraction")
         all_events = []
         all_citations = []
+        all_skipped = []
 
-        clin_events, clin_cits, clin_warns = extract_clinical_events(all_pages, dates, providers, page_provider_map)
+        clin_events, clin_cits, clin_warns, clin_skipped = extract_clinical_events(all_pages, dates, providers, page_provider_map)
         all_events.extend(clin_events)
         all_citations.extend(clin_cits)
         all_warnings.extend(clin_warns)
+        all_skipped.extend(clin_skipped)
 
-        img_events, img_cits, img_warns = extract_imaging_events(all_pages, dates, providers, page_provider_map)
+        img_events, img_cits, img_warns, img_skipped = extract_imaging_events(all_pages, dates, providers, page_provider_map)
         all_events.extend(img_events)
         all_citations.extend(img_cits)
         all_warnings.extend(img_warns)
+        all_skipped.extend(img_skipped)
 
-        pt_events, pt_cits, pt_warns = extract_pt_events(all_pages, dates, providers, config, page_provider_map)
+        pt_events, pt_cits, pt_warns, pt_skipped = extract_pt_events(all_pages, dates, providers, config, page_provider_map)
         all_events.extend(pt_events)
         all_citations.extend(pt_cits)
         all_warnings.extend(pt_warns)
+        all_skipped.extend(pt_skipped)
 
-        billing_events, bill_cits, bill_warns = extract_billing_events(all_pages, dates, providers, page_provider_map)
+        billing_events, bill_cits, bill_warns, bill_skipped = extract_billing_events(all_pages, dates, providers, page_provider_map)
         all_events.extend(billing_events)
         all_citations.extend(bill_cits)
         all_warnings.extend(bill_warns)
+        all_skipped.extend(bill_skipped)
 
         # ── Step 8: Citation post-processing ──────────────────────────
         logger.info(f"[{run_id}] Step 8: Citation capture")
@@ -217,6 +222,7 @@ def run_pipeline(run_id: str) -> None:
             events=all_events,
             citations=all_citations,
             gaps=gaps,
+            skipped_events=all_skipped,
         )
 
         # ── Step 12: Export rendering ─────────────────────────────────

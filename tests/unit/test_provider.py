@@ -2,7 +2,7 @@
 Unit tests for provider normalization (Step 5).
 """
 import pytest
-from apps.worker.steps.step05_provider import _normalize_name, _simple_fuzzy_match
+from apps.worker.steps.step05_provider import _normalize_name, _simple_fuzzy_match, _is_valid_candidate
 
 
 class TestProviderNormalization:
@@ -62,3 +62,41 @@ class TestFuzzyMatch:
     def test_empty_strings(self):
         assert _simple_fuzzy_match("", "") == 0.0
         assert _simple_fuzzy_match("test", "") == 0.0
+
+
+class TestProviderFiltering:
+    """Tests for the _is_valid_candidate filter (P2)."""
+
+    def test_valid_provider_name(self):
+        assert _is_valid_candidate("Southwest Medical Center") is True
+
+    def test_valid_short_name(self):
+        assert _is_valid_candidate("Dr. Smith") is True
+
+    def test_reject_too_short(self):
+        assert _is_valid_candidate("AB") is False
+
+    def test_reject_too_long(self):
+        assert _is_valid_candidate("A" * 121) is False
+
+    def test_reject_ends_with_period(self):
+        assert _is_valid_candidate("The patient was seen for follow-up visit today.") is False
+
+    def test_reject_too_many_words(self):
+        long_sentence = "The patient was referred to the orthopedic clinic for further evaluation of the left knee injury sustained"
+        assert _is_valid_candidate(long_sentence) is False
+
+    def test_reject_sentence_like_lowercase(self):
+        # High lowercase ratio + >3 words → sentence-like
+        assert _is_valid_candidate("the patient was seen for back pain today") is False
+
+    def test_accept_uppercase_facility(self):
+        # Title-case or uppercase names should pass even if many words
+        assert _is_valid_candidate("SOUTHWEST REGIONAL MEDICAL CENTER") is True
+
+    def test_accept_mixed_case_provider(self):
+        assert _is_valid_candidate("Valley Orthopedic Medical") is True
+
+    def test_accept_labeled_provider(self):
+        assert _is_valid_candidate("John Smith MD") is True
+

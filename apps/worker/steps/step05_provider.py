@@ -48,6 +48,28 @@ def _normalize_name(raw: str) -> str:
     return name
 
 
+def _is_valid_candidate(name: str) -> bool:
+    """Filter out false-positive provider candidates."""
+    stripped = name.strip()
+    # Length bounds
+    if len(stripped) < 3 or len(stripped) > 120:
+        return False
+    # Reject if ends with period (sentence-like)
+    if stripped.endswith("."):
+        return False
+    # Word count: reject > 12 words
+    words = stripped.split()
+    if len(words) > 12:
+        return False
+    # Reject high lowercase ratio (sentence-like text)
+    alpha_chars = [c for c in stripped if c.isalpha()]
+    if alpha_chars:
+        lower_ratio = sum(1 for c in alpha_chars if c.islower()) / len(alpha_chars)
+        if lower_ratio > 0.85 and len(words) > 3:
+            return False
+    return True
+
+
 def _detect_provider_type(text: str) -> ProviderType:
     """Detect provider type from surrounding text."""
     text_lower = text.lower()
@@ -71,7 +93,7 @@ def _extract_candidates_from_page(page: Page) -> list[tuple[str, int]]:
             m = re.search(pattern, line, re.IGNORECASE)
             if m:
                 name = m.group(1).strip()
-                if len(name) >= 3 and len(name) <= 200:
+                if _is_valid_candidate(name):
                     candidates.append((name, 80))
 
     # Check letterhead (top 20% of page text = first few lines)
@@ -86,7 +108,8 @@ def _extract_candidates_from_page(page: Page) -> list[tuple[str, int]]:
             if any(kw in line_stripped.lower() for kw in
                    ["medical", "hospital", "clinic", "health", "center", "radiology",
                     "therapy", "orthopedic", "chiropractic", "imaging"]):
-                candidates.append((line_stripped, 70))
+                if _is_valid_candidate(line_stripped):
+                    candidates.append((line_stripped, 70))
 
     return candidates
 

@@ -10,6 +10,7 @@ from packages.shared.models import (
     Page,
     PageType,
     Provider,
+    SkippedEvent,
     Warning,
 )
 from .common import _make_citation, _make_fact, _find_section
@@ -42,16 +43,19 @@ def extract_clinical_events(
     dates: dict[int, list[EventDate]],
     providers: list[Provider],
     page_provider_map: dict[int, str] = {},
-) -> tuple[list[Event], list[Citation], list[Warning]]:
+) -> tuple[list[Event], list[Citation], list[Warning], list[SkippedEvent]]:
     """Extract clinical note events using block grouping."""
     events: list[Event] = []
     citations: list[Citation] = []
     warnings: list[Warning] = []
+    skipped: list[SkippedEvent] = []
 
     # 1. Group pages into blocks
     blocks = group_clinical_pages(pages, dates, providers, page_provider_map)
 
     for block in blocks:
+        event_flags: list[str] = []
+
         # 2. Determine Block Metadata
         # Date: Use block primary date, fallback to first page best date
         if block.primary_date:
@@ -61,12 +65,12 @@ def extract_clinical_events(
             event_date = _get_best_date(dates.get(block.pages[0].page_number, []))
             
         if not event_date:
-             warnings.append(Warning(
-                 code="MISSING_DATE",
-                 message=f"Skipping event for pages {block.page_numbers} due to missing date",
-                 page=block.pages[0].page_number
-             ))
-             continue
+            warnings.append(Warning(
+                code="MISSING_DATE",
+                message=f"Event for pages {block.page_numbers} has no resolved date",
+                page=block.pages[0].page_number
+            ))
+            event_flags.append("MISSING_DATE")
         
         # Provider: Use block primary provider, fallback to first available
         provider_id = block.primary_provider_id
@@ -105,28 +109,20 @@ def extract_clinical_events(
             citations.extend(page_cits)
             block_citation_ids.extend([c.citation_id for c in page_cits])
 
-        # If no facts found, maybe create a generic one? 
-        # Or if we have a valid block, we should create an event even with just metadata?
-        # Current logic continues if no facts. Let's keep that but maybe loosen it?
-        # User requirement: "Group pages... Create one event per block"
-        # If block exists, we probably want an event.
         if not block_facts:
-            # Minimal fact? "Clinical Note for Date"
-            pass
-
-        if not block_facts:
-             # Try to ensure at least one citation if possible?
-             # User said: "Prefer citations from the page section containing date..."
-             # If no facts found, we skip event?
-             # Let's stick to original logic: if no facts, continue.
-             continue
+            # Record as skipped for debug visibility (P1)
+            snippet = block.pages[0].text[:250].strip() if block.pages else ""
+            skipped.append(SkippedEvent(
+                page_numbers=block.page_numbers,
+                reason_code="NO_FACTS",
+                snippet=snippet[:300],
+            ))
+            continue
              
-        # Cap facts? maybe higher cap for block?
-        # Original was 6 per page. Maybe 10 per block?
+        # Cap facts
         block_facts = block_facts[:12]
         block_citation_ids = block_citation_ids[:12]
 
-        print(f"DEBUG: Creating event for block {block.page_numbers}, date={event_date}")
         events.append(Event(
             event_id=uuid.uuid4().hex[:16],
             provider_id=provider_id,
@@ -135,11 +131,12 @@ def extract_clinical_events(
             encounter_type_raw=encounter_type.value,
             facts=block_facts,
             confidence=0,
+            flags=event_flags,
             citation_ids=block_citation_ids,
             source_page_numbers=block.page_numbers,
         ))
 
-    return events, citations, warnings
+    return events, citations, warnings, skipped
 
 def _get_best_date(page_dates: list[EventDate]) -> EventDate | None:
     if not page_dates:

@@ -12,6 +12,7 @@ from packages.shared.models import (
     Page,
     PageType,
     Provider,
+    SkippedEvent,
     Warning,
 )
 from .common import _make_citation, _make_fact, _find_section
@@ -49,33 +50,39 @@ def extract_imaging_events(
     dates: dict[int, list[EventDate]],
     providers: list[Provider],
     page_provider_map: dict[int, str] = {},
-) -> tuple[list[Event], list[Citation], list[Warning]]:
+) -> tuple[list[Event], list[Citation], list[Warning], list[SkippedEvent]]:
     """Extract imaging events from imaging report pages."""
     events: list[Event] = []
     citations: list[Citation] = []
     warnings: list[Warning] = []
+    skipped: list[SkippedEvent] = []
 
     imaging_pages = [p for p in pages if p.page_type == PageType.IMAGING_REPORT]
 
     for page in imaging_pages:
+        event_flags: list[str] = []
         page_dates = dates.get(page.page_number, [])
-        if not page_dates:
-            continue
 
         # Check for impression or findings
         impression = _find_section(page.text, "Impression")
         findings = _find_section(page.text, "Findings")
         if not impression and not findings:
+            skipped.append(SkippedEvent(
+                page_numbers=[page.page_number],
+                reason_code="NO_TRIGGER_MATCH",
+                snippet=page.text[:250].strip()[:300],
+            ))
             continue
 
-        event_date = page_dates[0]
+        event_date = page_dates[0] if page_dates else None
         if not event_date:
             warnings.append(Warning(
                 code="MISSING_DATE",
-                message=f"Skipping imaging event for page {page.page_number} due to missing date",
+                message=f"Imaging event for page {page.page_number} has no resolved date",
                 page=page.page_number
             ))
-            continue
+            event_flags.append("MISSING_DATE")
+
         modality = _detect_modality(page.text)
         body_part = _detect_body_part(page.text)
         
@@ -114,8 +121,9 @@ def extract_imaging_events(
                 impression=impression_facts,
             ),
             confidence=0,
+            flags=event_flags,
             citation_ids=citation_ids,
             source_page_numbers=[page.page_number],
         ))
 
-    return events, citations, warnings
+    return events, citations, warnings, skipped

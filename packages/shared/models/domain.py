@@ -164,11 +164,18 @@ class Gap(BaseModel):
     related_event_ids: list[str] = Field(default_factory=list)
 
 
+class SkippedEvent(BaseModel):
+    """Debug record for events that were detected but not emitted."""
+    page_numbers: list[int] = Field(min_length=1)
+    reason_code: str  # MISSING_DATE, NO_FACTS, NO_TRIGGER_MATCH, etc.
+    snippet: str = Field(max_length=300)
+
+
 class Event(BaseModel):
     event_id: str
     provider_id: str
     event_type: EventType
-    date: EventDate
+    date: Optional[EventDate] = None
     encounter_type_raw: Optional[str] = None
     facts: list[Fact] = Field(min_length=1, max_length=10)
     diagnoses: list[Fact] = Field(default_factory=list)
@@ -189,6 +196,7 @@ class EvidenceGraph(BaseModel):
     events: list[Event] = Field(default_factory=list)
     citations: list[Citation] = Field(default_factory=list)
     gaps: list[Gap] = Field(default_factory=list)
+    skipped_events: list[SkippedEvent] = Field(default_factory=list)
 
 
 class ArtifactRef(BaseModel):

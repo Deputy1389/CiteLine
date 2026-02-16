@@ -12,6 +12,7 @@ from packages.shared.models import (
     Page,
     PageType,
     Provider,
+    SkippedEvent,
     Warning,
 )
 from .common import _make_citation, _make_fact
@@ -38,31 +39,36 @@ def extract_billing_events(
     dates: dict[int, list[EventDate]],
     providers: list[Provider],
     page_provider_map: dict[int, str] = {},
-) -> tuple[list[Event], list[Citation], list[Warning]]:
+) -> tuple[list[Event], list[Citation], list[Warning], list[SkippedEvent]]:
     """Extract billing events (always stored; export based on config)."""
     events: list[Event] = []
     citations: list[Citation] = []
     warnings: list[Warning] = []
+    skipped: list[SkippedEvent] = []
 
     billing_pages = [p for p in pages if p.page_type == PageType.BILLING]
 
     for page in billing_pages:
+        event_flags: list[str] = []
         page_dates = dates.get(page.page_number, [])
-        if not page_dates:
-            continue
 
         amount = _extract_amount(page.text)
         if amount is None:
+            skipped.append(SkippedEvent(
+                page_numbers=[page.page_number],
+                reason_code="NO_TRIGGER_MATCH",
+                snippet=page.text[:250].strip()[:300],
+            ))
             continue
 
-        event_date = page_dates[0]
+        event_date = page_dates[0] if page_dates else None
         if not event_date:
             warnings.append(Warning(
                  code="MISSING_DATE",
-                 message=f"Skipping billing event for page {page.page_number} due to missing date",
+                 message=f"Billing event for page {page.page_number} has no resolved date",
                  page=page.page_number
             ))
-            continue
+            event_flags.append("MISSING_DATE")
         
         # Determine provider
         provider_id = page_provider_map.get(page.page_number)
@@ -79,14 +85,17 @@ def extract_billing_events(
         has_icd = bool(re.search(r"\b[a-z]\d{2}\.?\d*\b", text_lower))
         line_items = len(re.findall(r"\n\s*\d+\s+", page.text))
 
-        billing = BillingDetails(
-            statement_date=event_date.sort_date(),
-            total_amount=amount,
-            currency="USD",
-            line_item_count=max(line_items, 0),
-            has_cpt_codes=has_cpt,
-            has_icd_codes=has_icd,
-        )
+        # Only build BillingDetails when we have a date for statement_date
+        billing = None
+        if event_date:
+            billing = BillingDetails(
+                statement_date=event_date.sort_date(),
+                total_amount=amount,
+                currency="USD",
+                line_item_count=max(line_items, 0),
+                has_cpt_codes=has_cpt,
+                has_icd_codes=has_icd,
+            )
 
         events.append(Event(
             event_id=uuid.uuid4().hex[:16],
@@ -96,8 +105,9 @@ def extract_billing_events(
             facts=[_make_fact(snippet, FactKind.OTHER, cit.citation_id)],
             billing=billing,
             confidence=0,
+            flags=event_flags,
             citation_ids=[cit.citation_id],
             source_page_numbers=[page.page_number],
         ))
 
-    return events, citations, warnings
+    return events, citations, warnings, skipped
