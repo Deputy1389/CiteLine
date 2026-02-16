@@ -64,6 +64,18 @@ class EventDate(BaseModel):
         return (99, "UNKNOWN")
 
     def sort_date(self) -> date:
-        """Deprecated. Use sort_key()."""
-        k, _ = self.sort_key()
-        return k
+        """Return a calendar date for calculation. Returns date(1900, 1, 1) for relative/partial."""
+        v = self.value
+        if v is not None:
+            if isinstance(v, date):
+                return v
+            return v.start
+        
+        rd = self.relative_day
+        if rd is not None and rd >= 0:
+            try:
+                return date(1900, 1, 1) + timedelta(days=rd - 1)
+            except Exception:
+                pass
+        
+        return date(1900, 1, 1)

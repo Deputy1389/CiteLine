@@ -60,10 +60,10 @@ def _detect_global_gaps(
     # Collect events with resolved dates
     dated_events = []
     for evt in evidence_graph.events:
-        if evt.date:
             try:
                 d = evt.date.sort_date()
-                dated_events.append((d, evt))
+                if d.year > 1900:  # Only absolute calendar dates
+                    dated_events.append((d, evt))
             except Exception:
                 pass
 
@@ -128,6 +128,8 @@ def _detect_provider_gaps(
             continue
         try:
             d = evt.date.sort_date()
+            if d.year <= 1900:
+                continue
         except Exception:
             continue
         norm = pid_to_norm.get(evt.provider_id)
