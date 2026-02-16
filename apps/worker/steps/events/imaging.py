@@ -69,6 +69,13 @@ def extract_imaging_events(
             continue
 
         event_date = page_dates[0]
+        if not event_date:
+            warnings.append(Warning(
+                code="MISSING_DATE",
+                message=f"Skipping imaging event for page {page.page_number} due to missing date",
+                page=page.page_number
+            ))
+            continue
         modality = _detect_modality(page.text)
         body_part = _detect_body_part(page.text)
         

@@ -59,10 +59,19 @@ def extract_clinical_events(
         else:
             # Should not happen if grouping worked well, but valid fallback
             event_date = _get_best_date(dates.get(block.pages[0].page_number, []))
+            
+        if not event_date:
+             warnings.append(Warning(
+                 code="MISSING_DATE",
+                 message=f"Skipping event for pages {block.page_numbers} due to missing date",
+                 page=block.pages[0].page_number
+             ))
+             continue
         
         # Provider: Use block primary provider, fallback to first available
         provider_id = block.primary_provider_id
         if not provider_id:
+
             # Fallback to first non-None
             for p in block.pages:
                 pid = page_provider_map.get(p.page_number)
@@ -117,6 +126,7 @@ def extract_clinical_events(
         block_facts = block_facts[:12]
         block_citation_ids = block_citation_ids[:12]
 
+        print(f"DEBUG: Creating event for block {block.page_numbers}, date={event_date}")
         events.append(Event(
             event_id=uuid.uuid4().hex[:16],
             provider_id=provider_id,

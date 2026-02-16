@@ -114,3 +114,14 @@ Run the full test suite (unit + integration):
 ```powershell
 pytest
 ```
+
+## Batch Processing
+
+To process the entire test corpus in `testdata/` and generate an evaluation report:
+
+```bash
+python scripts/batch_ingest.py
+```
+
+Results will be saved to `data/batch_runs/summary.json`.
+Artifacts for each run are stored in `data/batch_runs/<run_id>/`.

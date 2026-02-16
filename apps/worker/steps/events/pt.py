@@ -116,6 +116,8 @@ def extract_pt_events(
     else:
         # Per-visit mode
         for page, event_date in pt_visits:
+            if not event_date:
+                continue
             snippet = page.text[:200].strip()
             cit = _make_citation(page, snippet)
             citations.append(cit)

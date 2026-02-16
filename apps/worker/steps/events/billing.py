@@ -56,6 +56,13 @@ def extract_billing_events(
             continue
 
         event_date = page_dates[0]
+        if not event_date:
+            warnings.append(Warning(
+                 code="MISSING_DATE",
+                 message=f"Skipping billing event for page {page.page_number} due to missing date",
+                 page=page.page_number
+            ))
+            continue
         
         # Determine provider
         provider_id = page_provider_map.get(page.page_number)
