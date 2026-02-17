@@ -5,14 +5,9 @@ import pytest
 from datetime import date
 
 from apps.worker.steps.step15_missing_records import (
-    _detect_global_gaps,
-    _detect_provider_gaps,
-    _detect_continuity_mentions,
     detect_missing_records,
 )
 from packages.shared.models import (
-    BBox,
-    Citation,
     DateKind,
     DateSource,
     EvidenceGraph,
@@ -21,10 +16,7 @@ from packages.shared.models import (
     EventType,
     Fact,
     FactKind,
-    Page,
-    PageType,
     Provider,
-    ProviderEvidence,
     ProviderType,
 )
 
@@ -43,71 +35,34 @@ def _evt(eid, d=None, pid="p1", cit_ids=None, pages=None):
     )
 
 
-def _page(num, text="Sample text", ptype=PageType.CLINICAL_NOTE):
-    return Page(
-        page_id=f"page-{num}",
-        source_document_id="doc-1",
-        page_number=num,
-        text=text,
-        text_source="embedded_pdf_text",
-        page_type=ptype,
-    )
-
-
-# ── Global gap detection ─────────────────────────────────────────────────
-
-
-class TestGlobalGaps:
-    def test_no_gap_below_threshold(self):
+class TestMissingRecords:
+    def test_global_gap_detected(self):
+        # Global gap threshold is 45 days for medium, 90 for high
         graph = EvidenceGraph(events=[
-            _evt("e1", date(2024, 1, 1)),
-            _evt("e2", date(2024, 1, 10)),
+            _evt("e1", date(2024, 1, 1), pid="p1"),
+            _evt("e2", date(2024, 3, 1), pid="p2"), # 60 days gap
         ])
-        findings = _detect_global_gaps(graph, threshold_days=14)
-        assert len(findings) == 0
+        result = detect_missing_records(graph, [])
+        gaps = result["gaps"]
+        
+        # Should have 1 global gap (60 days)
+        global_gaps = [g for g in gaps if g["rule_name"] == "global_gap"]
+        assert len(global_gaps) == 1
+        assert global_gaps[0]["gap_days"] == 60
+        assert global_gaps[0]["severity"] == "medium"
 
-    def test_gap_above_threshold(self):
+    def test_global_gap_high_severity(self):
         graph = EvidenceGraph(events=[
-            _evt("e1", date(2024, 1, 1), cit_ids=["c1"]),
-            _evt("e2", date(2024, 3, 1), cit_ids=["c2"]),
+            _evt("e1", date(2024, 1, 1), pid="p1"),
+            _evt("e2", date(2024, 5, 1), pid="p2"), # ~121 days gap
         ])
-        findings = _detect_global_gaps(graph, threshold_days=14)
-        assert len(findings) == 1
-        assert findings[0]["finding_type"] == "global_gap"
-        assert findings[0]["gap_days"] == 60
-        assert findings[0]["reason_code"] == "GAP_OVER_THRESHOLD"
-        assert "c1" in findings[0]["citation_ids"]
-        assert "c2" in findings[0]["citation_ids"]
+        result = detect_missing_records(graph, [])
+        global_gaps = [g for g in result["gaps"] if g["rule_name"] == "global_gap"]
+        assert len(global_gaps) == 1
+        assert global_gaps[0]["severity"] == "high"
 
-    def test_multiple_gaps(self):
-        graph = EvidenceGraph(events=[
-            _evt("e1", date(2024, 1, 1)),
-            _evt("e2", date(2024, 3, 1)),
-            _evt("e3", date(2024, 6, 1)),
-        ])
-        findings = _detect_global_gaps(graph, threshold_days=14)
-        assert len(findings) == 2
-
-    def test_single_event_no_gap(self):
-        graph = EvidenceGraph(events=[_evt("e1", date(2024, 1, 1))])
-        findings = _detect_global_gaps(graph, threshold_days=14)
-        assert len(findings) == 0
-
-    def test_dateless_events_ignored(self):
-        graph = EvidenceGraph(events=[
-            _evt("e1", date(2024, 1, 1)),
-            _evt("e2"),  # no date
-            _evt("e3", date(2024, 6, 1)),
-        ])
-        findings = _detect_global_gaps(graph, threshold_days=14)
-        assert len(findings) == 1
-
-
-# ── Provider gap detection ────────────────────────────────────────────────
-
-
-class TestProviderGaps:
     def test_provider_gap_detected(self):
+        # Provider gap threshold is 30 days for medium, 60 for high
         graph = EvidenceGraph(
             providers=[Provider(
                 provider_id="p1",
@@ -118,159 +73,81 @@ class TestProviderGaps:
             )],
             events=[
                 _evt("e1", date(2024, 1, 1), pid="p1"),
-                _evt("e2", date(2024, 4, 1), pid="p1"),
+                _evt("e2", date(2024, 2, 15), pid="p1"), # 45 days gap
             ],
         )
-        providers_normalized = [{
-            "normalized_name": "dr smith",
-            "display_name": "Dr. Smith",
-            "provider_type": "physician",
-            "first_seen_date": "2024-01-01",
-            "last_seen_date": "2024-04-01",
-            "event_count": 2,
-            "citation_count": 2,
-            "source_provider_ids": ["p1"],
-        }]
-        findings = _detect_provider_gaps(graph, providers_normalized, default_threshold_days=30)
-        assert len(findings) == 1
-        assert findings[0]["finding_type"] == "provider_gap"
-        assert findings[0]["provider_entity_id"] == "dr smith"
-        assert findings[0]["gap_days"] == 91
+        result = detect_missing_records(graph, [])
+        provider_gaps = [g for g in result["gaps"] if g["rule_name"] == "provider_gap"]
+        assert len(provider_gaps) == 1
+        assert provider_gaps[0]["provider_id"] == "p1"
+        assert provider_gaps[0]["gap_days"] == 45
+        assert provider_gaps[0]["severity"] == "medium"
 
-    def test_pt_provider_lower_threshold(self):
+    def test_provider_gap_high_severity(self):
         graph = EvidenceGraph(
             providers=[Provider(
                 provider_id="p1",
-                detected_name_raw="PT Clinic",
-                normalized_name="pt clinic",
-                provider_type=ProviderType.UNKNOWN,
+                detected_name_raw="Dr. Smith",
+                normalized_name="dr smith",
+                provider_type=ProviderType.PHYSICIAN,
                 confidence=80,
             )],
             events=[
                 _evt("e1", date(2024, 1, 1), pid="p1"),
-                _evt("e2", date(2024, 1, 15), pid="p1"),
+                _evt("e2", date(2024, 4, 1), pid="p1"), # 91 days gap
             ],
         )
-        providers_normalized = [{
-            "normalized_name": "pt clinic",
-            "display_name": "PT Clinic",
-            "provider_type": "pt",
-            "first_seen_date": "2024-01-01",
-            "last_seen_date": "2024-01-15",
-            "event_count": 2,
-            "citation_count": 2,
-            "source_provider_ids": ["p1"],
-        }]
-        findings = _detect_provider_gaps(graph, providers_normalized, pt_threshold_days=7)
-        assert len(findings) == 1
-        assert findings[0]["reason_code"] == "PT_COURSE_GAP"
+        result = detect_missing_records(graph, [])
+        provider_gaps = [g for g in result["gaps"] if g["rule_name"] == "provider_gap"]
+        assert len(provider_gaps) == 1
+        assert provider_gaps[0]["severity"] == "high"
 
-
-# ── Continuity mention detection ──────────────────────────────────────────
-
-
-class TestContinuityMentions:
-    def test_followup_detected(self):
+    def test_no_gaps_below_threshold(self):
         graph = EvidenceGraph(
-            pages=[_page(1, "Patient should follow up in 2 weeks.")],
-            citations=[Citation(
-                citation_id="c1", source_document_id="doc-1",
-                page_number=1, snippet="follow up",
-                bbox=BBox(x=0, y=0, w=100, h=20),
+            providers=[Provider(
+                provider_id="p1",
+                detected_name_raw="Dr. Smith",
+                normalized_name="dr smith",
+                provider_type=ProviderType.PHYSICIAN,
+                confidence=80,
             )],
-        )
-        findings = _detect_continuity_mentions(graph)
-        assert len(findings) >= 1
-        assert any(f["reason_code"] == "FOLLOWUP_MENTION" for f in findings)
-
-    def test_imaging_ordered_detected(self):
-        graph = EvidenceGraph(
-            pages=[_page(1, "Doctor ordered an MRI of the lumbar spine.")],
-        )
-        findings = _detect_continuity_mentions(graph)
-        assert len(findings) >= 1
-        assert any(f["reason_code"] == "IMAGING_ORDERED" for f in findings)
-
-    def test_pt_continuation_detected(self):
-        graph = EvidenceGraph(
-            pages=[_page(1, "Continue physical therapy 3x per week.")],
-        )
-        findings = _detect_continuity_mentions(graph)
-        assert len(findings) >= 1
-        assert any(f["reason_code"] == "PT_COURSE_GAP" for f in findings)
-
-    def test_no_triggers_on_clean_text(self):
-        graph = EvidenceGraph(
-            pages=[_page(1, "Chief complaint: low back pain. Exam normal.")],
-        )
-        findings = _detect_continuity_mentions(graph)
-        assert len(findings) == 0
-
-    def test_deduplication_same_page(self):
-        graph = EvidenceGraph(
-            pages=[_page(1, "Follow up in 4 weeks. Patient should follow up in 6 weeks.")],
-        )
-        findings = _detect_continuity_mentions(graph)
-        # Should deduplicate same trigger type on same page
-        followup_findings = [f for f in findings if f["reason_code"] == "FOLLOWUP_MENTION"]
-        assert len(followup_findings) == 1
-
-
-# ── Integration: full detect_missing_records ──────────────────────────────
-
-
-class TestDetectMissingRecords:
-    def test_deterministic_ordering(self):
-        graph = EvidenceGraph(
-            pages=[_page(1, "Return in 2 weeks for follow up.")],
             events=[
-                _evt("e1", date(2024, 1, 1)),
-                _evt("e2", date(2024, 6, 1)),
+                _evt("e1", date(2024, 1, 1), pid="p1"),
+                _evt("e2", date(2024, 1, 20), pid="p1"), # 19 days gap
             ],
         )
+        result = detect_missing_records(graph, [])
+        assert len(result["gaps"]) == 0
+
+    def test_suggested_records_to_request(self):
+        graph = EvidenceGraph(events=[
+            _evt("e1", date(2024, 1, 1), pid="p1"),
+            _evt("e2", date(2024, 3, 1), pid="p1"),
+        ])
+        result = detect_missing_records(graph, [])
+        gap = result["gaps"][0] # Could be provider or global depending on implementation, 
+                                # but both should have suggested_records_to_request
+        assert "suggested_records_to_request" in gap
+        sreq = gap["suggested_records_to_request"]
+        assert sreq["from"] == "2024-01-02"
+        assert sreq["to"] == "2024-02-29"
+
+    def test_summary_metrics(self):
+        graph = EvidenceGraph(events=[
+            _evt("e1", date(2024, 1, 1), pid="p1"),
+            _evt("e2", date(2024, 5, 1), pid="p1"), # High severity both
+        ])
+        result = detect_missing_records(graph, [])
+        summary = result["summary"]
+        assert summary["total_gaps"] == 2 # 1 provider gap + 1 global gap
+        assert summary["high_severity_count"] == 2
+        assert summary["medium_severity_count"] == 0
+
+    def test_deterministic_hashes(self):
+        graph = EvidenceGraph(events=[
+            _evt("e1", date(2024, 1, 1), pid="p1"),
+            _evt("e2", date(2024, 3, 1), pid="p1"),
+        ])
         r1 = detect_missing_records(graph, [])
         r2 = detect_missing_records(graph, [])
-        # Exclude generated_at and ids from comparison
-        for r in [r1, r2]:
-            for f in r["findings"]:
-                f.pop("id", None)
-            r.pop("generated_at", None)
-        assert r1 == r2
-
-    def test_findings_have_required_fields(self):
-        graph = EvidenceGraph(
-            pages=[_page(1, "Ordered MRI lumbar spine")],
-            events=[
-                _evt("e1", date(2024, 1, 1)),
-                _evt("e2", date(2024, 6, 1)),
-            ],
-            citations=[Citation(
-                citation_id="c1", source_document_id="doc-1",
-                page_number=1, snippet="MRI",
-                bbox=BBox(x=0, y=0, w=100, h=20),
-            )],
-        )
-        result = detect_missing_records(graph, [])
-        for finding in result["findings"]:
-            assert "id" in finding
-            assert "finding_type" in finding
-            assert "reason_code" in finding
-            assert "confidence" in finding
-            # Must have citation_ids OR source_page_numbers
-            has_refs = (
-                len(finding.get("citation_ids", [])) > 0
-                or len(finding.get("source_page_numbers", [])) > 0
-            )
-            assert has_refs, f"Finding {finding['id']} has no citation or page ref"
-
-    def test_metrics_correct(self):
-        graph = EvidenceGraph(
-            pages=[_page(1, "Follow up in 3 weeks.")],
-            events=[
-                _evt("e1", date(2024, 1, 1)),
-                _evt("e2", date(2024, 6, 1)),
-            ],
-        )
-        result = detect_missing_records(graph, [])
-        m = result["metrics"]
-        assert m["total_findings"] == m["global_gaps"] + m["provider_gaps"] + m["continuity_mentions"]
+        assert r1["gaps"][0]["gap_id"] == r2["gaps"][0]["gap_id"]
