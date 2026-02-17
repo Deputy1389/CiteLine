@@ -62,12 +62,11 @@ def _date_str(event: Event) -> str:
     
     # 2) Partial date via extensions (User Patch)
     if ext.get("partial_date") and ext.get("partial_month") and ext.get("partial_day"):
-        # do NOT invent a year
-        return f"{int(ext['partial_month']):02d}/{int(ext['partial_day']):02d} (year unknown){time_str}"
+        return f"{int(ext['partial_month']):02d}/{int(ext['partial_day']):02d}{time_str}"
 
     # Fallback to model fields
     if event.date.partial_month is not None:
-        return f"{event.date.partial_month:02d}/{event.date.partial_day:02d} (year unknown){time_str}"
+        return f"{event.date.partial_month:02d}/{event.date.partial_day:02d}{time_str}"
     
     # 3) True relative day (positive) is allowed
     # STRICTLY positive only
@@ -146,11 +145,6 @@ def generate_pdf(
         story.append(Paragraph(summary_text.replace("\n", "<br/>"), summary_body_style))
         story.append(Spacer(1, 0.2 * inch))
 
-    # Events table (Grouped by Date)
-    if events:
-        story.append(Paragraph("Clinical Timeline", styles["Heading2"]))
-        story.append(Spacer(1, 0.1 * inch))
-
     # Events table (Chronological)
     if events:
         story.append(Paragraph("Clinical Timeline", styles["Heading2"]))
@@ -167,6 +161,7 @@ def generate_pdf(
             Paragraph("<b>Source</b>", header_style),
         ]]
 
+        # Strict chronological sort by date then time
         sorted_events = sorted(events, key=lambda x: x.date.sort_key() if x.date else (99, "UNKNOWN"))
         
         for event in sorted_events:

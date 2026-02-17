@@ -1,55 +1,40 @@
 """
-Step 9 — De-duplication + merge.
-Merge Events with same (provider_id, event_type, date) when pages contiguous or citations overlap.
-Cap facts at 10.
+Step 9 — Signal Filtering + Event Consolidation.
+Merge adjacent events with same (date, time, provider, event_type).
+Drop events that fail the clinical signal test.
 """
 from __future__ import annotations
+from collections import defaultdict
 
 from packages.shared.models import Event, Warning
+from apps.worker.steps.events.signal_filter import is_clinical_signal_event
 
 
-def _events_match(a: Event, b: Event) -> bool:
-    """Check if two events should be merged."""
-    if a.provider_id != b.provider_id:
-        return False
-    if a.event_type != b.event_type:
-        return False
+def _get_event_key(e: Event) -> tuple:
+    """Deterministic grouping key."""
+    if not e.date:
+        return (None, None, e.provider_id, e.event_type)
     
-    # Guard: dateless events never merge
-    if not a.date or not b.date:
-        return False
+    ext = e.date.extensions or {}
+    time_val = ext.get("time")
     
-    if a.date.sort_date() != b.date.sort_date():
-        return False
-
-    # Check time if available - STRICT REQUIREMENT
-    time_a = (a.date.extensions or {}).get("time")
-    time_b = (b.date.extensions or {}).get("time")
-    if time_a != time_b:
-        return False
-
-    # Text similarity (exact match of first 50 chars as heuristic)
-    text_a = " ".join(f.text for f in a.facts).lower()
-    text_b = " ".join(f.text for f in b.facts).lower()
-    if text_a[:50] != text_b[:50]:
-        return False
-
-    return True
+    # Sort date
+    sd = e.date.sort_date()
+    
+    return (sd, time_val, e.provider_id, e.event_type)
 
 
 def _merge_events(a: Event, b: Event) -> Event:
     """Merge event b into event a."""
-    # Initialize merged_from if not present
     if not a.extensions: a.extensions = {}
     if "merged_from" not in a.extensions:
         a.extensions["merged_from"] = [a.event_id]
-    
     a.extensions["merged_from"].append(b.event_id)
 
-    # Combine facts (dedup by text, cap at 20 for merged)
+    # Combine facts (dedup by text, cap at 30)
     seen_texts = {f.text for f in a.facts}
     for fact in b.facts:
-        if fact.text not in seen_texts and len(a.facts) < 20:
+        if fact.text not in seen_texts and len(a.facts) < 30:
             a.facts.append(fact)
             seen_texts.add(fact.text)
 
@@ -65,11 +50,12 @@ def _merge_events(a: Event, b: Event) -> Event:
         if p not in existing_pages:
             a.source_page_numbers.append(p)
 
-    # Combine diagnoses, procedures
+    # Combine other fields
     a.diagnoses.extend(b.diagnoses)
+    a.medications.extend(b.medications)
     a.procedures.extend(b.procedures)
 
-    # Keep higher confidence
+    # Keep highest confidence
     a.confidence = max(a.confidence, b.confidence)
 
     return a
@@ -77,28 +63,69 @@ def _merge_events(a: Event, b: Event) -> Event:
 
 def deduplicate_events(events: list[Event]) -> tuple[list[Event], list[Warning]]:
     """
-    Deduplicate and merge events.
-    Returns (merged_events, warnings).
+    Consolidate events by timestamp and filter for clinical signal.
     """
     warnings: list[Warning] = []
     if not events:
         return events, warnings
 
-    merged: list[Event] = [events[0]]
+    # 1. Sort all events by date/time sort_key to bring identical timestamps together
+    events.sort(key=lambda e: e.date.sort_key() if e.date else (99, "UNKNOWN"))
 
-    for event in events[1:]:
-        was_merged = False
-        for i, existing in enumerate(merged):
-            if _events_match(existing, event):
-                merged[i] = _merge_events(existing, event)
-                was_merged = True
-                break
-        if not was_merged:
-            merged.append(event)
+    # 2. Merge events with same (date, time)
+    # Different encounter types at same time are merged; highest priority type wins.
+    from apps.worker.steps.events.clinical import PRIORITY_MAP
+    
+    def _get_time_key(e: Event):
+        if not e.date: return (None, None, None)
+        ext = e.date.extensions or {}
+        return (e.date.sort_date(), ext.get("time"))
 
-    # Final cap on facts
-    for event in merged:
-        if len(event.facts) > 10:
-            event.facts = event.facts[:10]
+    merged: list[Event] = []
+    if not events:
+        return [], warnings
 
-    return merged, warnings
+    current_event = events[0]
+    
+    for i in range(1, len(events)):
+        next_event = events[i]
+        
+        if _get_time_key(current_event) == _get_time_key(next_event):
+            # Update encounter type if next one is higher priority
+            if PRIORITY_MAP.get(next_event.event_type, 0) > PRIORITY_MAP.get(current_event.event_type, 0):
+                current_event.event_type = next_event.event_type
+            current_event = _merge_events(current_event, next_event)
+        else:
+            merged.append(current_event)
+            current_event = next_event
+            
+    merged.append(current_event)
+
+    # 3. Filter individual facts and the events themselves
+    from apps.worker.steps.events.signal_filter import BOILERPLATE_PATTERNS, LEGEND_PATTERNS
+    import re
+
+    final_events = []
+    for e in merged:
+        # Filter out boilerplate facts from this event
+        filtered_facts = []
+        for fact in e.facts:
+            text = fact.text.strip()
+            is_bp = any(re.search(p, text) for p in BOILERPLATE_PATTERNS)
+            is_leg = any(re.search(p, text.lower()) for p in LEGEND_PATTERNS)
+            
+            # Rule: Drop if shorter than 15 and no numeric signal
+            from apps.worker.steps.events.signal_filter import NUMERIC_SIGNALS
+            has_num = any(re.search(p, text.lower()) for p in NUMERIC_SIGNALS)
+            is_short = len(text) < 15 and not has_num
+            
+            if not (is_bp or is_leg or is_short):
+                filtered_facts.append(fact)
+        
+        e.facts = filtered_facts
+        
+        # Check if event still has signal
+        if is_clinical_signal_event(e):
+            final_events.append(e)
+
+    return final_events, warnings

@@ -921,6 +921,7 @@
         "administrative",
         "lab_result",
         "discharge",
+        "referenced_prior_event",
         "other_event"
       ]
     },
@@ -970,6 +971,18 @@
           ]
         },
         "relative_day": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "partial_month": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "partial_day": {
           "type": [
             "integer",
             "null"

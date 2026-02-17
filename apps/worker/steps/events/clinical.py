@@ -23,14 +23,9 @@ from apps.worker.steps.step06_dates import make_partial_date
 #   "9/24"
 #   "1600 Admit to Oncology Floor..."
 DATE_LINE_RE = re.compile(r"^\s*(\d{1,2})[/\-](\d{1,2})[\.\s]*$")
-TIME_TEXT_RE = re.compile(r"^\s*(\d{1,2}:?\d{2})\s*(.+?)\s*$")
-
-# Flexible pattern: detect date and time anywhere in the line
-# e.g. "9/26 0925 Text" or "T. Smyth, RN 9/26 09:25 Text"
+TIME_LINE_RE = re.compile(r"^\s*(\d{1,2}:?\d{2})\s*(.*)$")
+DATE_TIME_LINE_RE = re.compile(r"^\s*(\d{1,2})[/\-](\d{1,2})\s+(\d{1,2}:?\d{2})\s*(.*)$")
 DATE_TIME_INLINE_RE = re.compile(r"(?:\b|^)(\d{1,2})[/\-](\d{1,2})\s+(\d{1,2}:?\d{2})\b")
-
-# Sometimes it's one line: "9/24 1600 Patient ..."
-DATE_TIME_TEXT_RE = re.compile(r"^\s*(\d{1,2})[/\-](\d{1,2})\s+(\d{1,2}:?\d{2})\s*(.+?)\s*$")
 
 _CLINICAL_INDICATORS = [
     (r"(?i)\bpain\s*(?:level|score)?\s*:?\s*(\d{1,2}/10)\b", "Pain Level"),
@@ -46,14 +41,39 @@ _CLINICAL_INDICATORS = [
     (r"(?i)history\s*of\s*([^.\n]+)", "Medical History"),
 ]
 
+def _append_to_event(event: Event, text: str, page: Page, citations: list[Citation]):
+    """Append a clinical line to an existing event fact list."""
+    cit = _make_citation(page, text)
+    citations.append(cit)
+    
+    # Update encounter type if new text is stronger
+    new_etype = _detect_encounter_type(text)
+    if PRIORITY_MAP.get(new_etype, 0) > PRIORITY_MAP.get(event.event_type, 0):
+        event.event_type = new_etype
+
+    # Check if this line contains new indicators
+    fact_text = text
+    for pattern, label in _CLINICAL_INDICATORS:
+        if re.search(pattern, text):
+            if label not in text:
+                fact_text = f"{label}: {text}"
+            break
+
+    event.facts.append(_make_fact(fact_text, FactKind.OTHER, cit.citation_id))
+    event.citation_ids.append(cit.citation_id)
+
 def _detect_encounter_type(text: str) -> EventType:
     """Detect encounter type from clinical note text with deterministic rules."""
     n = text.lower()
     
     # 0. Historical Reference Detection
-    # If text contains "on MM/DD" but it's not a header/row, it might be a reference
-    # "discharged home on 9/22"
-    if re.search(r"\b(discharged home on|admitted on|prior to|history of|reported on)\s+\d{1,2}/\d{1,2}\b", n):
+    # If text contains "on MM/DD" or "prior to" but it's not a header/row, it's a reference
+    # "discharged home on 9/22", "history of adenocarcinoma of the lung"
+    if re.search(r"\b(discharged home on|admitted on|prior to|reported on|history of)\s+\d{1,2}/\d{1,2}\b", n):
+        return EventType.REFERENCED_PRIOR_EVENT
+    
+    # History of ... (without date) is often just a daily note mention
+    if "history of" in n and len(n) < 100:
         return EventType.REFERENCED_PRIOR_EVENT
 
     # 1. Discharge
@@ -259,6 +279,14 @@ def _is_boilerplate_line(text: str) -> bool:
         r"[a-z]=\s*[a-z]{4} ventrogluteal", # Legend codes
         r"\d=[a-z]{3} abdomen",
         r"hours to be given",
+        r"^date\s*:\s*$",
+        r"^medication\s*:\s*$",
+        r"^vital signs record\s*$",
+        r"^date of order\s*$",
+        r"^date/time given\s*$",
+        r"^weight\s*$",
+        r"^respirations\s*$",
+        r"^temp\s*$",
     ]
     
     if any(re.search(p, n) for p in boilerplate_patterns):
@@ -267,7 +295,8 @@ def _is_boilerplate_line(text: str) -> bool:
     # 4. Template noise
     prefixes = (
         "page ", "physician’s orders", "physician's orders", "dates", "time hourly",
-        "pain assessment", "intensity ("
+        "pain assessment", "intensity (", "date:", "medication:", "date of order",
+        "date/time given"
     )
     if n.startswith(prefixes):
         # Exception for real orders
@@ -290,6 +319,16 @@ def _is_eventworthy(text: str) -> bool:
         "summary", "teaching", "bath", "urinated"
     )
     return any(k in n for k in keywords)
+
+def _is_same_timestamp(event: Event, month: int, day: int, hhmm: str | None) -> bool:
+    """True if the event matches the given month, day, and time."""
+    if not event.date: return False
+    ext = event.date.extensions or {}
+    return (
+        event.date.partial_month == month and
+        event.date.partial_day == day and
+        ext.get("time") == hhmm
+    )
 
 def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Event], list[Citation]]:
     """Scan block for flowsheet rows with date context and rowization."""
@@ -334,105 +373,93 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
             line = line.strip()
             if not line: continue
             
-            # Debug pre-filter
-            if debug_enabled and "9/26" in line:
-                 print(f"DEBUG: Found '9/26' in raw line: {line}")
-
-            # STEP 3: Detect date anywhere in line
-            # e.g. "T. Smyth, RN 9/26 0430 Patient ..."
-            m_inline = DATE_TIME_INLINE_RE.search(line)
-            if m_inline:
-                current_month = int(m_inline.group(1))
-                current_day = int(m_inline.group(2))
-                # Inline dates 9/26 usually don't have years.
-                # Invariant: If it's a new date found in text, clear the year unless it's full.
-                current_year = None 
-
-                # If we have a time too, and text remains
-                hhmm = m_inline.group(3)
-                # Remaining text after the timestamp
-                text_start = m_inline.end()
-                text = line[text_start:].strip()
-                
-                if text and _is_eventworthy(text):
-                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers, debug_enabled, year=current_year)
-                    pending_time = None
-                    continue
-                else:
-                    # Just update context
-                    pending_time = hhmm
-                    continue
-
             # 1. Deterministic Boilerplate Filter
             if _is_boilerplate_line(line):
                 continue
-                
-            # 2. Date Line Pattern: ^\d{1,2}/\d{1,2}$
+
+            # 2. Date/Time Detection
+            m_dt = DATE_TIME_LINE_RE.match(line)
+            m_inline = DATE_TIME_INLINE_RE.search(line)
             m_date = DATE_LINE_RE.match(line)
-            if m_date:
+            m_time = TIME_LINE_RE.match(line)
+
+            if m_dt:
+                m, d = int(m_dt.group(1)), int(m_dt.group(2))
+                hhmm = m_dt.group(3).replace(":", "")
+                text = m_dt.group(4).strip()
+                current_month, current_day, current_year = m, d, None
+                
+                if text:
+                    if last_event and _is_same_timestamp(last_event, m, d, hhmm):
+                        _append_to_event(last_event, text, page, citations)
+                    else:
+                        last_event = _add_flowsheet_event(events, citations, page, m, d, hhmm, text, page_provider_map, providers, debug_enabled, year=current_year)
+                    pending_time = None
+                else:
+                    # New timestamp context
+                    last_event = None
+                    pending_time = hhmm
+                continue
+
+            elif m_inline:
+                m, d = int(m_inline.group(1)), int(m_inline.group(2))
+                hhmm = m_inline.group(3).replace(":", "")
+                current_month, current_day, current_year = m, d, None
+                
+                text_start = m_inline.end()
+                text = line[text_start:].strip()
+                if text:
+                    if last_event and _is_same_timestamp(last_event, m, d, hhmm):
+                        _append_to_event(last_event, text, page, citations)
+                    else:
+                        last_event = _add_flowsheet_event(events, citations, page, m, d, hhmm, text, page_provider_map, providers, debug_enabled, year=current_year)
+                    pending_time = None
+                else:
+                    # Context switch
+                    last_event = None
+                    pending_time = hhmm
+                continue
+
+            elif m_date:
                 current_month = int(m_date.group(1))
                 current_day = int(m_date.group(2))
                 current_year = None
-                last_event = None 
-                pending_time = None
-                continue
-                
-            # 3. One-line Pattern: ^\d{1,2}/\d{1,2}\s+\d{3,4}\s+<text>
-            m_full = DATE_TIME_TEXT_RE.match(line)
-            if m_full:
-                current_month = int(m_full.group(1))
-                current_day = int(m_full.group(2))
-                current_year = None
-                hhmm = m_full.group(3)
-                text = m_full.group(4)
-                
-                if _is_eventworthy(text):
-                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers, debug_enabled, year=current_year)
-                else:
-                    last_event = None
+                last_event = None
                 pending_time = None
                 continue
 
-            # 4. Time Line Pattern: ^\d{3,4}\s+<text>
-            m_time_text = TIME_TEXT_RE.match(line)
-            if m_time_text:
-                hhmm = m_time_text.group(1)
-                text = m_time_text.group(2)
+            elif m_time:
+                hhmm = m_time.group(1).replace(":", "")
+                text = m_time.group(2).strip()
                 
                 if current_month and current_day:
-                    if _is_eventworthy(text):
-                        last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers, debug_enabled, year=current_year)
+                    if text and _is_eventworthy(text):
+                        if last_event and _is_same_timestamp(last_event, current_month, current_day, hhmm):
+                            _append_to_event(last_event, text, page, citations)
+                        else:
+                            last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers, debug_enabled, year=current_year)
                     else:
                         last_event = None
+                        pending_time = hhmm
                 else:
-                    # Mark undated / skip from calculations as per Rule 4
-                    last_event = None
-                pending_time = None
+                    pending_time = hhmm
                 continue
 
-            # 5. Standalone Time Pattern: ^\d{3,4}$
-            m_time_only = TIME_ONLY_RE.match(line)
-            if m_time_only:
-                pending_time = m_time_only.group(1)
-                continue
-
-            # 6. Continuation or Standalone Clinical Text
+            # 3. Continuation or Standalone Clinical Text
             if current_month and current_day:
                 if _is_eventworthy(line):
-                    # New event with pending or default time
-                    hhmm = pending_time or "0000"
-                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, line, page_provider_map, providers, debug_enabled, year=current_year)
+                    hhmm = pending_time or None
+                    if last_event and _is_same_timestamp(last_event, current_month, current_day, hhmm):
+                        _append_to_event(last_event, line, page, citations)
+                    else:
+                        last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, line, page_provider_map, providers, debug_enabled, year=current_year)
                     pending_time = None
                 elif last_event and (_is_clinical_sentence(line) or len(line) > 10):
-                    # Append to last event
-                    cit = _make_citation(page, line)
-                    citations.append(cit)
-                    last_event.facts.append(_make_fact(line, FactKind.OTHER, cit.citation_id))
-                    last_event.citation_ids.append(cit.citation_id)
+                    _append_to_event(last_event, line, page, citations)
                 elif not last_event and _is_clinical_sentence(line):
-                    # Narrative header with no previous event - create one at 0000
-                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, "0000", line, page_provider_map, providers, debug_enabled, year=current_year)
-                continue
+                    hhmm = pending_time or None
+                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, line, page_provider_map, providers, debug_enabled, year=current_year)
+                    pending_time = None
 
     return events, citations
 

@@ -16,6 +16,7 @@ from apps.worker.steps.step03_classify import classify_pages
 from apps.worker.steps.step03a_demographics import extract_demographics
 from apps.worker.steps.step06_dates import extract_dates_for_pages
 from apps.worker.steps.step07_events import extract_clinical_events
+from apps.worker.steps.step09_dedup import deduplicate_events
 from apps.worker.steps.step11_gaps import detect_gaps
 from apps.worker.steps.step12_export import render_exports
 
@@ -59,6 +60,10 @@ def run_eval():
     page_provider_map = {}
     events, citations, warns, skipped = extract_clinical_events(all_pages, dates, providers, page_provider_map)
     
+    # 9. Deduplication & Signal Filtering
+    print(f"Consolidating and filtering {len(events)} events...")
+    events, _ = deduplicate_events(events)
+
     # 11. Gaps
     print(f"Detecting gaps among {len(events)} events...")
     events, gaps, _ = detect_gaps(events, config)
@@ -109,9 +114,10 @@ def run_eval():
 
     print("\nSPECIFIC 09/26 EVENTS:")
     for e in events:
-        if _date_str(e) == "09/26 (year unknown)":
+        d_str = _date_str(e)
+        if d_str.startswith("09/26 (year unknown)"):
             facts = "; ".join(f.text for f in e.facts)
-            print(f"[{_date_str(e)}] {e.event_type.value}: {facts}")
+            print(f"[{d_str}] {e.event_type.value}: {facts}")
     
     if gaps:
         print("\nGAPS DETECTED:")

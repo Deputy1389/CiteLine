@@ -1,62 +1,78 @@
-import os
-import sys
 import json
-from datetime import date
+import uuid
+import os
+from datetime import datetime, timezone
+from packages.db.database import get_session, init_db
+from packages.db.models import Matter, Run, SourceDocument, Firm
+from apps.worker.pipeline import run_pipeline
+from pathlib import Path
 
-# Add project root to sys.path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "."))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+def setup_and_run():
+    init_db()
+    with get_session() as session:
+        # 1. Setup Firm/Matter
+        firm = Firm(name="Debug Firm")
+        session.add(firm)
+        session.flush()
+        
+        matter = Matter(firm_id=firm.id, title="Julia Morales Debug")
+        session.add(matter)
+        session.flush()
+        
+        # 2. Add Documents
+        testdata = Path("C:/CiteLine/testdata")
+        julia_files = [
+            "eval_06_julia_day1.pdf",
+            "eval_07_julia_day2.pdf",
+            "eval_08_julia_day3.pdf"
+        ]
+        
+        for fname in julia_files:
+            fpath = testdata / fname
+            if not fpath.exists():
+                print(f"Missing {fname}")
+                continue
+                
+            doc = SourceDocument(
+                matter_id=matter.id,
+                filename=fname,
+                mime_type="application/pdf",
+                sha256="0"*64, # Mock
+                bytes=fpath.stat().st_size
+            )
+            session.add(doc)
+            session.flush()
+            
+            # Link file in data/uploads/
+            upload_dir = Path("C:/CiteLine/data/uploads")
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            target = upload_dir / f"{doc.id}.pdf"
+            # Copy or symlink
+            import shutil
+            shutil.copy(fpath, target)
 
-from packages.shared.models import RunConfig
-from apps.worker.steps.step01_page_split import split_pages
-from apps.worker.steps.step02_text_acquire import acquire_text
-from apps.worker.steps.step03_classify import classify_pages
-from apps.worker.steps.step03a_demographics import extract_demographics
-from apps.worker.steps.step06_dates import extract_dates_for_pages
-from apps.worker.steps.step07_events import extract_clinical_events, extract_discharge_events
-from apps.worker.steps.step12_export import _date_str, generate_executive_summary
-
-def debug_raw():
-    pdf_paths = [
-        "c:/CiteLine/testdata/eval_06_julia_day1.pdf",
-        "c:/CiteLine/testdata/eval_07_julia_day2.pdf",
-        "c:/CiteLine/testdata/eval_08_julia_day3.pdf"
-    ]
+        # 3. Create Run
+        config = {
+            "max_pages": 100,
+            "low_confidence_event_behavior": "include_with_flag",
+            "event_confidence_min_export": 50
+        }
+        run = Run(
+            matter_id=matter.id,
+            status="pending",
+            config_json=json.dumps(config)
+        )
+        session.add(run)
+        session.flush()
+        run_id = run.id
+        session.commit()
+        
+    print(f"🚀 Starting pipeline for run {run_id}")
+    run_pipeline(run_id)
     
-    all_pages = []
-    for pdf_path in pdf_paths:
-        doc_id = os.path.basename(pdf_path)
-        pages, _ = split_pages(pdf_path, doc_id, page_offset=len(all_pages))
-        pages, _, _ = acquire_text(pages, pdf_path)
-        all_pages.extend(pages)
-
-    all_pages, _ = classify_pages(all_pages)
-    patient, _ = extract_demographics(all_pages)
-    dates = extract_dates_for_pages(all_pages, anchor_year_hint=2016)
-    
-    print("--- EMITTED EVENTS DEBUG ---")
-    all_events = []
-    
-    clin_events, _, _, _ = extract_clinical_events(all_pages, dates, [], {})
-    all_events.extend(clin_events)
-    print(f"Extracted {len(clin_events)} clinical events")
-    
-    ds_events, _, _, _ = extract_discharge_events(all_pages, dates, [], {})
-    all_events.extend(ds_events)
-    print(f"Extracted {len(ds_events)} discharge summary events")
-    
-    # Filter to discharge types
-    dis_events = [e for e in all_events if e.event_type.value in ("hospital_discharge", "discharge")]
-    print(f"Total discharge-related events: {len(dis_events)}")
-    
-    for e in dis_events:
-        d_str = _date_str(e)
-        print(f"[{d_str}] TYPE={e.event_type.value} TEXT={e.facts[0].text[:80] if e.facts else 'NO FACTS'}...")
-
-    summary = generate_executive_summary(all_events, "Julia Morales")
-    print("\n--- SUMMARY ---")
-    print(summary)
+    # 4. Check results
+    from inspect_schema_errors import inspect_latest_run
+    inspect_latest_run()
 
 if __name__ == "__main__":
-    debug_raw()
+    setup_and_run()
