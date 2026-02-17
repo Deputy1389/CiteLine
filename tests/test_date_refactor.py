@@ -14,15 +14,15 @@ def test_event_date_sorting():
     # Unknown/Empty
     d4 = EventDate(kind=DateKind.SINGLE, source=DateSource.TIER2)
 
-    # Sort keys
-    k1 = d1.sort_key() # (0, '2023-01-01')
-    k2 = d2.sort_key() # (1, 'REL:000001')
-    k3 = d3.sort_key() # (2, 'PART:09-24')
+    # Sort keys (now include time suffix ' 0000' by default)
+    k1 = d1.sort_key() # (0, '2023-01-01 0000')
+    k2 = d2.sort_key() # (1, '000001 0000')
+    k3 = d3.sort_key() # (2, '09-24 0000')
     k4 = d4.sort_key() # (99, 'UNKNOWN')
 
-    assert k1 == (0, "2023-01-01")
-    assert k2 == (1, "REL:000001")
-    assert k3 == (2, "PART:09-24")
+    assert k1 == (0, "2023-01-01 0000")
+    assert k2 == (1, "000001 0000")
+    assert k3 == (2, "09-24 0000")
     assert k4 == (99, "UNKNOWN")
 
     # Sorted order: Absolute (0) < Relative (1) < Partial (2) < Unknown (99)
@@ -42,11 +42,11 @@ def test_date_str_formatting():
 
     # Absolute
     ed1 = EventDate(kind=DateKind.SINGLE, value=date(2016, 9, 24), source=DateSource.TIER1)
-    assert _date_str(mock_event(ed1)) == "2016-09-24"
+    assert _date_str(mock_event(ed1)) == "2016-09-24 (time not documented)"
 
     # Relative
     ed2 = EventDate(kind=DateKind.SINGLE, relative_day=2, source=DateSource.TIER2)
-    assert _date_str(mock_event(ed2)) == "Day 2"
+    assert _date_str(mock_event(ed2)) == "Day 2 (time not documented)"
 
     # Partial
     ed3 = EventDate(kind=DateKind.SINGLE, partial_month=9, partial_day=24, source=DateSource.TIER2)
@@ -54,7 +54,7 @@ def test_date_str_formatting():
 
     # Sentinel used to be -924, should now be empty or handled by partial fields
     ed4 = EventDate(kind=DateKind.SINGLE, relative_day=-924, source=DateSource.TIER2)
-    assert _date_str(mock_event(ed4)) == ""
+    assert _date_str(mock_event(ed4)) == "(date unknown)"
 
 def test_partial_date_extraction():
     page = Page(
@@ -89,7 +89,7 @@ def test_partial_date_resolution():
     # 2016-01-01 is a placeholder for "Year: 2016" if we had better extraction, 
     # but let's just use anchor_year_hint for this test simplicity.
     
-    result = extract_dates_for_pages(pages, anchor_year_hint=2016)
+    result = extract_dates_for_pages(pages)
     
     # Page 2 has the partial date 09/24
     assert 2 in result

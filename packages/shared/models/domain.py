@@ -184,7 +184,7 @@ class SkippedEvent(BaseModel):
 
 class Event(BaseModel):
     event_id: str
-    provider_id: str
+    provider_id: Optional[str] = None
     event_type: EventType
     date: Optional[EventDate] = None
     encounter_type_raw: Optional[str] = None

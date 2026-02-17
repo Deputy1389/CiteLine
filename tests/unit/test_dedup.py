@@ -17,7 +17,9 @@ def _make_event(
     facts_text: list[str] | None = None,
 ) -> Event:
     pages = page_numbers or [1]
-    texts = facts_text or ["Test fact"]
+    # Use facts that satisfy is_clinical_signal_event: 
+    # Must have clinical verb or numeric signal, AND be >= 15 chars (or have numeric signal)
+    texts = facts_text or ["Patient complained of severe back pain 5/10"]
     return Event(
         event_id=f"evt-{id(texts)}",
         provider_id=provider_id,
@@ -41,8 +43,8 @@ class TestDeduplication:
 
     def test_merge_same_provider_type_date(self):
         events = [
-            _make_event(page_numbers=[1], facts_text=["Fact A"]),
-            _make_event(page_numbers=[2], facts_text=["Fact B"]),
+            _make_event(page_numbers=[1], facts_text=["Patient complained of nausea and vomited twice"]),
+            _make_event(page_numbers=[2], facts_text=["Patient assisted with ambulation in hallway"]),
         ]
         result, warnings = deduplicate_events(events)
         assert len(result) == 1
@@ -66,8 +68,8 @@ class TestDeduplication:
 
     def test_fact_cap_at_10(self):
         events = [
-            _make_event(facts_text=[f"Fact {i}" for i in range(8)]),
-            _make_event(facts_text=[f"Fact {i+8}" for i in range(8)]),
+            _make_event(facts_text=[f"Patient complained of pain {i}/10 level" for i in range(8)]),
+            _make_event(facts_text=[f"Patient complained of pain {i+8}/10 level" for i in range(8)]),
         ]
         result, _ = deduplicate_events(events)
         assert len(result) == 1
