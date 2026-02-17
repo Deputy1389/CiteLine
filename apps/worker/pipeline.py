@@ -59,6 +59,7 @@ from apps.worker.steps.step09_dedup import deduplicate_events
 from apps.worker.steps.step10_confidence import apply_confidence_scoring, filter_for_export
 from apps.worker.steps.step11_gaps import detect_gaps
 from apps.worker.steps.events.legal_usability import improve_legal_usability
+from apps.worker.steps.step12a_narrative_synthesis import synthesize_narrative
 from apps.worker.steps.step12_export import render_exports
 from apps.worker.steps.step13_receipt import create_run_record
 from apps.worker.lib.provider_normalize import normalize_provider_entities, compute_coverage_spans
@@ -252,6 +253,16 @@ def run_pipeline(run_id: str) -> None:
         logger.info(f"[{run_id}] Legal Usability Pass")
         export_events = improve_legal_usability(export_events)
 
+        # ── Step 12a: Narrative Synthesis ─────────────────────────────
+        logger.info(f"[{run_id}] Step 12a: Narrative Synthesis")
+        narrative_synthesis = synthesize_narrative(export_events, providers, all_citations, case_info=CaseInfo(
+            case_id=matter_id,
+            firm_id=firm_id,
+            title=matter_title,
+            timezone=tz,
+            patient=patient,
+        ))
+
         # Build evidence graph
         evidence_graph = EvidenceGraph(
             documents=all_documents,
@@ -363,7 +374,8 @@ def run_pipeline(run_id: str) -> None:
             run_id, matter_title, export_events, gaps, providers,
             page_map=page_map,
             case_info=case_info,
-            all_citations=all_citations
+            all_citations=all_citations,
+            narrative_synthesis=narrative_synthesis
         )
 
         # ── Step 13: Run receipt ──────────────────────────────────────

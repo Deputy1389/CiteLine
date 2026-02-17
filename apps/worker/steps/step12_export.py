@@ -203,6 +203,7 @@ def generate_pdf(
     page_map: dict[int, tuple[str, int]] | None = None,
     case_info: CaseInfo | None = None,
     all_citations: list[Citation] | None = None,
+    narrative_synthesis: str | None = None,
 ) -> bytes:
     """Generate a clean chronology PDF."""
     print("DEBUG: GENERATING PDF WITHOUT TABLE")
@@ -224,7 +225,7 @@ def generate_pdf(
     # Executive Summary (New)
     if hasattr(events, "__iter__"): # Check if we have events
         from packages.shared.models import ChronologyOutput
-        summary_text = generate_executive_summary(events, matter_title, case_info=case_info)
+        summary_text = narrative_synthesis if narrative_synthesis else generate_executive_summary(events, matter_title, case_info=case_info)
         
         summary_header_style = ParagraphStyle(
             "SummaryHeader", parent=styles["Heading2"], fontSize=14, spaceAfter=10, textColor=colors.HexColor("#2C3E50")
@@ -233,21 +234,17 @@ def generate_pdf(
             "SummaryBody", parent=styles["Normal"], fontSize=10, leading=14, spaceAfter=20, alignment=4 # Justified
         )
         
-        story.append(Paragraph("Executive Case Summary", summary_header_style))
+        # If it's the synthesized narrative, we might want to preserve its structure (newlines)
+        display_title = "Medical Chronology Analysis" if narrative_synthesis else "Executive Case Summary"
+        story.append(Paragraph(display_title, summary_header_style))
         story.append(Paragraph(summary_text.replace("\n", "<br/>"), summary_body_style))
         story.append(Spacer(1, 0.2 * inch))
 
     # Events table (Chronological)
-    if events:
+    if events and not narrative_synthesis:
         # Separate into main and prior
         main_events = [e for e in events if e.event_type != EventType.REFERENCED_PRIOR_EVENT]
         prior_events = [e for e in events if e.event_type == EventType.REFERENCED_PRIOR_EVENT]
-
-        # if prior_events:
-        #     story.append(Paragraph("Prior History (Referenced)", styles["Heading2"]))
-        #     story.append(Spacer(1, 0.1 * inch))
-        #     story.append(_build_events_table(prior_events, providers, page_map, all_citations, styles))
-        #     story.append(Spacer(1, 0.3 * inch))
 
         if main_events:
             story.append(Paragraph("Clinical Timeline", styles["Heading2"]))
@@ -319,12 +316,14 @@ def generate_docx(
     gaps: list[Gap],
     providers: list[Provider],
     page_map: dict[int, tuple[str, int]] | None = None,
+    narrative_synthesis: str | None = None,
 ) -> bytes:
     """
     Generate a professional DOCX chronology for paralegal use.
 
     Structure:
     - Title page with matter name and generation timestamp
+    - Medical Chronology Analysis (Synthesized)
     - Summary statistics
     - Chronology table (dated events sorted ascending)
     - Undated / Needs Review section
@@ -357,6 +356,15 @@ def generate_docx(
 
     doc.add_paragraph()  # spacer
 
+    # ── Narrative Synthesis ───────────────────────────────────────────
+    if narrative_synthesis:
+        doc.add_heading("Medical Chronology Analysis", level=1)
+        narrative_para = doc.add_paragraph(narrative_synthesis)
+        narrative_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        for run in narrative_para.runs:
+            run.font.size = Pt(10)
+        doc.add_paragraph()
+
     # ── Partition events ──────────────────────────────────────────────
     dated_events = []
     undated_events = []
@@ -383,30 +391,31 @@ def generate_docx(
     dated_events.sort(key=lambda e: e.date.sort_key() if e.date else (date.min, 0))
 
     # ── Summary statistics ────────────────────────────────────────────
-    total = len(events)
-    dated_count = len(dated_events)
-    flagged_count = len(flagged_events)
-    undated_count = len(undated_events)
-    pct_dated = f"{(dated_count / total * 100):.0f}%" if total > 0 else "N/A"
+    if not narrative_synthesis:
+        total = len(events)
+        dated_count = len(dated_events)
+        flagged_count = len(flagged_events)
+        undated_count = len(undated_events)
+        pct_dated = f"{(dated_count / total * 100):.0f}%" if total > 0 else "N/A"
 
-    doc.add_heading("Summary", level=1)
-    summary_table = doc.add_table(rows=4, cols=2)
-    summary_table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    stats = [
-        ("Total Events", str(total)),
-        ("Dated Events", f"{dated_count} ({pct_dated})"),
-        ("Undated Events", str(undated_count)),
-        ("Flagged (Needs Review)", str(flagged_count)),
-    ]
-    for i, (label, val) in enumerate(stats):
-        summary_table.cell(i, 0).text = label
-        summary_table.cell(i, 1).text = val
-        for cell in (summary_table.cell(i, 0), summary_table.cell(i, 1)):
-            for paragraph in cell.paragraphs:
-                for run in paragraph.runs:
-                    run.font.size = Pt(10)
+        doc.add_heading("Summary", level=1)
+        summary_table = doc.add_table(rows=4, cols=2)
+        summary_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        stats = [
+            ("Total Events", str(total)),
+            ("Dated Events", f"{dated_count} ({pct_dated})"),
+            ("Undated Events", str(undated_count)),
+            ("Flagged (Needs Review)", str(flagged_count)),
+        ]
+        for i, (label, val) in enumerate(stats):
+            summary_table.cell(i, 0).text = label
+            summary_table.cell(i, 1).text = val
+            for cell in (summary_table.cell(i, 0), summary_table.cell(i, 1)):
+                for paragraph in cell.paragraphs:
+                    for run in paragraph.runs:
+                        run.font.size = Pt(10)
 
-    doc.add_paragraph()  # spacer
+        doc.add_paragraph()  # spacer
 
     # ── Helper: add events table ──────────────────────────────────────
     def _add_events_table(heading: str, event_list: list[Event]):
@@ -453,21 +462,23 @@ def generate_docx(
                         run.font.size = Pt(8)
 
     # ── Dated events table ────────────────────────────────────────────
-    _add_events_table("Chronology", dated_events)
+    if not narrative_synthesis:
+        _add_events_table("Chronology", dated_events)
 
     # ── Undated / Needs Review ────────────────────────────────────────
-    review_events = undated_events + flagged_events
-    if review_events:
-        _add_events_table("Undated / Needs Review", review_events)
+    if not narrative_synthesis:
+        review_events = undated_events + flagged_events
+        if review_events:
+            _add_events_table("Undated / Needs Review", review_events)
 
-        # Add flags detail
-        doc.add_paragraph()
-        for evt in flagged_events:
-            flags_str = ", ".join(evt.flags) if evt.flags else "UNDATED"
-            p = doc.add_paragraph(f"⚠ {evt.event_id}: {flags_str}", style="List Bullet")
-            for run in p.runs:
-                run.font.size = Pt(8)
-                run.font.color.rgb = RGBColor(0xC0, 0x39, 0x2B)
+            # Add flags detail
+            doc.add_paragraph()
+            for evt in flagged_events:
+                flags_str = ", ".join(evt.flags) if evt.flags else "UNDATED"
+                p = doc.add_paragraph(f"⚠ {evt.event_id}: {flags_str}", style="List Bullet")
+                for run in p.runs:
+                    run.font.size = Pt(8)
+                    run.font.color.rgb = RGBColor(0xC0, 0x39, 0x2B)
 
     # ── Treatment gaps ────────────────────────────────────────────────
     if gaps:
@@ -506,6 +517,7 @@ def render_exports(
     page_map: dict[int, tuple[str, int]] | None = None,
     case_info: CaseInfo | None = None,
     all_citations: list[Citation] | None = None,
+    narrative_synthesis: str | None = None,
 ) -> ChronologyOutput:
     """
     Render all export formats, save to disk, and return ChronologyOutput.
@@ -513,7 +525,7 @@ def render_exports(
     exported_ids = [e.event_id for e in events]
 
     # PDF
-    pdf_bytes = generate_pdf(run_id, matter_title, events, gaps, providers, page_map, case_info=case_info, all_citations=all_citations)
+    pdf_bytes = generate_pdf(run_id, matter_title, events, gaps, providers, page_map, case_info=case_info, all_citations=all_citations, narrative_synthesis=narrative_synthesis)
     pdf_path = save_artifact(run_id, "chronology.pdf", pdf_bytes)
     pdf_sha = hashlib.sha256(pdf_bytes).hexdigest()
 
@@ -523,16 +535,17 @@ def render_exports(
     csv_sha = hashlib.sha256(csv_bytes).hexdigest()
 
     # DOCX
-    docx_bytes = generate_docx(run_id, matter_title, events, gaps, providers, page_map)
+    docx_bytes = generate_docx(run_id, matter_title, events, gaps, providers, page_map, narrative_synthesis=narrative_synthesis)
     docx_path = save_artifact(run_id, "chronology.docx", docx_bytes)
     docx_sha = hashlib.sha256(docx_bytes).hexdigest()
 
     # Summary
-    summary_text = generate_executive_summary(events, matter_title, case_info=case_info)
+    summary_text = narrative_synthesis if narrative_synthesis else generate_executive_summary(events, matter_title, case_info=case_info)
 
     return ChronologyOutput(
         export_format_version="0.1.0",
         summary=summary_text,
+        narrative_synthesis=narrative_synthesis,
         events_exported=exported_ids,
         exports=ChronologyExports(
             pdf=ArtifactRef(uri=str(pdf_path), sha256=pdf_sha, bytes=len(pdf_bytes)),

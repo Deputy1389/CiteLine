@@ -5,6 +5,10 @@ from __future__ import annotations
 
 import logging
 import sys
+import os
+
+# Add project root to path
+sys.path.append(os.getcwd())
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

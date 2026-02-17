@@ -1,0 +1,32 @@
+[
+  {
+    "file": "USCOURTS-azd-4_12-cv-00128-0.pdf",
+    "tier": "tier1_small",
+    "size_mb": 0.15,
+    "source": "https://www.govinfo.gov/content/pkg/USCOURTS-azd-4_12-cv-00128/pdf/USCOURTS-azd-4_12-cv-00128-0.pdf"
+  },
+  {
+    "file": "USCOURTS-moed-4_07-cv-00922-0.pdf",
+    "tier": "tier1_small",
+    "size_mb": 0.17,
+    "source": "https://www.govinfo.gov/content/pkg/USCOURTS-moed-4_07-cv-00922/pdf/USCOURTS-moed-4_07-cv-00922-0.pdf"
+  },
+  {
+    "file": "USCOURTS-casd-3_10-cv-02008-0.pdf",
+    "tier": "tier1_small",
+    "size_mb": 0.22,
+    "source": "https://www.govinfo.gov/content/pkg/USCOURTS-casd-3_10-cv-02008/pdf/USCOURTS-casd-3_10-cv-02008-0.pdf"
+  },
+  {
+    "file": "USCOURTS-pamd-1_22-cv-00582-0.pdf",
+    "tier": "tier1_small",
+    "size_mb": 0.29,
+    "source": "https://www.govinfo.gov/content/pkg/USCOURTS-pamd-1_22-cv-00582/pdf/USCOURTS-pamd-1_22-cv-00582-0.pdf"
+  },
+  {
+    "file": "USCOURTS-cofc-1_18-cv-01784-2.pdf",
+    "tier": "tier1_small",
+    "size_mb": 0.27,
+    "source": "https://www.govinfo.gov/content/pkg/USCOURTS-cofc-1_18-cv-01784/pdf/USCOURTS-cofc-1_18-cv-01784-2.pdf"
+  }
+]

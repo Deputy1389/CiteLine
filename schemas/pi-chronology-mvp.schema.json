@@ -1273,7 +1273,18 @@
           "oneOf": [
             {
               "type": "string",
-              "maxLength": 5000
+              "maxLength": 10000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "narrative_synthesis": {
+          "oneOf": [
+            {
+              "type": "string",
+              "maxLength": 10000
             },
             {
               "type": "null"

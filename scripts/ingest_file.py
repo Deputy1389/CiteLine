@@ -7,7 +7,7 @@ import argparse
 from pathlib import Path
 
 # Config
-API_URL = "http://localhost:8000"
+API_URL = "http://127.0.0.1:8000"
 
 def ingest_file(file_path: str, output_dir: str):
     path = Path(file_path)
