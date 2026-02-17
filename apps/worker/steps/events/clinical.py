@@ -97,36 +97,68 @@ def extract_clinical_events(
         block_events, block_citations = _extract_block_events(block, page_provider_map, providers)
         
         if not block_events:
-            # Fallback to the original block-level aggregation if line-scanning produced nothing
-            # (e.g. for non-flowsheet structured notes)
-            event_date = block.primary_date or _get_best_date(dates.get(block.pages[0].page_number, []))
-            if not event_date:
-                warnings.append(PipelineWarning(
-                    code="MISSING_DATE",
-                    message=f"Event for pages {block.page_numbers} has no resolved date",
-                    page=block.pages[0].page_number
-                ))
-            
+            # Fallback to the original block-level aggregation if line-scanning produced nothing.
+            # IMPORTANT: do NOT anchor the entire block to the first page's date.
+            # Many blocks contain multiple days (e.g. admission page + later discharge page).
+
             block_facts: list[Fact] = []
             for page in block.pages:
                 page_facts, page_cits = _extract_page_content(page)
                 block_facts.extend(page_facts)
                 citations.extend(page_cits)
-            
-            if block_facts:
-                provider_id = block.primary_provider_id or (page_provider_map.get(block.pages[0].page_number) if block.pages else None) or (providers[0].provider_id if providers else "unknown")
-                etype = _detect_encounter_type(" ".join(b.text for b in block_facts))
-                
-                events.append(Event(
-                    event_id=uuid.uuid4().hex[:16],
-                    provider_id=provider_id,
-                    event_type=etype,
-                    date=event_date,
-                    facts=block_facts[:12],
-                    confidence=80,
-                    citation_ids=[f.citation_id for f in block_facts[:12]],
-                    source_page_numbers=block.page_numbers,
+
+            if not block_facts:
+                skipped.append(SkippedEvent(
+                    page_numbers=block.page_numbers,
+                    reason_code="NO_FACTS",
+                    snippet=block.pages[0].text[:200] if block.pages else "No text",
                 ))
+                continue
+
+            provider_id = (
+                block.primary_provider_id
+                or (page_provider_map.get(block.pages[0].page_number) if block.pages else None)
+                or (providers[0].provider_id if providers else "unknown")
+            )
+            etype = _detect_encounter_type(" ".join(f.text for f in block_facts))
+
+            # Collect candidate dates across ALL pages in the block.
+            # Prefer a max date for discharge-like events, otherwise prefer the earliest.
+            candidates: list[EventDate] = []
+            for p in block.pages:
+                candidates.extend(dates.get(p.page_number, []) or [])
+
+            event_date: EventDate | None = None
+            event_flags: list[str] = []
+            if candidates:
+                if etype == EventType.HOSPITAL_DISCHARGE:
+                    event_date = max(candidates, key=lambda d: d.sort_key())
+                elif etype == EventType.HOSPITAL_ADMISSION:
+                    event_date = min(candidates, key=lambda d: d.sort_key())
+                else:
+                    event_date = block.primary_date or min(candidates, key=lambda d: d.sort_key())
+            else:
+                event_date = block.primary_date
+
+            if not event_date:
+                warnings.append(PipelineWarning(
+                    code="MISSING_DATE",
+                    message=f"Event for pages {block.page_numbers} has no resolved date",
+                    page=block.pages[0].page_number,
+                ))
+                event_flags.append("MISSING_DATE")
+
+            events.append(Event(
+                event_id=uuid.uuid4().hex[:16],
+                provider_id=provider_id,
+                event_type=etype,
+                date=event_date,
+                facts=block_facts[:12],
+                confidence=80,
+                flags=event_flags,
+                citation_ids=[f.citation_id for f in block_facts[:12]],
+                source_page_numbers=block.page_numbers,
+            ))
             continue
 
         events.extend(block_events)
