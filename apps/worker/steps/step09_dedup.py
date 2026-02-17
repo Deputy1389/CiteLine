@@ -1,5 +1,5 @@
 """
-Step 9 — Signal Filtering + Event Consolidation.
+Step 9 - Signal Filtering + Event Consolidation.
 Merge adjacent events with same (date, time, provider, event_type).
 Drop events that fail the clinical signal test.
 """
@@ -72,14 +72,9 @@ def deduplicate_events(events: list[Event]) -> tuple[list[Event], list[Warning]]
     # 1. Sort all events by date/time sort_key to bring identical timestamps together
     events.sort(key=lambda e: e.date.sort_key() if e.date else (99, "UNKNOWN"))
 
-    # 2. Merge events with same (date, time)
-    # Different encounter types at same time are merged; highest priority type wins.
+    # 2. Merge events with same (date, time, provider, event_type)
+    # Keep encounter types separate to avoid collapsing distinct same-day events.
     from apps.worker.steps.events.clinical import PRIORITY_MAP
-    
-    def _get_time_key(e: Event):
-        if not e.date: return (None, None, None)
-        ext = e.date.extensions or {}
-        return (e.date.sort_date(), ext.get("time"))
 
     merged: list[Event] = []
     if not events:
@@ -90,7 +85,7 @@ def deduplicate_events(events: list[Event]) -> tuple[list[Event], list[Warning]]
     for i in range(1, len(events)):
         next_event = events[i]
         
-        if _get_time_key(current_event) == _get_time_key(next_event):
+        if _get_event_key(current_event) == _get_event_key(next_event):
             # Update encounter type if next one is higher priority
             if PRIORITY_MAP.get(next_event.event_type, 0) > PRIORITY_MAP.get(current_event.event_type, 0):
                 current_event.event_type = next_event.event_type

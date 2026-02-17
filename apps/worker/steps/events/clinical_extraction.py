@@ -1,6 +1,7 @@
 import re
 from typing import Set, List
 from .synthesis_domain import ClinicalEvent
+from .clinical_clustering import FOLLOW_UP
 from .clinical_filtering import normalize_injury_concept, is_valid_injury
 
 PROCEDURE_CANONICAL_MAP = {
@@ -56,12 +57,43 @@ def extract_concepts(event: ClinicalEvent) -> ClinicalEvent:
     Populates structured concept sets. 
     Strictly avoids polluting sets with raw fragments or noise.
     """
+    direct_procedure_actions = [
+        "underwent",
+        "procedure performed",
+        "operative report",
+        "taken to the operating room",
+        "operating room",
+        "anesthesia",
+        "pacu",
+        "postop diagnosis",
+        "preop diagnosis",
+    ]
+    has_strong_action_atom = False
+
     for atom in event.atoms:
         text = atom.text
         low = text.lower()
+        has_procedure_keyword = any(kw in low for kw in ["repair", "removal", "debridement", "orif", "block", "lithotripsy"])
+        is_historical_status_post = ("status post" in low) or ("s/p" in low)
+        explicit_procedure_phrase = any(
+            phrase in low
+            for phrase in [
+                "open reduction and internal fixation",
+                "rotator cuff repair",
+                "hardware removal",
+                "bullet removal",
+                "incision and drainage",
+                "irrigation and debridement",
+            ]
+        )
+        has_direct_action = any(marker in low for marker in direct_procedure_actions) or (
+            has_procedure_keyword and explicit_procedure_phrase and not is_historical_status_post
+        )
+        if has_direct_action and "status post" not in low and "s/p" not in low:
+            has_strong_action_atom = True
         
         # 1. Procedures (Anchors)
-        if any(kw in low for kw in ["repair", "removal", "debridement", "orif", "block", "lithotripsy"]):
+        if has_procedure_keyword and has_direct_action and not is_historical_status_post:
             event.procedures.add(canonicalize_procedure(text))
 
         # 2. Injuries (Validated only)
@@ -88,17 +120,11 @@ def extract_concepts(event: ClinicalEvent) -> ClinicalEvent:
                     if not text.strip().lower().endswith((" in", " for", " with", " to", " in.", " for.", " with.", " to.")):
                         event.plans.add(text.strip().lower())
 
-    # Safeguard: Procedure inference guard
-    if event.event_type == "SURGERY" and not event.procedures:
-        # Infer procedure from findings (e.g., if infection found, infer I&D)
-        if event.infections:
-            event.procedures.add("Irrigation and debridement, right shoulder")
-        elif event.fractures:
-            event.procedures.add("Open reduction internal fixation (ORIF)")
-        elif event.tears:
-            event.procedures.add("Rotator cuff repair")
-        else:
-            event.procedures.add("Surgical intervention")
+    # Safeguard: surgery requires contemporaneous operative/procedure evidence.
+    if event.event_type == "SURGERY" and (not has_strong_action_atom or not event.procedures):
+        event.event_type = FOLLOW_UP
+        event.title = "Follow Up"
+        event.procedures.clear()
 
     return event
 

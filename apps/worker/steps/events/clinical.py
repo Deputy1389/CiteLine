@@ -505,6 +505,7 @@ def _add_flowsheet_event(events, citations, page, month, day, hhmm, text, page_p
         try:
             ed.value = date(year, month, day)
             ed.extensions["year_missing"] = False
+            ed.source = DateSource.TIER1
         except ValueError:
             pass
 

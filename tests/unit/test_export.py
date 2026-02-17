@@ -156,6 +156,29 @@ class TestGenerateDocx:
         headings = [p.text for p in doc.paragraphs if p.style.name.startswith("Heading")]
         assert "Appendix: Treatment Gaps" in headings
 
+    def test_narrative_mode_still_includes_chronology(self):
+        from apps.worker.steps.step12_export import generate_docx
+        from docx import Document as DocxDocument
+
+        events = [
+            _make_event(event_id="evt-a"),
+            _make_event(event_id="evt-b"),
+            _make_event(event_id="evt-c"),
+        ]
+        docx_bytes = generate_docx(
+            "run-narrative",
+            "Narrative Case",
+            events,
+            [],
+            [_make_provider()],
+            narrative_synthesis="Narrative summary",
+        )
+
+        import io
+        doc = DocxDocument(io.BytesIO(docx_bytes))
+        headings = [p.text for p in doc.paragraphs if p.style.name.startswith("Heading")]
+        assert "Chronology" in headings
+
 
 # ── PDF sanity ────────────────────────────────────────────────────────────
 
@@ -187,3 +210,14 @@ class TestGenerateCsv:
 
         assert "event_id" in csv_text
         assert "evt-1" in csv_text
+
+    def test_includes_events_with_missing_provider_id(self):
+        from apps.worker.steps.step12_export import generate_csv
+
+        event = _make_event()
+        event.provider_id = None
+        csv_bytes = generate_csv([event], [_make_provider()])
+        csv_text = csv_bytes.decode("utf-8")
+
+        assert "evt-1" in csv_text
+        assert "Unknown" in csv_text

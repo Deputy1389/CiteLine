@@ -61,6 +61,11 @@ from apps.worker.steps.step15a_missing_record_requests import (
 )
 from apps.worker.steps.step16_billing_lines import extract_billing_lines, render_billing_lines
 from apps.worker.steps.step17_specials_summary import compute_specials_summary, render_specials_summary
+from apps.worker.steps.step18_paralegal_chronology import (
+    build_paralegal_chronology_payload,
+    generate_extraction_notes_md,
+    render_paralegal_chronology_artifacts,
+)
 from apps.worker.pipeline_artifacts import build_artifact_ref_entries, build_page_map
 from apps.worker.pipeline_persistence import persist_pipeline_state
 
@@ -222,6 +227,7 @@ def run_pipeline(run_id: str) -> None:
         all_citations.extend(op_cits)
         all_warnings.extend(op_warns)
         all_skipped.extend(op_skipped)
+        print(f"extraction: {len(all_events)} events")
 
         # â”€â”€ Step 8: Citation post-processing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         logger.info(f"[{run_id}] Step 8: Citation capture")
@@ -238,20 +244,25 @@ def run_pipeline(run_id: str) -> None:
         all_events, step_warnings = apply_confidence_scoring(all_events, config)
         all_warnings.extend(step_warnings)
 
-        export_events = filter_for_export(all_events, config)
+        # Full-graph chronology path (do not use explicit export filtering).
+        chronology_events = improve_legal_usability([e.model_copy(deep=True) for e in all_events])
+        print(f"normalization: {len(chronology_events)} events")
+
+        # Explicit filtered path kept for gap detection and strict exports.
+        export_events = filter_for_export([e.model_copy(deep=True) for e in all_events], config)
+        print(f"after_explicit_filter: {len(export_events)} events")
 
         # â”€â”€ Step 11: Gap detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         logger.info(f"[{run_id}] Step 11: Gap detection")
         export_events, gaps, step_warnings = detect_gaps(export_events, config)
         all_warnings.extend(step_warnings)
 
-        # â”€â”€ Legal Usability Pass â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         logger.info(f"[{run_id}] Legal Usability Pass")
         export_events = improve_legal_usability(export_events)
 
         # â”€â”€ Step 12a: Narrative Synthesis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         logger.info(f"[{run_id}] Step 12a: Narrative Synthesis")
-        narrative_synthesis = synthesize_narrative(export_events, providers, all_citations, case_info=CaseInfo(
+        narrative_synthesis = synthesize_narrative(chronology_events, providers, all_citations, case_info=CaseInfo(
             case_id=matter_id,
             firm_id=firm_id,
             title=matter_title,
@@ -290,7 +301,7 @@ def run_pipeline(run_id: str) -> None:
             "events_with_date": sum(1 for e in all_events if e.date),
             "events_dateless": sum(1 for e in all_events if not e.date),
             "events_low_confidence": sum(1 for e in all_events if e.confidence < config.event_confidence_min_export),
-            "events_exported": len(export_events),
+            "events_exported": len(chronology_events),
             "skipped_events": len(all_skipped),
             "facts_total": sum(len(e.facts) for e in all_events),
             "citations_total": len(all_citations),
@@ -302,6 +313,7 @@ def run_pipeline(run_id: str) -> None:
         coverage_spans = compute_coverage_spans(providers_normalized)
         evidence_graph.extensions["providers_normalized"] = providers_normalized
         evidence_graph.extensions["coverage_spans"] = coverage_spans
+        print(f"provider_normalization: {len(chronology_events)} events")
 
         # â”€â”€ Step 14b: Provider directory artifact â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         logger.info(f"[{run_id}] Step 14b: Provider directory artifact")
@@ -312,6 +324,7 @@ def run_pipeline(run_id: str) -> None:
         missing_records_payload = detect_missing_records(evidence_graph, providers_normalized)
         evidence_graph.extensions["missing_records"] = missing_records_payload
         mr_csv_ref, mr_json_ref = render_missing_records(run_id, missing_records_payload)
+        print(f"missing_record_detection: {len(chronology_events)} events")
 
         logger.info(f"[{run_id}] Step 15a: Missing record request generator")
         missing_record_requests_payload = generate_missing_record_requests(evidence_graph)
@@ -348,9 +361,30 @@ def run_pipeline(run_id: str) -> None:
         # Build explicit provenance map for export citations.
         page_map = build_page_map(all_pages, source_documents)
 
+        # Step 18: Paralegal chronology + extraction notes
+        logger.info(f"[{run_id}] Step 18: Paralegal chronology artifacts")
+        paralegal_payload = build_paralegal_chronology_payload(
+            evidence_graph=evidence_graph,
+            events_for_chronology=chronology_events,
+            providers=providers,
+            page_map=page_map,
+        )
+        evidence_graph.extensions["paralegal_chronology"] = paralegal_payload
+        extraction_notes_md = generate_extraction_notes_md(
+            evidence_graph=evidence_graph,
+            events_for_chronology=chronology_events,
+            page_map=page_map,
+        )
+        paralegal_chronology_md_ref, extraction_notes_md_ref = render_paralegal_chronology_artifacts(
+            run_id=run_id,
+            payload=paralegal_payload,
+            extraction_notes_md=extraction_notes_md,
+        )
+
         # First render exports
+        print(f"chronology_generation_input: {len(chronology_events)} events")
         chronology = render_exports(
-            run_id, matter_title, export_events, gaps, providers,
+            run_id, matter_title, chronology_events, gaps, providers,
             page_map=page_map,
             case_info=case_info,
             all_citations=all_citations,
@@ -426,6 +460,8 @@ def run_pipeline(run_id: str) -> None:
             ss_csv_ref=ss_csv_ref,
             ss_json_ref=ss_json_ref,
             ss_pdf_ref=ss_pdf_ref,
+            paralegal_chronology_md_ref=paralegal_chronology_md_ref,
+            extraction_notes_md_ref=extraction_notes_md_ref,
         )
         persist_pipeline_state(
             run_id=run_id,
@@ -437,7 +473,7 @@ def run_pipeline(run_id: str) -> None:
             artifact_entries=artifact_entries,
         )
 
-        logger.info(f"[{run_id}] Pipeline completed: status={status}, events={len(all_events)}, exported={len(export_events)}")
+        logger.info(f"[{run_id}] Pipeline completed: status={status}, events={len(all_events)}, exported={len(chronology_events)}")
 
     except Exception as exc:
         logger.exception(f"[{run_id}] Pipeline failed: {exc}")

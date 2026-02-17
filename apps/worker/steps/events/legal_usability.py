@@ -15,10 +15,16 @@ def improve_legal_usability(events: list[Event]) -> list[Event]:
     # Step 1: Historical Reference Isolation
     processed_events = []
     for event in events:
+        original_facts = list(event.facts)
         # Pre-clean facts (merges wrapped, stitches quotes, removes junk)
         event.facts = clean_and_validate_facts(event.facts)
-        if not event.facts and event.event_type not in [EventType.HOSPITAL_ADMISSION, EventType.HOSPITAL_DISCHARGE]:
-            continue
+        if not event.facts and original_facts:
+            # Preserve event cardinality; keep original facts and mark for review.
+            event.facts = original_facts
+            if "NEEDS_REVIEW" not in event.flags:
+                event.flags.append("NEEDS_REVIEW")
+            if "LEGAL_USABILITY_FACT_CLEAN_EMPTY" not in event.flags:
+                event.flags.append("LEGAL_USABILITY_FACT_CLEAN_EMPTY")
 
         clean_facts = []
         ref_facts = []
@@ -48,8 +54,9 @@ def improve_legal_usability(events: list[Event]) -> list[Event]:
             else:
                 clean_facts.append(fact)
         
-        # If we have references, split them out
-        if ref_facts:
+        # If we have references and still have primary facts, split them out.
+        # Never let reference isolation eliminate the original event.
+        if ref_facts and clean_facts:
             ref_event = Event(
                 event_id=uuid.uuid4().hex[:16],
                 provider_id=event.provider_id,
@@ -69,6 +76,12 @@ def improve_legal_usability(events: list[Event]) -> list[Event]:
                 if f.citation_id: all_cids.append(f.citation_id)
             ref_event.citation_ids = list(set(all_cids))
             processed_events.append(ref_event)
+        elif ref_facts and not clean_facts:
+            clean_facts = list(event.facts)
+            if "NEEDS_REVIEW" not in event.flags:
+                event.flags.append("NEEDS_REVIEW")
+            if "LEGAL_USABILITY_REFERENCE_ONLY" not in event.flags:
+                event.flags.append("LEGAL_USABILITY_REFERENCE_ONLY")
             
         # Update current event facts
         event.facts = clean_facts
@@ -113,9 +126,8 @@ def improve_legal_usability(events: list[Event]) -> list[Event]:
         else:
             final_events.append(event)
 
-    # Step 3: Global Filtering
-    # Drop events with 0 facts unless they are major milestones
-    return [e for e in final_events if e.facts or e.event_type in (EventType.HOSPITAL_ADMISSION, EventType.HOSPITAL_DISCHARGE)]
+    # Preserve events from input; no implicit count reduction at normalization stage.
+    return final_events
 
 def _update_author_from_facts(event: Event):
     """Scan facts for signatures and update author info."""

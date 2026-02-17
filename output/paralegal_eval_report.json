@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "score": 100,
+  "gold_timeframe_start": "04/29/2013",
+  "gold_timeframe_end": "01/21/2014",
+  "gold_unique_date_count": 36,
+  "generated_date_count": 31,
+  "generated_event_count": 75,
+  "density_threshold": 21,
+  "required_event_checks": {
+    "04/29/2013": true,
+    "05/07/2013": true,
+    "05/21/2013": true,
+    "10/10/2013": true,
+    "01/21/2014": true
+  },
+  "checks": {
+    "required_dates_and_milestones": true,
+    "coverage_includes_gold_timeframe": true,
+    "includes_last_follow_up_01_21_2014": true,
+    "density_threshold_met": true
+  }
+}

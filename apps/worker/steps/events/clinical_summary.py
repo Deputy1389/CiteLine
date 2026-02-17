@@ -4,7 +4,7 @@ from .clinical_clustering import SURGERY
 from .clinical_filtering import is_valid_injury, normalize_injury_concept
 
 def get_total_surgeries(events: List[ClinicalEvent]) -> int:
-    surg_dates = {e.date for e in events if e.event_type == SURGERY}
+    surg_dates = {e.date for e in events if e.event_type == SURGERY and e.procedures}
     return len(surg_dates)
 
 def get_injury_summary(events: List[ClinicalEvent]) -> List[str]:
@@ -24,6 +24,8 @@ def get_surgical_summary_rows(events: List[ClinicalEvent]) -> List[dict]:
     rows = []
     for e in events:
         if e.event_type == SURGERY:
+            if not e.procedures:
+                continue
             # Findings from combined fractures/tears
             findings = sorted(list(e.fractures.union(e.tears)))
             
@@ -36,7 +38,7 @@ def get_surgical_summary_rows(events: List[ClinicalEvent]) -> List[dict]:
     return rows
 
 def get_case_summary_data(events: List[ClinicalEvent]) -> Dict[str, Any]:
-    dates = [e.date for e in events if e.date]
+    dates = [e.date for e in events if e.date and e.date.year >= 1970]
     timeframe = f"{min(dates)} -> {max(dates)}" if dates else "Unknown"
     
     complications = set()

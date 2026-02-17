@@ -5,6 +5,8 @@ export const ARTIFACT_TYPES = {
   CSV: "csv",
   MISSING_RECORDS_CSV: "missing_records_csv",
   MISSING_RECORD_REQUESTS_MD: "missing_record_requests_md",
+  PARALEGAL_CHRONOLOGY_MD: "paralegal_chronology_md",
+  EXTRACTION_NOTES_MD: "extraction_notes_md",
 } as const;
 
 export const RUN_ARTIFACT_LINK_ORDER = [
@@ -14,4 +16,6 @@ export const RUN_ARTIFACT_LINK_ORDER = [
   ARTIFACT_TYPES.CSV,
   ARTIFACT_TYPES.MISSING_RECORDS_CSV,
   ARTIFACT_TYPES.MISSING_RECORD_REQUESTS_MD,
+  ARTIFACT_TYPES.PARALEGAL_CHRONOLOGY_MD,
+  ARTIFACT_TYPES.EXTRACTION_NOTES_MD,
 ] as const;

@@ -1,4 +1,5 @@
 from typing import List
+from datetime import date as date_type
 from .synthesis_domain import ClinicalAtom, ClinicalEvent
 from .clinical_filtering import is_noise_line, normalize_text
 
@@ -26,6 +27,24 @@ def classify_event(atoms: List[ClinicalAtom]) -> str:
     has_imaging_anchor = any(anchor in text_blob for anchor in imaging_anchors)
 
     if has_surgery_anchor:
+        # Guard: do not classify follow-up/status-post narratives as surgery unless
+        # there is active OR/procedure context.
+        followup_anchors = ["follow up", "clinic", "evaluation", "status post", "s/p", "post op", "suture removal"]
+        strong_or_anchors = [
+            "operative report",
+            "procedure performed",
+            "anesthesia",
+            "operating room",
+            "incision",
+            "closure",
+            "pacu",
+            "postop diagnosis",
+            "preop diagnosis",
+        ]
+        has_followup_context = any(anchor in text_blob for anchor in followup_anchors)
+        has_strong_or_context = any(anchor in text_blob for anchor in strong_or_anchors)
+        if has_followup_context and not has_strong_or_context:
+            return FOLLOW_UP
         # Safety: downgrade to IMAGING if text is primarily imaging phrasing
         imaging_phrases = ["appeared located", "visualized", "no evidence of"]
         if any(p in text_blob for p in imaging_phrases) and not "incision" in text_blob:
@@ -54,7 +73,8 @@ def cluster_atoms_into_events(atoms: List[ClinicalAtom]) -> List[ClinicalEvent]:
     
     by_date = defaultdict(list)
     for a in cleaned:
-        if a.date: by_date[a.date].append(a)
+        if a.date and isinstance(a.date, date_type) and a.date.year >= 1970:
+            by_date[a.date].append(a)
         
     events = []
     for day in sorted(by_date.keys()):

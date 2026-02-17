@@ -22,6 +22,9 @@ def score_event(event: Event) -> int:
     if event.date:
         if event.date.source == DateSource.TIER1:
             score += 35
+        # If we have a resolved full date, treat as Tier 1 equivalent
+        elif event.date.value:
+            score += 35
         elif event.date.source == DateSource.TIER2:
             score += 20
         elif event.date.source in (DateSource.PROPAGATED, DateSource.ANCHOR):
@@ -35,6 +38,7 @@ def score_event(event: Event) -> int:
     strong_types = {
         EventType.ER_VISIT, EventType.HOSPITAL_ADMISSION,
         EventType.HOSPITAL_DISCHARGE, EventType.PROCEDURE,
+        EventType.INPATIENT_DAILY_NOTE,
     }
     if event.event_type in strong_types:
         score += 15
