@@ -150,17 +150,20 @@ def generate_pdf(
         header_style = ParagraphStyle("HeaderStyle", parent=styles["Normal"], fontSize=9, textColor=colors.white)
         date_header_style = ParagraphStyle("DateHeader", parent=styles["Normal"], fontSize=10, textColor=colors.HexColor("#2C3E50"), fontName="Helvetica-Bold")
 
-        # Group events by date
+        # Group events by date using sort_key
         from collections import OrderedDict
-        events_by_date = OrderedDict()
-        sorted_events = sorted(events, key=lambda x: x.date.sort_key() if x.date else (date.min, 0))
+        events_by_key = OrderedDict()
+        sorted_events = sorted(events, key=lambda x: x.date.sort_key() if x.date else (99, "UNKNOWN"))
+        
         for e in sorted_events:
-            d_str = _date_str(e) or "Undated"
-            if d_str not in events_by_date:
-                events_by_date[d_str] = []
-            events_by_date[d_str].append(e)
+            key = e.date.sort_key() if e.date else (99, "UNKNOWN")
+            if key not in events_by_key:
+                events_by_key[key] = []
+            events_by_key[key].append(e)
 
-        for d_str, day_events in events_by_date.items():
+        for key, day_events in events_by_key.items():
+            # Get display string from the first event in the group
+            d_str = _date_str(day_events[0]) or "Undated"
             story.append(Paragraph(f"Date: {d_str}", date_header_style))
             story.append(Spacer(1, 0.05 * inch))
 
@@ -498,8 +501,11 @@ def generate_executive_summary(events: list[Event], matter_title: str) -> str:
     
     # Heuristic: Find first major admission, first procedure, and last discharge or status
     admissions = [e for e in dated_events if e.event_type == EventType.HOSPITAL_ADMISSION]
-    discharges = [e for e in dated_events if e.event_type == EventType.HOSPITAL_DISCHARGE]
+    discharges = [e for e in dated_events if e.event_type in (EventType.HOSPITAL_DISCHARGE, EventType.DISCHARGE)]
     procedures = [e for e in dated_events if e.event_type == EventType.PROCEDURE]
+    
+    # DEBUG
+    # print(f"DEBUG SUMMARY: dated_events={len(dated_events)} admissions={len(admissions)} discharges={len(discharges)}")
     
     if admissions:
         first_adm = sorted(admissions, key=lambda e: e.date.sort_key())[0]
@@ -512,7 +518,10 @@ def generate_executive_summary(events: list[Event], matter_title: str) -> str:
         summary += f"The clinical course included {p_count} significant procedures or operations. "
         
     if discharges:
-        last_dis = sorted(discharges, key=lambda e: e.date.sort_key(), reverse=True)[0]
+        # Sort by sort_key DESC to find latest
+        sorted_dis = sorted(discharges, key=lambda e: e.date.sort_key(), reverse=True)
+        last_dis = sorted_dis[0]
+        # print(f"DEBUG SUMMARY: latest discharge event: date={_date_str(last_dis)} type={last_dis.event_type}")
         summary += f"The latest documented discharge occurred on {_date_str(last_dis)}. "
     else:
         summary += f"The records conclude on {_date_str(dated_events[-1])}. "

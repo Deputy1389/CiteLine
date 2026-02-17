@@ -24,6 +24,10 @@ from apps.worker.steps.step06_dates import make_partial_date
 DATE_LINE_RE = re.compile(r"^\s*(\d{1,2})/(\d{1,2})\s*$")
 TIME_TEXT_RE = re.compile(r"^\s*(\d{3,4})\s+(.+?)\s*$")
 
+# Flexible pattern: detect date and time anywhere in the line
+# e.g. "9/26 0925 Text" or "T. Smyth, RN 9/26 0925 Text"
+DATE_TIME_INLINE_RE = re.compile(r"(?:\b|^)(\d{1,2})/(\d{1,2})\s+(\d{3,4})\b")
+
 # Sometimes it's one line: "9/24 1600 Patient ..."
 DATE_TIME_TEXT_RE = re.compile(r"^\s*(\d{1,2})/(\d{1,2})\s+(\d{3,4})\s+(.+?)\s*$")
 
@@ -130,13 +134,19 @@ def extract_clinical_events(
 
     return events, citations, warnings, skipped
 
-    return events, citations
-
 def _is_boilerplate_line(text: str) -> bool:
     """Hard drop deterministic boilerplate/admin lines."""
     # Normalize whitespace for matching
     n = " ".join(text.lower().split())
     
+    # STEP 2 INVARIANT: NEVER drop a line that contains a clinical timestamp pattern
+    # A) MM/DD HHMM anywhere
+    if re.search(r"\b\d{1,2}/\d{1,2}\s+\d{3,4}\b", text):
+        return False
+    # B) HHMM at start (likely clinical note row)
+    if re.search(r"^\s*\d{3,4}\b", text):
+        return False
+
     # 1. Staff Signatures / Names (e.g. "Teri Smyth, RN", "Maria Reyes, RN")
     if re.search(r",\s*rn\b", n):
         # If the line is JUST the name or mostly just name/dashes
@@ -259,6 +269,28 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
             line = line.strip()
             if not line: continue
             
+            # STEP 3: Detect date anywhere in line
+            # e.g. "T. Smyth, RN 9/26 0430 Patient ..."
+            m_inline = DATE_TIME_INLINE_RE.search(line)
+            if m_inline:
+                current_month = int(m_inline.group(1))
+                current_day = int(m_inline.group(2))
+                # If we have a time too, and text remains
+                hhmm = m_inline.group(3)
+                # Remaining text after the timestamp
+                text_start = m_inline.end()
+                text = line[text_start:].strip()
+                
+                if text and _is_eventworthy(text):
+                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers)
+                    pending_time = None
+                    continue
+                else:
+                    # Just update context
+                    pending_time = hhmm
+                    # If we don't have text yet, it might be on the next line
+                    # continue to let subsequent patterns handle it or next line
+
             # 1. Deterministic Boilerplate Filter
             if _is_boilerplate_line(line):
                 continue
@@ -270,7 +302,6 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
                 current_day = int(m_date.group(2))
                 last_event = None 
                 pending_time = None
-                # print(f"DEBUG: Found Date Line {current_month}/{current_day} on page {page.page_number}")
                 continue
                 
             # 3. One-line Pattern: ^\d{1,2}/\d{1,2}\s+\d{3,4}\s+<text>
@@ -393,55 +424,6 @@ def _get_best_date(page_dates: list[EventDate]) -> EventDate | None:
     if tier1:
         return tier1[0]
     return page_dates[0]
-
-def _is_boilerplate(text: str) -> bool:
-    """Filter out common medical record legends, instructions, and non-clinical text."""
-    s = " ".join(text.lower().split())
-    # Strict Boilerplate Filter (Bug 2)
-    lower_s = s.lower()
-    
-    # 1) Strong blocklist keywords
-    blocklist_terms = [
-        "flowsheet",
-        "general appearance:", # colon important? user said general appearance
-        "general appearance",
-        "pressure ulcer",
-        "incision",
-        "rash",
-        "see nursing notes",
-        "see mar",
-        "medication administration record",
-        "national league for nursing",
-        "copyright",
-        "all rights reserved",
-    ]
-    
-    has_blocklist = any(term in lower_s for term in blocklist_terms)
-
-    if has_blocklist:
-        # Check whitelist (override) - Step 3: Relaxed Filters
-        whitelist_terms = [
-            "patient", "admitted", "complained", "vomited", "medicated", 
-            "discharged", "pain", "nausea", "coughing", "emesis", "orders received",
-            "c/o", "denies", "ambulat", "reposition", "ate"
-        ]
-        has_whitelist = any(term in lower_s for term in whitelist_terms)
-        
-        if has_whitelist:
-            return False # Keep it!
-            
-        return True
-
-    # Header-style boilerplate (legacy)
-    boilerplate_patterns = [
-        r"(?i)electronically signed by",
-        r"(?i)confidential medical record",
-        r"(?i)page \d+ of \d+",
-        r"(?i)continued on next page",
-        r"_{5,}", # Long underscores (forms)
-        r"[-]{5,}",
-    ]
-    return any(re.search(p, s) for p in boilerplate_patterns)
 
 def _extract_page_content(page: Page) -> tuple[list[Fact], list[Citation]]:
     """Extract facts/citations from a single page using standard patterns."""

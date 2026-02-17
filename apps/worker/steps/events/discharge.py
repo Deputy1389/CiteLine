@@ -41,9 +41,19 @@ def extract_discharge_events(
     for page in ds_pages:
         page_dates = dates.get(page.page_number, [])
         # Prefer discharge date (usually later date)
-        # But really we want the Admission Date for the start and Discharge Date for the end.
-        # For now, we'll anchor on the most prominent date found, or the first one.
-        event_date = page_dates[0] if page_dates else None
+        # We search for dates with a "tier1" or specific label match if available
+        # Step 6 might have labeled these. For now, we prefer the LAST date on the page
+        # as discharge dates often appear lower or are the final anchor.
+        event_date = None
+        if page_dates:
+            # Sort by position in text (implicitly handled by extraction order usually)
+            # or by value.
+            # Let's try to find a date that matches 'discharge' in its context window
+            for ed in page_dates:
+                # If step06_dates preserved context, we'd use it.
+                # Since we don't have context here, let's take the latest date found on page.
+                if not event_date or ed.sort_key() > event_date.sort_key():
+                    event_date = ed
         
         provider_id = page_provider_map.get(page.page_number, "unknown")
         
