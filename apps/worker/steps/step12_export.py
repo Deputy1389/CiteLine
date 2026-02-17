@@ -20,6 +20,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import (
+    LongTable,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -32,6 +33,7 @@ from packages.shared.models import (
     CaseInfo,
     ChronologyExports,
     ChronologyOutput,
+    Citation,
     Event,
     EventType,
     Gap,
@@ -48,7 +50,10 @@ def _date_str(event: Event) -> str:
         return ""
     
     ext = event.date.extensions or {}
-    time_str = f" {ext['time']}" if ext.get("time") else ""
+    time_val = ext.get("time")
+    if time_val == "0000":
+        time_val = None
+    time_str = f" {time_val}" if time_val else " (time not documented)"
 
     # 1) Full date wins
     d = event.date.value
@@ -92,23 +97,147 @@ def _facts_text(event: Event) -> str:
 
 def _pages_ref(event: Event, page_map: dict[int, tuple[str, int]] | None = None) -> str:
     """Format page references with optional filenames."""
+    if not event.source_page_numbers:
+        return ""
+        
+    pages = sorted(list(set(event.source_page_numbers)))
+    
+    # SAFETY: If too many pages, condense
+    if len(pages) > 5:
+        # Show first 3 and "..."
+        display_pages = pages[:3]
+        refs = []
+        for p in display_pages:
+            if page_map and p in page_map:
+                fname, local_p = page_map[p]
+                refs.append(f"{fname} p. {local_p}")
+            else:
+                refs.append(f"p. {p}")
+        refs.append(f"... (+{len(pages)-3} more)")
+        return ", ".join(refs)
+
     if not page_map:
-        return ", ".join(f"p. {p}" for p in sorted(event.source_page_numbers))
+        return ", ".join(f"p. {p}" for p in pages)
     
     # Resolve to filenames
     refs = []
     # Sort by global page number to keep order
-    for p in sorted(event.source_page_numbers):
+    for p in pages:
         if p in page_map:
             fname, local_p = page_map[p]
             refs.append(f"{fname} p. {local_p}")
         else:
             refs.append(f"p. {p}")
     
-    # Deduplicate while preserving order?
-    # Events usually on 1 page.
     return ", ".join(refs)
 
+
+def _build_events_table(events: list[Event], providers: list[Provider], page_map: dict[int, tuple[str, int]] | None, all_citations: list[Citation] | None, styles) -> Table:
+    fact_style = ParagraphStyle("FactStyle", parent=styles["Normal"], fontSize=8, leading=10)
+    header_style = ParagraphStyle("HeaderStyle", parent=styles["Normal"], fontSize=9, textColor=colors.white)
+
+    table_data = [[
+        Paragraph("<b>Date/Time</b>", header_style),
+        Paragraph("<b>Provider</b>", header_style),
+        Paragraph("<b>Encounter Type</b>", header_style),
+        Paragraph("<b>Clinical Facts & Findings</b>", header_style),
+        Paragraph("<b>Source</b>", header_style),
+    ]]
+
+    sorted_events = sorted(events, key=lambda x: x.date.sort_key() if x.date else (99, "UNKNOWN"))
+    
+    # DEBUG: Check for massive facts
+    with open("debug_log.txt", "a", encoding="utf-8") as f:
+        f.write(f"\n--- Generating PDF for {len(sorted_events)} events ---\n")
+        
+    for event in sorted_events:
+        # Pre-generate all fact bullets
+        all_bullet_lines = []
+        if event.extensions and "legal_section" in event.extensions:
+            sect = str(event.extensions["legal_section"])[:50]
+            all_bullet_lines.append(f"<b>[{sect}]</b>")
+
+        for f in event.facts:
+            # SAFETY: Force split massive bullets if they survive cleaning
+            text = f.text
+            if len(text) > 800:
+                text = text[:800] + "... [TRUNCATED]"
+            
+            cit_label = ""
+            if all_citations:
+                cids = f.citation_ids or ([f.citation_id] if f.citation_id else [])
+                fact_cits = [c for c in all_citations if c.citation_id in cids]
+                if fact_cits:
+                    pages = sorted(list(set(c.page_number for c in fact_cits)))
+                    if page_map:
+                        local_pages = [str(page_map[pnum][1]) if pnum in page_map else str(pnum) for pnum in pages]
+                        cit_label = f" <font size='6' color='gray'>(p. {', '.join(local_pages)})</font>"
+                    else:
+                        cit_label = f" <font size='6' color='gray'>(p. {', '.join(map(str, pages))})</font>"
+            all_bullet_lines.append(f"• {f.text}{cit_label}")
+
+        # Split bullets into chunks to avoid "Flowable too large" errors (ReportLab limit)
+        # 4 bullets per row is safer for large pages
+        chunk_size = 4
+        chunks = [all_bullet_lines[i:i + chunk_size] for i in range(0, len(all_bullet_lines), chunk_size)]
+        if not chunks: chunks = [["(No facts documented)"]]
+
+        provider_display = _provider_name(event, providers)
+        if event.author_name:
+            author_display = event.author_name
+            if event.author_role:
+                author_display += f", {event.author_role}"
+            provider_display = f"{provider_display}<br/><font size='7' color='gray'>Author: {author_display}</font>"
+
+        for idx, chunk in enumerate(chunks):
+            facts_bullets = "<br/>".join(chunk)
+            
+            # For secondary rows, dim the headers or add (cont)
+            date_display = _date_str(event)
+            etype_display = event.event_type.value.replace("_", " ").title()
+            prov_display = provider_display
+            src_display = _pages_ref(event, page_map)
+
+            # SAFETY TRUNCATION FOR ALL FIELDS
+            if len(date_display) > 50: date_display = date_display[:50]
+            if len(prov_display) > 50: prov_display = prov_display[:50]
+            if len(etype_display) > 50: etype_display = etype_display[:50]
+            if len(src_display) > 100: src_display = src_display[:100]
+            
+            # Sanitize newlines
+            date_display = date_display.replace("\n", " ")
+            prov_display = prov_display.replace("\n", " ")
+            etype_display = etype_display.replace("\n", " ")
+            src_display = src_display.replace("\n", " ")
+
+            if idx > 0:
+                date_display = f"<font color='gray'>{date_display} (cont.)</font>"
+                prov_display = "<font color='gray'>(cont.)</font>"
+                etype_display = "<font color='gray'>(cont.)</font>"
+                src_display = ""
+
+            table_data.append([
+                Paragraph(date_display, fact_style),
+                Paragraph(prov_display, fact_style),
+                Paragraph(etype_display, fact_style),
+                Paragraph(facts_bullets, fact_style),
+                Paragraph(src_display, fact_style),
+            ])
+
+    col_widths = [1.2 * inch, 1.2 * inch, 1.0 * inch, 2.6 * inch, 1.0 * inch]
+    # Use LongTable for multi-page support
+    t = LongTable(table_data, colWidths=col_widths, repeatRows=1)
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#34495E")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#ECF0F1")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9F9F9")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    return t
 
 # ── PDF Export ────────────────────────────────────────────────────────────
 
@@ -120,6 +249,7 @@ def generate_pdf(
     providers: list[Provider],
     page_map: dict[int, tuple[str, int]] | None = None,
     case_info: CaseInfo | None = None,
+    all_citations: list[Citation] | None = None,
 ) -> bytes:
     """Generate a clean chronology PDF."""
     buf = io.BytesIO()
@@ -147,53 +277,21 @@ def generate_pdf(
 
     # Events table (Chronological)
     if events:
-        story.append(Paragraph("Clinical Timeline", styles["Heading2"]))
-        story.append(Spacer(1, 0.1 * inch))
+        # Separate into main and prior
+        main_events = [e for e in events if e.event_type != EventType.REFERENCED_PRIOR_EVENT]
+        prior_events = [e for e in events if e.event_type == EventType.REFERENCED_PRIOR_EVENT]
 
-        fact_style = ParagraphStyle("FactStyle", parent=styles["Normal"], fontSize=8, leading=10)
-        header_style = ParagraphStyle("HeaderStyle", parent=styles["Normal"], fontSize=9, textColor=colors.white)
+        if prior_events:
+            story.append(Paragraph("Prior History (Referenced)", styles["Heading2"]))
+            story.append(Spacer(1, 0.1 * inch))
+            story.append(_build_events_table(prior_events, providers, page_map, all_citations, styles))
+            story.append(Spacer(1, 0.3 * inch))
 
-        table_data = [[
-            Paragraph("<b>Date/Time</b>", header_style),
-            Paragraph("<b>Provider</b>", header_style),
-            Paragraph("<b>Encounter Type</b>", header_style),
-            Paragraph("<b>Clinical Facts & Findings</b>", header_style),
-            Paragraph("<b>Source</b>", header_style),
-        ]]
-
-        # Strict chronological sort by date then time
-        sorted_events = sorted(events, key=lambda x: x.date.sort_key() if x.date else (99, "UNKNOWN"))
-        
-        for event in sorted_events:
-            # Group facts with their specific citations if available
-            fact_lines = []
-            for f in event.facts[:12]:
-                fact_lines.append(f"• {f.text}")
-            
-            facts_bullets = "<br/>".join(fact_lines)
-            
-            table_data.append([
-                Paragraph(_date_str(event), fact_style),
-                Paragraph(_provider_name(event, providers), fact_style),
-                Paragraph(event.event_type.value.replace("_", " ").title(), fact_style),
-                Paragraph(facts_bullets, fact_style),
-                Paragraph(_pages_ref(event, page_map), fact_style),
-            ])
-
-        col_widths = [1.2 * inch, 1.2 * inch, 1.0 * inch, 2.6 * inch, 1.0 * inch]
-        t = Table(table_data, colWidths=col_widths, repeatRows=1)
-        t.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#34495E")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#ECF0F1")),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9F9F9")]),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ]))
-        story.append(t)
-        story.append(Spacer(1, 0.2 * inch))
+        if main_events:
+            story.append(Paragraph("Clinical Timeline", styles["Heading2"]))
+            story.append(Spacer(1, 0.1 * inch))
+            story.append(_build_events_table(main_events, providers, page_map, all_citations, styles))
+            story.append(Spacer(1, 0.2 * inch))
 
     # Gap appendix
     if gaps:
@@ -445,6 +543,7 @@ def render_exports(
     providers: list[Provider],
     page_map: dict[int, tuple[str, int]] | None = None,
     case_info: CaseInfo | None = None,
+    all_citations: list[Citation] | None = None,
 ) -> ChronologyOutput:
     """
     Render all export formats, save to disk, and return ChronologyOutput.
@@ -452,7 +551,7 @@ def render_exports(
     exported_ids = [e.event_id for e in events]
 
     # PDF
-    pdf_bytes = generate_pdf(run_id, matter_title, events, gaps, providers, page_map, case_info=case_info)
+    pdf_bytes = generate_pdf(run_id, matter_title, events, gaps, providers, page_map, case_info=case_info, all_citations=all_citations)
     pdf_path = save_artifact(run_id, "chronology.pdf", pdf_bytes)
     pdf_sha = hashlib.sha256(pdf_bytes).hexdigest()
 
@@ -503,12 +602,25 @@ def generate_executive_summary(events: list[Event], matter_title: str, case_info
     summary = f"Summary for {matter_title}:\n\n"
 
     # Patient Header Information
-    if case_info and case_info.patient:
-        p = case_info.patient
+    if case_info:
         # Extract name from matter title or case info? matter_title usually has it
-        summary += f"Patient Name: {matter_title.split('-')[0].strip()}\n"
-        if p.age:
-            summary += f"Age: {p.age}\n"
+        matter_label = matter_title.split('-')[0].strip()
+        
+        extracted_name = "Unknown"
+        mrn_str = ""
+        age_str = ""
+        
+        if case_info.patient:
+            p = case_info.patient
+            extracted_name = p.name or "Unknown"
+            if p.mrn:
+                mrn_str = f" (MRN {p.mrn})"
+            if p.age:
+                age_str = f"Age: {p.age}\n"
+        
+        summary += f"Patient (extracted): {extracted_name}{mrn_str}\n"
+        summary += f"Matter label: {matter_label}\n"
+        summary += age_str
         
         # Try to find diagnosis in facts first, then fallback
         diagnosis = None

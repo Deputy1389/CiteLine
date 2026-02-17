@@ -5,28 +5,42 @@ from packages.shared.models import Page, Patient, Warning
 
 def extract_demographics(pages: list[Page]) -> tuple[Patient, list[Warning]]:
     """
-    Extract patient sex, age, and DOB from pages.
-    Favors narrative cues over header labels.
+    Extract patient name, mrn, sex, age, and DOB from pages.
     """
     warnings: list[Warning] = []
     
     # Resolution state
+    name_votes: dict[str, int] = {}
+    mrn_votes: dict[str, int] = {}
     sex_votes: dict[str, int] = {"male": 0, "female": 0}
     age_candidates: list[int] = []
     
-    # ── Narrative Patterns ────────────────────────────────────────────
-    # "65-year-old female", "65yo M", "65 y/o woman"
+    # ── Extraction Patterns ───────────────────────────────────────────
+    name_pattern = r"(?i)patient\s*name\s*:\s*([^,\n\r\t]+)"
+    mrn_pattern = r"(?i)mrn\s*:\s*([A-Z0-9-]+)"
+    # Narrative: "65-year-old female", "65yo M", "65 y/o woman"
     narrative_pattern = r"\b(\d{1,2})\s*(?:-|year old|yo|y/o|year-old)\s*(male|female|woman|man|m\b|f\b)\b"
     
-    # ── Header Patterns ───────────────────────────────────────────────
+    # Header Patterns
     sex_header_pattern = r"(?i)sex\s*:\s*(m|f|male|female)\b"
     age_header_pattern = r"(?i)age\s*:\s*(\d{1,3})\b"
     dob_header_pattern = r"(?i)dob\s*:\s*(\d{4}|(?:\d{1,2}[/-]){2}\d{2,4})\b"
-
+    
     for page in pages:
         text = page.text
         
-        # 1. Narrative extraction (High weight)
+        # 1. Name extraction
+        for m in re.finditer(name_pattern, text):
+            name = m.group(1).strip()
+            if len(name) > 3 and len(name) < 50:
+                name_votes[name] = name_votes.get(name, 0) + 10
+                
+        # 2. MRN extraction
+        for m in re.finditer(mrn_pattern, text):
+            mrn = m.group(1).strip()
+            mrn_votes[mrn] = mrn_votes.get(mrn, 0) + 10
+
+        # 3. Narrative extraction
         for m in re.finditer(narrative_pattern, text, re.IGNORECASE):
             age_candidates.append(int(m.group(1)))
             sex_raw = m.group(2).lower()
@@ -64,6 +78,14 @@ def extract_demographics(pages: list[Page]) -> tuple[Patient, list[Warning]]:
             sex_votes["male"] += 1
 
     # ── Resolution ────────────────────────────────────────────────────
+    resolved_name = None
+    if name_votes:
+        resolved_name = max(name_votes.items(), key=lambda x: x[1])[0]
+        
+    resolved_mrn = None
+    if mrn_votes:
+        resolved_mrn = max(mrn_votes.items(), key=lambda x: x[1])[0]
+
     resolved_sex = None
     confidence = 0
     total_votes = sum(sex_votes.values())
@@ -100,6 +122,8 @@ def extract_demographics(pages: list[Page]) -> tuple[Patient, list[Warning]]:
             except: pass
 
     return Patient(
+        name=resolved_name,
+        mrn=resolved_mrn,
         sex=resolved_sex,
         age=resolved_age,
         dob=resolved_dob,

@@ -28,6 +28,7 @@ def _make_fact(text: str, kind: FactKind, citation_id: str, verbatim: bool = Fal
         kind=kind,
         verbatim=verbatim,
         citation_id=citation_id,
+        citation_ids=[citation_id] if citation_id else []
     )
 
 def _find_section(text: str, header: str) -> str | None:

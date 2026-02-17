@@ -58,6 +58,7 @@ from apps.worker.steps.step08_citations import post_process_citations
 from apps.worker.steps.step09_dedup import deduplicate_events
 from apps.worker.steps.step10_confidence import apply_confidence_scoring, filter_for_export
 from apps.worker.steps.step11_gaps import detect_gaps
+from apps.worker.steps.events.legal_usability import improve_legal_usability
 from apps.worker.steps.step12_export import render_exports
 from apps.worker.steps.step13_receipt import create_run_record
 from apps.worker.lib.provider_normalize import normalize_provider_entities, compute_coverage_spans
@@ -247,6 +248,10 @@ def run_pipeline(run_id: str) -> None:
         export_events, gaps, step_warnings = detect_gaps(export_events, config)
         all_warnings.extend(step_warnings)
 
+        # ── Legal Usability Pass ──────────────────────────────────────
+        logger.info(f"[{run_id}] Legal Usability Pass")
+        export_events = improve_legal_usability(export_events)
+
         # Build evidence graph
         evidence_graph = EvidenceGraph(
             documents=all_documents,
@@ -358,6 +363,7 @@ def run_pipeline(run_id: str) -> None:
             run_id, matter_title, export_events, gaps, providers,
             page_map=page_map,
             case_info=case_info,
+            all_citations=all_citations
         )
 
         # ── Step 13: Run receipt ──────────────────────────────────────

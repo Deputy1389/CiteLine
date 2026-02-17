@@ -27,6 +27,9 @@ TIME_LINE_RE = re.compile(r"^\s*(\d{1,2}:?\d{2})\s*(.*)$")
 DATE_TIME_LINE_RE = re.compile(r"^\s*(\d{1,2})[/\-](\d{1,2})\s+(\d{1,2}:?\d{2})\s*(.*)$")
 DATE_TIME_INLINE_RE = re.compile(r"(?:\b|^)(\d{1,2})[/\-](\d{1,2})\s+(\d{1,2}:?\d{2})\b")
 
+# Author / Signer patterns
+AUTHOR_RE = re.compile(r"(?i)(?:^|[\-\s]{2,})([A-Z]\.\s*[A-Za-z]+|[A-Z]{2,3}),?\s*(RN|MD|LPN|DO|NP|PA)?\s*$")
+
 _CLINICAL_INDICATORS = [
     (r"(?i)\bpain\s*(?:level|score)?\s*:?\s*(\d{1,2}/10)\b", "Pain Level"),
     (r"(?i)diagnosis\s*:\s*([^.\n]+)", "Diagnosis"),
@@ -41,7 +44,7 @@ _CLINICAL_INDICATORS = [
     (r"(?i)history\s*of\s*([^.\n]+)", "Medical History"),
 ]
 
-def _append_to_event(event: Event, text: str, page: Page, citations: list[Citation]):
+def _append_to_event(event: Event, text: str, page: Page, citations: list[Citation], author_name=None, author_role=None):
     """Append a clinical line to an existing event fact list."""
     cit = _make_citation(page, text)
     citations.append(cit)
@@ -50,6 +53,12 @@ def _append_to_event(event: Event, text: str, page: Page, citations: list[Citati
     new_etype = _detect_encounter_type(text)
     if PRIORITY_MAP.get(new_etype, 0) > PRIORITY_MAP.get(event.event_type, 0):
         event.event_type = new_etype
+
+    # Update author if provided and currently unknown or if new author has higher rank? 
+    # For now, just set if missing.
+    if author_name and not event.author_name:
+        event.author_name = author_name
+        event.author_role = author_role
 
     # Check if this line contains new indicators
     fact_text = text
@@ -364,6 +373,8 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
         current_month = block_month
         current_day = block_day
         current_year = block_year
+        current_author = None
+        current_role = None
         
         last_event: Event | None = None
         pending_time: str | None = None
@@ -377,7 +388,13 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
             if _is_boilerplate_line(line):
                 continue
 
-            # 2. Date/Time Detection
+            # 2. Author / Signature Detection (Check for author on every line)
+            m_author = AUTHOR_RE.search(line)
+            if m_author:
+                current_author = m_author.group(1).strip()
+                current_role = m_author.group(2).strip() if m_author.group(2) else None
+
+            # 3. Date/Time Detection
             m_dt = DATE_TIME_LINE_RE.match(line)
             m_inline = DATE_TIME_INLINE_RE.search(line)
             m_date = DATE_LINE_RE.match(line)
@@ -391,9 +408,9 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
                 
                 if text:
                     if last_event and _is_same_timestamp(last_event, m, d, hhmm):
-                        _append_to_event(last_event, text, page, citations)
+                        _append_to_event(last_event, text, page, citations, author_name=current_author, author_role=current_role)
                     else:
-                        last_event = _add_flowsheet_event(events, citations, page, m, d, hhmm, text, page_provider_map, providers, debug_enabled, year=current_year)
+                        last_event = _add_flowsheet_event(events, citations, page, m, d, hhmm, text, page_provider_map, providers, debug_enabled, year=current_year, author_name=current_author, author_role=current_role)
                     pending_time = None
                 else:
                     # New timestamp context
@@ -410,9 +427,9 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
                 text = line[text_start:].strip()
                 if text:
                     if last_event and _is_same_timestamp(last_event, m, d, hhmm):
-                        _append_to_event(last_event, text, page, citations)
+                        _append_to_event(last_event, text, page, citations, author_name=current_author, author_role=current_role)
                     else:
-                        last_event = _add_flowsheet_event(events, citations, page, m, d, hhmm, text, page_provider_map, providers, debug_enabled, year=current_year)
+                        last_event = _add_flowsheet_event(events, citations, page, m, d, hhmm, text, page_provider_map, providers, debug_enabled, year=current_year, author_name=current_author, author_role=current_role)
                     pending_time = None
                 else:
                     # Context switch
@@ -435,9 +452,9 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
                 if current_month and current_day:
                     if text and _is_eventworthy(text):
                         if last_event and _is_same_timestamp(last_event, current_month, current_day, hhmm):
-                            _append_to_event(last_event, text, page, citations)
+                            _append_to_event(last_event, text, page, citations, author_name=current_author, author_role=current_role)
                         else:
-                            last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers, debug_enabled, year=current_year)
+                            last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers, debug_enabled, year=current_year, author_name=current_author, author_role=current_role)
                     else:
                         last_event = None
                         pending_time = hhmm
@@ -445,25 +462,25 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
                     pending_time = hhmm
                 continue
 
-            # 3. Continuation or Standalone Clinical Text
+            # 4. Continuation or Standalone Clinical Text
             if current_month and current_day:
                 if _is_eventworthy(line):
                     hhmm = pending_time or None
                     if last_event and _is_same_timestamp(last_event, current_month, current_day, hhmm):
-                        _append_to_event(last_event, line, page, citations)
+                        _append_to_event(last_event, line, page, citations, author_name=current_author, author_role=current_role)
                     else:
-                        last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, line, page_provider_map, providers, debug_enabled, year=current_year)
+                        last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, line, page_provider_map, providers, debug_enabled, year=current_year, author_name=current_author, author_role=current_role)
                     pending_time = None
                 elif last_event and (_is_clinical_sentence(line) or len(line) > 10):
-                    _append_to_event(last_event, line, page, citations)
+                    _append_to_event(last_event, line, page, citations, author_name=current_author, author_role=current_role)
                 elif not last_event and _is_clinical_sentence(line):
                     hhmm = pending_time or None
-                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, line, page_provider_map, providers, debug_enabled, year=current_year)
+                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, line, page_provider_map, providers, debug_enabled, year=current_year, author_name=current_author, author_role=current_role)
                     pending_time = None
 
     return events, citations
 
-def _add_flowsheet_event(events, citations, page, month, day, hhmm, text, page_provider_map, providers, debug_enabled=False, year=None):
+def _add_flowsheet_event(events, citations, page, month, day, hhmm, text, page_provider_map, providers, debug_enabled=False, year=None, author_name=None, author_role=None):
     if not month or not day:
         return None
 
@@ -526,6 +543,9 @@ def _add_flowsheet_event(events, citations, page, month, day, hhmm, text, page_p
         provider_id=provider_id,
         event_type=etype,
         date=ed,
+        encounter_type_raw=etype.value,
+        author_name=author_name,
+        author_role=author_role,
         facts=[fact],
         confidence=confidence,
         flags=event_flags,

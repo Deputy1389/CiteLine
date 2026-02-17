@@ -831,7 +831,7 @@
         },
         "facts": {
           "type": "array",
-          "maxItems": 30,
+          "maxItems": 100,
           "items": {
             "$ref": "#/$defs/Fact"
           }
@@ -1009,14 +1009,13 @@
       "required": [
         "text",
         "kind",
-        "verbatim",
-        "citation_id"
+        "verbatim"
       ],
       "properties": {
         "text": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 400
+          "maxLength": 1000
         },
         "kind": {
           "type": "string",
@@ -1041,7 +1040,16 @@
           "type": "boolean"
         },
         "citation_id": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "citation_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         "confidence": {
           "type": [
@@ -1344,6 +1352,18 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mrn": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "sex": {
           "type": [
             "string",

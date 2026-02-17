@@ -107,6 +107,8 @@ class Page(BaseModel):
 
 
 class Patient(BaseModel):
+    name: Optional[str] = None
+    mrn: Optional[str] = None
     sex: Optional[str] = None
     age: Optional[int] = None
     dob: Optional[date] = None
@@ -130,10 +132,11 @@ class Provider(BaseModel):
 
 
 class Fact(BaseModel):
-    text: str = Field(min_length=1, max_length=400)
+    text: str = Field(min_length=1, max_length=1000)
     kind: FactKind
     verbatim: bool
-    citation_id: str
+    citation_id: Optional[str] = None # Deprecating but keeping for compat
+    citation_ids: list[str] = Field(default_factory=list)
     confidence: Optional[int] = None
 
 
@@ -185,7 +188,9 @@ class Event(BaseModel):
     event_type: EventType
     date: Optional[EventDate] = None
     encounter_type_raw: Optional[str] = None
-    facts: list[Fact] = Field(default_factory=list, max_length=30)
+    author_name: Optional[str] = None
+    author_role: Optional[str] = None
+    facts: list[Fact] = Field(default_factory=list, max_length=100)
     diagnoses: list[Fact] = Field(default_factory=list)
     medications: list[Fact] = Field(default_factory=list)
     procedures: list[Fact] = Field(default_factory=list)

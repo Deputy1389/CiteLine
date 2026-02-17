@@ -68,6 +68,11 @@ def run_eval():
     print(f"Detecting gaps among {len(events)} events...")
     events, gaps, _ = detect_gaps(events, config)
     
+    # 11a. Legal Usability Pass
+    from apps.worker.steps.events.legal_usability import improve_legal_usability
+    print(f"Applying Legal Usability refinements to {len(events)} events...")
+    events = improve_legal_usability(events)
+
     # 12. Export
     print("Rendering exports...")
     # page_map mock
@@ -87,7 +92,8 @@ def run_eval():
         gaps=gaps,
         providers=providers,
         page_map=page_map,
-        case_info=case_info
+        case_info=case_info,
+        all_citations=citations
     )
     
     # Show Results summary
