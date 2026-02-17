@@ -175,10 +175,7 @@ def run_pipeline(run_id: str) -> None:
 
         # ── Step 6: Date extraction ───────────────────────────────────
         logger.info(f"[{run_id}] Step 6: Date extraction")
-        anchor_year_hint = None
-        if patient and patient.dob and patient.age:
-            anchor_year_hint = patient.dob.year + patient.age
-        dates = extract_dates_for_pages(all_pages, anchor_year_hint=anchor_year_hint)
+        dates = extract_dates_for_pages(all_pages)
 
         # ── Step 7: Event extraction ──────────────────────────────────
         logger.info(f"[{run_id}] Step 7: Event extraction")
@@ -360,6 +357,7 @@ def run_pipeline(run_id: str) -> None:
         chronology = render_exports(
             run_id, matter_title, export_events, gaps, providers,
             page_map=page_map,
+            case_info=case_info,
         )
 
         # ── Step 13: Run receipt ──────────────────────────────────────
@@ -519,6 +517,7 @@ def run_pipeline(run_id: str) -> None:
                         flags_json=evt.flags,
                         citation_ids_json=evt.citation_ids,
                         source_page_numbers_json=evt.source_page_numbers,
+                        extensions_json=evt.extensions,
                     )
                     session.add(evt_orm)
 

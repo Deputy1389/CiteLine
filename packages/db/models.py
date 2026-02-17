@@ -168,6 +168,7 @@ class Event(Base):
     flags_json = Column(JSON, nullable=True)
     citation_ids_json = Column(JSON, nullable=True)
     source_page_numbers_json = Column(JSON, nullable=True)
+    extensions_json = Column(JSON, nullable=True)
 
     run = relationship("Run", back_populates="events")
     provider = relationship("Provider", back_populates="events")

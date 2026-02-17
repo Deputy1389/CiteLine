@@ -52,9 +52,13 @@ def score_event(event: Event) -> int:
     if len(event.citation_ids) >= 2:
         score += 5
 
-    # Multi-page events are stronger
+    # multi-page events are stronger
     if len(event.source_page_numbers) > 1:
         score += 5
+
+    # NEW: Granular timestamp boost (Crucial for flowsheet data)
+    if event.date and event.date.extensions and event.date.extensions.get("time"):
+        score += 25
 
     return min(score, 100)
 

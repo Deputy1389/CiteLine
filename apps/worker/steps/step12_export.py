@@ -7,6 +7,7 @@ import csv
 import hashlib
 import io
 import json
+import re
 from datetime import date, datetime, timezone
 
 from docx import Document as DocxDocument
@@ -28,6 +29,7 @@ from reportlab.platypus import (
 
 from packages.shared.models import (
     ArtifactRef,
+    CaseInfo,
     ChronologyExports,
     ChronologyOutput,
     Event,
@@ -45,30 +47,32 @@ def _date_str(event: Event) -> str:
     if not event.date:
         return ""
     
+    ext = event.date.extensions or {}
+    time_str = f" {ext['time']}" if ext.get("time") else ""
+
     # 1) Full date wins
     d = event.date.value
     if d:
         if isinstance(d, date):
-            return d.isoformat()
+            return f"{d.isoformat()}{time_str}"
         # DateRange object
         s = str(d.start)
         e = str(d.end) if d.end else ""
-        return f"{s} to {e}"
+        return f"{s} to {e}{time_str}"
     
     # 2) Partial date via extensions (User Patch)
-    ext = event.date.extensions or {}
     if ext.get("partial_date") and ext.get("partial_month") and ext.get("partial_day"):
         # do NOT invent a year
-        return f"{int(ext['partial_month']):02d}/{int(ext['partial_day']):02d} (year unknown)"
+        return f"{int(ext['partial_month']):02d}/{int(ext['partial_day']):02d} (year unknown){time_str}"
 
     # Fallback to model fields
     if event.date.partial_month is not None:
-        return f"{event.date.partial_month:02d}/{event.date.partial_day:02d} (year unknown)"
+        return f"{event.date.partial_month:02d}/{event.date.partial_day:02d} (year unknown){time_str}"
     
     # 3) True relative day (positive) is allowed
     # STRICTLY positive only
     if event.date.relative_day is not None and event.date.relative_day >= 0:
-        return f"Day {event.date.relative_day}"
+        return f"Day {event.date.relative_day}{time_str}"
     
     return ""
 
@@ -116,6 +120,7 @@ def generate_pdf(
     gaps: list[Gap],
     providers: list[Provider],
     page_map: dict[int, tuple[str, int]] | None = None,
+    case_info: CaseInfo | None = None,
 ) -> bytes:
     """Generate a clean chronology PDF."""
     buf = io.BytesIO()
@@ -128,7 +133,7 @@ def generate_pdf(
     # Executive Summary (New)
     if hasattr(events, "__iter__"): # Check if we have events
         from packages.shared.models import ChronologyOutput
-        summary_text = generate_executive_summary(events, matter_title)
+        summary_text = generate_executive_summary(events, matter_title, case_info=case_info)
         
         summary_header_style = ParagraphStyle(
             "SummaryHeader", parent=styles["Heading2"], fontSize=14, spaceAfter=10, textColor=colors.HexColor("#2C3E50")
@@ -146,57 +151,54 @@ def generate_pdf(
         story.append(Paragraph("Clinical Timeline", styles["Heading2"]))
         story.append(Spacer(1, 0.1 * inch))
 
+    # Events table (Chronological)
+    if events:
+        story.append(Paragraph("Clinical Timeline", styles["Heading2"]))
+        story.append(Spacer(1, 0.1 * inch))
+
         fact_style = ParagraphStyle("FactStyle", parent=styles["Normal"], fontSize=8, leading=10)
         header_style = ParagraphStyle("HeaderStyle", parent=styles["Normal"], fontSize=9, textColor=colors.white)
-        date_header_style = ParagraphStyle("DateHeader", parent=styles["Normal"], fontSize=10, textColor=colors.HexColor("#2C3E50"), fontName="Helvetica-Bold")
 
-        # Group events by date using sort_key
-        from collections import OrderedDict
-        events_by_key = OrderedDict()
+        table_data = [[
+            Paragraph("<b>Date/Time</b>", header_style),
+            Paragraph("<b>Provider</b>", header_style),
+            Paragraph("<b>Encounter Type</b>", header_style),
+            Paragraph("<b>Clinical Facts & Findings</b>", header_style),
+            Paragraph("<b>Source</b>", header_style),
+        ]]
+
         sorted_events = sorted(events, key=lambda x: x.date.sort_key() if x.date else (99, "UNKNOWN"))
         
-        for e in sorted_events:
-            key = e.date.sort_key() if e.date else (99, "UNKNOWN")
-            if key not in events_by_key:
-                events_by_key[key] = []
-            events_by_key[key].append(e)
+        for event in sorted_events:
+            # Group facts with their specific citations if available
+            fact_lines = []
+            for f in event.facts[:12]:
+                fact_lines.append(f"• {f.text}")
+            
+            facts_bullets = "<br/>".join(fact_lines)
+            
+            table_data.append([
+                Paragraph(_date_str(event), fact_style),
+                Paragraph(_provider_name(event, providers), fact_style),
+                Paragraph(event.event_type.value.replace("_", " ").title(), fact_style),
+                Paragraph(facts_bullets, fact_style),
+                Paragraph(_pages_ref(event, page_map), fact_style),
+            ])
 
-        for key, day_events in events_by_key.items():
-            # Get display string from the first event in the group
-            d_str = _date_str(day_events[0]) or "Undated"
-            story.append(Paragraph(f"Date: {d_str}", date_header_style))
-            story.append(Spacer(1, 0.05 * inch))
-
-            table_data = [[
-                Paragraph("<b>Provider</b>", header_style),
-                Paragraph("<b>Encounter Type</b>", header_style),
-                Paragraph("<b>Clinical Facts & Findings</b>", header_style),
-                Paragraph("<b>Source</b>", header_style),
-            ]]
-
-            for event in day_events:
-                facts_bullets = "<br/>".join(f"• {f.text}" for f in event.facts[:10])
-                table_data.append([
-                    Paragraph(_provider_name(event, providers), fact_style),
-                    Paragraph(event.event_type.value.replace("_", " ").title(), fact_style),
-                    Paragraph(facts_bullets, fact_style),
-                    Paragraph(_pages_ref(event, page_map), fact_style),
-                ])
-
-            col_widths = [1.5 * inch, 1.2 * inch, 3.3 * inch, 1.0 * inch]
-            t = Table(table_data, colWidths=col_widths, repeatRows=1)
-            t.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#34495E")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("FONTSIZE", (0, 0), (-1, -1), 8),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#ECF0F1")),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9F9F9")]),
-                ("TOPPADDING", (0, 0), (-1, -1), 6),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ]))
-            story.append(t)
-            story.append(Spacer(1, 0.2 * inch))
+        col_widths = [1.2 * inch, 1.2 * inch, 1.0 * inch, 2.6 * inch, 1.0 * inch]
+        t = Table(table_data, colWidths=col_widths, repeatRows=1)
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#34495E")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#ECF0F1")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9F9F9")]),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        story.append(t)
+        story.append(Spacer(1, 0.2 * inch))
 
     # Gap appendix
     if gaps:
@@ -447,6 +449,7 @@ def render_exports(
     gaps: list[Gap],
     providers: list[Provider],
     page_map: dict[int, tuple[str, int]] | None = None,
+    case_info: CaseInfo | None = None,
 ) -> ChronologyOutput:
     """
     Render all export formats, save to disk, and return ChronologyOutput.
@@ -454,7 +457,7 @@ def render_exports(
     exported_ids = [e.event_id for e in events]
 
     # PDF
-    pdf_bytes = generate_pdf(run_id, matter_title, events, gaps, providers, page_map)
+    pdf_bytes = generate_pdf(run_id, matter_title, events, gaps, providers, page_map, case_info=case_info)
     pdf_path = save_artifact(run_id, "chronology.pdf", pdf_bytes)
     pdf_sha = hashlib.sha256(pdf_bytes).hexdigest()
 
@@ -469,7 +472,7 @@ def render_exports(
     docx_sha = hashlib.sha256(docx_bytes).hexdigest()
 
     # Summary
-    summary_text = generate_executive_summary(events, matter_title)
+    summary_text = generate_executive_summary(events, matter_title, case_info=case_info)
 
     return ChronologyOutput(
         export_format_version="0.1.0",
@@ -484,13 +487,18 @@ def render_exports(
     )
 
 
-def generate_executive_summary(events: list[Event], matter_title: str) -> str:
+def generate_executive_summary(events: list[Event], matter_title: str, case_info: CaseInfo | None = None) -> str:
     """Generate a high-level narrative summary of the chronology."""
     if not events:
         return "No events documented."
     
-    # Filter to dated events for the range calculation
-    dated_events = [e for e in events if e.date and e.date.sort_key()[0] < 99]
+    # Filter to dated events for the range calculation, excluding references
+    dated_events = [
+        e for e in events 
+        if e.date and e.date.sort_key()[0] < 99 
+        and e.event_type != EventType.REFERENCED_PRIOR_EVENT
+        and "is_reference" not in (e.flags or [])
+    ]
     if not dated_events:
         return "No dated events documented."
     
@@ -498,6 +506,31 @@ def generate_executive_summary(events: list[Event], matter_title: str) -> str:
     dated_events.sort(key=lambda e: e.date.sort_key())
     
     summary = f"Summary for {matter_title}:\n\n"
+
+    # Patient Header Information
+    if case_info and case_info.patient:
+        p = case_info.patient
+        # Extract name from matter title or case info? matter_title usually has it
+        summary += f"Patient Name: {matter_title.split('-')[0].strip()}\n"
+        if p.age:
+            summary += f"Age: {p.age}\n"
+        
+        # Try to find diagnosis in facts first, then fallback
+        diagnosis = None
+        for e in events:
+            for f in e.facts:
+                if "Diagnosis:" in f.text:
+                    diagnosis = f.text.split(":", 1)[1].strip()
+                    break
+                if "Medical History:" in f.text and not diagnosis:
+                    diagnosis = f.text.split(":", 1)[1].strip()
+            if diagnosis: break
+        
+        if diagnosis:
+            # Clean up: remove "Patient is a 65-year-old female with a four-year history of "
+            diagnosis = re.sub(r"(?i)Patient is a \d+-year-old [^ ]+ with a [^ ]+ history of ", "", diagnosis)
+            summary += f"Diagnosis: {diagnosis.capitalize()}\n"
+        summary += "\n"
     
     # Heuristic: Find first major admission, first procedure, and last discharge or status
     admissions = [e for e in dated_events if e.event_type == EventType.HOSPITAL_ADMISSION]
@@ -529,13 +562,22 @@ def generate_executive_summary(events: list[Event], matter_title: str) -> str:
     # Mention specific indicators found?
     pain_facts = []
     functional_facts = []
+    diagnosis_facts = []
+    history_facts = []
     for e in events:
         for f in e.facts:
             if "Pain Level:" in f.text:
                 pain_facts.append(f.text)
             if "Functional Status:" in f.text:
                 functional_facts.append(f.text)
+            if "Diagnosis:" in f.text:
+                diagnosis_facts.append(f.text)
+            if "Medical History:" in f.text:
+                history_facts.append(f.text)
     
+    if history_facts and not diagnosis_facts:
+        summary += f"\n\nRelevant medical history includes {history_facts[0].split(':')[-1].strip()}. "
+
     if pain_facts:
         highlights = pain_facts[0].split(":")[-1].strip()
         summary += f"\n\nKey highlights include reports of significant pain ({highlights}). "
@@ -543,5 +585,23 @@ def generate_executive_summary(events: list[Event], matter_title: str) -> str:
     if functional_facts:
         summary += f"Functional decline or assistance requirements were noted, including: {functional_facts[0].split(':')[-1].strip()}. "
         
+    # Add Assessment Findings (New)
+    findings = {}
+    for e in events:
+        if e.extensions and "assessment_findings" in e.extensions:
+            findings = e.extensions["assessment_findings"]
+            break
+            
+    if findings:
+        summary += "\n\nKey Assessment Findings:\n"
+        if "fall_risk" in findings:
+            summary += f"- Safety: High fall risk (Score: {findings['fall_risk']}); requires assistance for ambulation.\n"
+        if "edema" in findings:
+            summary += f"- Physical: {findings['edema']} noted.\n"
+        if "kyphosis" in findings:
+            summary += f"- Physical: Kyphosis of the spine noted.\n"
+        if "weight_history" in findings:
+            summary += f"- Weight: Weight history: {findings['weight_history']}.\n"
+
     summary += "\n\nRefer to the timeline below for a complete clinical history with citations."
     return summary

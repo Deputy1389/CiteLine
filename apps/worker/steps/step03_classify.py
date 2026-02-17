@@ -44,7 +44,7 @@ _RULES: list[tuple[PageType, tuple[str, ...]]] = [
     (PageType.CLINICAL_NOTE, (
         "chief complaint", "history of present illness", "assessment",
         "plan:", "ros ", "review of systems", "physical exam",
-        "vital signs", "medications", "allergies",
+        "vital signs", "medications", "allergies", "flowsheet", "nursing",
     )),
 ]
 

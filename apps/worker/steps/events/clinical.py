@@ -1,5 +1,6 @@
 import uuid
 import re
+import os
 from datetime import date
 from packages.shared.models import (
     Citation,
@@ -21,30 +22,40 @@ from apps.worker.steps.step06_dates import make_partial_date
 # Some PDFs split date & time across two lines:
 #   "9/24"
 #   "1600 Admit to Oncology Floor..."
-DATE_LINE_RE = re.compile(r"^\s*(\d{1,2})/(\d{1,2})\s*$")
-TIME_TEXT_RE = re.compile(r"^\s*(\d{3,4})\s+(.+?)\s*$")
+DATE_LINE_RE = re.compile(r"^\s*(\d{1,2})[/\-](\d{1,2})[\.\s]*$")
+TIME_TEXT_RE = re.compile(r"^\s*(\d{1,2}:?\d{2})\s*(.+?)\s*$")
 
 # Flexible pattern: detect date and time anywhere in the line
-# e.g. "9/26 0925 Text" or "T. Smyth, RN 9/26 0925 Text"
-DATE_TIME_INLINE_RE = re.compile(r"(?:\b|^)(\d{1,2})/(\d{1,2})\s+(\d{3,4})\b")
+# e.g. "9/26 0925 Text" or "T. Smyth, RN 9/26 09:25 Text"
+DATE_TIME_INLINE_RE = re.compile(r"(?:\b|^)(\d{1,2})[/\-](\d{1,2})\s+(\d{1,2}:?\d{2})\b")
 
 # Sometimes it's one line: "9/24 1600 Patient ..."
-DATE_TIME_TEXT_RE = re.compile(r"^\s*(\d{1,2})/(\d{1,2})\s+(\d{3,4})\s+(.+?)\s*$")
+DATE_TIME_TEXT_RE = re.compile(r"^\s*(\d{1,2})[/\-](\d{1,2})\s+(\d{1,2}:?\d{2})\s*(.+?)\s*$")
 
 _CLINICAL_INDICATORS = [
     (r"(?i)\bpain\s*(?:level|score)?\s*:?\s*(\d{1,2}/10)\b", "Pain Level"),
+    (r"(?i)diagnosis\s*:\s*([^.\n]+)", "Diagnosis"),
+    (r"(?i)\b(adenocarcinoma|carcinoma|cancer|malignancy)\b", "Diagnosis"),
     (r"(?i)\b(vomiting|vomit|emesis|nausea)\b", "GI Symptom"),
     (r"(?i)\b(shortness of breath|sob|dyspnea)\b", "Respiratory Symptom"),
     (r"(?i)\b(cough|forceful coughing)\b", "Respiratory Symptom"),
     (r"(?i)\b(hospice|end of life)\b", "Care Planning"),
     (r"(?i)\b(dependent|assistance|requires help|requires partner)\b", "Functional Status"),
     (r"(?i)\b(discharge home|discharged to home)\b", "Disposition"),
+    (r"(?i)\bwt\s*:\s*(\d{2,3})\b", "Weight"),
+    (r"(?i)history\s*of\s*([^.\n]+)", "Medical History"),
 ]
 
 def _detect_encounter_type(text: str) -> EventType:
     """Detect encounter type from clinical note text with deterministic rules."""
     n = text.lower()
     
+    # 0. Historical Reference Detection
+    # If text contains "on MM/DD" but it's not a header/row, it might be a reference
+    # "discharged home on 9/22"
+    if re.search(r"\b(discharged home on|admitted on|prior to|history of|reported on)\s+\d{1,2}/\d{1,2}\b", n):
+        return EventType.REFERENCED_PRIOR_EVENT
+
     # 1. Discharge
     if any(kw in n for kw in ["discharge summary", "discharged", "discharge teaching", "orders received for discharge", "discharged to home", "discharge order", "patient discharged"]):
         return EventType.HOSPITAL_DISCHARGE
@@ -136,7 +147,12 @@ def extract_clinical_events(
                 elif etype == EventType.HOSPITAL_ADMISSION:
                     event_date = min(candidates, key=lambda d: d.sort_key())
                 else:
-                    event_date = block.primary_date or min(candidates, key=lambda d: d.sort_key())
+                    # Prefer any candidate that HAS a full date value if available
+                    full_dates = [d for d in candidates if d.value is not None]
+                    if full_dates:
+                        event_date = full_dates[0]
+                    else:
+                        event_date = block.primary_date or min(candidates, key=lambda d: d.sort_key())
             else:
                 event_date = block.primary_date
 
@@ -164,6 +180,12 @@ def extract_clinical_events(
         events.extend(block_events)
         citations.extend(block_citations)
 
+    # 3. Global assessment extraction
+    assessment_findings = _extract_assessment_findings(pages)
+    if events and assessment_findings:
+        if not events[0].extensions: events[0].extensions = {}
+        events[0].extensions["assessment_findings"] = assessment_findings
+
     return events, citations, warnings, skipped
 
 def _is_boilerplate_line(text: str) -> bool:
@@ -173,10 +195,14 @@ def _is_boilerplate_line(text: str) -> bool:
     
     # STEP 2 INVARIANT: NEVER drop a line that contains a clinical timestamp pattern
     # A) MM/DD HHMM anywhere
-    if re.search(r"\b\d{1,2}/\d{1,2}\s+\d{3,4}\b", text):
+    if re.search(r"\b\d{1,2}[/\-]\d{1,2}\s+\d{1,2}:?\d{2}\b", text):
         return False
     # B) HHMM at start (likely clinical note row)
-    if re.search(r"^\s*\d{3,4}\b", text):
+    if re.search(r"^\s*\d{1,2}:?\d{2}\b", text):
+        return False
+        
+    # NEW: Never drop if it contains high-value keywords
+    if any(kw in n for kw in ["pain", "vomit", "oxycodone", "cough", "fall risk"]):
         return False
 
     # 1. Staff Signatures / Names (e.g. "Teri Smyth, RN", "Maria Reyes, RN")
@@ -194,6 +220,7 @@ def _is_boilerplate_line(text: str) -> bool:
     boilerplate_patterns = [
         r"national league for nursing",
         r"chart materials",
+        r"patient chart",
         r"simulation",
         r"patient name\s*:",
         r"mrn\s*:",
@@ -218,9 +245,6 @@ def _is_boilerplate_line(text: str) -> bool:
         r"wound drainage",
         r"wound care\s*:",
         r"braden scale",
-        r"fall risk score",
-        r"today’s wt\s*:",
-        r"yesterday’s wt\s*:",
         r"hourly",
         r"iv solution",
         r"rate ordered\s*:",
@@ -242,8 +266,7 @@ def _is_boilerplate_line(text: str) -> bool:
         
     # 4. Template noise
     prefixes = (
-        "page ", "vital signs record", "nursing assessment flowsheet", 
-        "physician’s orders", "physician's orders", "dates", "time hourly",
+        "page ", "physician’s orders", "physician's orders", "dates", "time hourly",
         "pain assessment", "intensity ("
     )
     if n.startswith(prefixes):
@@ -261,7 +284,10 @@ def _is_eventworthy(text: str) -> bool:
         "pain", "c/o", "complained", "vomit", "emesis", "nause", 
         "cough", "ambulat", "discharg", "admit", "admission",
         "orders received", "repositioned", "medicated", "ate", "denies",
-        "evaluated", "seen by", "stable", "distress", "noted"
+        "evaluated", "seen by", "stable", "distress", "noted",
+        "oxycodone", "phenergan", "ibuprofen", "dentures", "sores",
+        "edema", "kyphosis", "weight", "wt:", "fall risk", "assistance",
+        "summary", "teaching", "bath", "urinated"
     )
     return any(k in n for k in keywords)
 
@@ -270,28 +296,35 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
     events: list[Event] = []
     citations: list[Citation] = []
     
+    debug_enabled = os.environ.get("CLINICAL_DEBUG") == "1"
+
     # Block-level default context
     block_month: int | None = None
     block_day: int | None = None
+    block_year: int | None = None
     
     if block.primary_date:
          ext = block.primary_date.extensions or {}
          if ext.get("partial_month") and ext.get("partial_day"):
              block_month = int(ext["partial_month"])
              block_day = int(ext["partial_day"])
-         elif block.primary_date.value:
+             # If it was partial, it might NOT have a value.year
+         
+         if block.primary_date.value and isinstance(block.primary_date.value, date):
              d = block.primary_date.value
-             if isinstance(d, date):
-                 block_month = d.month
-                 block_day = d.day
-             elif hasattr(d, "start"):
-                  block_month = d.start.month
-                  block_day = d.start.day
+             block_month = d.month
+             block_day = d.day
+             block_year = d.year
+         elif block.primary_date.value and hasattr(block.primary_date.value, "start"):
+              block_month = block.primary_date.value.start.month
+              block_day = block.primary_date.value.start.day
+              block_year = block.primary_date.value.start.year
 
     for page in block.pages:
         # Per-page context starts with block context
         current_month = block_month
         current_day = block_day
+        current_year = block_year
         
         last_event: Event | None = None
         pending_time: str | None = None
@@ -301,12 +334,20 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
             line = line.strip()
             if not line: continue
             
+            # Debug pre-filter
+            if debug_enabled and "9/26" in line:
+                 print(f"DEBUG: Found '9/26' in raw line: {line}")
+
             # STEP 3: Detect date anywhere in line
             # e.g. "T. Smyth, RN 9/26 0430 Patient ..."
             m_inline = DATE_TIME_INLINE_RE.search(line)
             if m_inline:
                 current_month = int(m_inline.group(1))
                 current_day = int(m_inline.group(2))
+                # Inline dates 9/26 usually don't have years.
+                # Invariant: If it's a new date found in text, clear the year unless it's full.
+                current_year = None 
+
                 # If we have a time too, and text remains
                 hhmm = m_inline.group(3)
                 # Remaining text after the timestamp
@@ -314,14 +355,13 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
                 text = line[text_start:].strip()
                 
                 if text and _is_eventworthy(text):
-                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers)
+                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers, debug_enabled, year=current_year)
                     pending_time = None
                     continue
                 else:
                     # Just update context
                     pending_time = hhmm
-                    # If we don't have text yet, it might be on the next line
-                    # continue to let subsequent patterns handle it or next line
+                    continue
 
             # 1. Deterministic Boilerplate Filter
             if _is_boilerplate_line(line):
@@ -332,6 +372,7 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
             if m_date:
                 current_month = int(m_date.group(1))
                 current_day = int(m_date.group(2))
+                current_year = None
                 last_event = None 
                 pending_time = None
                 continue
@@ -341,11 +382,12 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
             if m_full:
                 current_month = int(m_full.group(1))
                 current_day = int(m_full.group(2))
+                current_year = None
                 hhmm = m_full.group(3)
                 text = m_full.group(4)
                 
                 if _is_eventworthy(text):
-                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers)
+                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers, debug_enabled, year=current_year)
                 else:
                     last_event = None
                 pending_time = None
@@ -359,7 +401,7 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
                 
                 if current_month and current_day:
                     if _is_eventworthy(text):
-                        last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers)
+                        last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, text, page_provider_map, providers, debug_enabled, year=current_year)
                     else:
                         last_event = None
                 else:
@@ -376,23 +418,25 @@ def _extract_block_events(block, page_provider_map, providers) -> tuple[list[Eve
 
             # 6. Continuation or Standalone Clinical Text
             if current_month and current_day:
-                if _is_eventworthy(line) or (last_event and (_is_clinical_sentence(line) or len(line) > 10)):
-                    if last_event and not _is_eventworthy(line):
-                        # Append to last event
-                        cit = _make_citation(page, line)
-                        citations.append(cit)
-                        last_event.facts.append(_make_fact(line, FactKind.OTHER, cit.citation_id))
-                        last_event.citation_ids.append(cit.citation_id)
-                    else:
-                        # New event with pending or default time
-                        hhmm = pending_time or "0000"
-                        last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, line, page_provider_map, providers)
-                        pending_time = None
+                if _is_eventworthy(line):
+                    # New event with pending or default time
+                    hhmm = pending_time or "0000"
+                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, hhmm, line, page_provider_map, providers, debug_enabled, year=current_year)
+                    pending_time = None
+                elif last_event and (_is_clinical_sentence(line) or len(line) > 10):
+                    # Append to last event
+                    cit = _make_citation(page, line)
+                    citations.append(cit)
+                    last_event.facts.append(_make_fact(line, FactKind.OTHER, cit.citation_id))
+                    last_event.citation_ids.append(cit.citation_id)
+                elif not last_event and _is_clinical_sentence(line):
+                    # Narrative header with no previous event - create one at 0000
+                    last_event = _add_flowsheet_event(events, citations, page, current_month, current_day, "0000", line, page_provider_map, providers, debug_enabled, year=current_year)
                 continue
 
     return events, citations
 
-def _add_flowsheet_event(events, citations, page, month, day, hhmm, text, page_provider_map, providers):
+def _add_flowsheet_event(events, citations, page, month, day, hhmm, text, page_provider_map, providers, debug_enabled=False, year=None):
     if not month or not day:
         return None
 
@@ -413,6 +457,13 @@ def _add_flowsheet_event(events, citations, page, month, day, hhmm, text, page_p
     # Append time if we can
     ed.extensions["time"] = hhmm
     
+    if year:
+        try:
+            ed.value = date(year, month, day)
+            ed.extensions["year_missing"] = False
+        except ValueError:
+            pass
+
     # Try to refine text (e.g. remove trailing initials/signatures)
     clean_txt = re.sub(r"\s*-{2,}\s*[A-Z]\.\s*[A-Za-z]+,\s*RN\s*$", "", clean_txt).strip()
     clean_txt = re.sub(r"\s*[A-Z]\.\s*[A-Za-z]+,\s*RN\s*$", "", clean_txt).strip()
@@ -420,25 +471,44 @@ def _add_flowsheet_event(events, citations, page, month, day, hhmm, text, page_p
     if not clean_txt:
         return None
 
+    etype = _detect_encounter_type(clean_txt)
+    confidence = 90
+    event_flags = []
+    
+    if etype == EventType.REFERENCED_PRIOR_EVENT:
+        confidence = 50
+        event_flags.append("is_reference")
+
     cit = _make_citation(page, f"{month}/{day} {hhmm} {text}")
     citations.append(cit)
     
     fact = _make_fact(clean_txt, FactKind.OTHER, cit.citation_id)
+    
+    # NEW: Check for specific indicators in this line to upgrade fact kind or text
+    for pattern, label in _CLINICAL_INDICATORS:
+        if re.search(pattern, clean_txt):
+            # Prepend label if not already present
+            if label not in clean_txt:
+                fact.text = f"{label}: {clean_txt}"
+            break
+
     provider_id = page_provider_map.get(page.page_number) or (providers[0].provider_id if providers else "unknown")
     
     evt = Event(
         event_id=uuid.uuid4().hex[:16],
         provider_id=provider_id,
-        event_type=_detect_encounter_type(clean_txt),
+        event_type=etype,
         date=ed,
         facts=[fact],
-        confidence=90,
+        confidence=confidence,
+        flags=event_flags,
         citation_ids=[cit.citation_id],
         source_page_numbers=[page.page_number],
     )
     
-    # DEBUG Print Task 1
-    # print(f"EMITTING: [{month:02d}/{day:02d} {hhmm}] {evt.event_type.value}: {clean_txt[:60]}... (Source: {page.source_document_id} p.{page.page_number})")
+    if debug_enabled:
+        date_str = f"{month:02d}/{day:02d}"
+        print(f"CLINICAL_DEBUG: Emitting event: doc={page.source_document_id}, page={page.page_number}, type={etype.value}, date={date_str}, text={clean_txt[:80]}...")
     
     events.append(evt)
     return evt
@@ -530,3 +600,30 @@ def _extract_indicators(page: Page) -> tuple[list[Fact], list[Citation]]:
             facts.append(_make_fact(f"{label}: {snippet}", FactKind.OTHER, cit.citation_id))
             
     return facts, citations
+
+def _extract_assessment_findings(pages: list[Page]) -> dict[str, str]:
+    """Scan all pages for specific high-value assessment findings."""
+    findings = {}
+    text = "\n".join(p.text for p in pages)
+    
+    # 1. Fall Risk
+    m = re.search(r"(?i)fall\s*risk\s*score\s*:?\s*(\d+)", text)
+    if m: findings["fall_risk"] = m.group(1)
+    
+    # 2. Edema
+    m = re.search(r"(?i)(\d\+?\s*(?:bilateral)?\s*lower\s*extremity\s*pitting\s*edema)", text)
+    if m: findings["edema"] = m.group(1)
+    
+    # 3. Kyphosis
+    if re.search(r"(?i)kyphosis", text): findings["kyphosis"] = "Noted"
+    
+    # 4. Weight Loss
+    weights = re.findall(r"(?i)wt\s*:\s*(\d{2,3})", text)
+    if len(weights) >= 2:
+        unique_weights = []
+        for w in weights:
+            if w not in unique_weights: unique_weights.append(w)
+        if len(unique_weights) >= 2:
+            findings["weight_history"] = " -> ".join(unique_weights) + " lbs"
+        
+    return findings

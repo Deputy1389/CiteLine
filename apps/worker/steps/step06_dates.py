@@ -404,7 +404,7 @@ def extract_dates(page: Page) -> list[tuple[EventDate, str]]:
 # ── Multi-page extraction with propagation ───────────────────────────────
 
 
-def extract_dates_for_pages(pages: list[Page], anchor_year_hint: int | None = None) -> dict[int, list[EventDate]]:
+def extract_dates_for_pages(pages: list[Page]) -> dict[int, list[EventDate]]:
     """
     Extract dates for all pages with multi-layer resolution.
     Returns {page_number: [EventDate, ...]}.
@@ -454,10 +454,6 @@ def extract_dates_for_pages(pages: list[Page], anchor_year_hint: int | None = No
                         anchor_year = ed.value.year
                         break
             if anchor_year: break
-            
-        # Fallback to hint if no anchor found in this document
-        if not anchor_year and anchor_year_hint:
-            anchor_year = anchor_year_hint
 
         for page in doc_page_list:
             if page.page_number in result:

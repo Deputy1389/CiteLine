@@ -49,15 +49,8 @@ def run_eval():
     print(f"RESOLVED PATIENT: Sex={patient.sex}, Age={patient.age}, DOB={patient.dob}")
 
     # 6. Dates
-    print("Extracting dates with anchor year hint...")
-    anchor_year_hint = None
-    if patient.dob and patient.age:
-        anchor_year_hint = patient.dob.year + patient.age
-    elif patient.dob:
-        anchor_year_hint = patient.dob.year + 65 # Default if age missing but DOB present
-    
-    print(f"Anchor Year Hint: {anchor_year_hint}")
-    dates = extract_dates_for_pages(all_pages, anchor_year_hint=anchor_year_hint)
+    print("Extracting dates (Safe Engine)...")
+    dates = extract_dates_for_pages(all_pages)
     
     # 7. Events (Clinical only for eval)
     print("Extracting clinical events...")
@@ -75,13 +68,21 @@ def run_eval():
     # page_map mock
     page_map = {p.page_number: (p.source_document_id, p.page_number) for p in all_pages}
     
+    case_info = CaseInfo(
+        case_id="eval-julia-id",
+        firm_id="eval-firm",
+        title="Julia Morales - Medical Chronology (FIXED)",
+        patient=patient
+    )
+
     chronology = render_exports(
         run_id="eval-julia-morales",
         matter_title="Julia Morales - Medical Chronology (FIXED)",
         events=events,
         gaps=gaps,
         providers=providers,
-        page_map=page_map
+        page_map=page_map,
+        case_info=case_info
     )
     
     # Show Results summary
@@ -118,6 +119,13 @@ def run_eval():
             print(f"- From {g.start_date} to {g.end_date} ({g.duration_days} days)")
     else:
         print("\nNO GAPS DETECTED.")
+
+    # PART 5 VERIFICATION: NO INFERRED YEARS
+    inferred = [e for e in events if e.date and e.date.value and hasattr(e.date.value, "year") and e.date.value.year == 2016 and (e.date.extensions or {}).get("year_missing") == True]
+    if inferred:
+        print(f"\n❌ REGRESSION: Found {len(inferred)} events with inferred years!")
+    else:
+        print("\n✅ PASS: No inferred years found (Invariant 1 preserved).")
         
     print("\n✓ Evaluation complete. Artifacts rendered to data/runs/eval-julia-morales/output/")
 

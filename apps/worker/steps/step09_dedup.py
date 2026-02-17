@@ -14,28 +14,42 @@ def _events_match(a: Event, b: Event) -> bool:
         return False
     if a.event_type != b.event_type:
         return False
+    
     # Guard: dateless events never merge
     if not a.date or not b.date:
         return False
+    
     if a.date.sort_date() != b.date.sort_date():
         return False
-    # Check page overlap or contiguity
-    pages_a = set(a.source_page_numbers)
-    pages_b = set(b.source_page_numbers)
-    if pages_a & pages_b:
-        return True
-    # Contiguous if max(a) + 1 == min(b) or vice versa
-    if max(pages_a) + 1 >= min(pages_b) or max(pages_b) + 1 >= min(pages_a):
-        return True
-    return False
+
+    # Check time if available - STRICT REQUIREMENT
+    time_a = (a.date.extensions or {}).get("time")
+    time_b = (b.date.extensions or {}).get("time")
+    if time_a != time_b:
+        return False
+
+    # Text similarity (exact match of first 50 chars as heuristic)
+    text_a = " ".join(f.text for f in a.facts).lower()
+    text_b = " ".join(f.text for f in b.facts).lower()
+    if text_a[:50] != text_b[:50]:
+        return False
+
+    return True
 
 
 def _merge_events(a: Event, b: Event) -> Event:
     """Merge event b into event a."""
-    # Combine facts (dedup by text, cap at 10)
+    # Initialize merged_from if not present
+    if not a.extensions: a.extensions = {}
+    if "merged_from" not in a.extensions:
+        a.extensions["merged_from"] = [a.event_id]
+    
+    a.extensions["merged_from"].append(b.event_id)
+
+    # Combine facts (dedup by text, cap at 20 for merged)
     seen_texts = {f.text for f in a.facts}
     for fact in b.facts:
-        if fact.text not in seen_texts and len(a.facts) < 10:
+        if fact.text not in seen_texts and len(a.facts) < 20:
             a.facts.append(fact)
             seen_texts.add(fact.text)
 
