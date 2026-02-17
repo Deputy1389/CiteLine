@@ -175,8 +175,17 @@ def detect_missing_records(
                 }
             })
 
-    # Sort gaps by start_date then severity
-    gaps.sort(key=lambda x: (x["start_date"], x["severity"] == "medium"))
+    # Sort gaps deterministically
+    # 1. severity descending (high > medium)
+    # 2. gap_days descending
+    # 3. provider_display_name ascending (null last)
+    # 4. start_date ascending
+    def gap_sort_key(g):
+        sev_score = 0 if g["severity"] == "high" else 1
+        name = g["provider_display_name"] or "zzzzzzzz" # null last
+        return (sev_score, -g["gap_days"], name, g["start_date"])
+
+    gaps.sort(key=gap_sort_key)
 
     # STEP 4 — Store results in EvidenceGraph.extensions
     summary = {
@@ -214,7 +223,7 @@ def render_missing_records(
     # CSV Generation
     csv_buf = io.StringIO()
     csv_cols = [
-        "gap_id", "rule_name", "severity", "provider_display_name", 
+        "gap_id", "severity", "rule_name", "provider_id", "provider_display_name", 
         "start_date", "end_date", "gap_days", "rationale"
     ]
     writer = csv.DictWriter(csv_buf, fieldnames=csv_cols, extrasaction="ignore")

@@ -151,3 +151,57 @@ class TestMissingRecords:
         r1 = detect_missing_records(graph, [])
         r2 = detect_missing_records(graph, [])
         assert r1["gaps"][0]["gap_id"] == r2["gaps"][0]["gap_id"]
+
+    # Test 2 — Global gap detection
+    def test_global_gap_complex(self):
+        # Events: 2024-01-01, 2024-02-01, 2024-06-01
+        # Gap1: 31 days (none, global threshold is 45)
+        # Gap2: 121 days (high severity global)
+        graph = EvidenceGraph(events=[
+            _evt("e1", date(2024, 1, 1), pid="p1"),
+            _evt("e2", date(2024, 2, 1), pid="p2"),
+            _evt("e3", date(2024, 6, 1), pid="p3"),
+        ])
+        result = detect_missing_records(graph, [])
+        global_gaps = [g for g in result["gaps"] if g["rule_name"] == "global_gap"]
+        assert len(global_gaps) == 1
+        assert global_gaps[0]["gap_days"] == 121
+        assert global_gaps[0]["severity"] == "high"
+
+    # Test 3 — Determinism
+    def test_determinism_full_payload(self):
+        graph = EvidenceGraph(events=[
+            _evt("e1", date(2024, 1, 1), pid="p1"),
+            _evt("e2", date(2024, 3, 1), pid="p2"),
+            _evt("e3", date(2024, 5, 1), pid="p1"),
+        ])
+        r1 = detect_missing_records(graph, [])
+        r2 = detect_missing_records(graph, [])
+        
+        # Strip generated_at
+        r1.pop("generated_at")
+        r2.pop("generated_at")
+        assert r1 == r2
+
+    # Test 4 — Missing date robustness
+    def test_null_date_robustness(self):
+        graph = EvidenceGraph(events=[
+            _evt("e1", date(2024, 1, 1), pid="p1"),
+            _evt("e2", None, pid="p1"), # Null date
+            _evt("e3", date(2024, 3, 1), pid="p1"),
+        ])
+        # Should not crash and should still detect the gap between e1 and e3
+        result = detect_missing_records(graph, [])
+        assert len(result["gaps"]) > 0
+
+    # Test 5 — Citation integrity
+    def test_citation_integrity(self):
+        graph = EvidenceGraph(events=[
+            _evt("e1", date(2024, 1, 1), pid="p1", cit_ids=["cit1"]),
+            _evt("e2", date(2024, 3, 1), pid="p1", cit_ids=["cit2"]),
+        ])
+        result = detect_missing_records(graph, [])
+        for gap in result["gaps"]:
+            cits = gap["evidence"]["citation_ids"]
+            assert "cit1" in cits
+            assert "cit2" in cits
