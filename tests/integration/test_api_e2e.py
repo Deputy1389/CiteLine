@@ -16,6 +16,7 @@ os.environ.setdefault("DATA_DIR", "C:/CiteLine/data")
 
 from packages.db.database import engine
 from packages.db.models import Base
+from packages.shared.artifacts import REQUIRED_PIPELINE_ARTIFACT_TYPES, missing_required_types
 from apps.api.main import app
 
 @pytest.fixture(autouse=True)
@@ -100,15 +101,15 @@ class TestApiE2E:
         artifacts = exports["artifacts"]
         assert len(artifacts) >= 2
         types = {a["artifact_type"] for a in artifacts}
-        assert "pdf" in types
-        assert "csv" in types
+        missing_types = missing_required_types(types)
+        assert not missing_types, f"Missing required artifact types: {missing_types}"
         
         # Verify URIs exist
         for a in artifacts:
             assert Path(a["storage_uri"]).exists()
 
-        # 7. Download Artifacts via API
-        for artifact_type in ["pdf", "csv", "json"]:
+        # 7. Download all required artifacts via API
+        for artifact_type in REQUIRED_PIPELINE_ARTIFACT_TYPES:
             resp = client.get(f"/runs/{run_id}/artifacts/{artifact_type}")
             assert resp.status_code == 200, f"Failed to download {artifact_type}"
             assert len(resp.content) > 0

@@ -1,0 +1,17 @@
+export const ARTIFACT_TYPES = {
+  DOCX: "docx",
+  PDF: "pdf",
+  SPECIALS_SUMMARY_PDF: "specials_summary_pdf",
+  CSV: "csv",
+  MISSING_RECORDS_CSV: "missing_records_csv",
+  MISSING_RECORD_REQUESTS_MD: "missing_record_requests_md",
+} as const;
+
+export const RUN_ARTIFACT_LINK_ORDER = [
+  ARTIFACT_TYPES.DOCX,
+  ARTIFACT_TYPES.PDF,
+  ARTIFACT_TYPES.SPECIALS_SUMMARY_PDF,
+  ARTIFACT_TYPES.CSV,
+  ARTIFACT_TYPES.MISSING_RECORDS_CSV,
+  ARTIFACT_TYPES.MISSING_RECORD_REQUESTS_MD,
+] as const;

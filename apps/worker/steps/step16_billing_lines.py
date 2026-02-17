@@ -15,7 +15,7 @@ import uuid
 from datetime import date
 from typing import Optional
 
-from packages.shared.models import ArtifactRef, EvidenceGraph, PageType
+from packages.shared.models import ArtifactRef, BillingLinesExtension, EvidenceGraph, PageType
 from packages.shared.storage import save_artifact
 from apps.worker.lib.billing_extract import (
     classify_amount_type,
@@ -154,11 +154,12 @@ def extract_billing_lines(
         l.get("source_page_numbers", [0])[0] if l.get("source_page_numbers") else 0,
     ))
 
-    return {
+    payload = {
         "line_count": len(lines),
         "billing_pages_count": len(billing_pages),
         "lines": lines,
     }
+    return BillingLinesExtension.model_validate(payload).model_dump(mode="json")
 
 
 # ── Artifact rendering ───────────────────────────────────────────────────

@@ -11,7 +11,7 @@ import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional, Set
 
-from packages.shared.models import ArtifactRef, EvidenceGraph
+from packages.shared.models import ArtifactRef, EvidenceGraph, MissingRecordsExtension
 from packages.shared.storage import save_artifact
 
 
@@ -196,7 +196,7 @@ def detect_missing_records(
         "medium_severity_count": sum(1 for g in gaps if g["severity"] == "medium"),
     }
 
-    return {
+    payload = {
         "version": "1.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "ruleset": {
@@ -208,6 +208,7 @@ def detect_missing_records(
         "gaps": gaps,
         "summary": summary
     }
+    return MissingRecordsExtension.model_validate(payload).model_dump(mode="json")
 
 
 def render_missing_records(

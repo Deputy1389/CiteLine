@@ -14,7 +14,7 @@ import uuid
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
-from packages.shared.models import ArtifactRef
+from packages.shared.models import ArtifactRef, SpecialsSummaryExtension
 from packages.shared.storage import save_artifact
 
 
@@ -54,7 +54,7 @@ def compute_specials_summary(
     billing_pages_count = billing_lines_payload.get("billing_pages_count", 0)
 
     if not lines:
-        return {
+        payload = {
             "totals": {
                 "total_charges": "0.00",
                 "total_payments": None,
@@ -75,6 +75,7 @@ def compute_specials_summary(
             "confidence": 0.0,
             "flags": ["NO_BILLING_DATA"],
         }
+        return SpecialsSummaryExtension.model_validate(payload).model_dump(mode="json")
 
     # ── Deduplication ─────────────────────────────────────────────────
     seen_keys: set[str] = set()
@@ -195,7 +196,7 @@ def compute_specials_summary(
     if len(deduped_lines) < len(lines):
         overall_conf *= 0.95  # Slight penalty for heavy duplication
 
-    return {
+    payload = {
         "totals": {
             "total_charges": str(total_charges.quantize(Decimal("0.01"))),
             "total_payments": str(total_payments.quantize(Decimal("0.01"))) if has_payments else None,
@@ -216,6 +217,7 @@ def compute_specials_summary(
         "confidence": round(overall_conf, 2),
         "flags": flags,
     }
+    return SpecialsSummaryExtension.model_validate(payload).model_dump(mode="json")
 
 
 # ── Artifact rendering ───────────────────────────────────────────────────

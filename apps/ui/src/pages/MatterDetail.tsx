@@ -5,6 +5,7 @@ import {
     uploadDocument, createRun, getArtifactUrl,
     type Matter, type Document, type Run
 } from '../api';
+import { ARTIFACT_TYPES } from '../artifacts';
 import {
     FileText, Upload, Play, Clock, CheckCircle, AlertTriangle,
     FileSpreadsheet, ArrowLeft, RefreshCw, Loader2
@@ -208,7 +209,7 @@ export default function MatterDetail() {
                                 {run.status === 'success' && (
                                     <div className="flex flex-wrap gap-2 mt-2">
                                         <a
-                                            href={getArtifactUrl(run.id, 'docx')}
+                                            href={getArtifactUrl(run.id, ARTIFACT_TYPES.DOCX)}
                                             target="_blank"
                                             className="artifact-link"
                                             style={{ color: '#93c5fd', borderColor: 'rgba(147, 197, 253, 0.2)' }}
@@ -217,7 +218,7 @@ export default function MatterDetail() {
                                             <FileText size={14} /> Docx
                                         </a>
                                         <a
-                                            href={getArtifactUrl(run.id, 'pdf')}
+                                            href={getArtifactUrl(run.id, ARTIFACT_TYPES.PDF)}
                                             target="_blank"
                                             className="artifact-link"
                                             style={{ color: '#d8b4fe', borderColor: 'rgba(216, 180, 254, 0.2)' }}
@@ -226,7 +227,7 @@ export default function MatterDetail() {
                                             <FileText size={14} /> Chronology (PDF)
                                         </a>
                                         <a
-                                            href={getArtifactUrl(run.id, 'specials_summary_pdf')}
+                                            href={getArtifactUrl(run.id, ARTIFACT_TYPES.SPECIALS_SUMMARY_PDF)}
                                             target="_blank"
                                             className="artifact-link"
                                             style={{ color: '#d8b4fe', opacity: 0.6, borderColor: 'rgba(216, 180, 254, 0.1)' }}
@@ -235,7 +236,7 @@ export default function MatterDetail() {
                                             <FileText size={14} /> Bills
                                         </a>
                                         <a
-                                            href={getArtifactUrl(run.id, 'csv')}
+                                            href={getArtifactUrl(run.id, ARTIFACT_TYPES.CSV)}
                                             target="_blank"
                                             className="artifact-link"
                                             rel="noreferrer"
@@ -243,13 +244,22 @@ export default function MatterDetail() {
                                             <FileSpreadsheet size={14} /> CSV
                                         </a>
                                         <a
-                                            href={getArtifactUrl(run.id, 'missing_records_csv')}
+                                            href={getArtifactUrl(run.id, ARTIFACT_TYPES.MISSING_RECORDS_CSV)}
                                             target="_blank"
                                             className="artifact-link"
                                             style={{ color: '#fca5a5', borderColor: 'rgba(252, 165, 165, 0.2)' }}
                                             rel="noreferrer"
                                         >
                                             <AlertTriangle size={14} /> Gaps
+                                        </a>
+                                        <a
+                                            href={getArtifactUrl(run.id, ARTIFACT_TYPES.MISSING_RECORD_REQUESTS_MD)}
+                                            target="_blank"
+                                            className="artifact-link"
+                                            style={{ color: '#fdba74', borderColor: 'rgba(253, 186, 116, 0.2)' }}
+                                            rel="noreferrer"
+                                        >
+                                            <FileText size={14} /> Requests
                                         </a>
                                     </div>
                                 )}

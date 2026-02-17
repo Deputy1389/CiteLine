@@ -13,6 +13,10 @@ from sqlalchemy.orm import Session
 
 from packages.db.database import get_db
 from packages.db.models import Artifact, Matter, Run, SourceDocument
+from packages.shared.artifacts import (
+    artifact_extension,
+    is_valid_artifact_type,
+)
 
 router = APIRouter(tags=["runs"])
 
@@ -140,14 +144,7 @@ def get_run(run_id: str, db: Session = Depends(get_db)):
 @router.get("/runs/{run_id}/artifacts/{artifact_type}")
 def download_artifact(run_id: str, artifact_type: str, db: Session = Depends(get_db)):
     """Download a run artifact."""
-    valid_types = [
-        "pdf", "csv", "json", "docx",
-        "provider_directory_csv", "provider_directory_json",
-        "missing_records_csv", "missing_records_json",
-        "billing_lines_csv", "billing_lines_json",
-        "specials_summary_csv", "specials_summary_json", "specials_summary_pdf",
-    ]
-    if artifact_type not in valid_types:
+    if not is_valid_artifact_type(artifact_type):
         raise HTTPException(status_code=400, detail="Invalid artifact type")
 
     artifact = (
@@ -162,33 +159,12 @@ def download_artifact(run_id: str, artifact_type: str, db: Session = Depends(get
     # usage of os.path.abspath and commonprefix is a robust way if strict pathlib isn't available,
     # but pathlib is better.
     from pathlib import Path
-    import os
-    
     from packages.shared.storage import DATA_DIR
     
     data_dir = DATA_DIR.resolve()
     file_path = Path(artifact.storage_uri).resolve()
     
-    # Check if file is within data directory
-    # verification using pathlib
-    # Map internal artifact types to file extensions
-    extension_map = {
-        "pdf": "pdf",
-        "csv": "csv",
-        "json": "json",
-        "docx": "docx",
-        "provider_directory_csv": "csv",
-        "provider_directory_json": "json",
-        "missing_records_csv": "csv",
-        "missing_records_json": "json",
-        "billing_lines_csv": "csv",
-        "billing_lines_json": "json",
-        "specials_summary_csv": "csv",
-        "specials_summary_json": "json",
-        "specials_summary_pdf": "pdf",
-    }
-    
-    ext = extension_map.get(artifact_type, artifact_type)
+    ext = artifact_extension(artifact_type)
     
     # Check if file is within data directory
     # verification using pathlib
