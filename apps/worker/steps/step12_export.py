@@ -132,37 +132,48 @@ def _pages_ref(event: Event, page_map: dict[int, tuple[str, int]] | None = None)
     return ", ".join(refs)
 
 
-def _build_events_table(events: list[Event], providers: list[Provider], page_map: dict[int, tuple[str, int]] | None, all_citations: list[Citation] | None, styles) -> Table:
-    fact_style = ParagraphStyle("FactStyle", parent=styles["Normal"], fontSize=8, leading=10)
-    header_style = ParagraphStyle("HeaderStyle", parent=styles["Normal"], fontSize=9, textColor=colors.white)
-
-    table_data = [[
-        Paragraph("<b>Date/Time</b>", header_style),
-        Paragraph("<b>Provider</b>", header_style),
-        Paragraph("<b>Encounter Type</b>", header_style),
-        Paragraph("<b>Clinical Facts & Findings</b>", header_style),
-        Paragraph("<b>Source</b>", header_style),
-    ]]
-
+def _build_events_flowables(events: list[Event], providers: list[Provider], page_map: dict[int, tuple[str, int]] | None, all_citations: list[Citation] | None, styles) -> list:
+    """Render events as a list of Paragraphs/Spacers instead of a Table (safer for massive docs)."""
+    flowables = []
+    
+    # Styles
+    date_style = ParagraphStyle("DateStyle", parent=styles["Normal"], fontSize=10, fontName="Helvetica-Bold", spaceAfter=2)
+    meta_style = ParagraphStyle("MetaStyle", parent=styles["Normal"], fontSize=8, textColor=colors.gray, spaceAfter=4)
+    fact_style = ParagraphStyle("FactStyle", parent=styles["Normal"], fontSize=9, leading=12, leftIndent=10, spaceAfter=2)
+    
     sorted_events = sorted(events, key=lambda x: x.date.sort_key() if x.date else (99, "UNKNOWN"))
     
-    # DEBUG: Check for massive facts
-    with open("debug_log.txt", "a", encoding="utf-8") as f:
-        f.write(f"\n--- Generating PDF for {len(sorted_events)} events ---\n")
-        
     for event in sorted_events:
-        # Pre-generate all fact bullets
-        all_bullet_lines = []
+        # Header: Date - Type
+        date_str = _date_str(event)
+        type_str = event.event_type.value.replace("_", " ").title()
+        header_text = f"{date_str} — {type_str}"
+        flowables.append(Paragraph(header_text, date_style))
+        
+        # Meta: Provider | Author | Source
+        prov_name = _provider_name(event, providers)
+        auth_str = ""
+        if event.author_name:
+            auth_str = f" | Author: {event.author_name}"
+            if event.author_role: auth_str += f", {event.author_role}"
+            
+        src_str = _pages_ref(event, page_map)
+        if len(src_str) > 50: src_str = src_str[:50] + "..."
+        
+        meta_text = f"Provider: {prov_name}{auth_str} | Source: {src_str}"
+        flowables.append(Paragraph(meta_text, meta_style))
+        
+        # Facts
         if event.extensions and "legal_section" in event.extensions:
-            sect = str(event.extensions["legal_section"])[:50]
-            all_bullet_lines.append(f"<b>[{sect}]</b>")
+            sect = str(event.extensions["legal_section"])
+            flowables.append(Paragraph(f"<b>[{sect}]</b>", fact_style))
 
         for f in event.facts:
-            # SAFETY: Force split massive bullets if they survive cleaning
+            # Safety truncate
             text = f.text
-            if len(text) > 800:
-                text = text[:800] + "... [TRUNCATED]"
+            if len(text) > 1000: text = text[:1000] + "..."
             
+            # Citations
             cit_label = ""
             if all_citations:
                 cids = f.citation_ids or ([f.citation_id] if f.citation_id else [])
@@ -171,73 +182,15 @@ def _build_events_table(events: list[Event], providers: list[Provider], page_map
                     pages = sorted(list(set(c.page_number for c in fact_cits)))
                     if page_map:
                         local_pages = [str(page_map[pnum][1]) if pnum in page_map else str(pnum) for pnum in pages]
-                        cit_label = f" <font size='6' color='gray'>(p. {', '.join(local_pages)})</font>"
+                        cit_label = f" <font size='7' color='gray'> (p. {', '.join(local_pages)})</font>"
                     else:
-                        cit_label = f" <font size='6' color='gray'>(p. {', '.join(map(str, pages))})</font>"
-            all_bullet_lines.append(f"• {f.text}{cit_label}")
-
-        # Split bullets into chunks to avoid "Flowable too large" errors (ReportLab limit)
-        # 4 bullets per row is safer for large pages
-        chunk_size = 4
-        chunks = [all_bullet_lines[i:i + chunk_size] for i in range(0, len(all_bullet_lines), chunk_size)]
-        if not chunks: chunks = [["(No facts documented)"]]
-
-        provider_display = _provider_name(event, providers)
-        if event.author_name:
-            author_display = event.author_name
-            if event.author_role:
-                author_display += f", {event.author_role}"
-            provider_display = f"{provider_display}<br/><font size='7' color='gray'>Author: {author_display}</font>"
-
-        for idx, chunk in enumerate(chunks):
-            facts_bullets = "<br/>".join(chunk)
+                        cit_label = f" <font size='7' color='gray'> (p. {', '.join(map(str, pages))})</font>"
             
-            # For secondary rows, dim the headers or add (cont)
-            date_display = _date_str(event)
-            etype_display = event.event_type.value.replace("_", " ").title()
-            prov_display = provider_display
-            src_display = _pages_ref(event, page_map)
-
-            # SAFETY TRUNCATION FOR ALL FIELDS
-            if len(date_display) > 50: date_display = date_display[:50]
-            if len(prov_display) > 50: prov_display = prov_display[:50]
-            if len(etype_display) > 50: etype_display = etype_display[:50]
-            if len(src_display) > 100: src_display = src_display[:100]
+            flowables.append(Paragraph(f"• {text}{cit_label}", fact_style))
             
-            # Sanitize newlines
-            date_display = date_display.replace("\n", " ")
-            prov_display = prov_display.replace("\n", " ")
-            etype_display = etype_display.replace("\n", " ")
-            src_display = src_display.replace("\n", " ")
-
-            if idx > 0:
-                date_display = f"<font color='gray'>{date_display} (cont.)</font>"
-                prov_display = "<font color='gray'>(cont.)</font>"
-                etype_display = "<font color='gray'>(cont.)</font>"
-                src_display = ""
-
-            table_data.append([
-                Paragraph(date_display, fact_style),
-                Paragraph(prov_display, fact_style),
-                Paragraph(etype_display, fact_style),
-                Paragraph(facts_bullets, fact_style),
-                Paragraph(src_display, fact_style),
-            ])
-
-    col_widths = [1.2 * inch, 1.2 * inch, 1.0 * inch, 2.6 * inch, 1.0 * inch]
-    # Use LongTable for multi-page support
-    t = LongTable(table_data, colWidths=col_widths, repeatRows=1)
-    t.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#34495E")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#ECF0F1")),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9F9F9")]),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-    ]))
-    return t
+        flowables.append(Spacer(1, 0.15 * inch))
+        
+    return flowables
 
 # ── PDF Export ────────────────────────────────────────────────────────────
 
@@ -252,8 +205,17 @@ def generate_pdf(
     all_citations: list[Citation] | None = None,
 ) -> bytes:
     """Generate a clean chronology PDF."""
+    print("DEBUG: GENERATING PDF WITHOUT TABLE")
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=letter, topMargin=0.75 * inch, bottomMargin=0.75 * inch)
+    # Explicitly set wider margins (0.5 inch) to accommodate the 6.6 inch table
+    doc = SimpleDocTemplate(
+        buf, 
+        pagesize=letter, 
+        topMargin=0.75 * inch, 
+        bottomMargin=0.75 * inch,
+        leftMargin=0.5 * inch,
+        rightMargin=0.5 * inch
+    )
     styles = getSampleStyleSheet()
     story = []
 
@@ -281,16 +243,16 @@ def generate_pdf(
         main_events = [e for e in events if e.event_type != EventType.REFERENCED_PRIOR_EVENT]
         prior_events = [e for e in events if e.event_type == EventType.REFERENCED_PRIOR_EVENT]
 
-        if prior_events:
-            story.append(Paragraph("Prior History (Referenced)", styles["Heading2"]))
-            story.append(Spacer(1, 0.1 * inch))
-            story.append(_build_events_table(prior_events, providers, page_map, all_citations, styles))
-            story.append(Spacer(1, 0.3 * inch))
+        # if prior_events:
+        #     story.append(Paragraph("Prior History (Referenced)", styles["Heading2"]))
+        #     story.append(Spacer(1, 0.1 * inch))
+        #     story.append(_build_events_table(prior_events, providers, page_map, all_citations, styles))
+        #     story.append(Spacer(1, 0.3 * inch))
 
         if main_events:
             story.append(Paragraph("Clinical Timeline", styles["Heading2"]))
             story.append(Spacer(1, 0.1 * inch))
-            story.append(_build_events_table(main_events, providers, page_map, all_citations, styles))
+            story.extend(_build_events_flowables(main_events, providers, page_map, all_citations, styles))
             story.append(Spacer(1, 0.2 * inch))
 
     # Gap appendix

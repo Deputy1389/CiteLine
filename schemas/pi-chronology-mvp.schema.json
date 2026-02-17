@@ -1015,7 +1015,7 @@
         "text": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 1000
+          "maxLength": 2000
         },
         "kind": {
           "type": "string",

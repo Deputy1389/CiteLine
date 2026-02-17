@@ -132,7 +132,7 @@ class Provider(BaseModel):
 
 
 class Fact(BaseModel):
-    text: str = Field(min_length=1, max_length=1000)
+    text: str = Field(min_length=1, max_length=2000)
     kind: FactKind
     verbatim: bool
     citation_id: Optional[str] = None # Deprecating but keeping for compat
