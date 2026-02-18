@@ -44,7 +44,8 @@ def detect_gaps(
         return sorted_events, [], warnings
 
     gaps: list[Gap] = []
-    threshold = config.gap_threshold_days
+    base_threshold = max(config.gap_threshold_days, 120)
+    short_gap_anchor_types = {EventType.HOSPITAL_ADMISSION, EventType.PROCEDURE}
 
     for i in range(1, len(dated_events)):
         prev_date = dated_events[i - 1].date.value
@@ -64,13 +65,24 @@ def detect_gaps(
         if delta_days == 0:
             continue
 
-        if delta_days >= threshold:
+        prev_evt = dated_events[i - 1]
+        next_evt = dated_events[i]
+        prev_blob = " ".join((f.text or "") for f in prev_evt.facts).lower()
+        next_blob = " ".join((f.text or "") for f in next_evt.facts).lower()
+        post_acute = (
+            prev_evt.event_type in short_gap_anchor_types
+            or next_evt.event_type in short_gap_anchor_types
+            or ("hospice" in prev_blob or "hospice" in next_blob)
+            or ("skilled nursing" in prev_blob or "skilled nursing" in next_blob or "snf" in prev_blob or "snf" in next_blob)
+        )
+        pair_threshold = 90 if post_acute else base_threshold
+        if delta_days >= pair_threshold:
             gaps.append(Gap(
                 gap_id=uuid.uuid4().hex[:16],
                 start_date=prev_date,
                 end_date=curr_date,
                 duration_days=delta_days,
-                threshold_days=threshold,
+                threshold_days=pair_threshold,
                 confidence=80,
                 related_event_ids=[
                     dated_events[i - 1].event_id,

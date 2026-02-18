@@ -35,6 +35,8 @@ _RAW_FRAGMENT_RES: list[re.Pattern[str]] = [
     re.compile(r"registered under \d+\s+separate\s+mrn", re.IGNORECASE),
     re.compile(r"please see.*clinic notes.*details", re.IGNORECASE),
     re.compile(r"\bh&p\b", re.IGNORECASE),
+    re.compile(r"medical record summary", re.IGNORECASE),
+    re.compile(r"patient id\s*:", re.IGNORECASE),
 ]
 
 _PROCEDURE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
@@ -61,6 +63,8 @@ def sanitize_for_report(text: str) -> str:
     cleaned = text
     for token_re in _FORBIDDEN_TOKEN_RES:
         cleaned = token_re.sub("", cleaned)
+    cleaned = UUID_RE.sub("", cleaned)
+    cleaned = re.sub(r"(?i)\bpatient id\s*:\s*\b", "", cleaned)
     cleaned = PAGE_ARTIFACT_RE.sub("", cleaned)
     cleaned = NUM_TWO_ARTIFACT_RE.sub("", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" .;,-")
@@ -71,7 +75,7 @@ def date_sanity(value: date | None) -> bool:
     """Accept only modern dates for this dataset."""
     if value is None:
         return False
-    if value.year < 1970:
+    if value.year < 1901:
         return False
     return value <= date.today()
 
@@ -102,7 +106,7 @@ def surgery_classifier_guard(event: Event) -> bool:
     blob = " ".join(f.text for f in event.facts if f.text)
     low = blob.lower()
     has_keyword = bool(
-        re.search(r"surgery|operative|procedure|orif|debrid|repair|hardware|excision", blob, re.IGNORECASE)
+        re.search(r"surgery|operative|orif|debrid|repair|hardware|excision|anesthesia|postop|preop", blob, re.IGNORECASE)
     )
     direct_procedure_markers = [
         "procedure performed",

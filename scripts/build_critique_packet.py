@@ -87,7 +87,9 @@ def failure_taxonomy(scorecard: dict[str, Any]) -> list[dict[str, str]]:
                 "hint": "Require procedure evidence for surgery entries.",
             }
         )
-    if (scorecard.get("timeline_entry_count") or 0) >= 80:
+    timeline_count = scorecard.get("timeline_entry_count") or 0
+    timeline_limit = scorecard.get("timeline_limit") or 80
+    if timeline_count >= timeline_limit:
         failures.append(
             {
                 "code": "timeline_overflow",

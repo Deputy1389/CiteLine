@@ -28,12 +28,13 @@ CARE_EVENT_TYPES = {
     "inpatient_daily_note",
     "lab_result",
 }
+ACUTE_EVENT_TYPES = {"hospital_admission", "procedure"}
 
 
 def _patient_scope_id(event) -> str:
     ext = event.extensions or {}
     scope = ext.get("patient_scope_id")
-    return str(scope) if scope else "ps_unknown"
+    return str(scope) if scope else "ps_default"
 
 
 def _fact_blob(event) -> str:
@@ -79,6 +80,14 @@ def _is_care_event(event) -> bool:
     return not _is_vitals_only(text)
 
 
+def _is_acute_event(event) -> bool:
+    event_type = event.event_type.value if hasattr(event.event_type, "value") else str(event.event_type)
+    if event_type in ACUTE_EVENT_TYPES:
+        return True
+    blob = _fact_blob(event)
+    return bool(re.search(r"\b(hospice|skilled nursing|snf)\b", blob))
+
+
 def detect_missing_records(
     evidence_graph: EvidenceGraph,
     providers_normalized: list[dict], # Provided for context, but we prioritize graph data
@@ -108,6 +117,8 @@ def detect_missing_records(
             continue
 
         patient_scope_id = _patient_scope_id(event)
+        if patient_scope_id == "ps_unknown":
+            continue
         if patient_scope_id not in global_visit_dates:
             global_visit_dates[patient_scope_id] = set()
         global_visit_dates[patient_scope_id].add(visit_date)
@@ -148,24 +159,24 @@ def detect_missing_records(
             d1 = visit_dates[i]
             d2 = visit_dates[i+1]
             gap_days = (d2 - d1).days
-
-            if gap_days >= 30:
+            # Find boundary events for evidence
+            # We need all events on these dates for this provider to get citations
+            events_on_d1 = [e for e in sorted_events_for_evidence 
+                            if _is_care_event(e)
+                            and _patient_scope_id(e) == patient_scope_id
+                            and e.provider_id == pid and e.date and e.date.sort_date() == d1]
+            events_on_d2 = [e for e in sorted_events_for_evidence 
+                            if _is_care_event(e)
+                            and _patient_scope_id(e) == patient_scope_id
+                            and e.provider_id == pid and e.date and e.date.sort_date() == d2]
+            boundary_acute = bool((events_on_d1 and _is_acute_event(events_on_d1[-1])) or (events_on_d2 and _is_acute_event(events_on_d2[0])))
+            min_days = 90 if boundary_acute else 120
+            if gap_days >= min_days:
                 severity = "high" if gap_days >= 60 else "medium"
                 
                 # Stable hash for gap_id
                 gap_seed = f"{patient_scope_id}{pid}{d1.isoformat()}{d2.isoformat()}provider_gap_v1"
                 gap_id = hashlib.sha256(gap_seed.encode()).hexdigest()[:16]
-
-                # Find boundary events for evidence
-                # We need all events on these dates for this provider to get citations
-                events_on_d1 = [e for e in sorted_events_for_evidence 
-                                if _is_care_event(e)
-                                and _patient_scope_id(e) == patient_scope_id
-                                and e.provider_id == pid and e.date and e.date.sort_date() == d1]
-                events_on_d2 = [e for e in sorted_events_for_evidence 
-                                if _is_care_event(e)
-                                and _patient_scope_id(e) == patient_scope_id
-                                and e.provider_id == pid and e.date and e.date.sort_date() == d2]
                 
                 # latest event on start_date
                 last_event = events_on_d1[-1] if events_on_d1 else None
@@ -188,7 +199,7 @@ def detect_missing_records(
                     "gap_days": gap_days,
                     "severity": severity,
                     "rule_name": "provider_gap",
-                    "rationale": "No documented visits for provider during this period",
+                    "rationale": "Post-acute follow-up gap" if boundary_acute else "No documented visits for provider during this period",
                     "evidence": {
                         "last_event_id": last_event.event_id if last_event else None,
                         "next_event_id": next_event.event_id if next_event else None,
@@ -209,15 +220,6 @@ def detect_missing_records(
             d1 = sorted_global_dates[i]
             d2 = sorted_global_dates[i+1]
             gap_days = (d2 - d1).days
-
-            if gap_days < 45:
-                continue
-            severity = "high" if gap_days >= 90 else "medium"
-            
-            # Stable hash for gap_id
-            gap_seed = f"{patient_scope_id}{d1.isoformat()}{d2.isoformat()}global_gap_v1"
-            gap_id = hashlib.sha256(gap_seed.encode()).hexdigest()[:16]
-
             # Find nearest events globally
             events_on_d1 = [e for e in sorted_events_for_evidence 
                             if _is_care_event(e)
@@ -227,6 +229,15 @@ def detect_missing_records(
                             if _is_care_event(e)
                             and _patient_scope_id(e) == patient_scope_id
                             and e.date and e.date.sort_date() == d2]
+            boundary_acute = bool((events_on_d1 and _is_acute_event(events_on_d1[-1])) or (events_on_d2 and _is_acute_event(events_on_d2[0])))
+            min_days = 90 if boundary_acute else 120
+            if gap_days < min_days:
+                continue
+            severity = "high" if gap_days >= 90 else "medium"
+            
+            # Stable hash for gap_id
+            gap_seed = f"{patient_scope_id}{d1.isoformat()}{d2.isoformat()}global_gap_v1"
+            gap_id = hashlib.sha256(gap_seed.encode()).hexdigest()[:16]
             
             last_event = events_on_d1[-1] if events_on_d1 else None
             next_event = events_on_d2[0] if events_on_d2 else None
@@ -247,7 +258,7 @@ def detect_missing_records(
                 "gap_days": gap_days,
                 "severity": severity,
                 "rule_name": "global_gap",
-                "rationale": "No documented medical activity during this period",
+                "rationale": "Post-acute continuity break" if boundary_acute else "No documented medical activity during this period",
                 "evidence": {
                     "last_event_id": last_event.event_id if last_event else None,
                     "next_event_id": next_event.event_id if next_event else None,
@@ -283,6 +294,7 @@ def detect_missing_records(
         "high_severity_count": sum(1 for g in gaps if g["severity"] == "high"),
         "medium_severity_count": sum(1 for g in gaps if g["severity"] == "medium"),
         "patient_scope_count": len(sorted_global_dates_by_scope),
+        "unassigned_events_excluded": sum(1 for e in evidence_graph.events if _patient_scope_id(e) == "ps_unknown"),
     }
 
     payload = {

@@ -67,7 +67,7 @@ def improve_legal_usability(events: list[Event]) -> list[Event]:
                 flags=["is_reference"],
                 citation_ids=[],
                 source_page_numbers=event.source_page_numbers,
-                extensions={"derived_from_event_id": event.event_id}
+                extensions={**(event.extensions or {}), "derived_from_event_id": event.event_id}
             )
             # Union citation_ids from constituents
             all_cids = []
@@ -162,6 +162,7 @@ def _derive_event(original: Event, facts: list[Fact], section_name: str) -> Even
         flags=original.flags,
         source_page_numbers=original.source_page_numbers,
         extensions={
+            **(original.extensions or {}),
             "derived_from_event_id": original.event_id,
             "legal_section": section_name
         }

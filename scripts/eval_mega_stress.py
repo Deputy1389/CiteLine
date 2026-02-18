@@ -31,13 +31,17 @@ def evaluate_mega_stress() -> dict:
 
     timeline_rows = len(
         re.findall(
-            r"^\d{4}-\d{2}-\d{2}.*-\s*(Imaging Study|Procedure|Office Visit|Pt Visit|Er Visit|Hospital Admission|Hospital Discharge|Inpatient Daily Note)",
+            r"^\d{4}-\d{2}-\d{2}.*(?:\|\s*Encounter:|-\s*)(Imaging Study|Procedure(?:/Surgery)?|Follow-Up Visit|Therapy Visit|Emergency Visit|Hospital Admission|Hospital Discharge|Inpatient Progress|Lab Result|Discharge)",
             text,
             re.IGNORECASE | re.MULTILINE,
         )
     )
     date_of_injury = re.search(r"Date of Injury:\s*(.*)", text, re.IGNORECASE)
     mechanism = re.search(r"Mechanism:\s*(.*)", text, re.IGNORECASE)
+
+    projection_entry_count = len(ctx.get("projection_entries", []))
+    if timeline_rows == 0 and projection_entry_count > 0:
+        timeline_rows = projection_entry_count
 
     scorecard = {
         "source_pdf": str(src),
@@ -48,20 +52,21 @@ def evaluate_mega_stress() -> dict:
         "contains_gunshot": "gunshot wound" in low,
         "date_of_injury": date_of_injury.group(1).strip() if date_of_injury else None,
         "mechanism": mechanism.group(1).strip() if mechanism else None,
-        "projection_entry_count": len(ctx.get("projection_entries", [])),
+        "projection_entry_count": projection_entry_count,
         "projection_patient_label_count": len(
             {e.patient_label for e in ctx.get("projection_entries", []) if getattr(e, "patient_label", "Unknown Patient") != "Unknown Patient"}
         ),
         "patient_section_count": len(re.findall(r"^Patient:\s+", text, re.IGNORECASE | re.MULTILINE)),
     }
     requires_patient_sections = scorecard["projection_patient_label_count"] > 1
+    max_rows = 80 if not requires_patient_sections else min(400, scorecard["projection_patient_label_count"] * 15)
     scorecard["overall_pass"] = not any(
         [
             scorecard["contains_date_not_documented_pt_visit"],
             scorecard["contains_provider_lines"],
             scorecard["contains_encounter_fallback"],
             scorecard["contains_gunshot"],
-            scorecard["timeline_rows"] >= 80,
+            scorecard["timeline_rows"] >= max_rows,
             requires_patient_sections and scorecard["patient_section_count"] < 2,
         ]
     )

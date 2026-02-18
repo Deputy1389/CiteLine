@@ -21,9 +21,9 @@ def _event(event_type: EventType, text: str) -> Event:
 
 
 def test_classify_event_types():
-    assert classify_event(_event(EventType.HOSPITAL_ADMISSION, "admitted")) == "admission_discharge"
-    assert classify_event(_event(EventType.PROCEDURE, "orif")) == "procedure"
-    assert classify_event(_event(EventType.IMAGING_STUDY, "ct")) == "imaging"
+    assert classify_event(_event(EventType.HOSPITAL_ADMISSION, "admitted")) == "inpatient"
+    assert classify_event(_event(EventType.PROCEDURE, "orif")) == "surgery_procedure"
+    assert classify_event(_event(EventType.IMAGING_STUDY, "ct")) == "imaging_impression"
 
 
 def test_severity_prefers_admission_over_vitals():
@@ -39,6 +39,19 @@ def test_annotate_event_weights_sets_extensions():
     ]
     summary = annotate_event_weights(events)
     assert summary["event_count"] == 2
-    assert "procedure" in summary["by_class"]
+    assert "surgery_procedure" in summary["by_class"]
     assert isinstance(events[0].extensions.get("severity_score"), int)
     assert isinstance(events[0].extensions.get("is_care_event"), bool)
+
+
+def test_questionnaire_without_severity_is_low_score():
+    q = _event(EventType.OFFICE_VISIT, "PHQ-9: 8 questionnaire score pain interference")
+    assert severity_score(q) < 40
+
+
+def test_disposition_and_med_change_raise_score():
+    e = _event(
+        EventType.OFFICE_VISIT,
+        "Started hydrocodone 10 mg and discharged to skilled nursing facility with follow-up ordered",
+    )
+    assert severity_score(e) >= 70

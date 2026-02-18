@@ -28,6 +28,8 @@ class MissingRecordsSummary(BaseModel):
     global_gap_count: int = 0
     high_severity_count: int = 0
     medium_severity_count: int = 0
+    patient_scope_count: int = 0
+    unassigned_events_excluded: int = 0
 
 
 class MissingRecordsExtension(BaseModel):

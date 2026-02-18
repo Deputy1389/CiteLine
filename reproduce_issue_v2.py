@@ -12,6 +12,7 @@ from apps.worker.steps.step03b_patient_partitions import build_patient_partition
 from packages.shared.models import SourceDocument
 
 def test_partitioning(pdf_path: str):
+    print("Running V2 with Confidence Fix - UPDATED")
     print(f"Testing partitioning on {pdf_path}")
     source_pdf = Path(pdf_path)
     if not source_pdf.exists():
@@ -22,23 +23,6 @@ def test_partitioning(pdf_path: str):
     with open(source_pdf, "rb") as f:
         pdf_bytes = f.read()
     
-    # We need a dummy SourceDocument object if split_pages requires it, 
-    # but split_pages usually takes raw bytes or path?
-    # Checking split_pages signature: def split_pages(source_document_id: str, file_path: Path) -> list[Page]:
-    
-    # We need to simulate the pipeline flow.
-    # split_pages returns list[Page]
-    
-    # Check Step 1 signature in pipeline.py:
-    # all_pages = split_pages(run_id, doc.document_id, doc_path) or similar? 
-    # Let's check imports.
-    
-    # Actually, let's just use pdfplumber directly or whatever split_pages uses if it's complex.
-    # But better to use the actual step function.
-    
-    # Inspecting pipeline.py again...
-    # split_pages(source_document_id, local_path) -> list[Page]
-    
     try:
         pages, warnings = split_pages(str(source_pdf), "dummy_doc_id")
         print(f"Split into {len(pages)} pages.")
@@ -48,10 +32,14 @@ def test_partitioning(pdf_path: str):
         print(json.dumps(payload, indent=2))
 
         # 3. Simulate Event Filtering logic from chronology.py
+        import apps.worker.project.chronology as chronology_module
         from apps.worker.project.chronology import _is_high_value_event, _is_vitals_heavy
         from packages.shared.models import Event, EventType, Fact, EventDate
         from packages.shared.models.enums import DateKind, DateSource, FactKind
         from datetime import date
+        
+        print(f"DEBUG: chronology module loaded from: {chronology_module.__file__}")
+        print(f"DEBUG: EventType.INPATIENT_DAILY_NOTE value: '{EventType.INPATIENT_DAILY_NOTE.value}'")
         
         print("\n--- Testing Filtering Logic ---")
         
@@ -71,7 +59,8 @@ def test_partitioning(pdf_path: str):
                     kind=FactKind.MEDICATION,
                     verbatim=True
                 )],
-                provider_id="p1"
+                provider_id="p1",
+                confidence=95.0
             ),
              Event(
                 event_id="e2", # Vitals heavy
@@ -88,7 +77,8 @@ def test_partitioning(pdf_path: str):
                     Fact(text="Pain severity - 0-10", kind=FactKind.FINDING, verbatim=True),
                     Fact(text="Acetaminophen 325 MG", kind=FactKind.MEDICATION, verbatim=True),
                 ],
-                provider_id="p1"
+                provider_id="p1",
+                confidence=95.0
             ),
              Event(
                 event_id="e3", # Lab result (might be low value if not high priority type)
@@ -104,7 +94,8 @@ def test_partitioning(pdf_path: str):
                     kind=FactKind.LAB,
                     verbatim=True
                 )],
-                provider_id="p1"
+                provider_id="p1",
+                confidence=95.0
             )
         ]
 
@@ -125,8 +116,6 @@ def test_partitioning(pdf_path: str):
             else:
                  print(f"  -> KEPT")
 
-
-        
     except Exception as e:
         print(f"Error: {e}")
         import traceback

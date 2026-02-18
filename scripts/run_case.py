@@ -17,6 +17,7 @@ from scripts.eval_sample_172 import (
     run_sample_pipeline,
     score_report,
 )
+from scripts.litigation_qa import build_litigation_checklist, write_litigation_checklist
 
 
 def run_case(input_pdf: Path, case_id: str, run_label: str | None = None) -> dict:
@@ -35,16 +36,28 @@ def run_case(input_pdf: Path, case_id: str, run_label: str | None = None) -> dic
     scorecard = score_report(report_text, ctx)
     scorecard_path = eval_dir / "scorecard.json"
     scorecard_path.write_text(json.dumps(scorecard, indent=2), encoding="utf-8")
+    checklist = build_litigation_checklist(
+        run_id=run_id,
+        source_pdf=str(input_pdf),
+        report_text=report_text,
+        ctx=ctx,
+        chronology_pdf_path=out_pdf,
+    )
+    checklist_path = eval_dir / "qa_litigation_checklist.json"
+    write_litigation_checklist(checklist_path, checklist)
 
     context_path = eval_dir / "context.json"
     context_payload = {
         "run_id": run_id,
         "input_pdf": str(input_pdf),
         "output_pdf": str(out_pdf),
+        "qa_litigation_checklist": str(checklist_path),
+        "qa_pass": bool(checklist.get("pass")),
         "patient_manifest_ref": ctx.get("patient_manifest_ref"),
         "projection_entry_count": len(ctx.get("projection_entries", [])),
         "gaps_count": ctx.get("gaps_count", 0),
-        "overall_pass": bool(scorecard.get("overall_pass")),
+        "overall_pass": bool(scorecard.get("overall_pass")) and bool(checklist.get("pass")),
+        "failure_summary": checklist.get("failure_summary", {}),
     }
     context_path.write_text(json.dumps(context_payload, indent=2), encoding="utf-8")
     return context_payload
@@ -59,7 +72,16 @@ def main() -> int:
 
     payload = run_case(Path(args.input), args.case_id, args.run_label)
     print(json.dumps(payload, indent=2))
-    return 0
+    if payload.get("overall_pass"):
+        return 0
+    failure_summary = payload.get("failure_summary", {}) or {}
+    if failure_summary.get("contract_failed"):
+        return 4
+    if failure_summary.get("hard_failed"):
+        return 2
+    if failure_summary.get("quality_failed"):
+        return 3
+    return 3
 
 
 if __name__ == "__main__":

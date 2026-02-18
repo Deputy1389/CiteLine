@@ -197,6 +197,159 @@ class TestGeneratePdf:
         assert len(pdf_bytes) > 100
         assert pdf_bytes[:5] == b"%PDF-"
 
+    def test_projection_pdf_includes_paralegal_sections(self):
+        import fitz
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        from datetime import datetime, timezone
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="evt-1",
+                    date_display="2024-03-15 (time not documented)",
+                    provider_display="Interim LSU Public Hospital",
+                    event_type_display="Imaging Study",
+                    patient_label="Alice111 Smith222",
+                    facts=["Impression: right shoulder fracture", "Prescribed ibuprofen 600mg"],
+                    citation_display="sample.pdf p. 1",
+                    confidence=90,
+                )
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection(
+            matter_title="Projection Case",
+            projection=projection,
+            gaps=[],
+            narrative_synthesis="Clean narrative",
+        )
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+        assert "Facility/Clinician:" in text
+        assert "What Happened:" in text
+        assert "Why It Matters:" in text
+        assert "Citation(s):" in text
+        assert "Appendix A: Medications" in text
+        assert "Appendix B: Diagnoses/Problems" in text
+        assert "Appendix C: Treatment Gaps" in text
+        assert "Appendix D: Patient-Reported Outcomes" in text
+
+    def test_projection_pdf_includes_med_change_and_disposition_when_present(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="evt-2",
+                    date_display="2024-01-10 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Hospital Admission",
+                    patient_label="John Doe",
+                    facts=[
+                        "Medication started: lisinopril 10 mg tablet daily.",
+                        "Patient admitted for inpatient care due to dizziness.",
+                    ],
+                    citation_display="record.pdf p. 2",
+                    confidence=88,
+                )
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection(
+            matter_title="MedChange Case",
+            projection=projection,
+            gaps=[],
+            narrative_synthesis="Deterministic narrative.",
+        )
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+        assert "Medication Changes:" in text
+        assert "Disposition:" in text
+
+    def test_projection_pdf_detects_patient_reported_outcomes(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="evt-pro",
+                    date_display="2024-01-10 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="John Doe",
+                    facts=[
+                        "How much did pain interfere with your day-to-day activities? Quite a bit.",
+                        "PHQ-9: 16",
+                    ],
+                    citation_display="record.pdf p. 3",
+                    confidence=88,
+                )
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection(
+            matter_title="PRO Case",
+            projection=projection,
+            gaps=[],
+            narrative_synthesis="Deterministic narrative.",
+        )
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+        assert "Appendix D: Patient-Reported Outcomes" in text
+        assert "pain interfere" in text.lower() or "phq-9" in text.lower()
+        assert "No patient-reported outcome measures identified" not in text
+
+    def test_projection_pdf_detects_medication_change_semantics(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="m1",
+                    date_display="2023-02-28 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="John Doe",
+                    facts=["Hydrocodone/APAP 5 mg tablet prescribed."],
+                    citation_display="record.pdf p. 1",
+                    confidence=80,
+                ),
+                ChronologyProjectionEntry(
+                    event_id="m2",
+                    date_display="2023-06-18 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="John Doe",
+                    facts=["12 HR Hydrocodone Bitartrate 10 MG Oral Capsule, Extended Release noted."],
+                    citation_display="record.pdf p. 2",
+                    confidence=82,
+                ),
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection(
+            matter_title="Med Change Case",
+            projection=projection,
+            gaps=[],
+            narrative_synthesis="Deterministic narrative.",
+        )
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count)).lower()
+        assert "appendix a: medications (material changes)" in text
+        assert "hydrocodone" in text
+        assert "dose" in text or "formulation changed" in text or "started" in text
+
 
 # ── CSV sanity ────────────────────────────────────────────────────────────
 

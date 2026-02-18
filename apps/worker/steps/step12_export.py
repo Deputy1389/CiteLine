@@ -10,6 +10,7 @@ import json
 import re
 from collections import defaultdict
 from datetime import date, datetime, timezone
+from collections import Counter
 
 from docx import Document as DocxDocument
 from docx.shared import Inches, Pt, RGBColor
@@ -224,37 +225,724 @@ def _build_events_flowables(events: list[Event], providers: list[Provider], page
     return flowables
 
 
-def _build_projection_flowables(projection: ChronologyProjection, styles) -> list:
+def _build_projection_flowables(
+    projection: ChronologyProjection,
+    styles,
+    appendix_entries: list | None = None,
+    gaps: list[Gap] | None = None,
+    raw_events: list[Event] | None = None,
+    page_map: dict[int, tuple[str, int]] | None = None,
+) -> list:
     flowables = []
     date_style = ParagraphStyle("ProjectionDateStyle", parent=styles["Normal"], fontSize=10, fontName="Helvetica-Bold", spaceAfter=2)
-    meta_style = ParagraphStyle("ProjectionMetaStyle", parent=styles["Normal"], fontSize=8, textColor=colors.gray, spaceAfter=4)
+    meta_style = ParagraphStyle("ProjectionMetaStyle", parent=styles["Normal"], fontSize=8, textColor=colors.gray, spaceAfter=2)
     fact_style = ParagraphStyle("ProjectionFactStyle", parent=styles["Normal"], fontSize=9, leading=12, leftIndent=10, spaceAfter=2)
-    patient_style = ParagraphStyle("ProjectionPatientStyle", parent=styles["Heading3"], fontSize=11, spaceAfter=6, textColor=colors.HexColor("#2C3E50"))
+    patient_style = ParagraphStyle("ProjectionPatientStyle", parent=styles["Heading3"], fontSize=11, spaceAfter=4, textColor=colors.HexColor("#2C3E50"))
+    patient_meta_style = ParagraphStyle("ProjectionPatientMetaStyle", parent=styles["Normal"], fontSize=8, leading=11, textColor=colors.HexColor("#34495E"), spaceAfter=2)
 
     non_unknown_labels = sorted({e.patient_label for e in projection.entries if e.patient_label != "Unknown Patient"})
     use_patient_sections = len(non_unknown_labels) > 1
+
+    def _extract_date(entry_date_display: str) -> date | None:
+        m = re.search(r"\b(\d{4})-(\d{2})-(\d{2})\b", entry_date_display or "")
+        if not m:
+            return None
+        y, mm, dd = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        try:
+            d = date(y, mm, dd)
+        except ValueError:
+            return None
+        return d if date_sanity(d) else None
+
+    def _extract_med_mentions(text: str) -> list[dict]:
+        low = text.lower()
+        ingredients = [
+            "hydrocodone",
+            "oxycodone",
+            "morphine",
+            "tramadol",
+            "fentanyl",
+            "acetaminophen",
+            "ibuprofen",
+            "naproxen",
+            "lisinopril",
+            "metformin",
+            "warfarin",
+            "apixaban",
+            "rivaroxaban",
+            "sertraline",
+            "fluoxetine",
+            "alprazolam",
+            "diazepam",
+        ]
+        out: list[dict] = []
+        for ing in ingredients:
+            if ing not in low:
+                continue
+            strength = ""
+            unit = ""
+            for m in re.finditer(rf"{re.escape(ing)}[\s\w/\-]{{0,40}}?(\d+(?:\.\d+)?)\s*mg\b", low):
+                strength = m.group(1)
+                unit = "mg"
+                break
+            if not strength:
+                for m in re.finditer(rf"{re.escape(ing)}[\s\w/\-]{{0,40}}?(\d+(?:\.\d+)?)\s*mg\s*/\s*ml\b", low):
+                    strength = m.group(1)
+                    unit = "mg/ml"
+                    break
+            if not strength:
+                for m in re.finditer(rf"(\d+(?:\.\d+)?)\s*mg\b[\s\w/\-]{{0,40}}?{re.escape(ing)}", low):
+                    strength = m.group(1)
+                    unit = "mg"
+                    break
+            form_bits: list[str] = []
+            if re.search(r"\b(extended release|er|xr|12\s*hr)\b", low):
+                form_bits.append("ER")
+            if re.search(r"\btablet\b", low):
+                form_bits.append("tablet")
+            if re.search(r"\bcapsule\b", low):
+                form_bits.append("capsule")
+            form = "+".join(form_bits) if form_bits else "unspecified"
+            label = f"{ing} {strength} mg {form}".strip().replace("  ", " ")
+            out.append(
+                {
+                    "ingredient": ing,
+                    "strength": strength,
+                    "unit": unit,
+                    "form": form,
+                    "label": label,
+                    "is_opioid": ing in {"hydrocodone", "oxycodone", "morphine", "tramadol", "fentanyl"},
+                    "parse_confidence": 0.9 if (strength and unit == "mg" and form in {"tablet", "capsule", "ER+tablet", "ER+capsule"}) else 0.5,
+                }
+            )
+        return out
+
+    def _is_sdoh_noise(text: str) -> bool:
+        low = text.lower()
+        return bool(
+            re.search(
+                r"\b(afraid of your partner|ex-partner|housing status|worried about losing your housing|refugee|jail prison detention|income|education|insurance|stress level|preferred language|armed forces|employment status|address|medicaid|sexual orientation|race|ethnicity)\b",
+                low,
+            )
+        )
+
+    def _extract_medication_changes(entries: list) -> list[str]:
+        dated = [(entry, _extract_date(entry.date_display)) for entry in entries]
+        dated = [(e, d) for e, d in dated if d is not None]
+        dated.sort(key=lambda x: x[1])
+        if len(dated) < 2:
+            return []
+
+        changes: list[str] = []
+        seen_any_date = False
+        last_by_ing: dict[str, dict] = {}
+        last_seen_idx: dict[str, int] = {}
+        last_opioids: set[str] = set()
+        emitted_direction: set[tuple[date, str, str]] = set()
+        plausible_mg_ranges: dict[str, tuple[float, float]] = {
+            "acetaminophen": (80.0, 1000.0),
+            "hydrocodone": (2.5, 20.0),
+            "oxycodone": (2.5, 80.0),
+            "morphine": (5.0, 200.0),
+            "tramadol": (25.0, 200.0),
+            "fentanyl": (12.0, 200.0),
+        }
+        date_buckets: list[tuple[date, dict[str, dict]]] = []
+        for idx, (entry, entry_date) in enumerate(dated):
+            current_mentions: list[dict] = []
+            for fact in entry.facts:
+                txt = sanitize_for_report(fact)
+                if txt:
+                    current_mentions.extend(_extract_med_mentions(txt))
+            current_by_ing: dict[str, dict] = {}
+            for med in current_mentions:
+                current_by_ing[med["ingredient"]] = med
+            date_buckets.append((entry_date, current_by_ing))
+            if not current_mentions:
+                seen_any_date = True
+                continue
+
+            current_mentions_unique = list(current_by_ing.values())
+            current_opioids = {m["ingredient"] for m in current_mentions_unique if m["is_opioid"]}
+            if last_opioids and current_opioids and current_opioids != last_opioids:
+                if len(last_opioids) == 1 and len(current_opioids) == 1:
+                    changes.append(
+                        f"{entry_date}: Opioid switch detected ({next(iter(sorted(last_opioids)))} -> {next(iter(sorted(current_opioids)))})."
+                    )
+                else:
+                    changes.append(f"{entry_date}: Opioid regimen changed (multiple agents detected; sequence ambiguous).")
+
+            for med in current_mentions_unique:
+                ing = med["ingredient"]
+                prev = last_by_ing.get(ing)
+                if prev is None and seen_any_date:
+                    changes.append(f"{entry_date}: Started {med['label']}.")
+                elif prev is not None:
+                    try:
+                        prev_strength = float(prev["strength"]) if prev.get("strength") else None
+                        cur_strength = float(med["strength"]) if med.get("strength") else None
+                    except ValueError:
+                        prev_strength = None
+                        cur_strength = None
+                    plausible = plausible_mg_ranges.get(ing)
+                    in_plausible = bool(
+                        plausible
+                        and prev_strength is not None
+                        and cur_strength is not None
+                        and plausible[0] <= prev_strength <= plausible[1]
+                        and plausible[0] <= cur_strength <= plausible[1]
+                    )
+                    if (
+                        prev_strength is not None
+                        and cur_strength is not None
+                        and prev.get("unit") == med.get("unit")
+                        and prev.get("unit") == "mg"
+                        and prev.get("form") == med.get("form")
+                        and prev.get("is_opioid")
+                        and med.get("is_opioid")
+                        and float(prev.get("parse_confidence") or 0.0) >= 0.8
+                        and float(med.get("parse_confidence") or 0.0) >= 0.8
+                        and in_plausible
+                        and cur_strength != prev_strength
+                    ):
+                        pct_change = abs(cur_strength - prev_strength) / max(prev_strength, 1.0)
+                        direction = "increased" if cur_strength > prev_strength else "decreased"
+                        if pct_change >= 0.20:
+                            key = (entry_date, ing, direction)
+                            opposite = (entry_date, ing, "decreased" if direction == "increased" else "increased")
+                            if opposite not in emitted_direction and key not in emitted_direction:
+                                emitted_direction.add(key)
+                                changes.append(
+                                    f"{entry_date}: {ing} dose {direction} ({prev_strength:g} mg -> {cur_strength:g} mg)."
+                                )
+                        else:
+                            changes.append(f"{entry_date}: {ing} strength variation detected (dose change <20%).")
+                    elif prev.get("strength") and med.get("strength") and prev.get("strength") != med.get("strength"):
+                        if prev.get("unit") == med.get("unit") == "mg":
+                            changes.append(f"{entry_date}: {ing} strength changed (dose not reliably parseable).")
+                        else:
+                            changes.append(f"{entry_date}: {ing} formulation/concentration changed.")
+                    if prev.get("form") != med.get("form"):
+                        changes.append(
+                            f"{entry_date}: {ing} formulation changed ({prev.get('form', 'unspecified')} -> {med.get('form', 'unspecified')})."
+                        )
+                last_by_ing[ing] = med
+                last_seen_idx[ing] = idx
+            last_opioids = current_opioids if current_opioids else last_opioids
+            seen_any_date = True
+
+        # Mark stops when a med is absent for at least two subsequent dated encounters.
+        total_dates = len(date_buckets)
+        for ing, idx in last_seen_idx.items():
+            if (total_dates - idx - 1) >= 2:
+                stop_date = date_buckets[min(idx + 2, total_dates - 1)][0]
+                changes.append(f"{stop_date}: Stopped {ing} (not present in subsequent encounters).")
+
+        seen: set[str] = set()
+        dedup: list[str] = []
+        for item in changes:
+            key = item.lower().strip()
+            if key and key not in seen:
+                seen.add(key)
+                dedup.append(item)
+        return dedup[:12]
+
+    def _extract_diagnosis_items(entries: list) -> list[str]:
+        dx: set[str] = set()
+        allow_marker = re.compile(r"\b(diagnosis|diagnoses|assessment|impression|problem list|condition)\b", re.IGNORECASE)
+        condition_terms = re.compile(
+            r"\b(fracture|tear|infection|dislocation|edema|hypertension|diabetes|depression|anxiety|arthritis|sprain|strain|wound)\b",
+            re.IGNORECASE,
+        )
+        deny = re.compile(
+            r"\b(encounter:|hospital admission|emergency room admission|general examination|check up|tobacco status|questionnaire|pain interference|mg\b|tablet|capsule|discharge summary only)\b",
+            re.IGNORECASE,
+        )
+        for entry in entries:
+            for fact in entry.facts:
+                text = sanitize_for_report(fact)
+                if not text:
+                    continue
+                if _is_sdoh_noise(text):
+                    continue
+                if deny.search(text):
+                    continue
+                if allow_marker.search(text) or condition_terms.search(text):
+                    dx.add(text[:160])
+        return sorted(dx)[:12]
+
+    def _extract_pro_items(entries: list) -> list[str]:
+        pro: set[str] = set()
+        pro_re = re.compile(
+            r"\b(phq-?9|gad-?7|promis|oswestry|ndi|sf-?12|sf-?36|eq-?5d|pain interference|pain intensity|pain severity)\b",
+            re.IGNORECASE,
+        )
+        phrasing_re = re.compile(
+            r"\b(what number best describes|during the past week).{0,80}\b(interfere|interfered|pain)\b",
+            re.IGNORECASE,
+        )
+        for entry in entries:
+            for fact in entry.facts:
+                text = sanitize_for_report(fact)
+                if not text:
+                    continue
+                if pro_re.search(text) or phrasing_re.search(text):
+                    pro.add(text[:160])
+        return sorted(pro)[:12]
+
+    def _extract_sdoh_items(entries: list) -> list[str]:
+        sdoh: set[str] = set()
+        for entry in entries:
+            for fact in entry.facts:
+                text = sanitize_for_report(fact)
+                if text and _is_sdoh_noise(text):
+                    sdoh.add(text[:160])
+        return sorted(sdoh)[:20]
+
+    def _event_citation_from_raw(evt: Event) -> str:
+        pages = sorted(set(evt.source_page_numbers or []))
+        if not pages:
+            return ""
+        refs: list[str] = []
+        for p in pages[:5]:
+            if page_map and p in page_map:
+                fname, local = page_map[p]
+                refs.append(f"{fname} p. {local}")
+            else:
+                refs.append(f"p. {p}")
+        return ", ".join(refs)
+
+    def _extract_disposition(facts: list[str]) -> str | None:
+        blob = " ".join(facts).lower()
+        if re.search(r"\bdischarged home\b", blob):
+            return "Discharged home."
+        if re.search(r"\bskilled nursing|snf\b", blob):
+            return "Disposition to skilled nursing facility."
+        if re.search(r"\badmitted\b", blob):
+            return "Admitted for inpatient care."
+        if re.search(r"\bfollow[- ]?up\b", blob):
+            return "Follow-up care planned."
+        if re.search(r"\breturn to work|work restriction\b", blob):
+            return "Work status/restrictions documented."
+        return None
+
+    def _extract_inline_medication_changes(facts: list[str]) -> list[str]:
+        out: list[str] = []
+        for fact in facts:
+            low = fact.lower()
+            if re.search(
+                r"\b(start(?:ed)?|initiated|stop(?:ped)?|discontinued|increased|decreased|titrated|switched|changed to)\b",
+                low,
+            ) and re.search(r"\b(mg|tablet|capsule|opioid|hydrocodone|oxycodone|medication)\b", low):
+                out.append(fact[:180])
+        seen: set[str] = set()
+        dedup: list[str] = []
+        for item in out:
+            key = item.lower().strip()
+            if key and key not in seen:
+                seen.add(key)
+                dedup.append(item)
+        return dedup[:2]
+
+    def _encounter_fields(entry) -> tuple[str, str, str, str]:
+        reason = "not stated in records"
+        assessment = "not stated in records"
+        intervention = "not stated in records"
+        outcome = "not stated in records"
+        for fact in entry.facts:
+            t = sanitize_for_report(fact)
+            if _is_sdoh_noise(t):
+                continue
+            low = t.lower()
+            if reason == "not stated in records" and re.search(r"\b(chief complaint|presented with|encounter for|symptom|pain|follow-?up)\b", low):
+                reason = t[:140]
+            if assessment == "not stated in records" and re.search(r"\b(assessment|impression|diagnosis|finding|fracture|tear|infection)\b", low):
+                assessment = t[:140]
+            if intervention == "not stated in records" and re.search(r"\b(procedure|surgery|debridement|orif|prescribed|started|stopped|switched|medication)\b", low):
+                intervention = t[:140]
+            if outcome == "not stated in records" and re.search(r"\b(disposition|discharged|admitted|snf|hospice|follow-?up|return to work)\b", low):
+                outcome = t[:140]
+        et = (entry.event_type_display or "").lower()
+        facts_blob = " ".join(entry.facts).lower()
+        if reason == "not stated in records":
+            if "emergency room admission" in facts_blob or "emergency visit" in et:
+                reason = "Emergency department presentation documented."
+            elif "admission to hospice" in facts_blob or "hospice" in facts_blob:
+                reason = "Hospice care transition documented."
+            elif "hospital admission" in et:
+                reason = "Hospital admission documented."
+        if intervention == "not stated in records":
+            if "emergency room admission" in facts_blob:
+                intervention = "ED admission documented."
+            elif "admission to hospice" in facts_blob or "hospice" in facts_blob:
+                intervention = "Hospice admission documented."
+            elif "procedure" in et or "surgery" in et:
+                intervention = "Procedure-level care documented."
+        if outcome == "not stated in records":
+            if "hospital discharge" in et or "discharge" in et:
+                outcome = "Discharge/transition of care documented."
+            elif "hospital admission" in et:
+                outcome = "Inpatient hospitalization documented."
+        if assessment == "not stated in records":
+            if "admission to hospice" in facts_blob or "hospice" in facts_blob:
+                assessment = "Hospice-level care planning documented."
+            elif "emergency room admission" in facts_blob or "emergency visit" in et:
+                assessment = "Acute presentation requiring emergency evaluation."
+            elif "hospital admission" in et:
+                assessment = "Hospital-level acuity documented."
+            elif "inpatient progress" in et:
+                assessment = "Ongoing inpatient management documented."
+        if intervention == "not stated in records":
+            if "snf" in facts_blob or "skilled nursing" in facts_blob:
+                intervention = "Skilled nursing transition documented."
+            elif "hospital discharge" in et:
+                intervention = "Discharge planning and transition documented."
+        return reason, assessment, intervention, outcome
+
+    def _top_case_events(entries: list) -> list:
+        def _event_bucket(entry) -> str:
+            et = (entry.event_type_display or "").lower()
+            facts = " ".join(entry.facts).lower()
+            if "hospice" in facts:
+                return "hospice"
+            if "skilled nursing" in facts or "snf" in facts:
+                return "snf"
+            if "emergency" in et:
+                return "ed"
+            if "admission" in et:
+                return "admission"
+            if "discharge" in et:
+                return "discharge"
+            if "procedure" in et or "surgery" in et:
+                return "procedure"
+            if "imaging" in et:
+                return "imaging"
+            if re.search(r"\b(started|stopped|increased|decreased|switched|formulation changed|strength changed)\b", facts):
+                return "med_change"
+            return "other"
+
+        def _score(entry) -> int:
+            bucket = _event_bucket(entry)
+            base = {
+                "hospice": 100,
+                "snf": 95,
+                "ed": 92,
+                "admission": 90,
+                "discharge": 88,
+                "procedure": 86,
+                "imaging": 82,
+                "med_change": 80,
+                "other": 70,
+            }[bucket]
+            return base + int(getattr(entry, "confidence", 0) or 0) // 10
+
+        sorted_entries = sorted(entries, key=lambda e: (-_score(e), e.date_display, e.event_id))
+        by_bucket: dict[str, list] = defaultdict(list)
+        for e in sorted_entries:
+            by_bucket[_event_bucket(e)].append(e)
+
+        selected: list = []
+        for bucket in ("hospice", "snf", "ed", "admission", "discharge", "procedure", "imaging", "med_change"):
+            if by_bucket.get(bucket):
+                selected.append(by_bucket[bucket][0])
+            if len(selected) >= 10:
+                return selected[:10]
+
+        used = {s.event_id for s in selected}
+        for e in sorted_entries:
+            if e.event_id in used:
+                continue
+            selected.append(e)
+            if len(selected) >= 10:
+                break
+        return selected[:10]
+
+    def _contradiction_flags(entries: list) -> list[str]:
+        flags: list[str] = []
+        by_patient: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+        for entry in entries:
+            facts = " ".join(entry.facts).lower()
+            laterality = set()
+            if re.search(r"\bleft\b", facts):
+                laterality.add("left")
+            if re.search(r"\bright\b", facts):
+                laterality.add("right")
+            if not laterality:
+                continue
+            for cond in ("shoulder", "knee", "hip", "arm", "leg", "wrist", "ankle", "fracture", "tear", "wound"):
+                if cond in facts:
+                    by_patient[entry.patient_label][cond].update(laterality)
+        for patient, conds in by_patient.items():
+            for cond, sides in conds.items():
+                if {"left", "right"}.issubset(sides):
+                    flags.append(f"{patient}: conflicting laterality documented for {cond} (left and right).")
+        return flags[:10]
+
+    def _why_it_matters(entry) -> str:
+        et = (entry.event_type_display or "").lower()
+        facts_blob = " ".join(entry.facts).lower()
+        if "surgery" in et or "procedure" in et:
+            return "Operative care milestone impacting treatment progression."
+        if "imaging" in et:
+            return "Objective diagnostic evidence informing injury and recovery status."
+        if "admission" in et or "er" in et or "discharge" in et:
+            return "Acute-care encounter indicating escalation or transition of care."
+        if re.search(r"\b(weight|tobacco|percentile|vital)\b", facts_blob):
+            return "Routine monitoring data; lower litigation significance unless trend worsens."
+        if "lab" in et and not re.search(r"\b(critical|abnormal|elevated|high-risk)\b", facts_blob):
+            return "Routine laboratory monitoring without documented critical abnormality."
+        if re.search(r"\b(infection|wound|debridement)\b", facts_blob):
+            return "Complication-related follow-up relevant to damages and causation."
+        if re.search(r"\b(started|stopped|increased|decreased|switched|discontinued)\b", facts_blob):
+            return "Medication-management change with potential impact on symptoms and function."
+        return "Follow-up encounter documenting continuity of care."
+
+    def _patient_header(label: str, entries: list) -> list:
+        blocks: list = [Paragraph(f"Patient: {label}", patient_style)]
+        dates = sorted(d for d in (_extract_date(e.date_display) for e in entries) if d)
+        counts = Counter((e.event_type_display or "Other") for e in entries)
+        encounter_count = len(entries)
+        admission_count = sum(v for k, v in counts.items() if "Admission" in k or "Discharge" in k)
+        ed_count = sum(v for k, v in counts.items() if "Er Visit" in k or "Emergency" in k)
+        if ed_count == 0:
+            ed_count = sum(
+                1
+                for e in entries
+                if re.search(r"\bemergency room|er visit|ed visit\b", (e.event_type_display or "").lower() + " " + " ".join(e.facts).lower())
+            )
+        imaging_count = sum(v for k, v in counts.items() if "Imaging" in k)
+        timeframe = f"{dates[0]} to {dates[-1]}" if dates else "Date range not established"
+        blocks.append(Paragraph(f"Timeframe: {timeframe}", patient_meta_style))
+        blocks.append(
+            Paragraph(
+                f"Encounter count: {encounter_count} | Admission/Discharge: {admission_count} | ED: {ed_count} | Imaging: {imaging_count}",
+                patient_meta_style,
+            )
+        )
+        blocks.append(
+            Paragraph(
+                "Records reflect encounter-level milestones with citations for legal review.",
+                patient_meta_style,
+            )
+        )
+        blocks.append(Spacer(1, 0.08 * inch))
+        return blocks
+
+    def _render_entry(entry) -> list:
+        med_changes = _extract_inline_medication_changes(entry.facts)
+        disposition = _extract_disposition(entry.facts)
+        reason, assessment, intervention, outcome = _encounter_fields(entry)
+        parts: list = [
+            Paragraph(f"{entry.date_display} | Encounter: {entry.event_type_display}", date_style),
+            Paragraph(f"Facility/Clinician: {entry.provider_display}", meta_style),
+            Paragraph(
+                f"What Happened: Reason: {reason}; Assessment: {assessment}; Intervention: {intervention}; Outcome: {outcome}",
+                fact_style,
+            ),
+            Paragraph(f"Why It Matters: {_why_it_matters(entry)}", fact_style),
+        ]
+        if med_changes:
+            parts.append(Paragraph(f"Medication Changes: {'; '.join(med_changes)}", fact_style))
+        if disposition:
+            parts.append(Paragraph(f"Disposition: {disposition}", fact_style))
+        parts.extend(
+            [
+                Paragraph(f"Citation(s): {entry.citation_display or 'Not available'}", meta_style),
+                Spacer(1, 0.15 * inch),
+            ]
+        )
+        return parts
 
     if use_patient_sections:
         grouped: dict[str, list] = {}
         for entry in projection.entries:
             grouped.setdefault(entry.patient_label, []).append(entry)
         for label in sorted(grouped.keys()):
-            flowables.append(Paragraph(f"Patient: {label}", patient_style))
-            for entry in grouped[label]:
-                flowables.append(Paragraph(f"{entry.date_display} - {entry.event_type_display}", date_style))
-                if entry.citation_display:
-                    flowables.append(Paragraph(f"Source: {entry.citation_display[:120]}", meta_style))
-                for fact in entry.facts:
-                    flowables.append(Paragraph(f"- {fact}", fact_style))
-                flowables.append(Spacer(1, 0.15 * inch))
+            entries = grouped[label]
+            flowables.extend(_patient_header(label, entries))
+            for entry in entries:
+                flowables.extend(_render_entry(entry))
     else:
+        if projection.entries:
+            flowables.extend(_patient_header(projection.entries[0].patient_label, projection.entries))
         for entry in projection.entries:
-            flowables.append(Paragraph(f"{entry.date_display} - {entry.event_type_display}", date_style))
-            if entry.citation_display:
-                flowables.append(Paragraph(f"Source: {entry.citation_display[:120]}", meta_style))
-            for fact in entry.facts:
-                flowables.append(Paragraph(f"- {fact}", fact_style))
-            flowables.append(Spacer(1, 0.15 * inch))
+            flowables.extend(_render_entry(entry))
+
+    flowables.append(Spacer(1, 0.25 * inch))
+    flowables.append(Paragraph("Top 10 Case-Driving Events", styles["Heading3"]))
+    top_events = _top_case_events(projection.entries)
+    if top_events:
+        for item in top_events:
+            flowables.append(
+                Paragraph(
+                    f"• {item.date_display} | {item.event_type_display} | {item.citation_display}",
+                    fact_style,
+                )
+            )
+    else:
+        flowables.append(Paragraph("No high-priority events identified.", fact_style))
+
+    # Appendices for material medication/diagnosis changes and scoped gaps.
+    appendix_source_entries = appendix_entries if appendix_entries is not None else projection.entries
+    grouped_entries: dict[str, list] = defaultdict(list)
+    for entry in appendix_source_entries:
+        grouped_entries[entry.patient_label].append(entry)
+    flowables.append(Spacer(1, 0.3 * inch))
+    flowables.append(Paragraph("Appendix A: Medications (material changes)", styles["Heading3"]))
+    has_med = False
+    for label in sorted(grouped_entries.keys()):
+        entries = grouped_entries[label]
+        med_rows = _extract_medication_changes(entries)
+        if not med_rows:
+            continue
+        has_med = True
+        flowables.append(Paragraph(f"{label}:", meta_style))
+        for med in med_rows:
+            flowables.append(Paragraph(f"• {med}", fact_style))
+    if not has_med:
+        flowables.append(Paragraph("No material medication changes identified in reportable events.", fact_style))
+
+    flowables.append(Spacer(1, 0.2 * inch))
+    flowables.append(Paragraph("Appendix B: Diagnoses/Problems (assessment/impression)", styles["Heading3"]))
+    has_dx = False
+    for label in sorted(grouped_entries.keys()):
+        dxs = _extract_diagnosis_items(grouped_entries[label])
+        if not dxs:
+            continue
+        has_dx = True
+        flowables.append(Paragraph(f"{label}:", meta_style))
+        for dx in dxs:
+            flowables.append(Paragraph(f"• {dx}", fact_style))
+    if not has_dx:
+        flowables.append(Paragraph("No diagnosis/problem statements found in provided record text (structured encounter labels only).", fact_style))
+
+    flowables.append(Spacer(1, 0.2 * inch))
+    flowables.append(Paragraph("Appendix D: Patient-Reported Outcomes", styles["Heading3"]))
+    has_pro = False
+    for label in sorted(grouped_entries.keys()):
+        pro_items = _extract_pro_items(grouped_entries[label])
+        if not pro_items:
+            continue
+        has_pro = True
+        flowables.append(Paragraph(f"{label}:", meta_style))
+        for item in pro_items:
+            flowables.append(Paragraph(f"• {item}", fact_style))
+    if not has_pro:
+        flowables.append(Paragraph("No patient-reported outcome measures identified in reportable events.", fact_style))
+
+    flowables.append(Spacer(1, 0.2 * inch))
+    flowables.append(Paragraph("Appendix E: Issue Flags (Potential Contradictions)", styles["Heading3"]))
+    contradiction_items = _contradiction_flags(appendix_source_entries)
+    if contradiction_items:
+        for item in contradiction_items:
+            flowables.append(Paragraph(f"• {item}", fact_style))
+    else:
+        flowables.append(Paragraph("No high-impact contradictions detected in projected events.", fact_style))
+
+    flowables.append(Spacer(1, 0.2 * inch))
+    flowables.append(Paragraph("Appendix F: Social Determinants/Intake (Quarantined)", styles["Heading3"]))
+    sdoh_items = _extract_sdoh_items(appendix_source_entries)
+    if sdoh_items:
+        for item in sdoh_items:
+            flowables.append(Paragraph(f"• {item}", fact_style))
+    else:
+        flowables.append(Paragraph("No material SDOH/intake items extracted.", fact_style))
+
+    # Add gap anchors with boundary citations when gaps are available.
+    if gaps:
+        flowables.append(Spacer(1, 0.2 * inch))
+        flowables.append(Paragraph("Appendix C1: Gap Boundary Anchors", styles["Heading3"]))
+        entries_by_patient: dict[str, list] = defaultdict(list)
+        for e in appendix_source_entries:
+            entries_by_patient[e.patient_label].append(e)
+        for patient_label in entries_by_patient:
+            entries_by_patient[patient_label].sort(key=lambda e: (_extract_date(e.date_display) or date.min, e.event_id))
+        raw_event_by_id: dict[str, Event] = {}
+        if raw_events:
+            raw_event_by_id = {evt.event_id: evt for evt in raw_events}
+        for gap in gaps:
+            if gap.start_date and not date_sanity(gap.start_date):
+                continue
+            if gap.end_date and not date_sanity(gap.end_date):
+                continue
+            patient_label = "Unknown Patient"
+            related_ids = set(getattr(gap, "related_event_ids", []) or [])
+            if related_ids:
+                for lbl, ents in entries_by_patient.items():
+                    if any(ent.event_id in related_ids for ent in ents):
+                        patient_label = lbl
+                        break
+            patient_entries = entries_by_patient.get(patient_label, [])
+            if patient_label == "Unknown Patient":
+                continue
+            last_before = None
+            first_after = None
+            boundary_ids = list(getattr(gap, "related_event_ids", []) or [])
+            if len(boundary_ids) >= 2 and raw_event_by_id:
+                prev_evt = raw_event_by_id.get(boundary_ids[0])
+                next_evt = raw_event_by_id.get(boundary_ids[1])
+                if prev_evt and next_evt:
+                    prev_date = prev_evt.date.sort_date() if prev_evt.date else None
+                    next_date = next_evt.date.sort_date() if next_evt.date else None
+                    if prev_date and next_date:
+                        prev_disp = f"{prev_date.isoformat()} (time not documented)"
+                        next_disp = f"{next_date.isoformat()} (time not documented)"
+                    else:
+                        prev_disp = "Date not documented"
+                        next_disp = "Date not documented"
+                    def _raw_type_display(raw_type: str) -> str:
+                        mapping = {
+                            "hospital_admission": "Hospital Admission",
+                            "hospital_discharge": "Hospital Discharge",
+                            "er_visit": "Emergency Visit",
+                            "inpatient_daily_note": "Inpatient Progress",
+                            "office_visit": "Follow-Up Visit",
+                            "pt_visit": "Therapy Visit",
+                            "imaging_study": "Imaging Study",
+                            "procedure": "Procedure/Surgery",
+                            "lab_result": "Lab Result",
+                            "discharge": "Discharge",
+                        }
+                        return mapping.get(raw_type, raw_type.replace("_", " ").title())
+
+                    last_before = {
+                        "date_display": prev_disp,
+                        "event_type_display": _raw_type_display(prev_evt.event_type.value),
+                        "citation_display": _event_citation_from_raw(prev_evt),
+                    }
+                    first_after = {
+                        "date_display": next_disp,
+                        "event_type_display": _raw_type_display(next_evt.event_type.value),
+                        "citation_display": _event_citation_from_raw(next_evt),
+                    }
+            if last_before is None or first_after is None:
+                for ent in patient_entries:
+                    d = _extract_date(ent.date_display)
+                    if d is None:
+                        continue
+                    if d <= gap.start_date:
+                        last_before = ent
+                    if d >= gap.end_date and first_after is None:
+                        first_after = ent
+            flowables.append(Paragraph(f"{patient_label}: {gap.start_date} -> {gap.end_date} ({gap.duration_days} days)", meta_style))
+            def _field(obj, name: str) -> str:
+                if isinstance(obj, dict):
+                    return str(obj.get(name, ""))
+                return str(getattr(obj, name, ""))
+            if last_before:
+                flowables.append(
+                    Paragraph(
+                        f"• Last before gap: {_field(last_before, 'date_display')} | {_field(last_before, 'event_type_display')} | {_field(last_before, 'citation_display')}",
+                        fact_style,
+                    )
+                )
+            if first_after:
+                flowables.append(
+                    Paragraph(
+                        f"• First after gap: {_field(first_after, 'date_display')} | {_field(first_after, 'event_type_display')} | {_field(first_after, 'citation_display')}",
+                        fact_style,
+                    )
+                )
 
     return flowables
 
@@ -341,6 +1029,9 @@ def generate_pdf_from_projection(
     projection: ChronologyProjection,
     gaps: list[Gap],
     narrative_synthesis: str | None = None,
+    appendix_entries: list | None = None,
+    raw_events: list[Event] | None = None,
+    page_map: dict[int, tuple[str, int]] | None = None,
 ) -> bytes:
     """Generate client-facing chronology PDF strictly from projection output."""
     buf = io.BytesIO()
@@ -377,18 +1068,48 @@ def generate_pdf_from_projection(
     if projection.entries:
         story.append(Paragraph("Chronological Medical Timeline", styles["Heading2"]))
         story.append(Spacer(1, 0.1 * inch))
-        story.extend(_build_projection_flowables(projection, styles))
+        story.extend(
+            _build_projection_flowables(
+                projection,
+                styles,
+                appendix_entries=appendix_entries,
+                gaps=gaps,
+                raw_events=raw_events,
+                page_map=page_map,
+            )
+        )
         story.append(Spacer(1, 0.2 * inch))
 
     if gaps:
         story.append(Spacer(1, 0.5 * inch))
-        story.append(Paragraph("<b>Appendix: Treatment Gaps</b>", styles["Heading2"]))
+        story.append(Paragraph("<b>Appendix C: Treatment Gaps</b>", styles["Heading2"]))
+        patient_by_event_id = {entry.event_id: entry.patient_label for entry in projection.entries}
+        scoped_gaps: dict[str, list[Gap]] = defaultdict(list)
+        unassigned_gaps: list[Gap] = []
         for gap in gaps:
-            if gap.start_date and not date_sanity(gap.start_date):
-                continue
-            if gap.end_date and not date_sanity(gap.end_date):
-                continue
-            story.append(Paragraph(f"• {gap.start_date} -> {gap.end_date} ({gap.duration_days} days)", styles["Normal"]))
+            related_ids = list(getattr(gap, "related_event_ids", []) or [])
+            labels = sorted({patient_by_event_id.get(eid) for eid in related_ids if patient_by_event_id.get(eid)})
+            if labels:
+                scoped_gaps[labels[0]].append(gap)
+            else:
+                unassigned_gaps.append(gap)
+
+        for label in sorted(scoped_gaps.keys()):
+            story.append(Paragraph(f"{label}:", styles["Heading4"]))
+            for gap in scoped_gaps[label]:
+                if gap.start_date and not date_sanity(gap.start_date):
+                    continue
+                if gap.end_date and not date_sanity(gap.end_date):
+                    continue
+                story.append(Paragraph(f"• {gap.start_date} -> {gap.end_date} ({gap.duration_days} days)", styles["Normal"]))
+        if unassigned_gaps:
+            story.append(Spacer(1, 0.1 * inch))
+            story.append(Paragraph("Unassigned events excluded from patient-scoped gap analysis.", styles["Normal"]))
+
+    else:
+        story.append(Spacer(1, 0.2 * inch))
+        story.append(Paragraph("<b>Appendix C: Treatment Gaps</b>", styles["Heading2"]))
+        story.append(Paragraph("No qualifying treatment gaps in projected reportable events.", styles["Normal"]))
 
     doc.build(story)
     return buf.getvalue()
@@ -464,6 +1185,7 @@ def render_patient_chronology_reports(
         providers=providers,
         page_map=page_map,
         page_patient_labels=page_patient_labels,
+        page_text_by_number=page_text_by_number,
     )
     grouped: dict[str, list] = defaultdict(list)
     for entry in projection.entries:
@@ -744,7 +1466,21 @@ def render_exports(
         f"(provider_none_or_unknown={provider_none_count})"
     )
     page_patient_labels = infer_page_patient_labels(page_text_by_number)
-    projection = build_chronology_projection(events, providers, page_map=page_map, page_patient_labels=page_patient_labels)
+    projection = build_chronology_projection(
+        events,
+        providers,
+        page_map=page_map,
+        page_patient_labels=page_patient_labels,
+        page_text_by_number=page_text_by_number,
+    )
+    appendix_projection = build_chronology_projection(
+        events,
+        providers,
+        page_map=page_map,
+        page_patient_labels=page_patient_labels,
+        page_text_by_number=page_text_by_number,
+        select_timeline=False,
+    )
     exported_ids = [entry.event_id for entry in projection.entries]
 
     # PDF (projection-only path)
@@ -753,6 +1489,9 @@ def render_exports(
         projection=projection,
         gaps=gaps,
         narrative_synthesis=narrative_synthesis,
+        appendix_entries=appendix_projection.entries,
+        raw_events=events,
+        page_map=page_map,
     )
     pdf_path = save_artifact(run_id, "chronology.pdf", pdf_bytes)
     pdf_sha = hashlib.sha256(pdf_bytes).hexdigest()

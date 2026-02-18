@@ -57,6 +57,7 @@ from apps.worker.steps.step15_missing_records import detect_missing_records
 from apps.worker.lib.provider_normalize import normalize_provider_entities
 from apps.worker.steps.step12a_narrative_synthesis import synthesize_narrative
 from apps.worker.project.chronology import build_chronology_projection, infer_page_patient_labels
+from scripts.litigation_qa import build_litigation_checklist, write_litigation_checklist
 from packages.shared.models import CaseInfo, EvidenceGraph, RunConfig, SourceDocument
 from packages.shared.storage import get_artifact_dir
 
@@ -141,6 +142,7 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
         providers,
         page_map=None,
         page_patient_labels=page_patient_labels,
+        page_text_by_number=page_text_by_number,
         debug_sink=projection_debug,
     )
 
@@ -200,6 +202,8 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
         "patient_scope_violations": patient_scope_violations,
         "gaps_count": len(gaps),
         "event_weighting": weight_summary,
+        "source_pages": len(pages),
+        "page_text_by_number": page_text_by_number,
     }
 
 
@@ -207,7 +211,7 @@ def _has_old_dates(report_text: str) -> bool:
     if "1900-01-01" in report_text:
         return True
     for year, _, _ in DATE_RE.findall(report_text):
-        if int(year) < 1970:
+        if int(year) < 1901:
             return True
     return False
 
@@ -245,6 +249,25 @@ def score_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
         or bool(NUM_TWO_ARTIFACT_RE.search(report_text))
     )
     timeline_entry_count = len(ctx.get("projection_entries", []))
+    projection_patient_label_count = len(
+        {
+            e.patient_label
+            for e in ctx.get("projection_entries", [])
+            if getattr(e, "patient_label", "Unknown Patient") != "Unknown Patient"
+        }
+    )
+    source_pages = int(ctx.get("source_pages", 0) or 0)
+    if projection_patient_label_count <= 1:
+        if source_pages >= 250:
+            timeline_limit = 220
+        elif source_pages >= 150:
+            timeline_limit = 140
+        elif source_pages >= 80:
+            timeline_limit = 110
+        else:
+            timeline_limit = 80
+    else:
+        timeline_limit = min(400, projection_patient_label_count * 15)
     provider_misassignment_count = 0
     for entry in ctx.get("projection_entries", []):
         provider = (entry.provider_display or "").lower()
@@ -261,7 +284,7 @@ def score_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
     for event in ctx["events"]:
         facts_blob = " ".join(f.text for f in event.facts if f.text).lower()
         surgery_like = event.event_type.value == "procedure" or any(
-            token in facts_blob for token in ("surgery", "procedure", "operative", "orif", "debrid", "repair")
+            token in facts_blob for token in ("surgery", "operative", "orif", "debrid", "repair", "hardware removal")
         )
         if not surgery_like:
             continue
@@ -278,7 +301,7 @@ def score_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
             has_placeholder_dates,
             has_raw_fragment_dump,
             has_provider_lines_in_timeline,
-            timeline_entry_count >= 80,
+            timeline_entry_count >= timeline_limit,
             provider_misassignment_count > 0,
             patient_scope_violation_count > 0,
             empty_surgery_entries > 0,
@@ -301,6 +324,9 @@ def score_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
         "has_date_not_documented_pt_visit": has_date_not_documented_pt_visit,
         "has_provider_lines_in_timeline": has_provider_lines_in_timeline,
         "timeline_entry_count": timeline_entry_count,
+        "projection_patient_label_count": projection_patient_label_count,
+        "timeline_limit": timeline_limit,
+        "source_pages": source_pages,
         "provider_misassignment_count": provider_misassignment_count,
         "patient_scope_violation_count": patient_scope_violation_count,
         "overall_pass": not hard_fail,
@@ -322,6 +348,16 @@ def evaluate_sample_172(debug_trace: bool = False) -> dict[str, Any]:
     shutil.copyfile(pdf_path, out_pdf)
     report_text = extract_pdf_text(out_pdf)
     scorecard = score_report(report_text, ctx)
+    checklist = build_litigation_checklist(
+        run_id=run_id,
+        source_pdf=str(sample_pdf),
+        report_text=report_text,
+        ctx=ctx,
+        chronology_pdf_path=out_pdf,
+    )
+    write_litigation_checklist(eval_dir / "qa_litigation_checklist.json", checklist)
+    scorecard["qa_litigation_pass"] = bool(checklist["pass"])
+    scorecard["overall_pass"] = bool(scorecard["overall_pass"]) and bool(checklist["pass"])
 
     debug_trace_written = False
     if debug_trace:

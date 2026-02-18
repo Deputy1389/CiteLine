@@ -104,3 +104,48 @@ def test_infer_page_patient_labels_for_synthea_pattern():
     assert labels[1] == "Derek111 Lehner980"
     assert labels[3] == "Jane Doe"
     assert labels[4] == "Jane Doe"
+
+
+def test_projection_demotes_routine_lab_result():
+    event = _event(
+        "lab-routine",
+        EventType.LAB_RESULT,
+        ["Labs found: Hemoglobin, Hematocrit, Platelet."],
+        with_date=True,
+        provider_id="p1",
+    )
+    providers = [
+        Provider(
+            provider_id="p1",
+            detected_name_raw="Interim LSU Public Hospital",
+            normalized_name="Interim LSU Public Hospital",
+            provider_type=ProviderType.HOSPITAL,
+            confidence=90,
+        )
+    ]
+    projection = build_chronology_projection([event], providers)
+    assert projection.entries == []
+
+
+def test_projection_strips_conflicting_embedded_timestamp():
+    event = Event(
+        event_id="ts-mismatch",
+        provider_id="p1",
+        event_type=EventType.OFFICE_VISIT,
+        date=EventDate(kind=DateKind.SINGLE, value=date(2017, 1, 8), source=DateSource.TIER1),
+        facts=[
+            Fact(
+                text="Follow-up documented (2017-02-05T11:31:13Z) with medication review and disposition.",
+                kind=FactKind.OTHER,
+                verbatim=True,
+            )
+        ],
+        confidence=85,
+        flags=[],
+        citation_ids=["c1"],
+        source_page_numbers=[1],
+        extensions={"severity_score": 60},
+    )
+    projection = build_chronology_projection([event], providers=[])
+    assert projection.entries
+    assert "2017-02-05T11:31:13Z" not in " ".join(projection.entries[0].facts)
