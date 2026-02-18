@@ -69,7 +69,7 @@ def infer_page_patient_labels(page_text_by_number: dict[int, str] | None) -> dic
         return {}
     labels: dict[int, str] = {}
     synthea_name_re = re.compile(r"\b([A-Z][a-z]+[0-9]+)\s+([A-Z][A-Za-z'`-]+[0-9]+)\b")
-    patient_name_re = re.compile(r"(?im)\b(?:patient name|name)\s*:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b")
+    patient_name_re = re.compile(r"(?im)\b(?:patient name|name)\s*:\s*([A-Z][a-z]+(?:[ \t]+[A-Z][a-z]+){1,2})\b")
     for page_number, text in page_text_by_number.items():
         if not text:
             continue
