@@ -22,6 +22,7 @@ from packages.shared.artifacts import (
     ARTIFACT_PARALEGAL_CHRONOLOGY_MD,
     ARTIFACT_EXTRACTION_NOTES_MD,
     ARTIFACT_PATIENT_CHRONOLOGIES_JSON,
+    ARTIFACT_PATIENT_PARTITIONS_JSON,
     ARTIFACT_SPECIALS_SUMMARY_CSV,
     ARTIFACT_SPECIALS_SUMMARY_JSON,
     ARTIFACT_SPECIALS_SUMMARY_PDF,
@@ -69,6 +70,7 @@ def build_artifact_ref_entries(
     paralegal_chronology_md_ref: Optional[ArtifactRef] = None,
     extraction_notes_md_ref: Optional[ArtifactRef] = None,
     patient_chronologies_json_ref: Optional[ArtifactRef] = None,
+    patient_partitions_json_ref: Optional[ArtifactRef] = None,
 ) -> list[tuple[str, Optional[ArtifactRef]]]:
     return [
         (ARTIFACT_PDF, chronology.exports.pdf),
@@ -90,4 +92,5 @@ def build_artifact_ref_entries(
         (ARTIFACT_PARALEGAL_CHRONOLOGY_MD, paralegal_chronology_md_ref),
         (ARTIFACT_EXTRACTION_NOTES_MD, extraction_notes_md_ref),
         (ARTIFACT_PATIENT_CHRONOLOGIES_JSON, patient_chronologies_json_ref),
+        (ARTIFACT_PATIENT_PARTITIONS_JSON, patient_partitions_json_ref),
     ]

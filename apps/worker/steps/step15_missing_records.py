@@ -10,9 +10,73 @@ import hashlib
 import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional, Set
+import re
 
 from packages.shared.models import ArtifactRef, EvidenceGraph, MissingRecordsExtension
 from packages.shared.storage import save_artifact
+
+
+CARE_EVENT_TYPES = {
+    "er_visit",
+    "hospital_admission",
+    "hospital_discharge",
+    "discharge",
+    "procedure",
+    "imaging_study",
+    "office_visit",
+    "pt_visit",
+    "inpatient_daily_note",
+    "lab_result",
+}
+
+
+def _patient_scope_id(event) -> str:
+    ext = event.extensions or {}
+    scope = ext.get("patient_scope_id")
+    return str(scope) if scope else "ps_unknown"
+
+
+def _fact_blob(event) -> str:
+    return " ".join((f.text or "") for f in event.facts).lower()
+
+
+def _is_vitals_only(text: str) -> bool:
+    markers = (
+        "body height",
+        "body weight",
+        "blood pressure",
+        "respiratory rate",
+        "heart rate",
+        "temperature",
+        "pulse",
+        "spo2",
+        "bmi",
+    )
+    return sum(1 for m in markers if m in text) >= 2 and not re.search(
+        r"\b(admission|discharge|procedure|surgery|debridement|orif|infection|fracture|tear|mri|ct|x-?ray|ed|emergency)\b",
+        text,
+    )
+
+
+def _is_care_event(event) -> bool:
+    ext = event.extensions or {}
+    if isinstance(ext.get("is_care_event"), bool):
+        return bool(ext.get("is_care_event"))
+    event_type = event.event_type.value if hasattr(event.event_type, "value") else str(event.event_type)
+    if event_type not in CARE_EVENT_TYPES:
+        return False
+    text = _fact_blob(event)
+    severe_signal = bool(
+        re.search(
+            r"\b(phq-?9|homeless|suicid|opioid|hydrocodone|oxycodone|admission|discharge|procedure|surgery|debridement|orif|infection|fracture|tear|ed|emergency)\b",
+            text,
+        )
+    )
+    if severe_signal:
+        return True
+    if event_type in {"er_visit", "hospital_admission", "hospital_discharge", "discharge", "procedure", "imaging_study"}:
+        return True
+    return not _is_vitals_only(text)
 
 
 def detect_missing_records(
@@ -23,8 +87,8 @@ def detect_missing_records(
     Run missing-record detection based strictly on EvidenceGraph events.
     """
     # STEP 1 — Build deterministic visit date maps from EVENTS
-    provider_visit_dates: dict[str, Set[date]] = {}
-    global_visit_dates: Set[date] = set()
+    provider_visit_dates: dict[tuple[str, str], Set[date]] = {}
+    global_visit_dates: dict[str, Set[date]] = {}
 
     # Mapping for provider display names
     provider_names: dict[str, str] = {
@@ -33,6 +97,8 @@ def detect_missing_records(
 
     # Authoritative source of visit timing
     for event in evidence_graph.events:
+        if not _is_care_event(event):
+            continue
         if not event.date:
             continue
         
@@ -41,13 +107,17 @@ def detect_missing_records(
         if visit_date.year <= 1900:
             continue
 
-        global_visit_dates.add(visit_date)
+        patient_scope_id = _patient_scope_id(event)
+        if patient_scope_id not in global_visit_dates:
+            global_visit_dates[patient_scope_id] = set()
+        global_visit_dates[patient_scope_id].add(visit_date)
         
         pid = event.provider_id
         if pid and pid != "unknown":
-            if pid not in provider_visit_dates:
-                provider_visit_dates[pid] = set()
-            provider_visit_dates[pid].add(visit_date)
+            key = (patient_scope_id, pid)
+            if key not in provider_visit_dates:
+                provider_visit_dates[key] = set()
+            provider_visit_dates[key].add(visit_date)
 
     # Pre-sort events by sort_key for "latest/earliest" logic
     sorted_events_for_evidence = sorted(
@@ -56,16 +126,19 @@ def detect_missing_records(
     )
 
     # Sort dates ascending
-    sorted_global_dates = sorted(list(global_visit_dates))
+    sorted_global_dates_by_scope: dict[str, list[date]] = {
+        scope: sorted(list(dates)) for scope, dates in global_visit_dates.items()
+    }
     
-    sorted_provider_dates: dict[str, list[date]] = {}
-    for pid, dates in provider_visit_dates.items():
-        sorted_provider_dates[pid] = sorted(list(dates))
+    sorted_provider_dates: dict[tuple[str, str], list[date]] = {}
+    for key, dates in provider_visit_dates.items():
+        sorted_provider_dates[key] = sorted(list(dates))
 
     gaps = []
 
     # STEP 2 — Compute PROVIDER GAPS
-    for pid, visit_dates in sorted_provider_dates.items():
+    for key, visit_dates in sorted_provider_dates.items():
+        patient_scope_id, pid = key
         if len(visit_dates) < 2:
             continue
         
@@ -80,15 +153,19 @@ def detect_missing_records(
                 severity = "high" if gap_days >= 60 else "medium"
                 
                 # Stable hash for gap_id
-                gap_seed = f"{pid}{d1.isoformat()}{d2.isoformat()}provider_gap_v1"
+                gap_seed = f"{patient_scope_id}{pid}{d1.isoformat()}{d2.isoformat()}provider_gap_v1"
                 gap_id = hashlib.sha256(gap_seed.encode()).hexdigest()[:16]
 
                 # Find boundary events for evidence
                 # We need all events on these dates for this provider to get citations
                 events_on_d1 = [e for e in sorted_events_for_evidence 
-                                if e.provider_id == pid and e.date and e.date.sort_date() == d1]
+                                if _is_care_event(e)
+                                and _patient_scope_id(e) == patient_scope_id
+                                and e.provider_id == pid and e.date and e.date.sort_date() == d1]
                 events_on_d2 = [e for e in sorted_events_for_evidence 
-                                if e.provider_id == pid and e.date and e.date.sort_date() == d2]
+                                if _is_care_event(e)
+                                and _patient_scope_id(e) == patient_scope_id
+                                and e.provider_id == pid and e.date and e.date.sort_date() == d2]
                 
                 # latest event on start_date
                 last_event = events_on_d1[-1] if events_on_d1 else None
@@ -105,6 +182,7 @@ def detect_missing_records(
                     "gap_id": gap_id,
                     "provider_id": pid,
                     "provider_display_name": display_name,
+                    "patient_scope_id": patient_scope_id,
                     "start_date": d1.isoformat(),
                     "end_date": d2.isoformat(),
                     "gap_days": gap_days,
@@ -118,30 +196,37 @@ def detect_missing_records(
                     },
                     "suggested_records_to_request": {
                         "provider_id": pid,
+                        "patient_scope_id": patient_scope_id,
                         "from": (d1 + timedelta(days=1)).isoformat(),
                         "to": (d2 - timedelta(days=1)).isoformat(),
                         "type": "Medical records"
                     }
                 })
 
-    # STEP 3 — Compute GLOBAL GAPS
-    for i in range(len(sorted_global_dates) - 1):
-        d1 = sorted_global_dates[i]
-        d2 = sorted_global_dates[i+1]
-        gap_days = (d2 - d1).days
+    # STEP 3 — Compute GLOBAL GAPS (scoped per patient)
+    for patient_scope_id, sorted_global_dates in sorted(sorted_global_dates_by_scope.items(), key=lambda item: item[0]):
+        for i in range(len(sorted_global_dates) - 1):
+            d1 = sorted_global_dates[i]
+            d2 = sorted_global_dates[i+1]
+            gap_days = (d2 - d1).days
 
-        if gap_days >= 45:
+            if gap_days < 45:
+                continue
             severity = "high" if gap_days >= 90 else "medium"
             
             # Stable hash for gap_id
-            gap_seed = f"{d1.isoformat()}{d2.isoformat()}global_gap_v1"
+            gap_seed = f"{patient_scope_id}{d1.isoformat()}{d2.isoformat()}global_gap_v1"
             gap_id = hashlib.sha256(gap_seed.encode()).hexdigest()[:16]
 
             # Find nearest events globally
             events_on_d1 = [e for e in sorted_events_for_evidence 
-                            if e.date and e.date.sort_date() == d1]
+                            if _is_care_event(e)
+                            and _patient_scope_id(e) == patient_scope_id
+                            and e.date and e.date.sort_date() == d1]
             events_on_d2 = [e for e in sorted_events_for_evidence 
-                            if e.date and e.date.sort_date() == d2]
+                            if _is_care_event(e)
+                            and _patient_scope_id(e) == patient_scope_id
+                            and e.date and e.date.sort_date() == d2]
             
             last_event = events_on_d1[-1] if events_on_d1 else None
             next_event = events_on_d2[0] if events_on_d2 else None
@@ -156,6 +241,7 @@ def detect_missing_records(
                 "gap_id": gap_id,
                 "provider_id": None,
                 "provider_display_name": None,
+                "patient_scope_id": patient_scope_id,
                 "start_date": d1.isoformat(),
                 "end_date": d2.isoformat(),
                 "gap_days": gap_days,
@@ -169,6 +255,7 @@ def detect_missing_records(
                 },
                 "suggested_records_to_request": {
                     "provider_id": None,
+                    "patient_scope_id": patient_scope_id,
                     "from": (d1 + timedelta(days=1)).isoformat(),
                     "to": (d2 - timedelta(days=1)).isoformat(),
                     "type": "Any medical provider records"
@@ -183,7 +270,8 @@ def detect_missing_records(
     def gap_sort_key(g):
         sev_score = 0 if g["severity"] == "high" else 1
         name = g["provider_display_name"] or "zzzzzzzz" # null last
-        return (sev_score, -g["gap_days"], name, g["start_date"])
+        scope = g.get("patient_scope_id") or "zzzzzzzz"
+        return (sev_score, -g["gap_days"], scope, name, g["start_date"])
 
     gaps.sort(key=gap_sort_key)
 
@@ -194,6 +282,7 @@ def detect_missing_records(
         "global_gap_count": sum(1 for g in gaps if g["rule_name"] == "global_gap"),
         "high_severity_count": sum(1 for g in gaps if g["severity"] == "high"),
         "medium_severity_count": sum(1 for g in gaps if g["severity"] == "medium"),
+        "patient_scope_count": len(sorted_global_dates_by_scope),
     }
 
     payload = {

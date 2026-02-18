@@ -16,6 +16,7 @@ def test_eval_sample_172_overall_pass():
     assert scorecard["has_provider_lines_in_timeline"] is False
     assert scorecard["timeline_entry_count"] < 80
     assert scorecard["provider_misassignment_count"] == 0
+    assert scorecard["patient_scope_violation_count"] == 0
     assert scorecard["total_surgeries_field"] == 2
     assert scorecard["debug_trace_written"] is False
     assert not Path("data/evals/sample_172/evidence_trace.json").exists()

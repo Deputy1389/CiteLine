@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import re
+from collections import defaultdict
 from datetime import date, datetime, timezone
 
 from docx import Document as DocxDocument
@@ -439,6 +440,78 @@ def generate_csv_from_projection(projection: ChronologyProjection) -> bytes:
             ]
         )
     return buf.getvalue().encode("utf-8")
+
+
+def _slugify(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return slug or "unknown-patient"
+
+
+def render_patient_chronology_reports(
+    run_id: str,
+    matter_title: str,
+    events: list[Event],
+    providers: list[Provider],
+    page_map: dict[int, tuple[str, int]] | None = None,
+    page_text_by_number: dict[int, str] | None = None,
+) -> ArtifactRef | None:
+    """
+    Render one chronology PDF per detected patient and return manifest JSON artifact ref.
+    """
+    page_patient_labels = infer_page_patient_labels(page_text_by_number)
+    projection = build_chronology_projection(
+        events=events,
+        providers=providers,
+        page_map=page_map,
+        page_patient_labels=page_patient_labels,
+    )
+    grouped: dict[str, list] = defaultdict(list)
+    for entry in projection.entries:
+        if entry.patient_label == "Unknown Patient":
+            continue
+        grouped[entry.patient_label].append(entry)
+
+    if len(grouped) < 2:
+        return None
+
+    manifest_rows: list[dict] = []
+    for label in sorted(grouped.keys()):
+        patient_projection = ChronologyProjection(
+            generated_at=projection.generated_at,
+            entries=grouped[label],
+        )
+        pdf_bytes = generate_pdf_from_projection(
+            matter_title=f"{matter_title} - {label}",
+            projection=patient_projection,
+            gaps=[],
+            narrative_synthesis=f"Patient-specific chronology for {label}.",
+        )
+        filename = f"chronology_patient_{_slugify(label)}.pdf"
+        pdf_path = save_artifact(run_id, filename, pdf_bytes)
+        pdf_sha = hashlib.sha256(pdf_bytes).hexdigest()
+        manifest_rows.append(
+            {
+                "patient_label": label,
+                "event_count": len(patient_projection.entries),
+                "artifact": {
+                    "type": "pdf",
+                    "filename": filename,
+                    "uri": str(pdf_path),
+                    "sha256": pdf_sha,
+                    "bytes": len(pdf_bytes),
+                },
+            }
+        )
+
+    manifest = {
+        "version": "1.0",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "patients": manifest_rows,
+    }
+    manifest_bytes = json.dumps(manifest, indent=2).encode("utf-8")
+    manifest_path = save_artifact(run_id, "patient_chronologies.json", manifest_bytes)
+    manifest_sha = hashlib.sha256(manifest_bytes).hexdigest()
+    return ArtifactRef(uri=str(manifest_path), sha256=manifest_sha, bytes=len(manifest_bytes))
 
 
 

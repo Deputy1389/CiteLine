@@ -29,6 +29,12 @@ from apps.worker.steps.step01_page_split import split_pages
 from apps.worker.steps.step02_text_acquire import acquire_text
 from apps.worker.steps.step03_classify import classify_pages
 from apps.worker.steps.step03a_demographics import extract_demographics
+from apps.worker.steps.step03b_patient_partitions import (
+    assign_patient_scope_to_events,
+    build_patient_partitions,
+    enforce_event_patient_scope,
+    validate_patient_scope_invariants,
+)
 from apps.worker.steps.step04_segment import segment_documents
 from apps.worker.steps.step05_provider import detect_providers
 from apps.worker.steps.step06_dates import extract_dates_for_pages
@@ -44,8 +50,9 @@ from apps.worker.steps.step07_events import (
 from apps.worker.steps.step08_citations import post_process_citations
 from apps.worker.steps.step09_dedup import deduplicate_events
 from apps.worker.steps.step10_confidence import apply_confidence_scoring
+from apps.worker.steps.events.event_weighting import annotate_event_weights
 from apps.worker.steps.step11_gaps import detect_gaps
-from apps.worker.steps.step12_export import render_exports
+from apps.worker.steps.step12_export import render_exports, render_patient_chronology_reports
 from apps.worker.steps.step15_missing_records import detect_missing_records
 from apps.worker.lib.provider_normalize import normalize_provider_entities
 from apps.worker.steps.step12a_narrative_synthesis import synthesize_narrative
@@ -91,6 +98,7 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
     pages, _, _ = acquire_text(pages, str(sample_pdf))
     pages, _ = classify_pages(pages)
     patient, _ = extract_demographics(pages)
+    patient_partitions_payload, page_to_patient_scope = build_patient_partitions(pages)
 
     docs, _ = segment_documents(pages, sample_pdf.name)
     providers, page_provider_map, _ = detect_providers(pages, docs)
@@ -119,6 +127,9 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
     all_citations, _ = post_process_citations(all_citations)
     all_events, _ = deduplicate_events(all_events)
     all_events, _ = apply_confidence_scoring(all_events, config)
+    weight_summary = annotate_event_weights(all_events)
+    assign_patient_scope_to_events(all_events, page_to_patient_scope)
+    enforce_event_patient_scope(all_events, all_citations, page_to_patient_scope)
     filtered_for_gaps = [e.model_copy(deep=True) for e in all_events]
     filtered_for_gaps, gaps, _ = detect_gaps(filtered_for_gaps, config)
     chronology_events = improve_legal_usability([e.model_copy(deep=True) for e in all_events])
@@ -165,17 +176,30 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
         narrative_synthesis=narrative,
         page_text_by_number=page_text_by_number,
     )
+    patient_manifest_ref = render_patient_chronology_reports(
+        run_id=run_id,
+        matter_title="Sample 172 Chronology Eval",
+        events=chronology_events,
+        providers=providers,
+        page_map=page_map,
+        page_text_by_number=page_text_by_number,
+    )
 
     graph = EvidenceGraph(pages=pages, documents=docs, providers=providers, events=chronology_events, citations=all_citations)
     provider_norm = normalize_provider_entities(graph)
     missing_payload = detect_missing_records(graph, provider_norm)
+    patient_scope_violations = validate_patient_scope_invariants(all_events, all_citations, page_to_patient_scope)
     pdf_path = Path(chronology.exports.pdf.uri)
     return pdf_path, {
         "events": chronology_events,
         "projection_entries": projection.entries,
         "projection_debug": projection_debug,
+        "patient_manifest_ref": patient_manifest_ref.uri if patient_manifest_ref else None,
         "missing_records_payload": missing_payload,
+        "patient_partitions_payload": patient_partitions_payload,
+        "patient_scope_violations": patient_scope_violations,
         "gaps_count": len(gaps),
+        "event_weighting": weight_summary,
     }
 
 
@@ -227,6 +251,7 @@ def score_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
         event_type = (entry.event_type_display or "").lower()
         if "erick brick md radiology" in provider and event_type != "imaging study":
             provider_misassignment_count += 1
+    patient_scope_violation_count = len(ctx.get("patient_scope_violations", []))
 
     surgery_count = len(re.findall(r"\b(surgery|operative|orif|debridement|hardware removal|rotator cuff repair)\b", text_lower))
     injury_list = sorted(set(injury_canonicalization(report_text)))
@@ -255,6 +280,7 @@ def score_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
             has_provider_lines_in_timeline,
             timeline_entry_count >= 80,
             provider_misassignment_count > 0,
+            patient_scope_violation_count > 0,
             empty_surgery_entries > 0,
             bool(PAGE_ARTIFACT_RE.search(report_text)),
             bool(NUM_TWO_ARTIFACT_RE.search(report_text)),
@@ -276,6 +302,7 @@ def score_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
         "has_provider_lines_in_timeline": has_provider_lines_in_timeline,
         "timeline_entry_count": timeline_entry_count,
         "provider_misassignment_count": provider_misassignment_count,
+        "patient_scope_violation_count": patient_scope_violation_count,
         "overall_pass": not hard_fail,
     }
 
@@ -304,6 +331,8 @@ def evaluate_sample_172(debug_trace: bool = False) -> dict[str, Any]:
             "projection_entry_count": len(ctx.get("projection_entries", [])),
             "projection_excluded": ctx.get("projection_debug", []),
             "missing_records": ctx["missing_records_payload"],
+            "patient_partitions": ctx.get("patient_partitions_payload", {}),
+            "patient_scope_violations": ctx.get("patient_scope_violations", []),
         }
         trace_path.write_text(json.dumps(trace, indent=2, default=str), encoding="utf-8")
         debug_trace_written = True

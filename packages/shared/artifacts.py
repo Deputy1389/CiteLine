@@ -27,6 +27,7 @@ ARTIFACT_SPECIALS_SUMMARY_PDF = "specials_summary_pdf"
 ARTIFACT_PARALEGAL_CHRONOLOGY_MD = "paralegal_chronology_md"
 ARTIFACT_EXTRACTION_NOTES_MD = "extraction_notes_md"
 ARTIFACT_PATIENT_CHRONOLOGIES_JSON = "patient_chronologies_json"
+ARTIFACT_PATIENT_PARTITIONS_JSON = "patient_partitions_json"
 
 
 ARTIFACT_EXTENSION_MAP: dict[str, str] = {
@@ -49,6 +50,7 @@ ARTIFACT_EXTENSION_MAP: dict[str, str] = {
     ARTIFACT_PARALEGAL_CHRONOLOGY_MD: "md",
     ARTIFACT_EXTRACTION_NOTES_MD: "md",
     ARTIFACT_PATIENT_CHRONOLOGIES_JSON: "json",
+    ARTIFACT_PATIENT_PARTITIONS_JSON: "json",
 }
 
 

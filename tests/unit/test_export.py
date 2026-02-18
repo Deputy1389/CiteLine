@@ -4,6 +4,9 @@ Unit tests for Step 12 — Export rendering (DOCX focus).
 from __future__ import annotations
 
 from datetime import date
+import json
+from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
@@ -221,3 +224,39 @@ class TestGenerateCsv:
 
         assert "evt-1" in csv_text
         assert "Unknown" in csv_text
+
+
+class TestPatientChronologyReports:
+    def test_generates_per_patient_manifest_for_multi_patient_projection(self):
+        from apps.worker.steps.step12_export import render_patient_chronology_reports
+
+        evt1 = _make_event(event_id="evt-p1", event_type=EventType.IMAGING_STUDY)
+        evt1.facts = [
+            Fact(text="Impression: right shoulder fracture with retained fragments", kind=FactKind.IMPRESSION, verbatim=True)
+        ]
+        evt1.source_page_numbers = [1]
+        evt2 = _make_event(event_id="evt-p2", event_type=EventType.IMAGING_STUDY)
+        evt2.facts = [
+            Fact(text="Impression: left humerus fracture, no dislocation", kind=FactKind.IMPRESSION, verbatim=True)
+        ]
+        evt2.source_page_numbers = [2]
+
+        run_id = f"test-patient-reports-{uuid4().hex[:8]}"
+        ref = render_patient_chronology_reports(
+            run_id=run_id,
+            matter_title="Multi Patient",
+            events=[evt1, evt2],
+            providers=[_make_provider()],
+            page_map={1: ("sample.pdf", 1), 2: ("sample.pdf", 2)},
+            page_text_by_number={
+                1: "PATIENT: Alice111 Smith222",
+                2: "PATIENT: Bob333 Jones444",
+            },
+        )
+        assert ref is not None
+        manifest_path = Path(ref.uri)
+        assert manifest_path.exists()
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        assert len(payload["patients"]) >= 2
+        for row in payload["patients"]:
+            assert Path(row["artifact"]["uri"]).exists()

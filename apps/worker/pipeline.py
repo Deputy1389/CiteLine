@@ -31,6 +31,13 @@ from apps.worker.steps.step01_page_split import split_pages
 from apps.worker.steps.step02_text_acquire import acquire_text
 from apps.worker.steps.step03_classify import classify_pages
 from apps.worker.steps.step03a_demographics import extract_demographics
+from apps.worker.steps.step03b_patient_partitions import (
+    assign_patient_scope_to_events,
+    build_patient_partitions,
+    enforce_event_patient_scope,
+    render_patient_partitions,
+    validate_patient_scope_invariants,
+)
 from apps.worker.steps.step04_segment import segment_documents
 from apps.worker.steps.step05_provider import detect_providers
 from apps.worker.steps.step06_dates import extract_dates_for_pages
@@ -48,9 +55,10 @@ from apps.worker.steps.step08_citations import post_process_citations
 from apps.worker.steps.step09_dedup import deduplicate_events
 from apps.worker.steps.step10_confidence import apply_confidence_scoring, filter_for_export
 from apps.worker.steps.step11_gaps import detect_gaps
+from apps.worker.steps.events.event_weighting import annotate_event_weights
 from apps.worker.steps.events.legal_usability import improve_legal_usability
 from apps.worker.steps.step12a_narrative_synthesis import synthesize_narrative
-from apps.worker.steps.step12_export import render_exports
+from apps.worker.steps.step12_export import render_exports, render_patient_chronology_reports
 from apps.worker.steps.step13_receipt import create_run_record
 from apps.worker.lib.provider_normalize import normalize_provider_entities, compute_coverage_spans
 from apps.worker.steps.step14_provider_directory import render_provider_directory
@@ -161,6 +169,8 @@ def run_pipeline(run_id: str) -> None:
         logger.info(f"[{run_id}] Step 3a: Demographics extraction")
         patient, step_warnings = extract_demographics(all_pages)
         all_warnings.extend(step_warnings)
+        logger.info(f"[{run_id}] Step 3b: Patient partitioning")
+        patient_partitions_payload, page_to_patient_scope = build_patient_partitions(all_pages)
 
         # ── Step 4: Document segmentation ──────────────────────────────────
         logger.info(f"[{run_id}] Step 4: Document segmentation")
@@ -228,6 +238,8 @@ def run_pipeline(run_id: str) -> None:
         all_warnings.extend(op_warns)
         all_skipped.extend(op_skipped)
         print(f"extraction: {len(all_events)} events")
+        assign_patient_scope_to_events(all_events, page_to_patient_scope)
+        enforce_event_patient_scope(all_events, all_citations, page_to_patient_scope)
 
         # ── Step 8: Citation post-processing ──────────────────────────────
         logger.info(f"[{run_id}] Step 8: Citation capture")
@@ -243,6 +255,7 @@ def run_pipeline(run_id: str) -> None:
         logger.info(f"[{run_id}] Step 10: Confidence scoring")
         all_events, step_warnings = apply_confidence_scoring(all_events, config)
         all_warnings.extend(step_warnings)
+        weight_summary = annotate_event_weights(all_events)
 
         # Full-graph chronology path (do not use explicit export filtering).
         chronology_events = improve_legal_usability([e.model_copy(deep=True) for e in all_events])
@@ -280,6 +293,15 @@ def run_pipeline(run_id: str) -> None:
             gaps=gaps,
             skipped_events=all_skipped,
         )
+        evidence_graph.extensions["patient_partitions"] = patient_partitions_payload
+        patient_scope_violations = validate_patient_scope_invariants(
+            all_events,
+            all_citations,
+            page_to_patient_scope,
+        )
+        evidence_graph.extensions["patient_scope_violations"] = patient_scope_violations
+        if patient_scope_violations:
+            logger.warning(f"[{run_id}] Patient scope invariant violations: {len(patient_scope_violations)}")
 
         # ── Extraction metrics ───────────────────────────────────────────────
         page_type_counts: dict[str, int] = {}
@@ -306,6 +328,7 @@ def run_pipeline(run_id: str) -> None:
             "facts_total": sum(len(e.facts) for e in all_events),
             "citations_total": len(all_citations),
         }
+        evidence_graph.extensions["event_weighting"] = weight_summary
         logger.info(f"[{run_id}] Extraction metrics: {evidence_graph.extensions['extraction_metrics']}")
         # ── Step 14a: Provider normalization + coverage ────────────────
         logger.info(f"[{run_id}] Step 14a: Provider normalization")
@@ -318,6 +341,7 @@ def run_pipeline(run_id: str) -> None:
         # ── Step 14b: Provider directory artifact ───────────────────────
         logger.info(f"[{run_id}] Step 14b: Provider directory artifact")
         prov_csv_ref, prov_json_ref = render_provider_directory(run_id, providers_normalized)
+        patient_partitions_json_ref = render_patient_partitions(run_id, patient_partitions_payload)
 
         # ── Step 15: Missing record detection ───────────────────────────
         logger.info(f"[{run_id}] Step 15: Missing record detection")
@@ -389,6 +413,14 @@ def run_pipeline(run_id: str) -> None:
             case_info=case_info,
             all_citations=all_citations,
             narrative_synthesis=narrative_synthesis,
+            page_text_by_number={p.page_number: (p.text or "") for p in all_pages},
+        )
+        patient_chronologies_json_ref = render_patient_chronology_reports(
+            run_id=run_id,
+            matter_title=matter_title,
+            events=chronology_events,
+            providers=providers,
+            page_map=page_map,
             page_text_by_number={p.page_number: (p.text or "") for p in all_pages},
         )
 
@@ -463,6 +495,8 @@ def run_pipeline(run_id: str) -> None:
             ss_pdf_ref=ss_pdf_ref,
             paralegal_chronology_md_ref=paralegal_chronology_md_ref,
             extraction_notes_md_ref=extraction_notes_md_ref,
+            patient_chronologies_json_ref=patient_chronologies_json_ref,
+            patient_partitions_json_ref=patient_partitions_json_ref,
         )
         persist_pipeline_state(
             run_id=run_id,
