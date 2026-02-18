@@ -1,0 +1,162 @@
+{
+  "case_id": "bc8960a9-23b8-c1e9-3924-56de3eb13b90",
+  "seed": 42,
+  "archetype": "herniation",
+  "patient": {
+    "name": "Alexander Hill",
+    "gender": "Male",
+    "dob": "1960-04-27",
+    "mrn": "MRN126225",
+    "address": "819 Johnson Course, East William, AK 74064"
+  },
+  "incident": {
+    "date": "2025-04-04",
+    "type": "MVA",
+    "mechanism": "Motor Vehicle Accident - Rear ended while stopped at red light."
+  },
+  "key_events": [
+    {
+      "id": "evt_ed_2025-04-04",
+      "type": "ED Visit",
+      "date": "2025-04-04",
+      "expected_in_top10": true,
+      "notes": "Initial ED presentation for neck/back pain. X-Rays negative."
+    },
+    {
+      "id": "evt_pcp_2025-04-11",
+      "type": "PCP Visit",
+      "date": "2025-04-11",
+      "expected_in_top10": false,
+      "notes": "PCP referral to PT/Ortho. Work status note."
+    },
+    {
+      "id": "evt_pt_eval_2025-04-14",
+      "type": "PT Evaluation",
+      "date": "2025-04-14",
+      "expected_in_top10": true,
+      "notes": "PT Initial Eval. Plan 2-3x/week."
+    },
+    {
+      "id": "evt_pt_setback_2025-04-21",
+      "type": "PT Setback",
+      "date": "2025-04-21",
+      "expected_in_top10": false,
+      "notes": "PT Setback/Flare-up reported."
+    },
+    {
+      "id": "evt_pt_missed_2025-04-24",
+      "type": "PT Missed",
+      "date": "2025-04-24",
+      "expected_in_top10": false,
+      "notes": "PT No Show."
+    },
+    {
+      "id": "evt_mri_2025-05-14",
+      "type": "MRI",
+      "date": "2025-05-14",
+      "expected_in_top10": true,
+      "notes": "MRI revealed C5-C6: 3mm central disc protrusion indenting thecal sac. No cord signal abnormality."
+    },
+    {
+      "id": "evt_ortho_2025-05-25",
+      "type": "Ortho Consult",
+      "date": "2025-05-25",
+      "expected_in_top10": true,
+      "notes": "Ortho Assessment: Cervical Radiculopathy"
+    },
+    {
+      "id": "evt_esi_2025-06-14",
+      "type": "Procedure",
+      "date": "2025-06-14",
+      "expected_in_top10": true,
+      "notes": "Underwent Cervical ESI for radiculopathy."
+    }
+  ],
+  "diagnoses": [
+    {
+      "date": "2025-04-04",
+      "source": "ED Notes",
+      "code": "S13.4XXA",
+      "description": "Cervical Strain"
+    },
+    {
+      "date": "2025-04-04",
+      "source": "ED Notes",
+      "code": "S33.5XXA",
+      "description": "Lumbar Strain"
+    },
+    {
+      "date": "2025-05-14",
+      "source": "MRI",
+      "code": "M50.20",
+      "description": "Cervical Disc Displacement"
+    }
+  ],
+  "imaging": [
+    {
+      "modality": "XR Cervical Spine",
+      "date": "2025-04-04",
+      "impression_contains": [
+        "Straightening of cervical lordosis suggesting muscle spasm.",
+        "No acute fracture."
+      ]
+    },
+    {
+      "modality": "XR Lumbar Spine",
+      "date": "2025-04-04",
+      "impression_contains": [
+        "Unremarkable lumbar spine series.",
+        "No fracture."
+      ]
+    },
+    {
+      "modality": "MRI Cervical Spine",
+      "date": "2025-05-14",
+      "impression_contains": [
+        "C5-C6: 3mm central disc protrusion indenting thecal sac.",
+        "No cord signal abnormality."
+      ]
+    }
+  ],
+  "procedures": [
+    {
+      "name": "Cervical ESI",
+      "date": "2025-06-14",
+      "details": "C6-C7 Interlaminar ESI"
+    }
+  ],
+  "med_changes": [
+    {
+      "date": "2025-04-04",
+      "type": "START",
+      "medication": "Flexeril 10mg",
+      "reason": "Muscle Spasm"
+    },
+    {
+      "date": "2025-04-04",
+      "type": "START",
+      "medication": "Ibuprofen 800mg",
+      "reason": "Pain"
+    }
+  ],
+  "work_status": [
+    {
+      "date": "2025-04-11",
+      "status": "Modified Duty: No lifting > 10lbs."
+    }
+  ],
+  "treatment_gaps": [
+    {
+      "start_date": "2025-05-07",
+      "end_date": "2025-06-26",
+      "days": 50,
+      "notes": "Gap in PT attendance."
+    }
+  ],
+  "prior_history_flags": [
+    {
+      "date": "2023-02-14",
+      "fact": "Prior complaints of intermittent neck stiffnes."
+    }
+  ]
+}

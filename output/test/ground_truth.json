@@ -1,0 +1,40 @@
+{
+  "case_id": "bc8960a9-23b8-c1e9-3924-56de3eb13b90",
+  "seed": 42,
+  "archetype": "soft_tissue",
+  "patient": {
+    "name": "Alexander Hill",
+    "gender": "Male",
+    "dob": "1960-04-27",
+    "mrn": "MRN126225",
+    "address": "819 Johnson Course, East William, AK 74064"
+  },
+  "incident": {
+    "date": "2025-04-04",
+    "type": "MVA",
+    "mechanism": "Motor Vehicle Accident - Rear ended while stopped at red light."
+  },
+  "key_events": [
+    {
+      "id": "evt_ed_2025-04-04",
+      "type": "ED Visit",
+      "date": "2025-04-04",
+      "expected_in_top10": true,
+      "notes": "Initial ED presentation for neck/back pain."
+    },
+    {
+      "id": "evt_pcp_2025-04-11",
+      "type": "PCP Visit",
+      "date": "2025-04-11",
+      "expected_in_top10": false,
+      "notes": "PCP referral to PT/Ortho."
+    }
+  ],
+  "diagnoses": [],
+  "imaging": [],
+  "procedures": [],
+  "med_changes": [],
+  "work_status": [],
+  "treatment_gaps": [],
+  "prior_history_flags": []
+}

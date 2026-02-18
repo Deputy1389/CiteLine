@@ -1,0 +1,162 @@
+{
+  "case_id": "21cf69c0-7bbf-224e-7d95-10a788a0a8b7",
+  "seed": 999,
+  "archetype": "herniation",
+  "patient": {
+    "name": "Bobby Brennan",
+    "gender": "Male",
+    "dob": "1984-03-05",
+    "mrn": "MRN695367",
+    "address": "51324 Jacqueline Glen Suite 361, Andrewborough, SD 66069"
+  },
+  "incident": {
+    "date": "2024-11-02",
+    "type": "MVA",
+    "mechanism": "Motor Vehicle Accident - Rear ended while stopped at red light."
+  },
+  "key_events": [
+    {
+      "id": "evt_ed_2024-11-02",
+      "type": "ED Visit",
+      "date": "2024-11-02",
+      "expected_in_top10": true,
+      "notes": "Initial ED presentation for neck/back pain. X-Rays negative."
+    },
+    {
+      "id": "evt_pcp_2024-11-07",
+      "type": "PCP Visit",
+      "date": "2024-11-07",
+      "expected_in_top10": false,
+      "notes": "PCP referral to PT/Ortho. Work status note."
+    },
+    {
+      "id": "evt_pt_eval_2024-11-10",
+      "type": "PT Evaluation",
+      "date": "2024-11-10",
+      "expected_in_top10": true,
+      "notes": "PT Initial Eval. Plan 2-3x/week."
+    },
+    {
+      "id": "evt_pt_missed_2024-11-15",
+      "type": "PT Missed",
+      "date": "2024-11-15",
+      "expected_in_top10": false,
+      "notes": "PT No Show."
+    },
+    {
+      "id": "evt_pt_setback_2024-11-27",
+      "type": "PT Setback",
+      "date": "2024-11-27",
+      "expected_in_top10": false,
+      "notes": "PT Setback/Flare-up reported."
+    },
+    {
+      "id": "evt_mri_2024-12-17",
+      "type": "MRI",
+      "date": "2024-12-17",
+      "expected_in_top10": true,
+      "notes": "MRI revealed C5-C6: 3mm central disc protrusion indenting thecal sac. No cord signal abnormality."
+    },
+    {
+      "id": "evt_ortho_2024-12-29",
+      "type": "Ortho Consult",
+      "date": "2024-12-29",
+      "expected_in_top10": true,
+      "notes": "Ortho Assessment: Cervical Radiculopathy"
+    },
+    {
+      "id": "evt_esi_2025-01-16",
+      "type": "Procedure",
+      "date": "2025-01-16",
+      "expected_in_top10": true,
+      "notes": "Underwent Cervical ESI for radiculopathy."
+    }
+  ],
+  "diagnoses": [
+    {
+      "date": "2024-11-02",
+      "source": "ED Notes",
+      "code": "S13.4XXA",
+      "description": "Cervical Strain"
+    },
+    {
+      "date": "2024-11-02",
+      "source": "ED Notes",
+      "code": "S33.5XXA",
+      "description": "Lumbar Strain"
+    },
+    {
+      "date": "2024-12-17",
+      "source": "MRI",
+      "code": "M50.20",
+      "description": "Cervical Disc Displacement"
+    }
+  ],
+  "imaging": [
+    {
+      "modality": "XR Cervical Spine",
+      "date": "2024-11-02",
+      "impression_contains": [
+        "Straightening of cervical lordosis suggesting muscle spasm.",
+        "No acute fracture."
+      ]
+    },
+    {
+      "modality": "XR Lumbar Spine",
+      "date": "2024-11-02",
+      "impression_contains": [
+        "Unremarkable lumbar spine series.",
+        "No fracture."
+      ]
+    },
+    {
+      "modality": "MRI Cervical Spine",
+      "date": "2024-12-17",
+      "impression_contains": [
+        "C5-C6: 3mm central disc protrusion indenting thecal sac.",
+        "No cord signal abnormality."
+      ]
+    }
+  ],
+  "procedures": [
+    {
+      "name": "Cervical ESI",
+      "date": "2025-01-16",
+      "details": "C6-C7 Interlaminar ESI"
+    }
+  ],
+  "med_changes": [
+    {
+      "date": "2024-11-02",
+      "type": "START",
+      "medication": "Flexeril 10mg",
+      "reason": "Muscle Spasm"
+    },
+    {
+      "date": "2024-11-02",
+      "type": "START",
+      "medication": "Ibuprofen 800mg",
+      "reason": "Pain"
+    }
+  ],
+  "work_status": [
+    {
+      "date": "2024-11-07",
+      "status": "Modified Duty: No lifting > 10lbs."
+    }
+  ],
+  "treatment_gaps": [
+    {
+      "start_date": "2024-12-06",
+      "end_date": "2025-01-19",
+      "days": 44,
+      "notes": "Gap in PT attendance."
+    }
+  ],
+  "prior_history_flags": [
+    {
+      "date": "2022-07-18",
+      "fact": "Prior complaints of intermittent neck stiffnes."
+    }
+  ]
+}

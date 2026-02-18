@@ -1,0 +1,138 @@
+[
+  {
+    "filename": "Prior_Chiro_2022-10-06.pdf",
+    "doc_type": "Prior Records",
+    "date": "2022-10-06",
+    "start_page": 1,
+    "end_page": 4,
+    "page_count": 4
+  },
+  {
+    "filename": "ED_Visit_2025-04-04.pdf",
+    "doc_type": "ED Notes",
+    "date": "2025-04-04",
+    "start_page": 5,
+    "end_page": 22,
+    "page_count": 18
+  },
+  {
+    "filename": "Imaging_XR_Cervical_Spine_2025-04-04.pdf",
+    "doc_type": "Radiology Report",
+    "date": "2025-04-04",
+    "start_page": 23,
+    "end_page": 24,
+    "page_count": 2
+  },
+  {
+    "filename": "Imaging_XR_Lumbar_Spine_2025-04-04.pdf",
+    "doc_type": "Radiology Report",
+    "date": "2025-04-04",
+    "start_page": 25,
+    "end_page": 26,
+    "page_count": 2
+  },
+  {
+    "filename": "PCP_Referral_2025-04-11.pdf",
+    "doc_type": "Misc",
+    "date": "2025-04-11",
+    "start_page": 27,
+    "end_page": 32,
+    "page_count": 6
+  },
+  {
+    "filename": "Noise_527cec.pdf",
+    "doc_type": "Packet Noise",
+    "date": "FAXED: 2025-04-13",
+    "start_page": 33,
+    "end_page": 33,
+    "page_count": 1
+  },
+  {
+    "filename": "Noise_a113b4.pdf",
+    "doc_type": "Packet Noise",
+    "date": "FAXED: 2025-04-15",
+    "start_page": 34,
+    "end_page": 34,
+    "page_count": 1
+  },
+  {
+    "filename": "PT_Eval_2025-04-17.pdf",
+    "doc_type": "PT Records",
+    "date": "2025-04-17",
+    "start_page": 35,
+    "end_page": 40,
+    "page_count": 6
+  },
+  {
+    "filename": "Imaging_MRI_Cervical_Spine_2025-05-11.pdf",
+    "doc_type": "Radiology Report",
+    "date": "2025-05-11",
+    "start_page": 41,
+    "end_page": 46,
+    "page_count": 6
+  },
+  {
+    "filename": "PT_Progress_2025-05-17.pdf",
+    "doc_type": "PT Records",
+    "date": "2025-05-17",
+    "start_page": 47,
+    "end_page": 52,
+    "page_count": 6
+  },
+  {
+    "filename": "Ortho_Consult_2025-05-20.pdf",
+    "doc_type": "Ortho Visit",
+    "date": "2025-05-20",
+    "start_page": 53,
+    "end_page": 60,
+    "page_count": 8
+  },
+  {
+    "filename": "PT_Daily_2025-05-26_2025-05-26.pdf",
+    "doc_type": "PT Records",
+    "date": "2025-05-26",
+    "start_page": 61,
+    "end_page": 62,
+    "page_count": 2
+  },
+  {
+    "filename": "PT_Discharge_2025-05-29.pdf",
+    "doc_type": "Discharge Summary",
+    "date": "2025-05-29",
+    "start_page": 63,
+    "end_page": 64,
+    "page_count": 2
+  },
+  {
+    "filename": "Procedure_ESI_2025-06-05.pdf",
+    "doc_type": "Procedure Note",
+    "date": "2025-06-05",
+    "start_page": 65,
+    "end_page": 70,
+    "page_count": 6
+  },
+  {
+    "filename": "Noise_36c4ae.pdf",
+    "doc_type": "Packet Noise",
+    "date": "FAXED: 2025-06-07",
+    "start_page": 71,
+    "end_page": 72,
+    "page_count": 2
+  },
+  {
+    "filename": "Noise_49971d.pdf",
+    "doc_type": "Packet Noise",
+    "date": "FAXED: 2025-06-08",
+    "start_page": 73,
+    "end_page": 73,
+    "page_count": 1
+  },
+  {
+    "filename": "Billing_Ledger.pdf",
+    "doc_type": "Billing Ledger",
+    "date": "2025-06-08",
+    "start_page": 74,
+    "end_page": 100,
+    "page_count": 27
+  }
+]

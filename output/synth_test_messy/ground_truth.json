@@ -1,0 +1,40 @@
+{
+  "case_id": "1b923e0a-443c-def3-6840-ff07c4da537c",
+  "seed": 123,
+  "archetype": "soft_tissue",
+  "patient": {
+    "name": "Brandon Russell",
+    "gender": "Male",
+    "dob": "1952-06-17",
+    "mrn": "MRN380679",
+    "address": "8855 Erik Junction, Jacquelineburgh, AL 57684"
+  },
+  "incident": {
+    "date": "2025-07-09",
+    "type": "MVA",
+    "mechanism": "Motor Vehicle Accident - Rear ended while stopped at red light."
+  },
+  "key_events": [
+    {
+      "id": "evt_ed_2025-07-09",
+      "type": "ED Visit",
+      "date": "2025-07-09",
+      "expected_in_top10": true,
+      "notes": "Initial ED presentation for neck/back pain."
+    },
+    {
+      "id": "evt_pcp_2025-07-15",
+      "type": "PCP Visit",
+      "date": "2025-07-15",
+      "expected_in_top10": false,
+      "notes": "PCP referral to PT/Ortho."
+    }
+  ],
+  "diagnoses": [],
+  "imaging": [],
+  "procedures": [],
+  "med_changes": [],
+  "work_status": [],
+  "treatment_gaps": [],
+  "prior_history_flags": []
+}

@@ -1,0 +1,106 @@
+[
+  {
+    "filename": "Prior_Chiro_2022-07-27.pdf",
+    "doc_type": "Prior Records",
+    "date": "2022-07-27",
+    "start_page": 1,
+    "end_page": 2,
+    "page_count": 2
+  },
+  {
+    "filename": "Noise_c353f2.pdf",
+    "doc_type": "Packet Noise",
+    "date": "2022-08-15",
+    "start_page": 3,
+    "end_page": 3,
+    "page_count": 1
+  },
+  {
+    "filename": "ED_Visit_2025-04-04.pdf",
+    "doc_type": "ED Notes",
+    "date": "2025-04-04",
+    "start_page": 4,
+    "end_page": 20,
+    "page_count": 17
+  },
+  {
+    "filename": "Imaging_XR_Cervical_Spine_2025-04-04.pdf",
+    "doc_type": "Radiology Report",
+    "date": "2025-04-04",
+    "start_page": 21,
+    "end_page": 21,
+    "page_count": 1
+  },
+  {
+    "filename": "Imaging_XR_Lumbar_Spine_2025-04-04.pdf",
+    "doc_type": "Radiology Report",
+    "date": "2025-04-04",
+    "start_page": 22,
+    "end_page": 22,
+    "page_count": 1
+  },
+  {
+    "filename": "PCP_Referral_2025-04-07.pdf",
+    "doc_type": "Misc",
+    "date": "2025-04-07",
+    "start_page": 23,
+    "end_page": 26,
+    "page_count": 4
+  },
+  {
+    "filename": "PT_Eval_2025-04-12.pdf",
+    "doc_type": "PT Records",
+    "date": "2025-04-12",
+    "start_page": 27,
+    "end_page": 30,
+    "page_count": 4
+  },
+  {
+    "filename": "PT_Daily_2025-04-14_2025-04-14.pdf",
+    "doc_type": "PT Records",
+    "date": "2025-04-14",
+    "start_page": 31,
+    "end_page": 31,
+    "page_count": 1
+  },
+  {
+    "filename": "PT_Discharge_2025-04-17.pdf",
+    "doc_type": "Discharge Summary",
+    "date": "2025-04-17",
+    "start_page": 32,
+    "end_page": 32,
+    "page_count": 1
+  },
+  {
+    "filename": "Imaging_MRI_Cervical_Spine_2025-05-12.pdf",
+    "doc_type": "Radiology Report",
+    "date": "2025-05-12",
+    "start_page": 33,
+    "end_page": 38,
+    "page_count": 6
+  },
+  {
+    "filename": "Ortho_Consult_2025-05-21.pdf",
+    "doc_type": "Ortho Visit",
+    "date": "2025-05-21",
+    "start_page": 39,
+    "end_page": 43,
+    "page_count": 5
+  },
+  {
+    "filename": "Procedure_ESI_2025-06-11.pdf",
+    "doc_type": "Procedure Note",
+    "date": "2025-06-11",
+    "start_page": 44,
+    "end_page": 47,
+    "page_count": 4
+  },
+  {
+    "filename": "Billing_Ledger.pdf",
+    "doc_type": "Billing Ledger",
+    "date": "2025-06-11",
+    "start_page": 48,
+    "end_page": 48,
+    "page_count": 1
+  }
+]

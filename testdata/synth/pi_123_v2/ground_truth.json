@@ -1,0 +1,125 @@
+{
+  "case_id": "1b923e0a-443c-def3-6840-ff07c4da537c",
+  "seed": 123,
+  "archetype": "herniation",
+  "patient": {
+    "name": "Brandon Russell",
+    "gender": "Male",
+    "dob": "1952-06-17",
+    "mrn": "MRN380679",
+    "address": "8855 Erik Junction, Jacquelineburgh, AL 57684"
+  },
+  "incident": {
+    "date": "2025-07-09",
+    "type": "MVA",
+    "mechanism": "Motor Vehicle Accident - Rear ended while stopped at red light."
+  },
+  "key_events": [
+    {
+      "id": "evt_ed_2025-07-09",
+      "type": "ED Visit",
+      "date": "2025-07-09",
+      "expected_in_top10": true,
+      "notes": "Initial ED presentation for neck/back pain. X-Rays negative."
+    },
+    {
+      "id": "evt_pcp_2025-07-12",
+      "type": "PCP Visit",
+      "date": "2025-07-12",
+      "expected_in_top10": false,
+      "notes": "PCP referral to PT/Ortho."
+    },
+    {
+      "id": "evt_pt_eval_2025-07-18",
+      "type": "PT Evaluation",
+      "date": "2025-07-18",
+      "expected_in_top10": true,
+      "notes": "PT Initial Eval. Plan 2-3x/week."
+    },
+    {
+      "id": "evt_mri_2025-08-17",
+      "type": "MRI",
+      "date": "2025-08-17",
+      "expected_in_top10": true,
+      "notes": "MRI revealed C5-C6: 3mm central disc protrusion indenting thecal sac. L4-L5: Mild bulge without stenosis."
+    },
+    {
+      "id": "evt_ortho_2025-08-26",
+      "type": "Ortho Consult",
+      "date": "2025-08-26",
+      "expected_in_top10": true,
+      "notes": "Ortho Assessment: Cervical Radiculopathy"
+    }
+  ],
+  "diagnoses": [
+    {
+      "date": "2025-07-09",
+      "source": "ED Notes",
+      "code": "S13.4XXA",
+      "description": "Cervical Strain"
+    },
+    {
+      "date": "2025-07-09",
+      "source": "ED Notes",
+      "code": "S33.5XXA",
+      "description": "Lumbar Strain"
+    },
+    {
+      "date": "2025-08-17",
+      "source": "MRI",
+      "code": "M50.20",
+      "description": "Cervical Disc Displacement"
+    }
+  ],
+  "imaging": [
+    {
+      "modality": "XR Cervical Spine",
+      "date": "2025-07-09",
+      "impression_contains": [
+        "Straightening of cervical lordosis.",
+        "No fracture or dislocation."
+      ]
+    },
+    {
+      "modality": "XR Lumbar Spine",
+      "date": "2025-07-09",
+      "impression_contains": [
+        "Straightening of cervical lordosis.",
+        "No fracture or dislocation."
+      ]
+    },
+    {
+      "modality": "MRI Cervical Spine",
+      "date": "2025-08-17",
+      "impression_contains": [
+        "C5-C6: 3mm central disc protrusion indenting thecal sac.",
+        "L4-L5: Mild bulge without stenosis."
+      ]
+    }
+  ],
+  "procedures": [],
+  "med_changes": [
+    {
+      "date": "2025-07-09",
+      "type": "START",
+      "medication": "Flexeril 10mg",
+      "reason": "Muscle Spasm"
+    },
+    {
+      "date": "2025-07-09",
+      "type": "START",
+      "medication": "Ibuprofen 800mg",
+      "reason": "Pain"
+    }
+  ],
+  "work_status": [],
+  "treatment_gaps": [
+    {
+      "start_date": "2025-08-13",
+      "end_date": "2025-09-29",
+      "days": 47,
+      "notes": "Gap in PT attendance."
+    }
+  ],
+  "prior_history_flags": []
+}

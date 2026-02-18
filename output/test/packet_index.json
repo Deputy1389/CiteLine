@@ -1,0 +1,58 @@
+[
+  {
+    "filename": "ED_Visit_2025-04-04.pdf",
+    "doc_type": "ED Notes",
+    "date": "2025-04-04",
+    "start_page": 1,
+    "end_page": 3,
+    "page_count": 3
+  },
+  {
+    "filename": "PCP_Referral_2025-04-11.pdf",
+    "doc_type": "Misc",
+    "date": "2025-04-11",
+    "start_page": 4,
+    "end_page": 5,
+    "page_count": 2
+  },
+  {
+    "filename": "PT_Eval_2025-04-14.pdf",
+    "doc_type": "PT Records",
+    "date": "2025-04-14",
+    "start_page": 6,
+    "end_page": 9,
+    "page_count": 4
+  },
+  {
+    "filename": "PT_DailyNotes_2025-04-16_2025-05-07.pdf",
+    "doc_type": "PT Records",
+    "date": "2025-05-07",
+    "start_page": 10,
+    "end_page": 19,
+    "page_count": 10
+  },
+  {
+    "filename": "PT_DailyNotes_2025-05-09_2025-05-31.pdf",
+    "doc_type": "PT Records",
+    "date": "2025-05-31",
+    "start_page": 20,
+    "end_page": 29,
+    "page_count": 10
+  },
+  {
+    "filename": "PT_DailyNotes_2025-06-03_2025-06-25.pdf",
+    "doc_type": "PT Records",
+    "date": "2025-06-25",
+    "start_page": 30,
+    "end_page": 39,
+    "page_count": 10
+  },
+  {
+    "filename": "PT_DailyNotes_2025-06-27_2025-06-30.pdf",
+    "doc_type": "PT Records",
+    "date": "2025-06-30",
+    "start_page": 40,
+    "end_page": 41,
+    "page_count": 2
+  }
+]
