@@ -796,6 +796,178 @@ class TestGeneratePdf:
         assert "appendix a: medications (material changes)" in text
         assert "opioid switch detected (oxycodone -> hydrocodone, oxycodone)" not in text
 
+    def test_no_unknownwhat_seam(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="u1",
+                    date_display="2024-01-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Hospital Admission",
+                    patient_label="P10",
+                    facts=["Hospital admission documented."],
+                    citation_display="r.pdf p. 1",
+                    confidence=90,
+                )
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection("Seam Check", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+        assert "UnknownWhat Happened" not in text
+
+    def test_no_dot_pdf_spacing_in_pages_ref(self):
+        from apps.worker.steps.step12_export import _pages_ref
+
+        evt = _make_event(event_id="p-ref")
+        evt.source_page_numbers = [1]
+        ref = _pages_ref(evt, page_map={1: ("PAGES . pdf\n", 7)})
+        assert ". pdf" not in ref
+        assert "PAGES.pdf p. 7" in ref
+
+    def test_top10_dedupe_and_bucket_caps(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        entries = []
+        for idx in range(1, 7):
+            entries.append(
+                ChronologyProjectionEntry(
+                    event_id=f"adm{idx}",
+                    date_display=f"2024-01-{idx:02d} (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Hospital Admission",
+                    patient_label="PX",
+                    facts=["Hospital admission documented."],
+                    citation_display=f"a.pdf p. {idx}",
+                    confidence=80 + idx,
+                )
+            )
+        entries.append(
+            ChronologyProjectionEntry(
+                event_id="ed1",
+                date_display="2024-02-01 (time not documented)",
+                provider_display="Unknown",
+                event_type_display="Emergency Visit",
+                patient_label="PX",
+                facts=["Emergency visit documented."],
+                citation_display="e.pdf p. 1",
+                confidence=90,
+            )
+        )
+        entries.append(
+            ChronologyProjectionEntry(
+                event_id="proc1",
+                date_display="2024-03-01 (time not documented)",
+                provider_display="Unknown",
+                event_type_display="Procedure/Surgery",
+                patient_label="PX",
+                facts=["Procedure documented."],
+                citation_display="p.pdf p. 1",
+                confidence=95,
+            )
+        )
+        projection = ChronologyProjection(generated_at=datetime.now(timezone.utc), entries=entries)
+        pdf_bytes = generate_pdf_from_projection("Top10 Caps", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+        top10_slice = text.split("Top 10 Case-Driving Events", 1)[1].split("Appendix A:", 1)[0]
+        assert top10_slice.count("Hospital Admission") <= 3
+        assert "Citation(s): Not available" not in top10_slice
+
+    def test_med_changes_dedupes_strength_vs_formulation_same_day(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="mc1",
+                    date_display="2024-01-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="PM",
+                    facts=["Medication review: acetaminophen 325 mg tablet."],
+                    citation_display="m.pdf p. 1",
+                    confidence=80,
+                ),
+                ChronologyProjectionEntry(
+                    event_id="mc2",
+                    date_display="2024-02-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="PM",
+                    facts=["Changed to acetaminophen 300 mg ER capsule."],
+                    citation_display="m.pdf p. 2",
+                    confidence=80,
+                ),
+                ChronologyProjectionEntry(
+                    event_id="mc3",
+                    date_display="2024-03-15 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="PM",
+                    facts=["Routine follow-up."],
+                    citation_display="m.pdf p. 3",
+                    confidence=75,
+                ),
+                ChronologyProjectionEntry(
+                    event_id="mc4",
+                    date_display="2024-04-15 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="PM",
+                    facts=["Routine follow-up."],
+                    citation_display="m.pdf p. 4",
+                    confidence=75,
+                ),
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection("Med Dedupe", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count)).lower()
+        appendix_a = text.split("appendix a: medications", 1)[1].split("appendix b:", 1)[0]
+        feb_lines = [ln for ln in appendix_a.splitlines() if "2024-02-01" in ln and "acetaminophen" in ln]
+        assert len(feb_lines) == 1
+
+    def test_sanitizer_strips_colon_dot_and_truncated_fragments(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="sd1",
+                    date_display="2024-01-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="PS",
+                    facts=["Preferred language:.", "Worried about l."],
+                    citation_display="s.pdf p. 1",
+                    confidence=70,
+                )
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection("Sanitizer Edge", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+        assert ":." not in text
+        assert "Worried about l." not in text
+
 
 # ── CSV sanity ────────────────────────────────────────────────────────────
 

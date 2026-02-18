@@ -114,6 +114,18 @@ def _clean_narrative_text(text: str | None) -> str:
     return cleaned
 
 
+def _sanitize_filename_display(fname: str) -> str:
+    cleaned = re.sub(r"\s*\.\s*(pdf|PDF)\b", r".\1", fname or "")
+    cleaned = re.sub(r"\s+", " ", cleaned).replace("\n", " ").strip()
+    return cleaned
+
+
+def _sanitize_citation_display(citation: str) -> str:
+    cleaned = re.sub(r"\s*\.\s*(pdf|PDF)\b", r".\1", citation or "")
+    cleaned = re.sub(r"\s+", " ", cleaned).replace("\n", " ").strip()
+    return cleaned
+
+
 
 def _pages_ref(event: Event, page_map: dict[int, tuple[str, int]] | None = None) -> str:
     """Format page references with optional filenames."""
@@ -130,7 +142,7 @@ def _pages_ref(event: Event, page_map: dict[int, tuple[str, int]] | None = None)
         for p in display_pages:
             if page_map and p in page_map:
                 fname, local_p = page_map[p]
-                refs.append(f"{fname} p. {local_p}")
+                refs.append(f"{_sanitize_filename_display(fname)} p. {local_p}")
             else:
                 refs.append(f"p. {p}")
         refs.append(f"... (+{len(pages)-3} more)")
@@ -145,7 +157,7 @@ def _pages_ref(event: Event, page_map: dict[int, tuple[str, int]] | None = None)
     for p in pages:
         if p in page_map:
             fname, local_p = page_map[p]
-            refs.append(f"{fname} p. {local_p}")
+            refs.append(f"{_sanitize_filename_display(fname)} p. {local_p}")
         else:
             refs.append(f"p. {p}")
     
@@ -372,13 +384,19 @@ def _build_projection_flowables(
         return None
 
     def _sanitize_top10_sentence(text: str) -> str:
-        cleaned = re.sub(r"\s+", " ", (text or "").strip())
+        cleaned = re.sub(r"\s+", " ", (text or "").replace("\n", " ").strip())
+        cleaned = cleaned.replace(":.", ".")
         while ".." in cleaned:
             cleaned = cleaned.replace("..", ".")
         cleaned = re.sub(r"\.\s*(?=[A-Za-z])", ". ", cleaned)
-        cleaned = cleaned.strip(" ;")
-        if cleaned and not cleaned.endswith("."):
+        cleaned = re.sub(r"\s{2,}", " ", cleaned)
+        cleaned = re.sub(r"[:;,]\s*$", "", cleaned).strip()
+        cleaned = re.sub(r"\b([A-Za-z])\.\s*$", "", cleaned).strip()
+        if len(cleaned) < 8:
+            return ""
+        if cleaned and cleaned[-1] not in ".!?":
             cleaned += "."
+        cleaned = re.sub(r"[.!?]{2,}$", ".", cleaned)
         return cleaned
 
     def _sanitize_render_sentence(text: str) -> str:
@@ -391,7 +409,7 @@ def _build_projection_flowables(
         if len(dated) < 2:
             return []
 
-        changes: list[str] = []
+        changes: list[dict] = []
         seen_any_date = False
         last_by_ing: dict[str, dict] = {}
         last_seen_idx: dict[str, int] = {}
@@ -414,6 +432,26 @@ def _build_projection_flowables(
             r"\b(not taking|denies taking|allergy|allergic to|intolerance|history of)\b",
             re.IGNORECASE,
         )
+        def _add_change(
+            entry_date: date,
+            ingredient: str,
+            category: str,
+            text: str,
+            *,
+            is_opioid: bool = False,
+            parse_confidence: float = 1.0,
+        ) -> None:
+            changes.append(
+                {
+                    "date": entry_date,
+                    "ingredient": ingredient,
+                    "category": category,
+                    "text": _sanitize_render_sentence(text),
+                    "is_opioid": bool(is_opioid),
+                    "parse_confidence": float(parse_confidence or 0.0),
+                }
+            )
+
         for idx, (entry, entry_date) in enumerate(dated):
             current_mentions: list[dict] = []
             entry_has_change_cue = False
@@ -438,17 +476,36 @@ def _build_projection_flowables(
             continued_opioids = current_opioids & last_opioids
             if last_opioids and current_opioids and current_opioids != last_opioids and entry_has_change_cue:
                 if len(last_opioids) == 1 and len(current_opioids) == 1 and not continued_opioids:
-                    changes.append(
-                        f"{entry_date}: Opioid switch detected ({next(iter(sorted(last_opioids)))} -> {next(iter(sorted(current_opioids)))})."
+                    _add_change(
+                        entry_date,
+                        "__opioid_regimen__",
+                        "opioid_regimen_change",
+                        f"{entry_date}: Opioid switch detected ({next(iter(sorted(last_opioids)))} -> {next(iter(sorted(current_opioids)))}).",
+                        is_opioid=True,
+                        parse_confidence=0.9,
                     )
                 else:
-                    changes.append(f"{entry_date}: Opioid regimen changed (multiple agents detected; sequence ambiguous).")
+                    _add_change(
+                        entry_date,
+                        "__opioid_regimen__",
+                        "opioid_regimen_change",
+                        f"{entry_date}: Opioid regimen changed (multiple agents detected; sequence ambiguous).",
+                        is_opioid=True,
+                        parse_confidence=0.8,
+                    )
 
             for med in current_mentions_unique:
                 ing = med["ingredient"]
                 prev = last_by_ing.get(ing)
                 if prev is None and seen_any_date and entry_has_change_cue:
-                    changes.append(f"{entry_date}: Started {med['label']}.")
+                    _add_change(
+                        entry_date,
+                        ing,
+                        "started_stopped",
+                        f"{entry_date}: Started {med['label']}.",
+                        is_opioid=bool(med.get("is_opioid")),
+                        parse_confidence=float(med.get("parse_confidence") or 0.0),
+                    )
                 elif prev is not None:
                     try:
                         prev_strength = float(prev["strength"]) if prev.get("strength") else None
@@ -485,19 +542,43 @@ def _build_projection_flowables(
                             opposite = (entry_date, ing, "decreased" if direction == "increased" else "increased")
                             if opposite not in emitted_direction and key not in emitted_direction:
                                 emitted_direction.add(key)
-                                changes.append(
-                                    f"{entry_date}: {ing} dose {direction} ({prev_strength:g} mg -> {cur_strength:g} mg)."
+                                _add_change(
+                                    entry_date,
+                                    ing,
+                                    "opioid_dose_change",
+                                    f"{entry_date}: {ing} dose {direction} ({prev_strength:g} mg -> {cur_strength:g} mg).",
+                                    is_opioid=True,
+                                    parse_confidence=min(
+                                        float(prev.get("parse_confidence") or 0.0),
+                                        float(med.get("parse_confidence") or 0.0),
+                                    ),
                                 )
                         else:
-                            changes.append(f"{entry_date}: {ing} strength variation detected (dose change <20%).")
+                            _add_change(
+                                entry_date,
+                                ing,
+                                "strength_changed",
+                                f"{entry_date}: {ing} strength variation detected (dose change <20%).",
+                                is_opioid=bool(med.get("is_opioid")),
+                                parse_confidence=float(med.get("parse_confidence") or 0.0),
+                            )
                     elif prev.get("strength") and med.get("strength") and prev.get("strength") != med.get("strength"):
-                        if prev.get("unit") == med.get("unit") == "mg" and med.get("is_opioid"):
-                            changes.append(f"{entry_date}: {ing} strength changed (dose not reliably parseable).")
-                        else:
-                            changes.append(f"{entry_date}: {ing} strength/formulation changed (dose not reliably parseable).")
+                        _add_change(
+                            entry_date,
+                            ing,
+                            "strength_changed",
+                            f"{entry_date}: {ing} strength/formulation changed (dose not reliably parseable).",
+                            is_opioid=bool(med.get("is_opioid")),
+                            parse_confidence=float(med.get("parse_confidence") or 0.0),
+                        )
                     if prev.get("form") != med.get("form"):
-                        changes.append(
-                            f"{entry_date}: {ing} formulation changed ({prev.get('form', 'unspecified')} -> {med.get('form', 'unspecified')})."
+                        _add_change(
+                            entry_date,
+                            ing,
+                            "formulation_changed",
+                            f"{entry_date}: {ing} formulation changed ({prev.get('form', 'unspecified')} -> {med.get('form', 'unspecified')}).",
+                            is_opioid=bool(med.get("is_opioid")),
+                            parse_confidence=float(med.get("parse_confidence") or 0.0),
                         )
                 last_by_ing[ing] = med
                 last_seen_idx[ing] = idx
@@ -509,16 +590,53 @@ def _build_projection_flowables(
         for ing, idx in last_seen_idx.items():
             if (total_dates - idx - 1) >= 2:
                 stop_date = date_buckets[min(idx + 2, total_dates - 1)][0]
-                changes.append(f"{stop_date}: Stopped {ing} (not present in subsequent encounters).")
+                _add_change(
+                    stop_date,
+                    ing,
+                    "started_stopped",
+                    f"{stop_date}: Stopped {ing} (not present in subsequent encounters).",
+                    is_opioid=bool((last_by_ing.get(ing) or {}).get("is_opioid")),
+                    parse_confidence=float((last_by_ing.get(ing) or {}).get("parse_confidence") or 0.0),
+                )
 
+        priority = {
+            "opioid_dose_change": 5,
+            "opioid_regimen_change": 4,
+            "started_stopped": 3,
+            "strength_changed": 2,
+            "formulation_changed": 1,
+        }
+        best_by_key: dict[tuple[date, str], dict] = {}
+        for row in changes:
+            if not row.get("text"):
+                continue
+            key = (row["date"], row["ingredient"])
+            existing = best_by_key.get(key)
+            row_prio = priority.get(str(row.get("category") or ""), 0)
+            if existing is None:
+                best_by_key[key] = row
+                continue
+            existing_prio = priority.get(str(existing.get("category") or ""), 0)
+            if row_prio > existing_prio:
+                best_by_key[key] = row
+            elif row_prio == existing_prio and str(row.get("text", "")) < str(existing.get("text", "")):
+                best_by_key[key] = row
+
+        ordered = sorted(best_by_key.values(), key=lambda r: (r["date"], r["ingredient"], r.get("text", "")))
+        rendered: list[str] = []
         seen: set[str] = set()
-        dedup: list[str] = []
-        for item in changes:
-            key = item.lower().strip()
+        for row in ordered:
+            txt = str(row.get("text") or "")
+            # Final guardrail: forbid numeric dose deltas unless high-confidence opioid.
+            if re.search(r"\bdose (increased|decreased)\b", txt, re.IGNORECASE):
+                if (not row.get("is_opioid")) or float(row.get("parse_confidence") or 0.0) < 0.8:
+                    ingredient = str(row.get("ingredient") or "medication")
+                    txt = f"{row['date']}: {ingredient} strength/formulation changed (dose not reliably parseable)."
+            key = txt.lower().strip()
             if key and key not in seen:
                 seen.add(key)
-                dedup.append(item)
-        return dedup[:12]
+                rendered.append(_sanitize_render_sentence(txt))
+        return [r for r in rendered if r][:12]
 
     def _extract_medication_change_rows(entries: list) -> list[dict]:
         dated = [(entry, _extract_date(entry.date_display)) for entry in entries]
@@ -566,7 +684,7 @@ def _build_projection_flowables(
                         "is_opioid": True,
                         "is_regimen_change": True,
                         "parse_confidence": max((float(m.get("parse_confidence") or 0.0) for m in opioid_mentions), default=0.0),
-                        "citation": (entry.citation_display or "").strip(),
+                        "citation": _sanitize_citation_display((entry.citation_display or "").strip()),
                     }
                 )
             if current_opioids:
@@ -622,7 +740,9 @@ def _build_projection_flowables(
                 if not text:
                     continue
                 if pro_re.search(text) or phrasing_re.search(text):
-                    pro.add(text[:160])
+                    cleaned = _sanitize_render_sentence(text[:160])
+                    if len(cleaned) >= 8 and not re.search(r"\b[a-z]\.$", cleaned, re.IGNORECASE):
+                        pro.add(cleaned)
         return sorted(pro)[:12]
 
     def _extract_sdoh_items(entries: list) -> list[str]:
@@ -631,7 +751,9 @@ def _build_projection_flowables(
             for fact in entry.facts:
                 text = sanitize_for_report(fact)
                 if text and _is_sdoh_noise(text):
-                    sdoh.add(text[:160])
+                    cleaned = _sanitize_render_sentence(text[:160])
+                    if len(cleaned) >= 8 and not re.search(r"\b[a-z]\.$", cleaned, re.IGNORECASE):
+                        sdoh.add(cleaned)
         return sorted(sdoh)[:20]
 
     def _event_citation_from_raw(evt: Event) -> str:
@@ -642,7 +764,7 @@ def _build_projection_flowables(
         for p in pages[:5]:
             if page_map and p in page_map:
                 fname, local = page_map[p]
-                refs.append(f"{fname} p. {local}")
+                refs.append(f"{_sanitize_filename_display(fname)} p. {local}")
             else:
                 refs.append(f"p. {p}")
         return ", ".join(refs)
@@ -864,7 +986,7 @@ def _build_projection_flowables(
             else:
                 continue
 
-            citation = (entry.citation_display or "").strip()
+            citation = _sanitize_citation_display((entry.citation_display or "").strip())
             if not citation:
                 continue
             reason, assessment, intervention, _ = _encounter_fields(entry, disposition, entry.patient_label)
@@ -880,10 +1002,12 @@ def _build_projection_flowables(
                     "score": bucket_weight[bucket] + int(getattr(entry, "confidence", 0) or 0),
                     "date": entry.date_display,
                     "event_id": entry.event_id,
+                    "patient_label": entry.patient_label,
                     "label": entry.event_type_display,
                     "narrative": sentence,
                     "citation": citation,
                     "citation_count": _citation_count(citation),
+                    "event_type_display": entry.event_type_display,
                 }
             )
 
@@ -894,7 +1018,7 @@ def _build_projection_flowables(
                     continue
                 if float(row.get("parse_confidence") or 0.0) < 0.8 and not row.get("is_regimen_change"):
                     continue
-                citation = (row.get("citation") or "").strip()
+                citation = _sanitize_citation_display((row.get("citation") or "").strip())
                 if not citation:
                     continue
                 body = _sanitize_top10_sentence(str(row.get("text") or ""))
@@ -904,10 +1028,12 @@ def _build_projection_flowables(
                         "score": bucket_weight["opioid_regimen_change"] + 50,
                         "date": row["date_display"],
                         "event_id": f"med:{label}:{row['date']}:{hashlib.sha1(body.encode('utf-8')).hexdigest()[:8]}",
+                        "patient_label": label,
                         "label": "Opioid Regimen Change",
                         "narrative": body,
                         "citation": citation,
                         "citation_count": _citation_count(citation),
+                        "event_type_display": "Opioid Regimen Change",
                     }
                 )
 
@@ -924,7 +1050,9 @@ def _build_projection_flowables(
                 continue
             if duration < 180 and tag not in allowed_short_tags:
                 continue
-            citation = f"{row['last_before']['citation_display']} | {row['first_after']['citation_display']}".strip(" |")
+            citation = _sanitize_citation_display(
+                f"{row['last_before']['citation_display']} | {row['first_after']['citation_display']}".strip(" |")
+            )
             if not citation:
                 continue
             candidates.append(
@@ -933,18 +1061,17 @@ def _build_projection_flowables(
                     "score": bucket_weight["material_gap"] + duration,
                     "date": f"{row['gap'].start_date} (time not documented)",
                     "event_id": f"gap:{row['patient_label']}:{row['gap'].gap_id}",
+                    "patient_label": row["patient_label"],
                     "label": "Treatment Gap",
                     "narrative": _sanitize_top10_sentence(f"{row['patient_label']} gap of {duration} days ({tag})"),
                     "citation": citation,
                     "citation_count": _citation_count(citation),
+                    "event_type_display": "Treatment Gap",
+                    "rationale_tag": tag,
                 }
             )
 
         candidates.sort(key=lambda c: (-c["score"], -int(c.get("citation_count", 0)), c["date"], c["event_id"]))
-        by_bucket: dict[str, list[dict]] = defaultdict(list)
-        for c in candidates:
-            by_bucket[c["bucket"]].append(c)
-
         priority = [
             "death",
             "hospice",
@@ -957,35 +1084,84 @@ def _build_projection_flowables(
             "opioid_regimen_change",
             "material_gap",
         ]
+        bucket_rank = {b: i for i, b in enumerate(priority)}
         selected: list[dict] = []
         used_ids: set[str] = set()
+        seen_keys: set[tuple[str, str, str]] = set()
+        bucket_patient_counts: dict[tuple[str, str], int] = defaultdict(int)
+        admission_total = 0
+
+        def _candidate_key(c: dict) -> tuple[str, str, str]:
+            patient = str(c.get("patient_label") or "Unknown Patient")
+            bucket = str(c.get("bucket") or "")
+            if bucket == "material_gap":
+                return (patient, bucket, str(c.get("rationale_tag") or ""))
+            return (patient, bucket, str(c.get("event_type_display") or c.get("label") or ""))
+
+        def _can_take(c: dict) -> bool:
+            nonlocal admission_total
+            if c["event_id"] in used_ids:
+                return False
+            if not str(c.get("citation") or "").strip():
+                return False
+            if c.get("bucket") == "material_gap":
+                tag = str(c.get("rationale_tag") or "")
+                if tag in {"routine_continuity_gap", "routine_continuity_gap_collapsed", ""}:
+                    return False
+            key = _candidate_key(c)
+            if key in seen_keys:
+                return False
+            patient = str(c.get("patient_label") or "Unknown Patient")
+            bucket = str(c.get("bucket") or "")
+            if bucket_patient_counts[(patient, bucket)] >= 2:
+                return False
+            if bucket == "admission" and admission_total >= 3:
+                return False
+            return True
+
+        def _take(c: dict) -> None:
+            nonlocal admission_total
+            patient = str(c.get("patient_label") or "Unknown Patient")
+            bucket = str(c.get("bucket") or "")
+            selected.append(c)
+            used_ids.add(c["event_id"])
+            seen_keys.add(_candidate_key(c))
+            bucket_patient_counts[(patient, bucket)] += 1
+            if bucket == "admission":
+                admission_total += 1
+
+        # First pass: one item per bucket by priority.
         for bucket in priority:
-            if by_bucket.get(bucket):
-                cand = by_bucket[bucket][0]
-                if cand["event_id"] not in used_ids:
-                    selected.append(cand)
-                    used_ids.add(cand["event_id"])
+            bucket_candidates = [c for c in candidates if c.get("bucket") == bucket]
+            for cand in bucket_candidates:
+                if _can_take(cand):
+                    _take(cand)
+                    break
             if len(selected) >= 10:
                 break
 
         # Diversity rule: ensure >=3 buckets when available.
-        if len({item["bucket"] for item in selected}) < 3:
+        available_buckets = {c["bucket"] for c in candidates}
+        need_diversity = min(3, len(available_buckets))
+        if len({item["bucket"] for item in selected}) < need_diversity:
             for cand in candidates:
-                if cand["event_id"] in used_ids:
+                if not _can_take(cand):
                     continue
-                selected.append(cand)
-                used_ids.add(cand["event_id"])
-                if len({item["bucket"] for item in selected}) >= 3 or len(selected) >= 10:
+                if cand["bucket"] in {item["bucket"] for item in selected} and len({item["bucket"] for item in selected}) < need_diversity:
+                    continue
+                _take(cand)
+                if len({item["bucket"] for item in selected}) >= need_diversity or len(selected) >= 10:
                     break
 
         if len(selected) < 10:
             for cand in candidates:
-                if cand["event_id"] in used_ids:
+                if not _can_take(cand):
                     continue
-                selected.append(cand)
-                used_ids.add(cand["event_id"])
+                _take(cand)
                 if len(selected) >= 10:
                     break
+
+        selected.sort(key=lambda c: (bucket_rank.get(c["bucket"], 999), -int(c.get("score", 0)), -int(c.get("citation_count", 0)), c["date"], c["event_id"]))
         return selected[:10]
 
     def _contradiction_flags(entries: list) -> list[str]:
@@ -1018,6 +1194,16 @@ def _build_projection_flowables(
             "rehab_snf_transition_gap",
         }
         entry_by_id = {e.event_id: e for ents in entries_by_patient.values() for e in ents}
+        hospice_dates_by_patient: dict[str, list[date]] = defaultdict(list)
+        for plabel, ents in entries_by_patient.items():
+            for ent in ents:
+                dt = _extract_date(ent.date_display)
+                if dt is None:
+                    continue
+                if _extract_disposition(ent.facts) == "Hospice" or re.search(r"\bhospice\b", " ".join(ent.facts).lower()):
+                    hospice_dates_by_patient[plabel].append(dt)
+        for plabel in list(hospice_dates_by_patient.keys()):
+            hospice_dates_by_patient[plabel].sort()
 
         def _entry_from_raw(evt: Event) -> dict:
             raw_type = evt.event_type.value
@@ -1042,10 +1228,14 @@ def _build_projection_flowables(
                 "facts_blob": " ".join((f.text or "") for f in evt.facts).lower(),
             }
 
-        def _rationale(prev_row: dict, patient_local: str) -> str | None:
+        def _rationale(prev_row: dict, patient_local: str, gap_start: date | None) -> str | None:
             et = (prev_row.get("event_type_display", "") or "").lower()
             facts = prev_row.get("facts_blob", "")
-            if "hospice" in facts and patient_local == patient_label:
+            had_hospice_before_gap = bool(
+                gap_start
+                and any(hd <= gap_start for hd in hospice_dates_by_patient.get(patient_local, []))
+            )
+            if "hospice" in facts and had_hospice_before_gap:
                 return "hospice_continuity_break"
             if "skilled nursing" in facts or "snf" in facts or "rehab" in facts:
                 return "rehab_snf_transition_gap"
@@ -1101,7 +1291,7 @@ def _build_projection_flowables(
             if not last_before or not first_after:
                 continue
 
-            rationale_tag = _rationale(last_before, patient_label)
+            rationale_tag = _rationale(last_before, patient_label, gap.start_date)
             duration = int(gap.duration_days or 0)
             if rationale_tag in acute_tags:
                 is_material = duration >= 60
@@ -1241,7 +1431,7 @@ def _build_projection_flowables(
         reason, assessment, intervention, outcome = _encounter_fields(entry, disposition, entry.patient_label)
         parts: list = [
             Paragraph(f"{entry.date_display} | Encounter: {entry.event_type_display}", date_style),
-            Paragraph(f"Facility/Clinician: {entry.provider_display}", meta_style),
+            Paragraph(f"Facility/Clinician: {entry.provider_display} |", meta_style),
             Paragraph(
                 _sanitize_render_sentence(
                     f"What Happened: Reason: {reason}; Assessment: {assessment}; Intervention: {intervention}; Outcome: {outcome}"
@@ -1256,7 +1446,7 @@ def _build_projection_flowables(
             parts.append(Paragraph(_sanitize_render_sentence(f"Disposition: {disposition}"), fact_style))
         parts.extend(
             [
-                Paragraph(f"Citation(s): {entry.citation_display or 'Not available'}", meta_style),
+                Paragraph(f"Citation(s): {_sanitize_citation_display(entry.citation_display or 'Not available')}", meta_style),
                 Spacer(1, 0.15 * inch),
             ]
         )
@@ -1295,14 +1485,11 @@ def _build_projection_flowables(
     top_events = _top_case_events(projection.entries, grouped_entries, material_gap_rows)
     if top_events:
         for item in top_events:
-            flowables.append(
-                Paragraph(
-                    _sanitize_render_sentence(
-                        f"• {item['date']} | {item['label']} | {item['narrative']} | Citation(s): {item['citation']}"
-                    ),
-                    fact_style,
-                )
+            line = _sanitize_render_sentence(
+                f"• {item['date']} | {item['label']} | {item['narrative']} | Citation(s): {item['citation']}"
             )
+            if line:
+                flowables.append(Paragraph(line, fact_style))
     else:
         flowables.append(Paragraph("No high-priority events identified.", fact_style))
 
@@ -1318,7 +1505,9 @@ def _build_projection_flowables(
         has_med = True
         flowables.append(Paragraph(f"{label}:", meta_style))
         for med in med_rows:
-            flowables.append(Paragraph(_sanitize_render_sentence(f"• {med}"), fact_style))
+            line = _sanitize_render_sentence(f"• {med}")
+            if line:
+                flowables.append(Paragraph(line, fact_style))
     if not has_med:
         flowables.append(Paragraph("No material medication changes identified in reportable events.", fact_style))
 
@@ -1332,7 +1521,9 @@ def _build_projection_flowables(
         has_dx = True
         flowables.append(Paragraph(f"{label}:", meta_style))
         for dx in dxs:
-            flowables.append(Paragraph(_sanitize_render_sentence(f"• {dx}"), fact_style))
+            line = _sanitize_render_sentence(f"• {dx}")
+            if line:
+                flowables.append(Paragraph(line, fact_style))
     if not has_dx:
         flowables.append(Paragraph("No diagnosis/problem statements found in provided record text (structured encounter labels only).", fact_style))
 
@@ -1346,7 +1537,9 @@ def _build_projection_flowables(
         has_pro = True
         flowables.append(Paragraph(f"{label}:", meta_style))
         for item in pro_items:
-            flowables.append(Paragraph(_sanitize_render_sentence(f"• {item}"), fact_style))
+            line = _sanitize_render_sentence(f"• {item}")
+            if line:
+                flowables.append(Paragraph(line, fact_style))
     if not has_pro:
         flowables.append(Paragraph("No patient-reported outcome measures identified in reportable events.", fact_style))
 
@@ -1355,7 +1548,9 @@ def _build_projection_flowables(
     contradiction_items = _contradiction_flags(appendix_source_entries)
     if contradiction_items:
         for item in contradiction_items:
-            flowables.append(Paragraph(_sanitize_render_sentence(f"• {item}"), fact_style))
+            line = _sanitize_render_sentence(f"• {item}")
+            if line:
+                flowables.append(Paragraph(line, fact_style))
     else:
         flowables.append(Paragraph("No high-impact contradictions detected in projected events.", fact_style))
 
@@ -1364,7 +1559,9 @@ def _build_projection_flowables(
     sdoh_items = _extract_sdoh_items(appendix_source_entries)
     if sdoh_items:
         for item in sdoh_items:
-            flowables.append(Paragraph(_sanitize_render_sentence(f"• {item}"), fact_style))
+            line = _sanitize_render_sentence(f"• {item}")
+            if line:
+                flowables.append(Paragraph(line, fact_style))
     else:
         flowables.append(Paragraph("No material SDOH/intake items extracted.", fact_style))
 
@@ -1389,8 +1586,12 @@ def _build_projection_flowables(
             )
             def _field(obj, name: str) -> str:
                 if isinstance(obj, dict):
-                    return str(obj.get(name, ""))
-                return str(getattr(obj, name, ""))
+                    val = str(obj.get(name, ""))
+                else:
+                    val = str(getattr(obj, name, ""))
+                if name == "citation_display":
+                    return _sanitize_citation_display(val)
+                return val
             if last_before:
                 flowables.append(
                     Paragraph(
@@ -1549,9 +1750,27 @@ def generate_pdf_from_projection(
     if gaps:
         story.append(Spacer(1, 0.5 * inch))
         story.append(Paragraph("<b>Appendix C: Treatment Gaps</b>", styles["Heading2"]))
+        def _parse_projection_date(ds: str) -> date | None:
+            m = re.search(r"(\d{4}-\d{2}-\d{2})", ds or "")
+            if not m:
+                return None
+            try:
+                return date.fromisoformat(m.group(1))
+            except ValueError:
+                return None
         patient_by_event_id = {entry.event_id: entry.patient_label for entry in projection.entries}
         event_type_by_id = {entry.event_id: (entry.event_type_display or "") for entry in projection.entries}
         facts_by_id = {entry.event_id: " ".join(entry.facts).lower() for entry in projection.entries}
+        date_by_event_id = {entry.event_id: _parse_projection_date(entry.date_display) for entry in projection.entries}
+        hospice_dates_by_label: dict[str, list[date]] = defaultdict(list)
+        for entry in projection.entries:
+            dt = date_by_event_id.get(entry.event_id)
+            if dt is None:
+                continue
+            if re.search(r"\bhospice\b", " ".join(entry.facts).lower()):
+                hospice_dates_by_label[entry.patient_label].append(dt)
+        for lbl in list(hospice_dates_by_label.keys()):
+            hospice_dates_by_label[lbl].sort()
         scoped_gaps: dict[str, list[tuple[Gap, str, str | None]]] = defaultdict(list)
         unassigned_gaps: list[Gap] = []
         acute_tags = {
@@ -1571,7 +1790,12 @@ def generate_pdf_from_projection(
                 prev_facts = facts_by_id.get(prev_id, "")
                 prev_label = patient_by_event_id.get(prev_id)
                 rationale_tag = None
-                if "hospice" in prev_facts and prev_label == labels[0]:
+                gap_start = gap.start_date
+                had_hospice_before_gap = bool(
+                    gap_start
+                    and any(hd <= gap_start for hd in hospice_dates_by_label.get(labels[0], []))
+                )
+                if "hospice" in prev_facts and prev_label == labels[0] and had_hospice_before_gap:
                     rationale_tag = "hospice_continuity_break"
                 elif "skilled nursing" in prev_facts or "snf" in prev_facts or "rehab" in prev_facts:
                     rationale_tag = "rehab_snf_transition_gap"

@@ -400,13 +400,76 @@ def build_litigation_checklist(
     if "citation(s): not available" in top10_slice:
         quality_gates["Q8_attorney_usability_sections"]["pass"] = False
         quality_gates["Q8_attorney_usability_sections"]["details"].append(_issue("TOP10_ITEM_MISSING_CITATION", "Top 10 includes item lacking inline citation."))
+    if "unknownwhat happened" in lower_report:
+        quality_gates["Q8_attorney_usability_sections"]["pass"] = False
+        quality_gates["Q8_attorney_usability_sections"]["details"].append(_issue("UNKNOWNWHAT_SEAM", "Facility/Clinician and What Happened delimiter seam detected."))
+    dot_pdf_in_citations = any(
+        re.search(r"\.\s+pdf\b", (getattr(e, "citation_display", "") or ""), re.IGNORECASE)
+        for e in projection_entries
+    )
+    if dot_pdf_in_citations:
+        quality_gates["Q8_attorney_usability_sections"]["pass"] = False
+        quality_gates["Q8_attorney_usability_sections"]["details"].append(_issue("DOT_PDF_SPACING", "Citation filename contains '. pdf' spacing artifact."))
+    top10_lines = [ln.strip() for ln in top10_slice.splitlines() if ln.strip().startswith("•")]
+    top10_seen_keys: set[tuple[str, str, str]] = set()
+    top10_dup_count = 0
+    for ln in top10_lines:
+        low_ln = ln.lower()
+        patient_match = re.search(r"gap of \d+ days \(([^)]+)\)", low_ln)
+        if "treatment gap" in low_ln:
+            patient_match_2 = re.search(r"treatment gap \| ([^|]+) gap of", low_ln)
+            patient = (patient_match_2.group(1).strip() if patient_match_2 else "unknown")
+            tag = patient_match.group(1).strip() if patient_match else ""
+            key = (patient, "material_gap", tag)
+        else:
+            date_match = re.search(r"•\s*([0-9]{4}-[0-9]{2}-[0-9]{2})", low_ln)
+            dkey = date_match.group(1) if date_match else ""
+            label_match = re.search(r"\|\s*([^|]+)\s*\|", low_ln)
+            label = label_match.group(1).strip() if label_match else ""
+            key = (dkey, "event", label)
+        if key in top10_seen_keys:
+            top10_dup_count += 1
+        else:
+            top10_seen_keys.add(key)
+    if top10_dup_count > 0:
+        quality_gates["Q8_attorney_usability_sections"]["pass"] = False
+        quality_gates["Q8_attorney_usability_sections"]["details"].append(_issue("TOP10_DUPLICATE_ITEM", f"Top 10 contains duplicate keyed items: {top10_dup_count}"))
+    appendix_a_start = lower_report.find("appendix a: medications")
+    appendix_b_start = lower_report.find("appendix b:", appendix_a_start + 1) if appendix_a_start >= 0 else -1
+    appendix_a_slice = lower_report[appendix_a_start:appendix_b_start] if (appendix_a_start >= 0 and appendix_b_start > appendix_a_start) else ""
+    med_seen: set[tuple[str, str]] = set()
+    med_dup = 0
+    for ln in appendix_a_slice.splitlines():
+        m = re.search(r"•\s*(\d{4}-\d{2}-\d{2})\s*:\s*(?:started|stopped)\s+([a-z0-9/_-]+)|•\s*(\d{4}-\d{2}-\d{2})\s*:\s*([a-z0-9/_-]+)", ln.strip())
+        if not m:
+            continue
+        if m.group(1) and m.group(2):
+            key = (m.group(1), m.group(2))
+        else:
+            key = (m.group(3), m.group(4))
+        if key in med_seen:
+            med_dup += 1
+        else:
+            med_seen.add(key)
+    if med_dup > 0:
+        quality_gates["Q8_attorney_usability_sections"]["pass"] = False
+        quality_gates["Q8_attorney_usability_sections"]["details"].append(_issue("MED_SAME_DAY_DUPLICATE", f"Same-day duplicate med lines detected: {med_dup}"))
+    if re.search(r"(:\.|:\.\.|\b(?:about|of|to)\s+[a-z]\.$)", lower_report, re.MULTILINE):
+        quality_gates["Q8_attorney_usability_sections"]["pass"] = False
+        quality_gates["Q8_attorney_usability_sections"]["details"].append(_issue("PRO_SDOH_TRUNCATION_ARTIFACT", "Dangling punctuation or truncated fragment pattern detected."))
     if ".." in lower_report or "  " in lower_report:
         quality_gates["Q8_attorney_usability_sections"]["pass"] = False
         quality_gates["Q8_attorney_usability_sections"]["details"].append(_issue("FORMAT_SANITIZER_DEFECT", "Double punctuation or spacing artifacts detected."))
-    inpatient_repeat_hits = len(re.findall(r"inpatient course documented; ongoing monitoring and management", lower_report))
-    if inpatient_repeat_hits > 2:
+    inpatient_phrase = "inpatient course documented; ongoing monitoring and management"
+    patient_sections = re.split(r"(?im)^\s*patient:\s+", report_text or "")
+    inpatient_repeat_hits = 0
+    for sec in patient_sections:
+        c = sec.lower().count(inpatient_phrase)
+        if c > 2:
+            inpatient_repeat_hits += (c - 2)
+    if inpatient_repeat_hits > 0:
         quality_gates["Q8_attorney_usability_sections"]["details"].append(
-            _issue("INPATIENT_PROGRESS_PHRASE_REPEAT", f"Inpatient phrase repeated too often: {inpatient_repeat_hits}")
+            _issue("INPATIENT_PROGRESS_PHRASE_REPEAT", f"Inpatient phrase repeated too often in patient sections: {inpatient_repeat_hits}")
         )
 
     hard_pass = all(v["pass"] for v in hard_invariants.values())
@@ -428,7 +491,14 @@ def build_litigation_checklist(
     rubric -= int(max(0.0, vitals_ratio - MAX_VITALS_PRO_RATIO) * 100)
     rubric -= int(max(0.0, admin_ratio - MAX_ADMIN_RATIO) * 100)
     rubric -= min(20, 5 * sum(1 for q in quality_gates.values() if not q["pass"]))
-    rubric = max(0, rubric)
+    rubric = max(0, min(100, rubric))
+    polish_warning_count = sum(
+        1
+        for d in quality_gates["Q8_attorney_usability_sections"]["details"]
+        if d.get("code") in {"FORMAT_SANITIZER_DEFECT", "INPATIENT_PROGRESS_PHRASE_REPEAT"}
+    )
+    if hard_pass and quality_pass and polish_warning_count == 0:
+        rubric += 5
     pass_run = bool(hard_pass and quality_pass and rubric >= TARGET_SCORE)
 
     # per-patient metrics
