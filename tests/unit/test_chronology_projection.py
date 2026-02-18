@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from apps.worker.project.chronology import build_chronology_projection
+from apps.worker.project.chronology import build_chronology_projection, infer_page_patient_labels
 from packages.shared.models import (
     DateKind,
     DateSource,
@@ -75,3 +75,30 @@ def test_projection_provider_guard_for_radiology_non_imaging():
     projection = build_chronology_projection(events, providers)
     assert projection.entries
     assert projection.entries[0].provider_display == "Unknown"
+
+
+def test_projection_drops_vitals_only_inpatient_note():
+    event = _event(
+        "vitals-only",
+        EventType.INPATIENT_DAILY_NOTE,
+        [
+            "Body Height: 150 cm; Body Weight: 70 kg; Diastolic Blood Pressure: 80 mm[Hg]; Systolic Blood Pressure: 120 mm[Hg]",
+            "Heart rate: 70 /min; Respiratory rate: 14 /min; Pain severity score: 2",
+        ],
+        with_date=True,
+        provider_id=None,
+    )
+    projection = build_chronology_projection([event], providers=[])
+    assert projection.entries == []
+
+
+def test_infer_page_patient_labels_for_synthea_pattern():
+    labels = infer_page_patient_labels(
+        {
+            1: "Derek111 Lehner980\nSome encounter text",
+            2: "No patient header here",
+            3: "Patient Name: Jane Doe\nVisit details",
+        }
+    )
+    assert labels[1] == "Derek111 Lehner980"
+    assert labels[3] == "Jane Doe"

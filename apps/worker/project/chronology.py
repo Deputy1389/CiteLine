@@ -64,10 +64,93 @@ def _citation_display(event: Event, page_map: dict[int, tuple[str, int]] | None)
     return ", ".join(refs)
 
 
+def infer_page_patient_labels(page_text_by_number: dict[int, str] | None) -> dict[int, str]:
+    if not page_text_by_number:
+        return {}
+    labels: dict[int, str] = {}
+    synthea_name_re = re.compile(r"\b([A-Z][a-z]+[0-9]+)\s+([A-Z][A-Za-z'`-]+[0-9]+)\b")
+    patient_name_re = re.compile(r"(?im)\b(?:patient name|name)\s*:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b")
+    for page_number, text in page_text_by_number.items():
+        if not text:
+            continue
+        m = synthea_name_re.search(text)
+        if m:
+            labels[page_number] = f"{m.group(1)} {m.group(2)}"
+            continue
+        m2 = patient_name_re.search(text)
+        if m2:
+            labels[page_number] = m2.group(1).strip()
+    return labels
+
+
+def _event_patient_label(event: Event, page_patient_labels: dict[int, str] | None) -> str:
+    if not page_patient_labels:
+        return "Unknown Patient"
+    counts: dict[str, int] = {}
+    for page_number in set(event.source_page_numbers):
+        label = page_patient_labels.get(page_number)
+        if not label:
+            continue
+        counts[label] = counts.get(label, 0) + 1
+    if not counts:
+        return "Unknown Patient"
+    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
+
+
+def _is_vitals_heavy(text: str) -> bool:
+    low = text.lower()
+    vital_markers = [
+        "body height",
+        "body weight",
+        "bmi",
+        "blood pressure",
+        "heart rate",
+        "respiratory rate",
+        "pain severity",
+        "head occipital-frontal circumference",
+    ]
+    return sum(1 for marker in vital_markers if marker in low) >= 2
+
+
+def _is_high_value_event(event: Event, joined_raw: str) -> bool:
+    low = joined_raw.lower()
+    concept_hit = bool(procedure_canonicalization(joined_raw) or injury_canonicalization(joined_raw))
+    if concept_hit:
+        return True
+
+    high_priority_types = {
+        "er_visit",
+        "hospital_admission",
+        "hospital_discharge",
+        "discharge",
+        "procedure",
+        "imaging_study",
+    }
+    if event.event_type.value in high_priority_types:
+        if event.event_type.value == "imaging_study":
+            return bool(re.search(r"\b(impression|x-?ray|ct|mri|ultrasound|angiogram|fracture|tear|lesion)\b", low))
+        return True
+
+    severe_signal = bool(
+        re.search(
+            r"\b(phq-?9|depression|suicid|homeless|skilled nursing|emergency room|er visit|admission|discharge|opioid|hydrocodone|oxycodone|codeine)\b",
+            low,
+        )
+    )
+    if severe_signal:
+        return True
+
+    if _is_vitals_heavy(joined_raw):
+        return False
+
+    return False
+
+
 def build_chronology_projection(
     events: list[Event],
     providers: list[Provider],
     page_map: dict[int, tuple[str, int]] | None = None,
+    page_patient_labels: dict[int, str] | None = None,
     debug_sink: list[dict] | None = None,
 ) -> ChronologyProjection:
     entries: list[ChronologyProjectionEntry] = []
@@ -116,20 +199,20 @@ def build_chronology_projection(
 
         facts: list[str] = []
         joined_raw = " ".join(f.text for f in event.facts if f.text)
-        high_value = bool(procedure_canonicalization(joined_raw) or injury_canonicalization(joined_raw))
-        if not high_value:
-            high_value = bool(re.search(r"\b(impression|x-?ray|ct|mri|ultrasound|angiogram|fracture|tear|infection)\b", joined_raw, re.IGNORECASE))
+        high_value = _is_high_value_event(event, joined_raw)
         for fact in event.facts:
             if not is_reportable_fact(fact.text):
                 continue
             cleaned = sanitize_for_report(fact.text)
             if len(cleaned) > 280:
                 cleaned = cleaned[:280] + "..."
+            if _is_vitals_heavy(cleaned):
+                continue
             facts.append(cleaned)
             if len(facts) >= 3:
                 break
         # Minimum substance threshold for client timeline.
-        if not facts or (not high_value and len(facts) < 2):
+        if not high_value or not facts:
             if debug_sink is not None:
                 debug_sink.append({"event_id": event.event_id, "reason": "low_substance", "provider_id": event.provider_id})
             continue
@@ -147,6 +230,7 @@ def build_chronology_projection(
                 date_display=date_display,
                 provider_display=_provider_name(event, providers),
                 event_type_display=event.event_type.value.replace("_", " ").title(),
+                patient_label=_event_patient_label(event, page_patient_labels),
                 facts=facts,
                 citation_display=_citation_display(event, page_map),
                 confidence=event.confidence,

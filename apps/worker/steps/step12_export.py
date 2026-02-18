@@ -48,7 +48,7 @@ from apps.worker.steps.events.report_quality import (
     sanitize_for_report,
     surgery_classifier_guard,
 )
-from apps.worker.project.chronology import build_chronology_projection
+from apps.worker.project.chronology import build_chronology_projection, infer_page_patient_labels
 from apps.worker.project.models import ChronologyProjection
 
 
@@ -228,14 +228,32 @@ def _build_projection_flowables(projection: ChronologyProjection, styles) -> lis
     date_style = ParagraphStyle("ProjectionDateStyle", parent=styles["Normal"], fontSize=10, fontName="Helvetica-Bold", spaceAfter=2)
     meta_style = ParagraphStyle("ProjectionMetaStyle", parent=styles["Normal"], fontSize=8, textColor=colors.gray, spaceAfter=4)
     fact_style = ParagraphStyle("ProjectionFactStyle", parent=styles["Normal"], fontSize=9, leading=12, leftIndent=10, spaceAfter=2)
+    patient_style = ParagraphStyle("ProjectionPatientStyle", parent=styles["Heading3"], fontSize=11, spaceAfter=6, textColor=colors.HexColor("#2C3E50"))
 
-    for entry in projection.entries:
-        flowables.append(Paragraph(f"{entry.date_display} - {entry.event_type_display}", date_style))
-        if entry.citation_display:
-            flowables.append(Paragraph(f"Source: {entry.citation_display[:120]}", meta_style))
-        for fact in entry.facts:
-            flowables.append(Paragraph(f"- {fact}", fact_style))
-        flowables.append(Spacer(1, 0.15 * inch))
+    non_unknown_labels = sorted({e.patient_label for e in projection.entries if e.patient_label != "Unknown Patient"})
+    use_patient_sections = len(non_unknown_labels) > 1
+
+    if use_patient_sections:
+        grouped: dict[str, list] = {}
+        for entry in projection.entries:
+            grouped.setdefault(entry.patient_label, []).append(entry)
+        for label in sorted(grouped.keys()):
+            flowables.append(Paragraph(f"Patient: {label}", patient_style))
+            for entry in grouped[label]:
+                flowables.append(Paragraph(f"{entry.date_display} - {entry.event_type_display}", date_style))
+                if entry.citation_display:
+                    flowables.append(Paragraph(f"Source: {entry.citation_display[:120]}", meta_style))
+                for fact in entry.facts:
+                    flowables.append(Paragraph(f"- {fact}", fact_style))
+                flowables.append(Spacer(1, 0.15 * inch))
+    else:
+        for entry in projection.entries:
+            flowables.append(Paragraph(f"{entry.date_display} - {entry.event_type_display}", date_style))
+            if entry.citation_display:
+                flowables.append(Paragraph(f"Source: {entry.citation_display[:120]}", meta_style))
+            for fact in entry.facts:
+                flowables.append(Paragraph(f"- {fact}", fact_style))
+            flowables.append(Spacer(1, 0.15 * inch))
 
     return flowables
 
@@ -344,7 +362,15 @@ def generate_pdf_from_projection(
     )
 
     story.append(Paragraph("Medical Chronology Analysis", summary_header_style))
-    summary_text = _clean_narrative_text(narrative_synthesis) if narrative_synthesis else f"Chronology contains {len(projection.entries)} reportable events."
+    non_unknown_labels = sorted({e.patient_label for e in projection.entries if e.patient_label != "Unknown Patient"})
+    multi_patient = len(non_unknown_labels) > 1
+    if multi_patient:
+        summary_text = (
+            "Multiple patient identities detected in source records. "
+            "Chronology is grouped by inferred patient labels and excludes low-substance events."
+        )
+    else:
+        summary_text = _clean_narrative_text(narrative_synthesis) if narrative_synthesis else f"Chronology contains {len(projection.entries)} reportable events."
     story.append(Paragraph(summary_text.replace("\n", "<br/>"), summary_body_style))
 
     if projection.entries:
@@ -634,6 +660,7 @@ def render_exports(
     case_info: CaseInfo | None = None,
     all_citations: list[Citation] | None = None,
     narrative_synthesis: str | None = None,
+    page_text_by_number: dict[int, str] | None = None,
 ) -> ChronologyOutput:
     """
     Render all export formats, save to disk, and return ChronologyOutput.
@@ -643,7 +670,8 @@ def render_exports(
         f"chronology_generation_input: {len(events)} events "
         f"(provider_none_or_unknown={provider_none_count})"
     )
-    projection = build_chronology_projection(events, providers, page_map=page_map)
+    page_patient_labels = infer_page_patient_labels(page_text_by_number)
+    projection = build_chronology_projection(events, providers, page_map=page_map, page_patient_labels=page_patient_labels)
     exported_ids = [entry.event_id for entry in projection.entries]
 
     # PDF (projection-only path)

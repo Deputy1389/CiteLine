@@ -93,7 +93,8 @@ def run_eval():
         providers=providers,
         page_map=page_map,
         case_info=case_info,
-        all_citations=citations
+        all_citations=citations,
+        page_text_by_number={p.page_number: (p.text or "") for p in all_pages},
     )
     
     # Show Results summary

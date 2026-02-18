@@ -10,6 +10,7 @@ class ChronologyProjectionEntry(BaseModel):
     date_display: str
     provider_display: str
     event_type_display: str
+    patient_label: str = "Unknown Patient"
     facts: list[str] = Field(default_factory=list)
     citation_display: str = ""
     confidence: int = 0
@@ -18,4 +19,3 @@ class ChronologyProjectionEntry(BaseModel):
 class ChronologyProjection(BaseModel):
     generated_at: datetime
     entries: list[ChronologyProjectionEntry] = Field(default_factory=list)
-

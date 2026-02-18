@@ -49,9 +49,19 @@ def get_case_summary_data(events: List[ClinicalEvent]) -> Dict[str, Any]:
         if e.infections:
             complications.add("Wound infection")
 
+    mechanism = "Not established from records"
+    injury_terms = " ".join(i.lower() for i in get_injury_summary(events))
+    if "gunshot" in injury_terms or "gsw" in injury_terms:
+        mechanism = "Gunshot wound"
+    elif "fall" in injury_terms:
+        mechanism = "Fall-related injury"
+    elif "mvc" in injury_terms or "motor vehicle" in injury_terms:
+        mechanism = "Motor vehicle collision"
+
     return {
         "total_surgeries": get_total_surgeries(events),
         "treatment_timeframe": timeframe,
         "complications": sorted(list(complications)),
-        "injuries": get_injury_summary(events)
+        "injuries": get_injury_summary(events),
+        "mechanism": mechanism,
     }

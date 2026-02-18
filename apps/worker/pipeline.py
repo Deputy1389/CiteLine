@@ -388,7 +388,8 @@ def run_pipeline(run_id: str) -> None:
             page_map=page_map,
             case_info=case_info,
             all_citations=all_citations,
-            narrative_synthesis=narrative_synthesis
+            narrative_synthesis=narrative_synthesis,
+            page_text_by_number={p.page_number: (p.text or "") for p in all_pages},
         )
 
         # ── Step 13: Run receipt ──────────────────────────────────────────────

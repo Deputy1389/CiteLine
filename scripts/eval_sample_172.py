@@ -160,6 +160,7 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
         case_info=case_info,
         all_citations=all_citations,
         narrative_synthesis=narrative,
+        page_text_by_number={p.page_number: (p.text or "") for p in pages},
     )
 
     graph = EvidenceGraph(pages=pages, documents=docs, providers=providers, events=chronology_events, citations=all_citations)

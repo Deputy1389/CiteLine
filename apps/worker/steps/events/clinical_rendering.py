@@ -76,11 +76,17 @@ def render_case_summary(events: List[ClinicalEvent], case_info: Any) -> str:
     injury_date = timeframe.split(" -> ")[0] if "->" in timeframe else "Date not documented"
     if not re.match(r"^\d{4}-\d{2}-\d{2}$", injury_date):
         injury_date = "Date not documented"
+    injuries = data["injuries"][:5]
+    mechanism = data.get("mechanism", "Not established from records")
+    if mechanism == "Gunshot wound" and not any("gunshot" in i.lower() or "gsw" in i.lower() for i in injuries):
+        mechanism = "Not established from records"
+    if mechanism == "Not established from records" or not injuries:
+        injury_date = "Not established from records"
 
     lines = ["### 1) CASE SUMMARY"]
-    lines.append(f"Date of Injury: {injury_date}")
-    lines.append("Mechanism: Gunshot wound, right shoulder")
-    lines.append(f"Primary Injuries: {', '.join(data['injuries'][:5])}")
+    lines.append(f"Date of Injury: {injury_date if injury_date != 'Date not documented' else 'Not established from records'}")
+    lines.append(f"Mechanism: {mechanism}")
+    lines.append(f"Primary Injuries: {', '.join(injuries) if injuries else 'Not established from records'}")
     lines.append(f"Total Surgeries: {data['total_surgeries']}")
     lines.append(f"Major Complications: {', '.join(data['complications']) or 'None documented'}")
     lines.append(f"Treatment Timeframe: {timeframe}")
