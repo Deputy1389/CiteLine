@@ -180,7 +180,7 @@ def _parse_date_from_match(match: re.Match, pattern_index: int) -> date | None:
         else:
             return None
 
-        if 1 <= month <= 12 and 1 <= day <= 31 and 1990 <= year <= 2027:
+        if 1 <= month <= 12 and 1 <= day <= 31 and 1990 <= year <= 2200:
             return date(year, month, day)
     except (ValueError, IndexError):
         pass

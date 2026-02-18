@@ -76,7 +76,7 @@ def query_llm(text: str) -> str:
     3. Focus on clinical encounters, symptoms, and orders.
     
     Text:
-    {text[:100000]} 
+    {text[:10000]} 
     """
     # Truncate text to ~25k tokens roughly to avoid context limits if huge
     
@@ -94,8 +94,13 @@ def query_llm(text: str) -> str:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("run_id", nargs="?", help="Run ID to benchmark")
+    parser.add_argument("--key", help="OpenAI API Key")
     args = parser.parse_args()
     
+    # Set env var if key provided
+    if args.key:
+        os.environ["OPENAI_API_KEY"] = args.key
+
     with get_session() as session:
         if args.run_id:
             run = session.query(Run).filter_by(id=args.run_id).first()
@@ -110,23 +115,29 @@ def main():
             ) # Just grabbing *any* run for now to test
             
         if not run:
-            print("No suitable run found.")
+            print("No suitable run found.", flush=True)
             return
             
-        print(f"Benchmarking Run: {run.id}")
+        print(f"Benchmarking Run: {run.id}", flush=True)
         
         try:
             text = extract_text_from_run(run.id, session)
-            print(f"Extracted {len(text)} characters.")
+            print(f"Extracted {len(text)} characters.", flush=True)
             
             gold_standard_json = query_llm(text)
             
             out_path = Path(f"benchmark_gold_{run.id}.json")
             out_path.write_text(gold_standard_json, encoding="utf-8")
-            print(f"Saved Gold Standard to {out_path}")
+            print(f"Saved Gold Standard to {out_path}", flush=True)
             
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error during benchmark: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
 
 if __name__ == "__main__":
-    main()
+    print("Starting benchmark script...", flush=True)
+    try:
+        main()
+    except Exception as e:
+        print(f"Fatal error: {e}", flush=True)

@@ -82,7 +82,7 @@ def run_pipeline(run_id: str) -> None:
     all_warnings: list[Warning] = []
 
     try:
-        # â”€â”€ Load run from DB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Load run from DB ──────────────────────────────────────────────────
         with get_session() as session:
             run_row = session.query(RunORM).filter_by(id=run_id).first()
             if not run_row:
@@ -119,7 +119,7 @@ def run_pipeline(run_id: str) -> None:
             _fail_run(run_id, "No source documents found for this matter")
             return
 
-        # â”€â”€ Step 0: Validate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 0: Validate ──────────────────────────────────────────────────
         logger.info(f"[{run_id}] Step 0: Input validation")
         valid_docs, step_warnings = validate_inputs(source_documents, config)
         all_warnings.extend(step_warnings)
@@ -127,7 +127,7 @@ def run_pipeline(run_id: str) -> None:
             _fail_run(run_id, "No valid documents after validation")
             return
 
-        # â”€â”€ Step 1-2: Page split + text acquisition â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 1-2: Page split + text acquisition ───────────────────────
         all_pages = []
         total_ocr = 0
         page_offset = 0
@@ -152,17 +152,17 @@ def run_pipeline(run_id: str) -> None:
             _fail_run(run_id, "No pages extracted from any document")
             return
 
-        # â”€â”€ Step 3: Classify pages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 3: Classify pages ─────────────────────────────────────────
         logger.info(f"[{run_id}] Step 3: Page classification")
         all_pages, step_warnings = classify_pages(all_pages)
         all_warnings.extend(step_warnings)
 
-        # â”€â”€ Step 3a: Demographics extraction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 3a: Demographics extraction ────────────────────────────
         logger.info(f"[{run_id}] Step 3a: Demographics extraction")
         patient, step_warnings = extract_demographics(all_pages)
         all_warnings.extend(step_warnings)
 
-        # â”€â”€ Step 4: Document segmentation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 4: Document segmentation ──────────────────────────────────
         logger.info(f"[{run_id}] Step 4: Document segmentation")
         all_documents = []
         for doc in valid_docs:
@@ -171,16 +171,16 @@ def run_pipeline(run_id: str) -> None:
             all_warnings.extend(step_warnings)
             all_documents.extend(docs)
 
-        # â”€â”€ Step 5: Provider detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 5: Provider detection ───────────────────────────────────────
         logger.info(f"[{run_id}] Step 5: Provider detection")
         providers, page_provider_map, step_warnings = detect_providers(all_pages, all_documents)
         all_warnings.extend(step_warnings)
 
-        # â”€â”€ Step 6: Date extraction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 6: Date extraction ───────────────────────────────────────────
         logger.info(f"[{run_id}] Step 6: Date extraction")
         dates = extract_dates_for_pages(all_pages)
 
-        # â”€â”€ Step 7: Event extraction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 7: Event extraction ──────────────────────────────────────────
         logger.info(f"[{run_id}] Step 7: Event extraction")
         all_events = []
         all_citations = []
@@ -229,17 +229,17 @@ def run_pipeline(run_id: str) -> None:
         all_skipped.extend(op_skipped)
         print(f"extraction: {len(all_events)} events")
 
-        # â”€â”€ Step 8: Citation post-processing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 8: Citation post-processing ──────────────────────────────
         logger.info(f"[{run_id}] Step 8: Citation capture")
         all_citations, step_warnings = post_process_citations(all_citations)
         all_warnings.extend(step_warnings)
 
-        # â”€â”€ Step 9: Deduplication â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 9: Deduplication ───────────────────────────────────────────
         logger.info(f"[{run_id}] Step 9: Deduplication")
         all_events, step_warnings = deduplicate_events(all_events)
         all_warnings.extend(step_warnings)
 
-        # â”€â”€ Step 10: Confidence scoring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 10: Confidence scoring ─────────────────────────────────────
         logger.info(f"[{run_id}] Step 10: Confidence scoring")
         all_events, step_warnings = apply_confidence_scoring(all_events, config)
         all_warnings.extend(step_warnings)
@@ -252,7 +252,7 @@ def run_pipeline(run_id: str) -> None:
         export_events = filter_for_export([e.model_copy(deep=True) for e in all_events], config)
         print(f"after_explicit_filter: {len(export_events)} events")
 
-        # â”€â”€ Step 11: Gap detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 11: Gap detection ─────────────────────────────────────────
         logger.info(f"[{run_id}] Step 11: Gap detection")
         export_events, gaps, step_warnings = detect_gaps(export_events, config)
         all_warnings.extend(step_warnings)
@@ -260,7 +260,7 @@ def run_pipeline(run_id: str) -> None:
         logger.info(f"[{run_id}] Legal Usability Pass")
         export_events = improve_legal_usability(export_events)
 
-        # â”€â”€ Step 12a: Narrative Synthesis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 12a: Narrative Synthesis ─────────────────────────────────
         logger.info(f"[{run_id}] Step 12a: Narrative Synthesis")
         narrative_synthesis = synthesize_narrative(chronology_events, providers, all_citations, case_info=CaseInfo(
             case_id=matter_id,
@@ -281,7 +281,7 @@ def run_pipeline(run_id: str) -> None:
             skipped_events=all_skipped,
         )
 
-        # â”€â”€ Extraction metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Extraction metrics ───────────────────────────────────────────────
         page_type_counts: dict[str, int] = {}
         for p in all_pages:
             pt = (p.page_type or "other").value if hasattr(p.page_type, "value") else str(p.page_type or "other")
@@ -307,7 +307,7 @@ def run_pipeline(run_id: str) -> None:
             "citations_total": len(all_citations),
         }
         logger.info(f"[{run_id}] Extraction metrics: {evidence_graph.extensions['extraction_metrics']}")
-        # â”€â”€ Step 14a: Provider normalization + coverage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 14a: Provider normalization + coverage ────────────────
         logger.info(f"[{run_id}] Step 14a: Provider normalization")
         providers_normalized = normalize_provider_entities(evidence_graph)
         coverage_spans = compute_coverage_spans(providers_normalized)
@@ -315,11 +315,11 @@ def run_pipeline(run_id: str) -> None:
         evidence_graph.extensions["coverage_spans"] = coverage_spans
         print(f"provider_normalization: {len(chronology_events)} events")
 
-        # â”€â”€ Step 14b: Provider directory artifact â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 14b: Provider directory artifact ───────────────────────
         logger.info(f"[{run_id}] Step 14b: Provider directory artifact")
         prov_csv_ref, prov_json_ref = render_provider_directory(run_id, providers_normalized)
 
-        # â”€â”€ Step 15: Missing record detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 15: Missing record detection ───────────────────────────
         logger.info(f"[{run_id}] Step 15: Missing record detection")
         missing_records_payload = detect_missing_records(evidence_graph, providers_normalized)
         evidence_graph.extensions["missing_records"] = missing_records_payload
@@ -333,19 +333,19 @@ def run_pipeline(run_id: str) -> None:
             run_id, missing_record_requests_payload
         )
 
-        # â”€â”€ Step 16: Billing lines extraction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 16: Billing lines extraction ───────────────────────────
         logger.info(f"[{run_id}] Step 16: Billing lines extraction")
         billing_lines_payload = extract_billing_lines(evidence_graph, providers_normalized)
         evidence_graph.extensions["billing_lines"] = billing_lines_payload
         bl_csv_ref, bl_json_ref = render_billing_lines(run_id, billing_lines_payload)
 
-        # â”€â”€ Step 17: Specials summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 17: Specials summary ─────────────────────────────────────
         logger.info(f"[{run_id}] Step 17: Specials summary")
         specials_payload = compute_specials_summary(billing_lines_payload, providers_normalized)
         evidence_graph.extensions["specials_summary"] = specials_payload
         ss_csv_ref, ss_json_ref, ss_pdf_ref = render_specials_summary(run_id, specials_payload, matter_title)
 
-        # â”€â”€ Step 12: Export rendering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 12: Export rendering ─────────────────────────────────────
         logger.info(f"[{run_id}] Step 12: Export rendering")
         processing_seconds = time.time() - start_time
 
@@ -391,7 +391,7 @@ def run_pipeline(run_id: str) -> None:
             narrative_synthesis=narrative_synthesis
         )
 
-        # â”€â”€ Step 13: Run receipt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Step 13: Run receipt ──────────────────────────────────────────────
         logger.info(f"[{run_id}] Step 13: Run receipt")
         run_record = create_run_record(
             run_id, started_at, source_documents, evidence_graph,
