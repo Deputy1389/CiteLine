@@ -11,7 +11,7 @@ from typing import Any
 
 
 TOOL_VERSION = "qa-litigation-1.0"
-TARGET_SCORE = 90
+TARGET_SCORE = 98
 MIN_TIMELINE_CITATION_COVERAGE = 0.95
 MAX_VITALS_PRO_RATIO = 0.10
 MAX_ADMIN_RATIO = 0.05
@@ -294,13 +294,18 @@ def build_litigation_checklist(
     gaps_total = len(missing.get("gaps", []))
     has_gap_anchor_section = "appendix c1: gap boundary anchors" in lower_report
     has_anchor_lines = "last before gap:" in lower_report and "first after gap:" in lower_report
+    noisy_gap_hits = len(re.findall(r"\((5\d|6\d|7\d|8\d|9\d) days\)", lower_report))
     quality_gates["Q4_gap_anchoring"]["metrics"] = {
         "gaps_total": gaps_total,
         "gaps_with_bracketing_citations": gaps_total if (has_gap_anchor_section and has_anchor_lines) else 0,
+        "noisy_short_gap_rows": noisy_gap_hits,
     }
     if gaps_total > 0 and not (has_gap_anchor_section and has_anchor_lines):
         quality_gates["Q4_gap_anchoring"]["pass"] = False
         quality_gates["Q4_gap_anchoring"]["details"].append(_issue("GAP_UNANCHORED", "Gap boundary anchors missing."))
+    if noisy_gap_hits > 0:
+        quality_gates["Q4_gap_anchoring"]["pass"] = False
+        quality_gates["Q4_gap_anchoring"]["details"].append(_issue("GAP_TOO_NOISY", f"Short/noisy gaps present: {noisy_gap_hits}"))
 
     # Q5
     dx_contam = bool(DX_APPENDIX_CONTAM_RE.search(report_text or ""))
@@ -336,11 +341,33 @@ def build_litigation_checklist(
     # Q8
     has_top10 = "top 10 case-driving events" in lower_report
     has_issue_flags = "appendix e: issue flags" in lower_report
-    quality_gates["Q8_attorney_usability_sections"]["metrics"] = {"top_10_section_present": has_top10, "issue_flags_section_present": has_issue_flags}
+    top10_buckets = [
+        "hospice",
+        "snf",
+        "death",
+        "procedure",
+        "emergency",
+        "admission",
+        "discharge",
+        "imaging",
+        "medication regimen change",
+        "treatment gap",
+    ]
+    top10_diversity = sum(1 for token in top10_buckets if token in lower_report)
+    quality_gates["Q8_attorney_usability_sections"]["metrics"] = {
+        "top_10_section_present": has_top10,
+        "issue_flags_section_present": has_issue_flags,
+        "top10_bucket_diversity": top10_diversity,
+    }
     if not (has_top10 and has_issue_flags):
         quality_gates["Q8_attorney_usability_sections"]["pass"] = False
         quality_gates["Q8_attorney_usability_sections"]["details"].append(
             _issue("ATTORNEY_USABILITY_MISSING", "Top 10 and/or Issue Flags section missing.")
+        )
+    if top10_diversity < 3:
+        quality_gates["Q8_attorney_usability_sections"]["pass"] = False
+        quality_gates["Q8_attorney_usability_sections"]["details"].append(
+            _issue("TOP10_NOT_DIVERSE", f"Top 10 diversity below threshold: {top10_diversity}")
         )
 
     hard_pass = all(v["pass"] for v in hard_invariants.values())

@@ -326,6 +326,49 @@ def _build_projection_flowables(
             )
         )
 
+    def _stable_pick(event_id: str, options: list[str]) -> str:
+        if not options:
+            return ""
+        key = event_id or "unknown-event"
+        idx = int(hashlib.sha1(key.encode("utf-8")).hexdigest(), 16) % len(options)
+        return options[idx]
+
+    def _normalize_event_class(entry) -> str:
+        normalized = (entry.event_type_display or "").strip().lower()
+        mapping = {
+            "emergency visit": "ed",
+            "hospital admission": "admission",
+            "hospital discharge": "discharge",
+            "discharge": "discharge",
+            "inpatient progress": "inpatient_progress",
+            "procedure/surgery": "procedure",
+            "imaging study": "imaging",
+            "follow-up visit": "followup",
+            "therapy visit": "therapy",
+            "lab result": "lab",
+        }
+        return mapping.get(normalized, "other")
+
+    def _normalize_disposition_from_facts(facts: list[str]) -> str | None:
+        blob = " ".join(facts).lower()
+        if re.search(r"\b(expired|deceased|pronounced dead|death)\b", blob):
+            return "Death"
+        if re.search(r"\bagainst medical advice|\bama\b", blob):
+            return "AMA"
+        if re.search(r"\bhospice\b", blob):
+            return "Hospice"
+        if re.search(r"\bskilled nursing|\bsnf\b", blob):
+            return "SNF"
+        if re.search(r"\brehab|rehabilitation\b", blob):
+            return "Rehab"
+        if re.search(r"\btransfer(?:red)?\b", blob):
+            return "Transfer"
+        if re.search(r"\bdischarged home|home with\b", blob):
+            return "Home"
+        if re.search(r"\bdisposition\b", blob):
+            return "Other/Unknown"
+        return None
+
     def _extract_medication_changes(entries: list) -> list[str]:
         dated = [(entry, _extract_date(entry.date_display)) for entry in entries]
         dated = [(e, d) for e, d in dated if d is not None]
@@ -348,11 +391,24 @@ def _build_projection_flowables(
             "fentanyl": (12.0, 200.0),
         }
         date_buckets: list[tuple[date, dict[str, dict]]] = []
+        change_cue_re = re.compile(
+            r"\b(start(?:ed)?|initiated|prescribed|discontinued|stop(?:ped)?|switched|changed to|increased|decreased|titrated|resumed)\b",
+            re.IGNORECASE,
+        )
+        negation_re = re.compile(
+            r"\b(not taking|denies taking|allergy|allergic to|intolerance|history of)\b",
+            re.IGNORECASE,
+        )
         for idx, (entry, entry_date) in enumerate(dated):
             current_mentions: list[dict] = []
+            entry_has_change_cue = False
             for fact in entry.facts:
                 txt = sanitize_for_report(fact)
                 if txt:
+                    if change_cue_re.search(txt):
+                        entry_has_change_cue = True
+                    if negation_re.search(txt):
+                        continue
                     current_mentions.extend(_extract_med_mentions(txt))
             current_by_ing: dict[str, dict] = {}
             for med in current_mentions:
@@ -364,8 +420,9 @@ def _build_projection_flowables(
 
             current_mentions_unique = list(current_by_ing.values())
             current_opioids = {m["ingredient"] for m in current_mentions_unique if m["is_opioid"]}
-            if last_opioids and current_opioids and current_opioids != last_opioids:
-                if len(last_opioids) == 1 and len(current_opioids) == 1:
+            continued_opioids = current_opioids & last_opioids
+            if last_opioids and current_opioids and current_opioids != last_opioids and entry_has_change_cue:
+                if len(last_opioids) == 1 and len(current_opioids) == 1 and not continued_opioids:
                     changes.append(
                         f"{entry_date}: Opioid switch detected ({next(iter(sorted(last_opioids)))} -> {next(iter(sorted(current_opioids)))})."
                     )
@@ -375,7 +432,7 @@ def _build_projection_flowables(
             for med in current_mentions_unique:
                 ing = med["ingredient"]
                 prev = last_by_ing.get(ing)
-                if prev is None and seen_any_date:
+                if prev is None and seen_any_date and entry_has_change_cue:
                     changes.append(f"{entry_date}: Started {med['label']}.")
                 elif prev is not None:
                     try:
@@ -404,6 +461,7 @@ def _build_projection_flowables(
                         and float(med.get("parse_confidence") or 0.0) >= 0.8
                         and in_plausible
                         and cur_strength != prev_strength
+                        and entry_has_change_cue
                     ):
                         pct_change = abs(cur_strength - prev_strength) / max(prev_strength, 1.0)
                         direction = "increased" if cur_strength > prev_strength else "decreased"
@@ -418,10 +476,10 @@ def _build_projection_flowables(
                         else:
                             changes.append(f"{entry_date}: {ing} strength variation detected (dose change <20%).")
                     elif prev.get("strength") and med.get("strength") and prev.get("strength") != med.get("strength"):
-                        if prev.get("unit") == med.get("unit") == "mg":
+                        if prev.get("unit") == med.get("unit") == "mg" and med.get("is_opioid"):
                             changes.append(f"{entry_date}: {ing} strength changed (dose not reliably parseable).")
                         else:
-                            changes.append(f"{entry_date}: {ing} formulation/concentration changed.")
+                            changes.append(f"{entry_date}: {ing} strength/formulation changed (dose not reliably parseable).")
                     if prev.get("form") != med.get("form"):
                         changes.append(
                             f"{entry_date}: {ing} formulation changed ({prev.get('form', 'unspecified')} -> {med.get('form', 'unspecified')})."
@@ -513,18 +571,7 @@ def _build_projection_flowables(
         return ", ".join(refs)
 
     def _extract_disposition(facts: list[str]) -> str | None:
-        blob = " ".join(facts).lower()
-        if re.search(r"\bdischarged home\b", blob):
-            return "Discharged home."
-        if re.search(r"\bskilled nursing|snf\b", blob):
-            return "Disposition to skilled nursing facility."
-        if re.search(r"\badmitted\b", blob):
-            return "Admitted for inpatient care."
-        if re.search(r"\bfollow[- ]?up\b", blob):
-            return "Follow-up care planned."
-        if re.search(r"\breturn to work|work restriction\b", blob):
-            return "Work status/restrictions documented."
-        return None
+        return _normalize_disposition_from_facts(facts)
 
     def _extract_inline_medication_changes(facts: list[str]) -> list[str]:
         out: list[str] = []
@@ -544,7 +591,7 @@ def _build_projection_flowables(
                 dedup.append(item)
         return dedup[:2]
 
-    def _encounter_fields(entry) -> tuple[str, str, str, str]:
+    def _encounter_fields(entry, disposition: str | None) -> tuple[str, str, str, str]:
         reason = "not stated in records"
         assessment = "not stated in records"
         intervention = "not stated in records"
@@ -562,99 +609,219 @@ def _build_projection_flowables(
                 intervention = t[:140]
             if outcome == "not stated in records" and re.search(r"\b(disposition|discharged|admitted|snf|hospice|follow-?up|return to work)\b", low):
                 outcome = t[:140]
-        et = (entry.event_type_display or "").lower()
+        event_class = _normalize_event_class(entry)
         facts_blob = " ".join(entry.facts).lower()
-        if reason == "not stated in records":
-            if "emergency room admission" in facts_blob or "emergency visit" in et:
-                reason = "Emergency department presentation documented."
-            elif "admission to hospice" in facts_blob or "hospice" in facts_blob:
-                reason = "Hospice care transition documented."
-            elif "hospital admission" in et:
-                reason = "Hospital admission documented."
-        if intervention == "not stated in records":
-            if "emergency room admission" in facts_blob:
-                intervention = "ED admission documented."
-            elif "admission to hospice" in facts_blob or "hospice" in facts_blob:
-                intervention = "Hospice admission documented."
-            elif "procedure" in et or "surgery" in et:
-                intervention = "Procedure-level care documented."
-        if outcome == "not stated in records":
-            if "hospital discharge" in et or "discharge" in et:
-                outcome = "Discharge/transition of care documented."
-            elif "hospital admission" in et:
-                outcome = "Inpatient hospitalization documented."
-        if assessment == "not stated in records":
-            if "admission to hospice" in facts_blob or "hospice" in facts_blob:
-                assessment = "Hospice-level care planning documented."
-            elif "emergency room admission" in facts_blob or "emergency visit" in et:
-                assessment = "Acute presentation requiring emergency evaluation."
-            elif "hospital admission" in et:
-                assessment = "Hospital-level acuity documented."
-            elif "inpatient progress" in et:
-                assessment = "Ongoing inpatient management documented."
-        if intervention == "not stated in records":
-            if "snf" in facts_blob or "skilled nursing" in facts_blob:
-                intervention = "Skilled nursing transition documented."
-            elif "hospital discharge" in et:
-                intervention = "Discharge planning and transition documented."
+        if disposition == "Hospice":
+            event_class = "hospice_admission"
+        elif disposition == "SNF":
+            event_class = "snf_disposition"
+
+        milestone_fields: dict[str, tuple[list[str], list[str], list[str], list[str]]] = {
+            "ed": (
+                ["Emergency department presentation documented.", "Acute ED encounter documented.", "ED-level presentation requiring urgent evaluation."],
+                ["Acute condition required emergency evaluation.", "Urgent clinical concerns prompted ED assessment.", "Emergency assessment documented for acute symptoms."],
+                ["ED evaluation and stabilization documented.", "Emergency workup and treatment initiated.", "Acute-care intervention performed in emergency setting."],
+                ["ED disposition documented; see Disposition field when present.", "Emergency-care transition documented.", "Immediate care pathway documented after ED evaluation."],
+            ),
+            "admission": (
+                ["Hospital admission documented.", "Inpatient admission initiated.", "Admission for hospital-level care documented."],
+                ["Hospital-level acuity documented.", "Condition warranted inpatient level of care.", "Admission assessment supports ongoing inpatient treatment."],
+                ["Admission orders and inpatient management initiated.", "Inpatient care plan started.", "Hospital treatment pathway initiated on admission."],
+                ["Inpatient hospitalization documented.", "Hospital course initiated.", "Patient transitioned into inpatient care."],
+            ),
+            "discharge": (
+                ["Hospital discharge documented.", "Discharge encounter documented.", "Transition-of-care discharge documented."],
+                ["Condition assessed for care transition.", "Discharge readiness/transition assessment documented.", "Clinical status supported discharge planning."],
+                ["Discharge planning and transition steps documented.", "Care transitioned at discharge.", "Post-discharge plan documented."],
+                ["Disposition documented; see Disposition field when present.", "Transition from acute setting documented.", "Discharge outcome documented with follow-up context."],
+            ),
+            "inpatient_progress": (
+                ["Inpatient course documented; ongoing monitoring and management.", "Daily inpatient progress documented; continued treatment and observation.", "Hospital course continued; inpatient management noted."],
+                ["Ongoing inpatient management documented.", "Daily assessment supports continued inpatient care.", "Inpatient reassessment documented with treatment continuity."],
+                ["Continued inpatient treatment provided.", "Hospital-based monitoring and therapy continued.", "Inpatient management activities documented for this date."],
+                ["Hospital course remained active.", "Inpatient continuity of care documented.", "Clinical course monitored during ongoing hospitalization."],
+            ),
+            "hospice_admission": (
+                ["Hospice transition documented.", "Hospice admission documented.", "Care transition to hospice documented."],
+                ["Goals-of-care status supports hospice-level management.", "Clinical context supports hospice transition.", "Hospice-level care planning documented."],
+                ["Hospice services initiated.", "Hospice care pathway activated.", "Care plan transitioned to hospice management."],
+                ["Disposition documented; see Disposition field when present.", "Hospice continuity planning documented.", "Transition outcome documented for hospice care."],
+            ),
+            "snf_disposition": (
+                ["Skilled nursing transition documented.", "Discharge disposition to SNF documented.", "Post-acute SNF placement documented."],
+                ["Post-acute needs required SNF-level support.", "Clinical status required skilled nursing transition.", "Care needs supported SNF disposition."],
+                ["Transition to skilled nursing facility arranged.", "Post-acute care plan moved to SNF.", "SNF transfer/interim care planning documented."],
+                ["Disposition documented; see Disposition field when present.", "Post-acute transition documented.", "SNF transition outcome documented."],
+            ),
+            "procedure": (
+                ["Procedure encounter documented.", "Procedure/surgical milestone documented.", "Interventional care event documented."],
+                ["Procedure-level clinical management documented.", "Interventional treatment documented for this encounter.", "Clinical course included procedural intervention."],
+                ["Procedure performed/documented in chart.", "Interventional treatment delivered.", "Procedure-related care completed/documented."],
+                ["Post-procedure status documented.", "Procedure milestone recorded in treatment course.", "Procedure outcome documented for chronology."],
+            ),
+            "imaging": (
+                ["Imaging encounter documented.", "Diagnostic imaging study documented.", "Imaging-based diagnostic milestone documented."],
+                ["Imaging findings contributed to clinical assessment.", "Diagnostic imaging provided objective evaluation.", "Radiologic findings informed ongoing management."],
+                ["Imaging workup completed/documented.", "Diagnostic imaging interpretation recorded.", "Imaging results incorporated into care plan."],
+                ["Imaging results documented for chronology.", "Diagnostic findings recorded for case timeline.", "Objective radiology evidence documented."],
+            ),
+        }
+        if event_class in milestone_fields:
+            r_opts, a_opts, i_opts, o_opts = milestone_fields[event_class]
+            reason = _stable_pick(f"{entry.event_id}:reason", r_opts)
+            assessment = _stable_pick(f"{entry.event_id}:assessment", a_opts)
+            intervention = _stable_pick(f"{entry.event_id}:intervention", i_opts)
+            outcome = _stable_pick(f"{entry.event_id}:outcome", o_opts)
+        else:
+            # For non-milestone routine events retain parsed fields, but only fallback after extraction attempts.
+            if reason == "not stated in records" and "follow-up" in facts_blob:
+                reason = "Routine follow-up encounter documented."
+            if assessment == "not stated in records" and "assessment" in facts_blob:
+                assessment = "Assessment language documented in encounter."
+            if intervention == "not stated in records" and re.search(r"\b(plan|medication|therapy)\b", facts_blob):
+                intervention = "Management plan documented."
+            if outcome == "not stated in records" and re.search(r"\bfollow[- ]?up|return\b", facts_blob):
+                outcome = "Follow-up planning documented."
+
+        if disposition and ("disposition" in outcome.lower() or disposition.lower() in outcome.lower()):
+            outcome = "Disposition documented separately."
         return reason, assessment, intervention, outcome
 
-    def _top_case_events(entries: list) -> list:
-        def _event_bucket(entry) -> str:
-            et = (entry.event_type_display or "").lower()
-            facts = " ".join(entry.facts).lower()
-            if "hospice" in facts:
-                return "hospice"
-            if "skilled nursing" in facts or "snf" in facts:
-                return "snf"
-            if "emergency" in et:
-                return "ed"
-            if "admission" in et:
-                return "admission"
-            if "discharge" in et:
-                return "discharge"
-            if "procedure" in et or "surgery" in et:
-                return "procedure"
-            if "imaging" in et:
-                return "imaging"
-            if re.search(r"\b(started|stopped|increased|decreased|switched|formulation changed|strength changed)\b", facts):
-                return "med_change"
-            return "other"
+    def _top_case_events(entries: list, grouped_entries: dict[str, list], material_gap_rows: list[dict]) -> list[dict]:
+        bucket_weight = {
+            "hospice_snf_disposition": 1000,
+            "death": 950,
+            "surgery_procedure": 900,
+            "ed": 850,
+            "admission": 800,
+            "discharge": 760,
+            "imaging_impression": 720,
+            "med_regimen_change": 680,
+            "large_gap_anchor": 640,
+            "other": 500,
+        }
+        candidates: list[dict] = []
 
-        def _score(entry) -> int:
-            bucket = _event_bucket(entry)
-            base = {
-                "hospice": 100,
-                "snf": 95,
-                "ed": 92,
-                "admission": 90,
-                "discharge": 88,
-                "procedure": 86,
-                "imaging": 82,
-                "med_change": 80,
-                "other": 70,
-            }[bucket]
-            return base + int(getattr(entry, "confidence", 0) or 0) // 10
+        for entry in entries:
+            event_class = _normalize_event_class(entry)
+            disposition = _extract_disposition(entry.facts)
+            facts_blob = " ".join(entry.facts).lower()
+            if disposition in {"Hospice", "SNF"}:
+                bucket = "hospice_snf_disposition"
+            elif disposition == "Death" or re.search(r"\b(deceased|death|expired)\b", facts_blob):
+                bucket = "death"
+            elif event_class == "procedure":
+                bucket = "surgery_procedure"
+            elif event_class == "ed":
+                bucket = "ed"
+            elif event_class == "admission":
+                bucket = "admission"
+            elif event_class == "discharge":
+                bucket = "discharge"
+            elif event_class == "imaging":
+                bucket = "imaging_impression"
+            else:
+                bucket = "other"
+            reason, assessment, intervention, outcome = _encounter_fields(entry, disposition)
+            sentence = f"{reason} {assessment}".strip()
+            if disposition:
+                sentence = f"{sentence} Disposition: {disposition}."
+            elif intervention != "not stated in records":
+                sentence = f"{sentence} {intervention}."
+            sentence = re.sub(r"\s{2,}", " ", sentence).strip()
+            candidates.append(
+                {
+                    "bucket": bucket,
+                    "score": bucket_weight[bucket] + int(getattr(entry, "confidence", 0) or 0),
+                    "date": entry.date_display,
+                    "event_id": entry.event_id,
+                    "label": entry.event_type_display,
+                    "narrative": sentence,
+                    "citation": entry.citation_display or "Not available",
+                }
+            )
 
-        sorted_entries = sorted(entries, key=lambda e: (-_score(e), e.date_display, e.event_id))
-        by_bucket: dict[str, list] = defaultdict(list)
-        for e in sorted_entries:
-            by_bucket[_event_bucket(e)].append(e)
+        for label in sorted(grouped_entries.keys()):
+            med_rows = _extract_medication_changes(grouped_entries[label])
+            for row in med_rows:
+                m = re.match(r"^(\d{4}-\d{2}-\d{2}):\s*(.+)$", row)
+                if not m:
+                    continue
+                change_date = m.group(1)
+                body = m.group(2).rstrip(".")
+                candidates.append(
+                    {
+                        "bucket": "med_regimen_change",
+                        "score": bucket_weight["med_regimen_change"] + 50,
+                        "date": f"{change_date} (time not documented)",
+                        "event_id": f"med:{label}:{change_date}:{hashlib.sha1(body.encode('utf-8')).hexdigest()[:8]}",
+                        "label": "Medication Regimen Change",
+                        "narrative": f"{body}.",
+                        "citation": "See patient-specific encounter citations in chronology rows.",
+                    }
+                )
 
-        selected: list = []
-        for bucket in ("hospice", "snf", "ed", "admission", "discharge", "procedure", "imaging", "med_change"):
-            if by_bucket.get(bucket):
-                selected.append(by_bucket[bucket][0])
-            if len(selected) >= 10:
-                return selected[:10]
-
-        used = {s.event_id for s in selected}
-        for e in sorted_entries:
-            if e.event_id in used:
+        for row in material_gap_rows:
+            if int(row["gap"].duration_days or 0) < 180:
                 continue
-            selected.append(e)
+            candidates.append(
+                {
+                    "bucket": "large_gap_anchor",
+                    "score": bucket_weight["large_gap_anchor"] + int(row["gap"].duration_days or 0),
+                    "date": f"{row['gap'].start_date} (time not documented)",
+                    "event_id": f"gap:{row['patient_label']}:{row['gap'].gap_id}",
+                    "label": "Treatment Gap",
+                    "narrative": f"{row['patient_label']} gap of {row['gap'].duration_days} days ({row['rationale_tag']}).",
+                    "citation": f"{row['last_before']['citation_display']} | {row['first_after']['citation_display']}".strip(" |"),
+                }
+            )
+
+        candidates.sort(key=lambda c: (-c["score"], c["date"], c["event_id"]))
+        by_bucket: dict[str, list[dict]] = defaultdict(list)
+        for c in candidates:
+            by_bucket[c["bucket"]].append(c)
+
+        priority = [
+            "hospice_snf_disposition",
+            "death",
+            "surgery_procedure",
+            "ed",
+            "admission",
+            "discharge",
+            "imaging_impression",
+            "med_regimen_change",
+            "large_gap_anchor",
+            "other",
+        ]
+        selected: list[dict] = []
+        used_ids: set[str] = set()
+        for bucket in priority:
+            if by_bucket.get(bucket):
+                cand = by_bucket[bucket][0]
+                if cand["event_id"] not in used_ids:
+                    selected.append(cand)
+                    used_ids.add(cand["event_id"])
             if len(selected) >= 10:
                 break
+
+        bucket_count = len({item["bucket"] for item in selected})
+        if bucket_count < 3:
+            for cand in candidates:
+                if cand["event_id"] in used_ids:
+                    continue
+                selected.append(cand)
+                used_ids.add(cand["event_id"])
+                if len({item["bucket"] for item in selected}) >= 3 or len(selected) >= 10:
+                    break
+
+        if len(selected) < 10:
+            for cand in candidates:
+                if cand["event_id"] in used_ids:
+                    continue
+                selected.append(cand)
+                used_ids.add(cand["event_id"])
+                if len(selected) >= 10:
+                    break
         return selected[:10]
 
     def _contradiction_flags(entries: list) -> list[str]:
@@ -677,6 +844,107 @@ def _build_projection_flowables(
                 if {"left", "right"}.issubset(sides):
                     flags.append(f"{patient}: conflicting laterality documented for {cond} (left and right).")
         return flags[:10]
+
+    def _material_gap_rows(gap_list: list[Gap], entries_by_patient: dict[str, list], raw_event_by_id: dict[str, Event]) -> list[dict]:
+        rows: list[dict] = []
+        entry_by_id = {e.event_id: e for ents in entries_by_patient.values() for e in ents}
+
+        def _entry_from_raw(evt: Event) -> dict:
+            raw_type = evt.event_type.value
+            type_map = {
+                "hospital_admission": "Hospital Admission",
+                "hospital_discharge": "Hospital Discharge",
+                "er_visit": "Emergency Visit",
+                "inpatient_daily_note": "Inpatient Progress",
+                "office_visit": "Follow-Up Visit",
+                "pt_visit": "Therapy Visit",
+                "imaging_study": "Imaging Study",
+                "procedure": "Procedure/Surgery",
+                "lab_result": "Lab Result",
+                "discharge": "Discharge",
+            }
+            dt = evt.date.sort_date() if evt.date else None
+            return {
+                "date_display": f"{dt.isoformat()} (time not documented)" if dt else "Date not documented",
+                "event_type_display": type_map.get(raw_type, raw_type.replace("_", " ").title()),
+                "citation_display": _event_citation_from_raw(evt),
+                "event_id": evt.event_id,
+                "facts_blob": " ".join((f.text or "") for f in evt.facts).lower(),
+            }
+
+        def _rationale(prev_row: dict) -> str | None:
+            et = (prev_row.get("event_type_display", "") or "").lower()
+            facts = prev_row.get("facts_blob", "")
+            if "hospice" in facts:
+                return "hospice_continuity_break"
+            if "skilled nursing" in facts or "snf" in facts or "rehab" in facts:
+                return "rehab_snf_transition_gap"
+            if any(k in et for k in ("hospital admission", "hospital discharge", "emergency visit")):
+                return "post_admission_followup_missing"
+            if "procedure" in et or "surgery" in et:
+                return "post_procedure_followup_missing"
+            return None
+
+        for gap in gap_list:
+            if gap.start_date and not date_sanity(gap.start_date):
+                continue
+            if gap.end_date and not date_sanity(gap.end_date):
+                continue
+            related_ids = list(getattr(gap, "related_event_ids", []) or [])
+            labels = sorted({entry_by_id[eid].patient_label for eid in related_ids if eid in entry_by_id and entry_by_id[eid].patient_label != "Unknown Patient"})
+            if not labels:
+                continue
+            patient_label = labels[0]
+            last_before = None
+            first_after = None
+
+            if len(related_ids) >= 2 and related_ids[0] in raw_event_by_id and related_ids[1] in raw_event_by_id:
+                last_before = _entry_from_raw(raw_event_by_id[related_ids[0]])
+                first_after = _entry_from_raw(raw_event_by_id[related_ids[1]])
+            else:
+                patient_entries = entries_by_patient.get(patient_label, [])
+                dated_entries = [
+                    (ent, _extract_date(ent.date_display))
+                    for ent in patient_entries
+                    if _extract_date(ent.date_display) is not None
+                ]
+                dated_entries.sort(key=lambda item: (item[1], item[0].event_id))
+                for idx in range(len(dated_entries) - 1):
+                    prev_ent, prev_dt = dated_entries[idx]
+                    next_ent, next_dt = dated_entries[idx + 1]
+                    if prev_dt <= gap.start_date and next_dt >= gap.end_date:
+                        last_before = {
+                            "date_display": prev_ent.date_display,
+                            "event_type_display": prev_ent.event_type_display,
+                            "citation_display": prev_ent.citation_display,
+                            "event_id": prev_ent.event_id,
+                            "facts_blob": " ".join(prev_ent.facts).lower(),
+                        }
+                        first_after = {
+                            "date_display": next_ent.date_display,
+                            "event_type_display": next_ent.event_type_display,
+                            "citation_display": next_ent.citation_display,
+                            "event_id": next_ent.event_id,
+                            "facts_blob": " ".join(next_ent.facts).lower(),
+                        }
+                        break
+            if not last_before or not first_after:
+                continue
+
+            rationale_tag = _rationale(last_before)
+            is_material = int(gap.duration_days or 0) >= 180 or (int(gap.duration_days or 0) >= 60 and rationale_tag is not None)
+            if not is_material:
+                continue
+            rows.append(
+                {
+                    "gap": gap,
+                    "patient_label": patient_label,
+                    "last_before": last_before,
+                    "first_after": first_after,
+                    "rationale_tag": rationale_tag or "routine_continuity_gap",
+                }
+            )
+        return rows
 
     def _why_it_matters(entry) -> str:
         et = (entry.event_type_display or "").lower()
@@ -731,7 +999,7 @@ def _build_projection_flowables(
     def _render_entry(entry) -> list:
         med_changes = _extract_inline_medication_changes(entry.facts)
         disposition = _extract_disposition(entry.facts)
-        reason, assessment, intervention, outcome = _encounter_fields(entry)
+        reason, assessment, intervention, outcome = _encounter_fields(entry, disposition)
         parts: list = [
             Paragraph(f"{entry.date_display} | Encounter: {entry.event_type_display}", date_style),
             Paragraph(f"Facility/Clinician: {entry.provider_display}", meta_style),
@@ -768,14 +1036,27 @@ def _build_projection_flowables(
         for entry in projection.entries:
             flowables.extend(_render_entry(entry))
 
+    appendix_source_entries = appendix_entries if appendix_entries is not None else projection.entries
+    grouped_entries: dict[str, list] = defaultdict(list)
+    for entry in appendix_source_entries:
+        grouped_entries[entry.patient_label].append(entry)
+
+    entries_by_patient: dict[str, list] = defaultdict(list)
+    for e in appendix_source_entries:
+        entries_by_patient[e.patient_label].append(e)
+    for patient_label in list(entries_by_patient.keys()):
+        entries_by_patient[patient_label].sort(key=lambda e: (_extract_date(e.date_display) or date.min, e.event_id))
+    raw_event_by_id: dict[str, Event] = {evt.event_id: evt for evt in (raw_events or [])}
+    material_gap_rows = _material_gap_rows(gaps or [], entries_by_patient, raw_event_by_id)
+
     flowables.append(Spacer(1, 0.25 * inch))
     flowables.append(Paragraph("Top 10 Case-Driving Events", styles["Heading3"]))
-    top_events = _top_case_events(projection.entries)
+    top_events = _top_case_events(projection.entries, grouped_entries, material_gap_rows)
     if top_events:
         for item in top_events:
             flowables.append(
                 Paragraph(
-                    f"• {item.date_display} | {item.event_type_display} | {item.citation_display}",
+                    f"• {item['date']} | {item['label']} | {item['narrative']} | Citation(s): {item['citation']}",
                     fact_style,
                 )
             )
@@ -783,10 +1064,6 @@ def _build_projection_flowables(
         flowables.append(Paragraph("No high-priority events identified.", fact_style))
 
     # Appendices for material medication/diagnosis changes and scoped gaps.
-    appendix_source_entries = appendix_entries if appendix_entries is not None else projection.entries
-    grouped_entries: dict[str, list] = defaultdict(list)
-    for entry in appendix_source_entries:
-        grouped_entries[entry.patient_label].append(entry)
     flowables.append(Spacer(1, 0.3 * inch))
     flowables.append(Paragraph("Appendix A: Medications (material changes)", styles["Heading3"]))
     has_med = False
@@ -849,82 +1126,21 @@ def _build_projection_flowables(
         flowables.append(Paragraph("No material SDOH/intake items extracted.", fact_style))
 
     # Add gap anchors with boundary citations when gaps are available.
-    if gaps:
+    if material_gap_rows:
         flowables.append(Spacer(1, 0.2 * inch))
         flowables.append(Paragraph("Appendix C1: Gap Boundary Anchors", styles["Heading3"]))
-        entries_by_patient: dict[str, list] = defaultdict(list)
-        for e in appendix_source_entries:
-            entries_by_patient[e.patient_label].append(e)
-        for patient_label in entries_by_patient:
-            entries_by_patient[patient_label].sort(key=lambda e: (_extract_date(e.date_display) or date.min, e.event_id))
-        raw_event_by_id: dict[str, Event] = {}
-        if raw_events:
-            raw_event_by_id = {evt.event_id: evt for evt in raw_events}
-        for gap in gaps:
-            if gap.start_date and not date_sanity(gap.start_date):
-                continue
-            if gap.end_date and not date_sanity(gap.end_date):
-                continue
-            patient_label = "Unknown Patient"
-            related_ids = set(getattr(gap, "related_event_ids", []) or [])
-            if related_ids:
-                for lbl, ents in entries_by_patient.items():
-                    if any(ent.event_id in related_ids for ent in ents):
-                        patient_label = lbl
-                        break
-            patient_entries = entries_by_patient.get(patient_label, [])
-            if patient_label == "Unknown Patient":
-                continue
-            last_before = None
-            first_after = None
-            boundary_ids = list(getattr(gap, "related_event_ids", []) or [])
-            if len(boundary_ids) >= 2 and raw_event_by_id:
-                prev_evt = raw_event_by_id.get(boundary_ids[0])
-                next_evt = raw_event_by_id.get(boundary_ids[1])
-                if prev_evt and next_evt:
-                    prev_date = prev_evt.date.sort_date() if prev_evt.date else None
-                    next_date = next_evt.date.sort_date() if next_evt.date else None
-                    if prev_date and next_date:
-                        prev_disp = f"{prev_date.isoformat()} (time not documented)"
-                        next_disp = f"{next_date.isoformat()} (time not documented)"
-                    else:
-                        prev_disp = "Date not documented"
-                        next_disp = "Date not documented"
-                    def _raw_type_display(raw_type: str) -> str:
-                        mapping = {
-                            "hospital_admission": "Hospital Admission",
-                            "hospital_discharge": "Hospital Discharge",
-                            "er_visit": "Emergency Visit",
-                            "inpatient_daily_note": "Inpatient Progress",
-                            "office_visit": "Follow-Up Visit",
-                            "pt_visit": "Therapy Visit",
-                            "imaging_study": "Imaging Study",
-                            "procedure": "Procedure/Surgery",
-                            "lab_result": "Lab Result",
-                            "discharge": "Discharge",
-                        }
-                        return mapping.get(raw_type, raw_type.replace("_", " ").title())
-
-                    last_before = {
-                        "date_display": prev_disp,
-                        "event_type_display": _raw_type_display(prev_evt.event_type.value),
-                        "citation_display": _event_citation_from_raw(prev_evt),
-                    }
-                    first_after = {
-                        "date_display": next_disp,
-                        "event_type_display": _raw_type_display(next_evt.event_type.value),
-                        "citation_display": _event_citation_from_raw(next_evt),
-                    }
-            if last_before is None or first_after is None:
-                for ent in patient_entries:
-                    d = _extract_date(ent.date_display)
-                    if d is None:
-                        continue
-                    if d <= gap.start_date:
-                        last_before = ent
-                    if d >= gap.end_date and first_after is None:
-                        first_after = ent
-            flowables.append(Paragraph(f"{patient_label}: {gap.start_date} -> {gap.end_date} ({gap.duration_days} days)", meta_style))
+        for row in material_gap_rows:
+            gap = row["gap"]
+            patient_label = row["patient_label"]
+            last_before = row["last_before"]
+            first_after = row["first_after"]
+            rationale_tag = row["rationale_tag"]
+            flowables.append(
+                Paragraph(
+                    f"{patient_label}: {gap.start_date} -> {gap.end_date} ({gap.duration_days} days) [{rationale_tag}]",
+                    meta_style,
+                )
+            )
             def _field(obj, name: str) -> str:
                 if isinstance(obj, dict):
                     return str(obj.get(name, ""))
@@ -1084,24 +1300,44 @@ def generate_pdf_from_projection(
         story.append(Spacer(1, 0.5 * inch))
         story.append(Paragraph("<b>Appendix C: Treatment Gaps</b>", styles["Heading2"]))
         patient_by_event_id = {entry.event_id: entry.patient_label for entry in projection.entries}
-        scoped_gaps: dict[str, list[Gap]] = defaultdict(list)
+        event_type_by_id = {entry.event_id: (entry.event_type_display or "") for entry in projection.entries}
+        facts_by_id = {entry.event_id: " ".join(entry.facts).lower() for entry in projection.entries}
+        scoped_gaps: dict[str, list[tuple[Gap, str]]] = defaultdict(list)
         unassigned_gaps: list[Gap] = []
         for gap in gaps:
             related_ids = list(getattr(gap, "related_event_ids", []) or [])
             labels = sorted({patient_by_event_id.get(eid) for eid in related_ids if patient_by_event_id.get(eid)})
             if labels:
-                scoped_gaps[labels[0]].append(gap)
+                if labels[0] == "Unknown Patient":
+                    continue
+                prev_id = related_ids[0] if len(related_ids) >= 1 else ""
+                prev_type = event_type_by_id.get(prev_id, "").lower()
+                prev_facts = facts_by_id.get(prev_id, "")
+                rationale_tag = None
+                if "hospice" in prev_facts:
+                    rationale_tag = "hospice_continuity_break"
+                elif "skilled nursing" in prev_facts or "snf" in prev_facts or "rehab" in prev_facts:
+                    rationale_tag = "rehab_snf_transition_gap"
+                elif any(token in prev_type for token in ("hospital admission", "hospital discharge", "emergency visit")):
+                    rationale_tag = "post_admission_followup_missing"
+                elif "procedure" in prev_type or "surgery" in prev_type:
+                    rationale_tag = "post_procedure_followup_missing"
+                is_material = int(gap.duration_days or 0) >= 180 or (int(gap.duration_days or 0) >= 60 and rationale_tag is not None)
+                if is_material:
+                    scoped_gaps[labels[0]].append((gap, rationale_tag or "routine_continuity_gap"))
             else:
                 unassigned_gaps.append(gap)
 
         for label in sorted(scoped_gaps.keys()):
             story.append(Paragraph(f"{label}:", styles["Heading4"]))
-            for gap in scoped_gaps[label]:
+            for gap, rationale_tag in scoped_gaps[label]:
                 if gap.start_date and not date_sanity(gap.start_date):
                     continue
                 if gap.end_date and not date_sanity(gap.end_date):
                     continue
-                story.append(Paragraph(f"• {gap.start_date} -> {gap.end_date} ({gap.duration_days} days)", styles["Normal"]))
+                story.append(Paragraph(f"• {gap.start_date} -> {gap.end_date} ({gap.duration_days} days) [{rationale_tag}]", styles["Normal"]))
+        if not scoped_gaps:
+            story.append(Paragraph("No material treatment gaps met litigation reporting thresholds.", styles["Normal"]))
         if unassigned_gaps:
             story.append(Spacer(1, 0.1 * inch))
             story.append(Paragraph("Unassigned events excluded from patient-scoped gap analysis.", styles["Normal"]))

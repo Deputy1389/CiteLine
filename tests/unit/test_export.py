@@ -254,6 +254,7 @@ class TestGeneratePdf:
                     facts=[
                         "Medication started: lisinopril 10 mg tablet daily.",
                         "Patient admitted for inpatient care due to dizziness.",
+                        "Disposition: discharged home.",
                     ],
                     citation_display="record.pdf p. 2",
                     confidence=88,
@@ -349,6 +350,200 @@ class TestGeneratePdf:
         assert "appendix a: medications (material changes)" in text
         assert "hydrocodone" in text
         assert "dose" in text or "formulation changed" in text or "started" in text
+
+    def test_timeline_what_happened_strips_sdoh_noise(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="evt-sdoh",
+                    date_display="2024-02-10 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Hospital Discharge",
+                    patient_label="Jane Doe",
+                    facts=[
+                        "Preferred language: English",
+                        "Have you been afraid of your partner or ex-partner in the past year?",
+                        "Discharged home with follow-up.",
+                    ],
+                    citation_display="record.pdf p. 9",
+                    confidence=90,
+                )
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection("SDOH Guard", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count)).lower()
+        assert "what happened:" in text
+        assert "what happened: reason:" in text
+        assert "preferred language" not in text.split("appendix f: social determinants/intake")[0]
+        assert "afraid of your partner" not in text.split("appendix f: social determinants/intake")[0]
+
+    def test_gap_anchors_use_adjacent_boundary_events(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="a1",
+                    date_display="2024-01-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Hospital Admission",
+                    patient_label="John Doe",
+                    facts=["Hospital admission for acute issue."],
+                    citation_display="record.pdf p. 1",
+                    confidence=90,
+                ),
+                ChronologyProjectionEntry(
+                    event_id="a2",
+                    date_display="2024-08-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="John Doe",
+                    facts=["Follow-up visit documented."],
+                    citation_display="record.pdf p. 2",
+                    confidence=80,
+                ),
+            ],
+        )
+        gaps = [
+            Gap(
+                gap_id="g-adj",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 8, 1),
+                duration_days=213,
+                threshold_days=180,
+                confidence=80,
+                related_event_ids=["a1", "a2"],
+            )
+        ]
+        pdf_bytes = generate_pdf_from_projection("Gap Anchor", projection, gaps=gaps, narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+        assert "Appendix C1: Gap Boundary Anchors" in text
+        assert "Last before gap: 2024-01-01" in text
+        assert "First after gap: 2024-08-01" in text
+
+    def test_top10_diversity_rule_surfaces_multiple_buckets(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="t1",
+                    date_display="2024-01-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Hospital Admission",
+                    patient_label="P1",
+                    facts=["Hospital admission documented."],
+                    citation_display="r.pdf p. 1",
+                    confidence=92,
+                ),
+                ChronologyProjectionEntry(
+                    event_id="t2",
+                    date_display="2024-01-02 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Procedure/Surgery",
+                    patient_label="P1",
+                    facts=["Procedure performed in operating room."],
+                    citation_display="r.pdf p. 2",
+                    confidence=95,
+                ),
+                ChronologyProjectionEntry(
+                    event_id="t3",
+                    date_display="2024-01-03 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Imaging Study",
+                    patient_label="P1",
+                    facts=["Impression: fracture line persists."],
+                    citation_display="r.pdf p. 3",
+                    confidence=88,
+                ),
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection("Top10 Diversity", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count)).lower()
+        assert "top 10 case-driving events" in text
+        assert "hospital admission" in text
+        assert "procedure/surgery" in text
+        assert "imaging study" in text
+
+    def test_disposition_normalization_outputs_canonical_label(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="disp1",
+                    date_display="2024-05-12 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Hospital Discharge",
+                    patient_label="P2",
+                    facts=["Patient discharged home with instructions."],
+                    citation_display="r.pdf p. 4",
+                    confidence=85,
+                )
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection("Disposition Norm", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+        assert "Disposition: Home" in text
+
+    def test_med_switch_never_emits_incoherent_dual_target(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="m-prev",
+                    date_display="2024-01-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="P3",
+                    facts=["Medication review: oxycodone 5 mg tablet continued."],
+                    citation_display="r.pdf p. 5",
+                    confidence=80,
+                ),
+                ChronologyProjectionEntry(
+                    event_id="m-cur",
+                    date_display="2024-02-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="P3",
+                    facts=["Switched medications: hydrocodone 10 mg ER capsule and oxycodone 5 mg tablet listed."],
+                    citation_display="r.pdf p. 6",
+                    confidence=82,
+                ),
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection("Med Switch Guard", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count)).lower()
+        assert "appendix a: medications (material changes)" in text
+        assert "opioid switch detected (oxycodone -> hydrocodone, oxycodone)" not in text
 
 
 # ── CSV sanity ────────────────────────────────────────────────────────────
