@@ -306,6 +306,25 @@ def build_litigation_checklist(
     if noisy_gap_hits > 0:
         quality_gates["Q4_gap_anchoring"]["pass"] = False
         quality_gates["Q4_gap_anchoring"]["details"].append(_issue("GAP_TOO_NOISY", f"Short/noisy gaps present: {noisy_gap_hits}"))
+    # Repeated interval spam detector (>=3 consecutive approx-equal durations) unless explicitly collapsed.
+    routine_gap_lines = re.findall(r"[^\n]*\(\d+\s+days\)\s*\[(?:routine_continuity_gap|routine_continuity_gap_collapsed)\][^\n]*", lower_report)
+    gap_duration_vals = []
+    for line in routine_gap_lines:
+        m = re.search(r"\((\d+)\s+days\)", line)
+        if m:
+            gap_duration_vals.append(int(m.group(1)))
+    repeated_interval_spam = 0
+    streak = 1
+    for i in range(1, len(gap_duration_vals)):
+        if abs(gap_duration_vals[i] - gap_duration_vals[i - 1]) <= 3:
+            streak += 1
+            if streak >= 3:
+                repeated_interval_spam += 1
+        else:
+            streak = 1
+    if repeated_interval_spam > 0 and "routine_continuity_gap_collapsed" not in lower_report:
+        quality_gates["Q4_gap_anchoring"]["pass"] = False
+        quality_gates["Q4_gap_anchoring"]["details"].append(_issue("GAP_REPEATED_INTERVAL_SPAM", f"Repeated interval gaps not collapsed: {repeated_interval_spam}"))
 
     # Q5
     dx_contam = bool(DX_APPENDIX_CONTAM_RE.search(report_text or ""))
@@ -368,6 +387,26 @@ def build_litigation_checklist(
         quality_gates["Q8_attorney_usability_sections"]["pass"] = False
         quality_gates["Q8_attorney_usability_sections"]["details"].append(
             _issue("TOP10_NOT_DIVERSE", f"Top 10 diversity below threshold: {top10_diversity}")
+        )
+    top10_start = lower_report.find("top 10 case-driving events")
+    top10_end = lower_report.find("appendix a: medications", top10_start + 1) if top10_start >= 0 else -1
+    top10_slice = lower_report[top10_start:top10_end] if (top10_start >= 0 and top10_end > top10_start) else ""
+    if "routine_continuity_gap" in top10_slice or "routine_continuity_gap_collapsed" in top10_slice:
+        quality_gates["Q8_attorney_usability_sections"]["pass"] = False
+        quality_gates["Q8_attorney_usability_sections"]["details"].append(_issue("TOP10_CONTAINS_ROUTINE_GAP", "Top 10 contains routine continuity gap item."))
+    if re.search(r"\b(acetaminophen|ibuprofen|naproxen|lisinopril|metformin|sertraline|fluoxetine)\b", top10_slice):
+        quality_gates["Q8_attorney_usability_sections"]["pass"] = False
+        quality_gates["Q8_attorney_usability_sections"]["details"].append(_issue("TOP10_CONTAINS_NONOPIOID_MED_CHANGE", "Top 10 contains non-opioid medication change item."))
+    if "citation(s): not available" in top10_slice:
+        quality_gates["Q8_attorney_usability_sections"]["pass"] = False
+        quality_gates["Q8_attorney_usability_sections"]["details"].append(_issue("TOP10_ITEM_MISSING_CITATION", "Top 10 includes item lacking inline citation."))
+    if ".." in lower_report or "  " in lower_report:
+        quality_gates["Q8_attorney_usability_sections"]["pass"] = False
+        quality_gates["Q8_attorney_usability_sections"]["details"].append(_issue("FORMAT_SANITIZER_DEFECT", "Double punctuation or spacing artifacts detected."))
+    inpatient_repeat_hits = len(re.findall(r"inpatient course documented; ongoing monitoring and management", lower_report))
+    if inpatient_repeat_hits > 2:
+        quality_gates["Q8_attorney_usability_sections"]["details"].append(
+            _issue("INPATIENT_PROGRESS_PHRASE_REPEAT", f"Inpatient phrase repeated too often: {inpatient_repeat_hits}")
         )
 
     hard_pass = all(v["pass"] for v in hard_invariants.values())

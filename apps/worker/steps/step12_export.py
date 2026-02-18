@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import re
+import uuid
 from collections import defaultdict
 from datetime import date, datetime, timezone
 from collections import Counter
@@ -239,6 +240,7 @@ def _build_projection_flowables(
     fact_style = ParagraphStyle("ProjectionFactStyle", parent=styles["Normal"], fontSize=9, leading=12, leftIndent=10, spaceAfter=2)
     patient_style = ParagraphStyle("ProjectionPatientStyle", parent=styles["Heading3"], fontSize=11, spaceAfter=4, textColor=colors.HexColor("#2C3E50"))
     patient_meta_style = ParagraphStyle("ProjectionPatientMetaStyle", parent=styles["Normal"], fontSize=8, leading=11, textColor=colors.HexColor("#34495E"), spaceAfter=2)
+    inpatient_variant_state: dict[str, dict[str, int]] = {}
 
     non_unknown_labels = sorted({e.patient_label for e in projection.entries if e.patient_label != "Unknown Patient"})
     use_patient_sections = len(non_unknown_labels) > 1
@@ -368,6 +370,19 @@ def _build_projection_flowables(
         if re.search(r"\bdisposition\b", blob):
             return "Other/Unknown"
         return None
+
+    def _sanitize_top10_sentence(text: str) -> str:
+        cleaned = re.sub(r"\s+", " ", (text or "").strip())
+        while ".." in cleaned:
+            cleaned = cleaned.replace("..", ".")
+        cleaned = re.sub(r"\.\s*(?=[A-Za-z])", ". ", cleaned)
+        cleaned = cleaned.strip(" ;")
+        if cleaned and not cleaned.endswith("."):
+            cleaned += "."
+        return cleaned
+
+    def _sanitize_render_sentence(text: str) -> str:
+        return _sanitize_top10_sentence(text)
 
     def _extract_medication_changes(entries: list) -> list[str]:
         dated = [(entry, _extract_date(entry.date_display)) for entry in entries]
@@ -505,6 +520,68 @@ def _build_projection_flowables(
                 dedup.append(item)
         return dedup[:12]
 
+    def _extract_medication_change_rows(entries: list) -> list[dict]:
+        dated = [(entry, _extract_date(entry.date_display)) for entry in entries]
+        dated = [(e, d) for e, d in dated if d is not None]
+        dated.sort(key=lambda x: x[1])
+        if len(dated) < 2:
+            return []
+        rows: list[dict] = []
+        last_opioids: set[str] = set()
+        change_cue_re = re.compile(
+            r"\b(start(?:ed)?|initiated|prescribed|discontinued|stop(?:ped)?|switched|changed to|increased|decreased|titrated|resumed)\b",
+            re.IGNORECASE,
+        )
+        negation_re = re.compile(
+            r"\b(not taking|denies taking|allergy|allergic to|intolerance|history of)\b",
+            re.IGNORECASE,
+        )
+        for entry, entry_date in dated:
+            mentions: list[dict] = []
+            entry_has_change_cue = False
+            for fact in entry.facts:
+                txt = sanitize_for_report(fact)
+                if not txt:
+                    continue
+                if negation_re.search(txt):
+                    continue
+                if change_cue_re.search(txt):
+                    entry_has_change_cue = True
+                mentions.extend(_extract_med_mentions(txt))
+            if not mentions:
+                continue
+            opioid_mentions = [m for m in mentions if m.get("is_opioid")]
+            current_opioids = {m["ingredient"] for m in opioid_mentions}
+            if last_opioids and current_opioids and current_opioids != last_opioids and entry_has_change_cue:
+                continued = current_opioids & last_opioids
+                if len(last_opioids) == 1 and len(current_opioids) == 1 and not continued:
+                    text = f"Opioid switch detected ({next(iter(sorted(last_opioids)))} -> {next(iter(sorted(current_opioids)))})."
+                else:
+                    text = "Opioid regimen changed (multiple agents detected; sequence ambiguous)."
+                rows.append(
+                    {
+                        "date": entry_date,
+                        "date_display": entry.date_display,
+                        "text": text,
+                        "is_opioid": True,
+                        "is_regimen_change": True,
+                        "parse_confidence": max((float(m.get("parse_confidence") or 0.0) for m in opioid_mentions), default=0.0),
+                        "citation": (entry.citation_display or "").strip(),
+                    }
+                )
+            if current_opioids:
+                last_opioids = current_opioids
+        # Deterministic dedupe.
+        seen: set[tuple[str, str]] = set()
+        dedup: list[dict] = []
+        for row in rows:
+            key = (row["date_display"], row["text"].lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            dedup.append(row)
+        return dedup[:12]
+
     def _extract_diagnosis_items(entries: list) -> list[str]:
         dx: set[str] = set()
         allow_marker = re.compile(r"\b(diagnosis|diagnoses|assessment|impression|problem list|condition)\b", re.IGNORECASE)
@@ -591,7 +668,7 @@ def _build_projection_flowables(
                 dedup.append(item)
         return dedup[:2]
 
-    def _encounter_fields(entry, disposition: str | None) -> tuple[str, str, str, str]:
+    def _encounter_fields(entry, disposition: str | None, patient_label: str | None = None) -> tuple[str, str, str, str]:
         reason = "not stated in records"
         assessment = "not stated in records"
         intervention = "not stated in records"
@@ -636,10 +713,46 @@ def _build_projection_flowables(
                 ["Disposition documented; see Disposition field when present.", "Transition from acute setting documented.", "Discharge outcome documented with follow-up context."],
             ),
             "inpatient_progress": (
-                ["Inpatient course documented; ongoing monitoring and management.", "Daily inpatient progress documented; continued treatment and observation.", "Hospital course continued; inpatient management noted."],
-                ["Ongoing inpatient management documented.", "Daily assessment supports continued inpatient care.", "Inpatient reassessment documented with treatment continuity."],
-                ["Continued inpatient treatment provided.", "Hospital-based monitoring and therapy continued.", "Inpatient management activities documented for this date."],
-                ["Hospital course remained active.", "Inpatient continuity of care documented.", "Clinical course monitored during ongoing hospitalization."],
+                [
+                    "Inpatient course documented; ongoing monitoring and management.",
+                    "Daily inpatient progress documented; continued treatment and observation.",
+                    "Hospital course continued; inpatient management noted.",
+                    "Inpatient status review documented with ongoing active management.",
+                    "Hospital follow-through documented; inpatient treatment continued.",
+                    "Daily hospital progression documented with continued monitoring.",
+                    "Inpatient clinical trajectory documented with active oversight.",
+                    "Hospital-day progress documented with sustained inpatient care.",
+                ],
+                [
+                    "Ongoing inpatient management documented.",
+                    "Daily assessment supports continued inpatient care.",
+                    "Inpatient reassessment documented with treatment continuity.",
+                    "Clinical reassessment supports continued inpatient treatment.",
+                    "Hospital-day assessment indicates ongoing inpatient needs.",
+                    "Inpatient evaluation documented with persistent care requirements.",
+                    "Daily inpatient assessment confirms continued hospital-level care.",
+                    "Clinical review reflects ongoing inpatient acuity.",
+                ],
+                [
+                    "Continued inpatient treatment provided.",
+                    "Hospital-based monitoring and therapy continued.",
+                    "Inpatient management activities documented for this date.",
+                    "Daily inpatient interventions and monitoring were continued.",
+                    "Ongoing hospital treatment steps documented.",
+                    "Inpatient therapeutic management continued as planned.",
+                    "Hospital care interventions proceeded without interruption.",
+                    "Inpatient management workflow remained active.",
+                ],
+                [
+                    "Hospital course remained active.",
+                    "Inpatient continuity of care documented.",
+                    "Clinical course monitored during ongoing hospitalization.",
+                    "Hospital stay progression documented with continued oversight.",
+                    "Inpatient care continuity remained in effect.",
+                    "Ongoing hospitalization status documented.",
+                    "Hospital-course monitoring documented for this interval.",
+                    "Inpatient treatment course remained ongoing.",
+                ],
             ),
             "hospice_admission": (
                 ["Hospice transition documented.", "Hospice admission documented.", "Care transition to hospice documented."],
@@ -668,10 +781,27 @@ def _build_projection_flowables(
         }
         if event_class in milestone_fields:
             r_opts, a_opts, i_opts, o_opts = milestone_fields[event_class]
-            reason = _stable_pick(f"{entry.event_id}:reason", r_opts)
-            assessment = _stable_pick(f"{entry.event_id}:assessment", a_opts)
-            intervention = _stable_pick(f"{entry.event_id}:intervention", i_opts)
-            outcome = _stable_pick(f"{entry.event_id}:outcome", o_opts)
+            if event_class == "inpatient_progress":
+                plabel = patient_label or entry.patient_label or "Unknown Patient"
+                pstate = inpatient_variant_state.setdefault(plabel, {"last_idx": -1, "repeat_count": 0})
+                base_idx = int(hashlib.sha1((entry.event_id or "x").encode("utf-8")).hexdigest(), 16) % len(r_opts)
+                idx = base_idx
+                if idx == pstate["last_idx"] and pstate["repeat_count"] >= 2 and len(r_opts) > 1:
+                    idx = (idx + 1) % len(r_opts)
+                reason = r_opts[idx]
+                assessment = a_opts[idx % len(a_opts)]
+                intervention = i_opts[idx % len(i_opts)]
+                outcome = o_opts[idx % len(o_opts)]
+                if idx == pstate["last_idx"]:
+                    pstate["repeat_count"] += 1
+                else:
+                    pstate["last_idx"] = idx
+                    pstate["repeat_count"] = 1
+            else:
+                reason = _stable_pick(f"{entry.event_id}:reason", r_opts)
+                assessment = _stable_pick(f"{entry.event_id}:assessment", a_opts)
+                intervention = _stable_pick(f"{entry.event_id}:intervention", i_opts)
+                outcome = _stable_pick(f"{entry.event_id}:outcome", o_opts)
         else:
             # For non-milestone routine events retain parsed fields, but only fallback after extraction attempts.
             if reason == "not stated in records" and "follow-up" in facts_blob:
@@ -685,29 +815,40 @@ def _build_projection_flowables(
 
         if disposition and ("disposition" in outcome.lower() or disposition.lower() in outcome.lower()):
             outcome = "Disposition documented separately."
-        return reason, assessment, intervention, outcome
+        return (
+            _sanitize_render_sentence(reason),
+            _sanitize_render_sentence(assessment),
+            _sanitize_render_sentence(intervention),
+            _sanitize_render_sentence(outcome),
+        )
 
     def _top_case_events(entries: list, grouped_entries: dict[str, list], material_gap_rows: list[dict]) -> list[dict]:
         bucket_weight = {
-            "hospice_snf_disposition": 1000,
-            "death": 950,
-            "surgery_procedure": 900,
-            "ed": 850,
-            "admission": 800,
-            "discharge": 760,
-            "imaging_impression": 720,
-            "med_regimen_change": 680,
-            "large_gap_anchor": 640,
-            "other": 500,
+            "death": 1100,
+            "hospice": 1050,
+            "snf_disposition": 1000,
+            "surgery_procedure": 950,
+            "ed": 900,
+            "admission": 850,
+            "discharge": 800,
+            "imaging_impression": 760,
+            "opioid_regimen_change": 720,
+            "material_gap": 680,
         }
         candidates: list[dict] = []
+
+        def _citation_count(citation: str) -> int:
+            c = citation or ""
+            return max(1, c.count("p.") + c.count(" p. "))
 
         for entry in entries:
             event_class = _normalize_event_class(entry)
             disposition = _extract_disposition(entry.facts)
             facts_blob = " ".join(entry.facts).lower()
-            if disposition in {"Hospice", "SNF"}:
-                bucket = "hospice_snf_disposition"
+            if disposition == "Hospice":
+                bucket = "hospice"
+            elif disposition == "SNF":
+                bucket = "snf_disposition"
             elif disposition == "Death" or re.search(r"\b(deceased|death|expired)\b", facts_blob):
                 bucket = "death"
             elif event_class == "procedure":
@@ -718,17 +859,21 @@ def _build_projection_flowables(
                 bucket = "admission"
             elif event_class == "discharge":
                 bucket = "discharge"
-            elif event_class == "imaging":
+            elif event_class == "imaging" and re.search(r"\b(impression|finding|fracture|tear|lesion|dislocation)\b", facts_blob):
                 bucket = "imaging_impression"
             else:
-                bucket = "other"
-            reason, assessment, intervention, outcome = _encounter_fields(entry, disposition)
+                continue
+
+            citation = (entry.citation_display or "").strip()
+            if not citation:
+                continue
+            reason, assessment, intervention, _ = _encounter_fields(entry, disposition, entry.patient_label)
             sentence = f"{reason} {assessment}".strip()
             if disposition:
-                sentence = f"{sentence} Disposition: {disposition}."
+                sentence = f"{sentence} Disposition: {disposition}"
             elif intervention != "not stated in records":
-                sentence = f"{sentence} {intervention}."
-            sentence = re.sub(r"\s{2,}", " ", sentence).strip()
+                sentence = f"{sentence} {intervention}"
+            sentence = _sanitize_top10_sentence(sentence)
             candidates.append(
                 {
                     "bucket": bucket,
@@ -737,61 +882,80 @@ def _build_projection_flowables(
                     "event_id": entry.event_id,
                     "label": entry.event_type_display,
                     "narrative": sentence,
-                    "citation": entry.citation_display or "Not available",
+                    "citation": citation,
+                    "citation_count": _citation_count(citation),
                 }
             )
 
         for label in sorted(grouped_entries.keys()):
-            med_rows = _extract_medication_changes(grouped_entries[label])
-            for row in med_rows:
-                m = re.match(r"^(\d{4}-\d{2}-\d{2}):\s*(.+)$", row)
-                if not m:
+            for row in _extract_medication_change_rows(grouped_entries[label]):
+                # Hard excludes:
+                if not row.get("is_opioid"):
                     continue
-                change_date = m.group(1)
-                body = m.group(2).rstrip(".")
+                if float(row.get("parse_confidence") or 0.0) < 0.8 and not row.get("is_regimen_change"):
+                    continue
+                citation = (row.get("citation") or "").strip()
+                if not citation:
+                    continue
+                body = _sanitize_top10_sentence(str(row.get("text") or ""))
                 candidates.append(
                     {
-                        "bucket": "med_regimen_change",
-                        "score": bucket_weight["med_regimen_change"] + 50,
-                        "date": f"{change_date} (time not documented)",
-                        "event_id": f"med:{label}:{change_date}:{hashlib.sha1(body.encode('utf-8')).hexdigest()[:8]}",
-                        "label": "Medication Regimen Change",
-                        "narrative": f"{body}.",
-                        "citation": "See patient-specific encounter citations in chronology rows.",
+                        "bucket": "opioid_regimen_change",
+                        "score": bucket_weight["opioid_regimen_change"] + 50,
+                        "date": row["date_display"],
+                        "event_id": f"med:{label}:{row['date']}:{hashlib.sha1(body.encode('utf-8')).hexdigest()[:8]}",
+                        "label": "Opioid Regimen Change",
+                        "narrative": body,
+                        "citation": citation,
+                        "citation_count": _citation_count(citation),
                     }
                 )
 
+        allowed_short_tags = {
+            "post_admission_followup_missing",
+            "post_procedure_followup_missing",
+            "hospice_continuity_break",
+            "rehab_snf_transition_gap",
+        }
         for row in material_gap_rows:
-            if int(row["gap"].duration_days or 0) < 180:
+            tag = str(row.get("rationale_tag") or "")
+            duration = int(row["gap"].duration_days or 0)
+            if not tag or tag in {"routine_continuity_gap", "routine_continuity_gap_collapsed"}:
+                continue
+            if duration < 180 and tag not in allowed_short_tags:
+                continue
+            citation = f"{row['last_before']['citation_display']} | {row['first_after']['citation_display']}".strip(" |")
+            if not citation:
                 continue
             candidates.append(
                 {
-                    "bucket": "large_gap_anchor",
-                    "score": bucket_weight["large_gap_anchor"] + int(row["gap"].duration_days or 0),
+                    "bucket": "material_gap",
+                    "score": bucket_weight["material_gap"] + duration,
                     "date": f"{row['gap'].start_date} (time not documented)",
                     "event_id": f"gap:{row['patient_label']}:{row['gap'].gap_id}",
                     "label": "Treatment Gap",
-                    "narrative": f"{row['patient_label']} gap of {row['gap'].duration_days} days ({row['rationale_tag']}).",
-                    "citation": f"{row['last_before']['citation_display']} | {row['first_after']['citation_display']}".strip(" |"),
+                    "narrative": _sanitize_top10_sentence(f"{row['patient_label']} gap of {duration} days ({tag})"),
+                    "citation": citation,
+                    "citation_count": _citation_count(citation),
                 }
             )
 
-        candidates.sort(key=lambda c: (-c["score"], c["date"], c["event_id"]))
+        candidates.sort(key=lambda c: (-c["score"], -int(c.get("citation_count", 0)), c["date"], c["event_id"]))
         by_bucket: dict[str, list[dict]] = defaultdict(list)
         for c in candidates:
             by_bucket[c["bucket"]].append(c)
 
         priority = [
-            "hospice_snf_disposition",
             "death",
+            "hospice",
+            "snf_disposition",
             "surgery_procedure",
             "ed",
             "admission",
             "discharge",
             "imaging_impression",
-            "med_regimen_change",
-            "large_gap_anchor",
-            "other",
+            "opioid_regimen_change",
+            "material_gap",
         ]
         selected: list[dict] = []
         used_ids: set[str] = set()
@@ -804,8 +968,8 @@ def _build_projection_flowables(
             if len(selected) >= 10:
                 break
 
-        bucket_count = len({item["bucket"] for item in selected})
-        if bucket_count < 3:
+        # Diversity rule: ensure >=3 buckets when available.
+        if len({item["bucket"] for item in selected}) < 3:
             for cand in candidates:
                 if cand["event_id"] in used_ids:
                     continue
@@ -847,6 +1011,12 @@ def _build_projection_flowables(
 
     def _material_gap_rows(gap_list: list[Gap], entries_by_patient: dict[str, list], raw_event_by_id: dict[str, Event]) -> list[dict]:
         rows: list[dict] = []
+        acute_tags = {
+            "post_admission_followup_missing",
+            "post_procedure_followup_missing",
+            "hospice_continuity_break",
+            "rehab_snf_transition_gap",
+        }
         entry_by_id = {e.event_id: e for ents in entries_by_patient.values() for e in ents}
 
         def _entry_from_raw(evt: Event) -> dict:
@@ -872,10 +1042,10 @@ def _build_projection_flowables(
                 "facts_blob": " ".join((f.text or "") for f in evt.facts).lower(),
             }
 
-        def _rationale(prev_row: dict) -> str | None:
+        def _rationale(prev_row: dict, patient_local: str) -> str | None:
             et = (prev_row.get("event_type_display", "") or "").lower()
             facts = prev_row.get("facts_blob", "")
-            if "hospice" in facts:
+            if "hospice" in facts and patient_local == patient_label:
                 return "hospice_continuity_break"
             if "skilled nursing" in facts or "snf" in facts or "rehab" in facts:
                 return "rehab_snf_transition_gap"
@@ -892,7 +1062,7 @@ def _build_projection_flowables(
                 continue
             related_ids = list(getattr(gap, "related_event_ids", []) or [])
             labels = sorted({entry_by_id[eid].patient_label for eid in related_ids if eid in entry_by_id and entry_by_id[eid].patient_label != "Unknown Patient"})
-            if not labels:
+            if len(labels) != 1:
                 continue
             patient_label = labels[0]
             last_before = None
@@ -931,8 +1101,13 @@ def _build_projection_flowables(
             if not last_before or not first_after:
                 continue
 
-            rationale_tag = _rationale(last_before)
-            is_material = int(gap.duration_days or 0) >= 180 or (int(gap.duration_days or 0) >= 60 and rationale_tag is not None)
+            rationale_tag = _rationale(last_before, patient_label)
+            duration = int(gap.duration_days or 0)
+            if rationale_tag in acute_tags:
+                is_material = duration >= 60
+            else:
+                # Routine continuity gaps must clear higher thresholds downstream.
+                is_material = duration >= 180
             if not is_material:
                 continue
             rows.append(
@@ -944,7 +1119,71 @@ def _build_projection_flowables(
                     "rationale_tag": rationale_tag or "routine_continuity_gap",
                 }
             )
-        return rows
+        # Collapse repeated routine intervals per patient:
+        # if >=3 consecutive routine gaps have approx-equal duration (<=3d delta), collapse.
+        by_patient: dict[str, list[dict]] = defaultdict(list)
+        for row in rows:
+            by_patient[row["patient_label"]].append(row)
+        collapsed_rows: list[dict] = []
+        for patient_label in sorted(by_patient.keys()):
+            prow = sorted(by_patient[patient_label], key=lambda r: (r["gap"].start_date, r["gap"].end_date, r["gap"].gap_id))
+            i = 0
+            while i < len(prow):
+                cur = prow[i]
+                tag = str(cur.get("rationale_tag") or "")
+                if tag != "routine_continuity_gap":
+                    collapsed_rows.append(cur)
+                    i += 1
+                    continue
+                run = [cur]
+                j = i + 1
+                while j < len(prow):
+                    nxt = prow[j]
+                    if str(nxt.get("rationale_tag") or "") != "routine_continuity_gap":
+                        break
+                    prev_days = int(run[-1]["gap"].duration_days or 0)
+                    nxt_days = int(nxt["gap"].duration_days or 0)
+                    if abs(prev_days - nxt_days) <= 3:
+                        run.append(nxt)
+                        j += 1
+                        continue
+                    break
+                if len(run) >= 3:
+                    first = run[0]
+                    last = run[-1]
+                    start = first["gap"].start_date
+                    end = last["gap"].end_date
+                    total_days = (end - start).days if (start and end) else int(last["gap"].duration_days or 0)
+                    collapsed_gap = Gap(
+                        gap_id=f"collapsed_{uuid.uuid4().hex[:12]}",
+                        start_date=start,
+                        end_date=end,
+                        duration_days=total_days,
+                        threshold_days=540,
+                        confidence=min(int(first["gap"].confidence or 80), int(last["gap"].confidence or 80)),
+                        related_event_ids=[
+                            str(first["last_before"].get("event_id", "")),
+                            str(last["first_after"].get("event_id", "")),
+                        ],
+                    )
+                    collapsed_rows.append(
+                        {
+                            "gap": collapsed_gap,
+                            "patient_label": patient_label,
+                            "last_before": first["last_before"],
+                            "first_after": last["first_after"],
+                            "rationale_tag": "routine_continuity_gap_collapsed",
+                            "collapse_label": "Repeated annual continuity gaps collapsed",
+                        }
+                    )
+                    i = j
+                else:
+                    # Keep non-collapsed routine rows, but routine threshold is 540 days.
+                    for rr in run:
+                        if int(rr["gap"].duration_days or 0) >= 540:
+                            collapsed_rows.append(rr)
+                    i = j
+        return collapsed_rows
 
     def _why_it_matters(entry) -> str:
         et = (entry.event_type_display or "").lower()
@@ -999,20 +1238,22 @@ def _build_projection_flowables(
     def _render_entry(entry) -> list:
         med_changes = _extract_inline_medication_changes(entry.facts)
         disposition = _extract_disposition(entry.facts)
-        reason, assessment, intervention, outcome = _encounter_fields(entry, disposition)
+        reason, assessment, intervention, outcome = _encounter_fields(entry, disposition, entry.patient_label)
         parts: list = [
             Paragraph(f"{entry.date_display} | Encounter: {entry.event_type_display}", date_style),
             Paragraph(f"Facility/Clinician: {entry.provider_display}", meta_style),
             Paragraph(
-                f"What Happened: Reason: {reason}; Assessment: {assessment}; Intervention: {intervention}; Outcome: {outcome}",
+                _sanitize_render_sentence(
+                    f"What Happened: Reason: {reason}; Assessment: {assessment}; Intervention: {intervention}; Outcome: {outcome}"
+                ),
                 fact_style,
             ),
-            Paragraph(f"Why It Matters: {_why_it_matters(entry)}", fact_style),
+            Paragraph(_sanitize_render_sentence(f"Why It Matters: {_why_it_matters(entry)}"), fact_style),
         ]
         if med_changes:
-            parts.append(Paragraph(f"Medication Changes: {'; '.join(med_changes)}", fact_style))
+            parts.append(Paragraph(_sanitize_render_sentence(f"Medication Changes: {'; '.join(med_changes)}"), fact_style))
         if disposition:
-            parts.append(Paragraph(f"Disposition: {disposition}", fact_style))
+            parts.append(Paragraph(_sanitize_render_sentence(f"Disposition: {disposition}"), fact_style))
         parts.extend(
             [
                 Paragraph(f"Citation(s): {entry.citation_display or 'Not available'}", meta_style),
@@ -1056,7 +1297,9 @@ def _build_projection_flowables(
         for item in top_events:
             flowables.append(
                 Paragraph(
-                    f"• {item['date']} | {item['label']} | {item['narrative']} | Citation(s): {item['citation']}",
+                    _sanitize_render_sentence(
+                        f"• {item['date']} | {item['label']} | {item['narrative']} | Citation(s): {item['citation']}"
+                    ),
                     fact_style,
                 )
             )
@@ -1075,7 +1318,7 @@ def _build_projection_flowables(
         has_med = True
         flowables.append(Paragraph(f"{label}:", meta_style))
         for med in med_rows:
-            flowables.append(Paragraph(f"• {med}", fact_style))
+            flowables.append(Paragraph(_sanitize_render_sentence(f"• {med}"), fact_style))
     if not has_med:
         flowables.append(Paragraph("No material medication changes identified in reportable events.", fact_style))
 
@@ -1089,7 +1332,7 @@ def _build_projection_flowables(
         has_dx = True
         flowables.append(Paragraph(f"{label}:", meta_style))
         for dx in dxs:
-            flowables.append(Paragraph(f"• {dx}", fact_style))
+            flowables.append(Paragraph(_sanitize_render_sentence(f"• {dx}"), fact_style))
     if not has_dx:
         flowables.append(Paragraph("No diagnosis/problem statements found in provided record text (structured encounter labels only).", fact_style))
 
@@ -1103,7 +1346,7 @@ def _build_projection_flowables(
         has_pro = True
         flowables.append(Paragraph(f"{label}:", meta_style))
         for item in pro_items:
-            flowables.append(Paragraph(f"• {item}", fact_style))
+            flowables.append(Paragraph(_sanitize_render_sentence(f"• {item}"), fact_style))
     if not has_pro:
         flowables.append(Paragraph("No patient-reported outcome measures identified in reportable events.", fact_style))
 
@@ -1112,7 +1355,7 @@ def _build_projection_flowables(
     contradiction_items = _contradiction_flags(appendix_source_entries)
     if contradiction_items:
         for item in contradiction_items:
-            flowables.append(Paragraph(f"• {item}", fact_style))
+            flowables.append(Paragraph(_sanitize_render_sentence(f"• {item}"), fact_style))
     else:
         flowables.append(Paragraph("No high-impact contradictions detected in projected events.", fact_style))
 
@@ -1121,7 +1364,7 @@ def _build_projection_flowables(
     sdoh_items = _extract_sdoh_items(appendix_source_entries)
     if sdoh_items:
         for item in sdoh_items:
-            flowables.append(Paragraph(f"• {item}", fact_style))
+            flowables.append(Paragraph(_sanitize_render_sentence(f"• {item}"), fact_style))
     else:
         flowables.append(Paragraph("No material SDOH/intake items extracted.", fact_style))
 
@@ -1137,7 +1380,10 @@ def _build_projection_flowables(
             rationale_tag = row["rationale_tag"]
             flowables.append(
                 Paragraph(
-                    f"{patient_label}: {gap.start_date} -> {gap.end_date} ({gap.duration_days} days) [{rationale_tag}]",
+                    _sanitize_render_sentence(
+                        f"{patient_label}: {gap.start_date} -> {gap.end_date} ({gap.duration_days} days) [{rationale_tag}]"
+                        + (f" - {row.get('collapse_label')}" if row.get("collapse_label") else "")
+                    ),
                     meta_style,
                 )
             )
@@ -1148,14 +1394,18 @@ def _build_projection_flowables(
             if last_before:
                 flowables.append(
                     Paragraph(
-                        f"• Last before gap: {_field(last_before, 'date_display')} | {_field(last_before, 'event_type_display')} | {_field(last_before, 'citation_display')}",
+                        _sanitize_render_sentence(
+                            f"• Last before gap: {_field(last_before, 'date_display')} | {_field(last_before, 'event_type_display')} | {_field(last_before, 'citation_display')}"
+                        ),
                         fact_style,
                     )
                 )
             if first_after:
                 flowables.append(
                     Paragraph(
-                        f"• First after gap: {_field(first_after, 'date_display')} | {_field(first_after, 'event_type_display')} | {_field(first_after, 'citation_display')}",
+                        _sanitize_render_sentence(
+                            f"• First after gap: {_field(first_after, 'date_display')} | {_field(first_after, 'event_type_display')} | {_field(first_after, 'citation_display')}"
+                        ),
                         fact_style,
                     )
                 )
@@ -1302,19 +1552,26 @@ def generate_pdf_from_projection(
         patient_by_event_id = {entry.event_id: entry.patient_label for entry in projection.entries}
         event_type_by_id = {entry.event_id: (entry.event_type_display or "") for entry in projection.entries}
         facts_by_id = {entry.event_id: " ".join(entry.facts).lower() for entry in projection.entries}
-        scoped_gaps: dict[str, list[tuple[Gap, str]]] = defaultdict(list)
+        scoped_gaps: dict[str, list[tuple[Gap, str, str | None]]] = defaultdict(list)
         unassigned_gaps: list[Gap] = []
+        acute_tags = {
+            "post_admission_followup_missing",
+            "post_procedure_followup_missing",
+            "hospice_continuity_break",
+            "rehab_snf_transition_gap",
+        }
         for gap in gaps:
             related_ids = list(getattr(gap, "related_event_ids", []) or [])
             labels = sorted({patient_by_event_id.get(eid) for eid in related_ids if patient_by_event_id.get(eid)})
-            if labels:
+            if len(labels) == 1:
                 if labels[0] == "Unknown Patient":
                     continue
                 prev_id = related_ids[0] if len(related_ids) >= 1 else ""
                 prev_type = event_type_by_id.get(prev_id, "").lower()
                 prev_facts = facts_by_id.get(prev_id, "")
+                prev_label = patient_by_event_id.get(prev_id)
                 rationale_tag = None
-                if "hospice" in prev_facts:
+                if "hospice" in prev_facts and prev_label == labels[0]:
                     rationale_tag = "hospice_continuity_break"
                 elif "skilled nursing" in prev_facts or "snf" in prev_facts or "rehab" in prev_facts:
                     rationale_tag = "rehab_snf_transition_gap"
@@ -1322,21 +1579,76 @@ def generate_pdf_from_projection(
                     rationale_tag = "post_admission_followup_missing"
                 elif "procedure" in prev_type or "surgery" in prev_type:
                     rationale_tag = "post_procedure_followup_missing"
-                is_material = int(gap.duration_days or 0) >= 180 or (int(gap.duration_days or 0) >= 60 and rationale_tag is not None)
+                duration = int(gap.duration_days or 0)
+                if rationale_tag in acute_tags:
+                    is_material = duration >= 60
+                else:
+                    is_material = duration >= 180
                 if is_material:
-                    scoped_gaps[labels[0]].append((gap, rationale_tag or "routine_continuity_gap"))
+                    scoped_gaps[labels[0]].append((gap, rationale_tag or "routine_continuity_gap", None))
             else:
                 unassigned_gaps.append(gap)
 
+        # Collapse repeated routine interval runs and suppress short routine annual spacing.
+        normalized_scoped: dict[str, list[tuple[Gap, str, str | None]]] = defaultdict(list)
+        for label in sorted(scoped_gaps.keys()):
+            rows = sorted(scoped_gaps[label], key=lambda t: (t[0].start_date, t[0].end_date, t[0].gap_id))
+            i = 0
+            while i < len(rows):
+                gap, tag, collapse_label = rows[i]
+                if tag != "routine_continuity_gap":
+                    normalized_scoped[label].append((gap, tag, collapse_label))
+                    i += 1
+                    continue
+                run = [(gap, tag, collapse_label)]
+                j = i + 1
+                while j < len(rows):
+                    n_gap, n_tag, n_label = rows[j]
+                    if n_tag != "routine_continuity_gap":
+                        break
+                    if abs(int(run[-1][0].duration_days or 0) - int(n_gap.duration_days or 0)) <= 3:
+                        run.append((n_gap, n_tag, n_label))
+                        j += 1
+                        continue
+                    break
+                if len(run) >= 3:
+                    first_gap = run[0][0]
+                    last_gap = run[-1][0]
+                    c_gap = Gap(
+                        gap_id=f"collapsed_{uuid.uuid4().hex[:12]}",
+                        start_date=first_gap.start_date,
+                        end_date=last_gap.end_date,
+                        duration_days=(last_gap.end_date - first_gap.start_date).days if (first_gap.start_date and last_gap.end_date) else int(last_gap.duration_days or 0),
+                        threshold_days=540,
+                        confidence=min(int(first_gap.confidence or 80), int(last_gap.confidence or 80)),
+                        related_event_ids=[
+                            (first_gap.related_event_ids or [""])[0],
+                            (last_gap.related_event_ids or ["", ""])[-1],
+                        ],
+                    )
+                    normalized_scoped[label].append((c_gap, "routine_continuity_gap_collapsed", "Repeated annual continuity gaps collapsed"))
+                    i = j
+                else:
+                    for r_gap, r_tag, r_lbl in run:
+                        if int(r_gap.duration_days or 0) >= 540:
+                            normalized_scoped[label].append((r_gap, r_tag, r_lbl))
+                    i = j
+
         for label in sorted(scoped_gaps.keys()):
             story.append(Paragraph(f"{label}:", styles["Heading4"]))
-            for gap, rationale_tag in scoped_gaps[label]:
+            for gap, rationale_tag, collapse_label in normalized_scoped[label]:
                 if gap.start_date and not date_sanity(gap.start_date):
                     continue
                 if gap.end_date and not date_sanity(gap.end_date):
                     continue
-                story.append(Paragraph(f"• {gap.start_date} -> {gap.end_date} ({gap.duration_days} days) [{rationale_tag}]", styles["Normal"]))
-        if not scoped_gaps:
+                line = f"• {gap.start_date} -> {gap.end_date} ({gap.duration_days} days) [{rationale_tag}]"
+                if collapse_label:
+                    line += f" - {collapse_label}"
+                line = re.sub(r"\s+", " ", line).replace("..", ".").strip()
+                if line and not line.endswith("."):
+                    line += "."
+                story.append(Paragraph(line, styles["Normal"]))
+        if not normalized_scoped:
             story.append(Paragraph("No material treatment gaps met litigation reporting thresholds.", styles["Normal"]))
         if unassigned_gaps:
             story.append(Spacer(1, 0.1 * inch))

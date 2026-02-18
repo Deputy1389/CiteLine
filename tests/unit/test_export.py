@@ -482,6 +482,257 @@ class TestGeneratePdf:
         assert "procedure/surgery" in text
         assert "imaging study" in text
 
+    def test_top10_excludes_routine_gap_and_nonopioid_med_changes(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="r1",
+                    date_display="2024-01-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="P4",
+                    facts=["Routine follow-up documented.", "Started acetaminophen 325 mg tablet."],
+                    citation_display="r.pdf p. 1",
+                    confidence=80,
+                ),
+                ChronologyProjectionEntry(
+                    event_id="r2",
+                    date_display="2024-08-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="P4",
+                    facts=["Routine follow-up documented.", "Stopped acetaminophen 325 mg tablet."],
+                    citation_display="r.pdf p. 2",
+                    confidence=80,
+                ),
+            ],
+        )
+        gaps = [
+            Gap(
+                gap_id="g-routine",
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 8, 1),
+                duration_days=213,
+                threshold_days=180,
+                confidence=80,
+                related_event_ids=["r1", "r2"],
+            )
+        ]
+        pdf_bytes = generate_pdf_from_projection("Top10 Filter", projection, gaps=gaps, narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count)).lower()
+        top10_slice = text.split("top 10 case-driving events", 1)[1].split("appendix a:", 1)[0]
+        assert "routine_continuity_gap" not in top10_slice
+        assert "opioid regimen change" not in top10_slice
+        assert "acetaminophen" not in top10_slice
+
+    def test_top10_items_all_have_citations(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="c1",
+                    date_display="2024-01-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Hospital Admission",
+                    patient_label="P5",
+                    facts=["Hospital admission documented."],
+                    citation_display="r.pdf p. 1",
+                    confidence=90,
+                ),
+                ChronologyProjectionEntry(
+                    event_id="c2",
+                    date_display="2024-01-02 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Procedure/Surgery",
+                    patient_label="P5",
+                    facts=["Procedure performed in OR."],
+                    citation_display="r.pdf p. 2",
+                    confidence=95,
+                ),
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection("Top10 Cites", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+        top10_slice = text.split("Top 10 Case-Driving Events", 1)[1].split("Appendix A:", 1)[0]
+        bullet_lines = [ln for ln in top10_slice.splitlines() if ln.strip().startswith("•")]
+        assert bullet_lines
+        assert top10_slice.count("Citation(s):") >= len(bullet_lines)
+        assert "Citation(s): Not available" not in top10_slice
+
+    def test_hospice_rationale_not_cross_patient(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="a-hospice",
+                    date_display="2024-01-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Hospital Discharge",
+                    patient_label="A",
+                    facts=["Admission to hospice documented."],
+                    citation_display="a.pdf p. 1",
+                    confidence=90,
+                ),
+                ChronologyProjectionEntry(
+                    event_id="b-start",
+                    date_display="2024-02-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="B",
+                    facts=["Routine follow-up."],
+                    citation_display="b.pdf p. 1",
+                    confidence=80,
+                ),
+                ChronologyProjectionEntry(
+                    event_id="b-end",
+                    date_display="2024-09-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="B",
+                    facts=["Routine follow-up."],
+                    citation_display="b.pdf p. 2",
+                    confidence=80,
+                ),
+            ],
+        )
+        # Mixed-patient related ids should never become a hospice continuity tag.
+        gaps = [
+            Gap(
+                gap_id="g-cross",
+                start_date=date(2024, 2, 1),
+                end_date=date(2024, 9, 1),
+                duration_days=213,
+                threshold_days=180,
+                confidence=80,
+                related_event_ids=["a-hospice", "b-end"],
+            )
+        ]
+        pdf_bytes = generate_pdf_from_projection("Hospice Guard", projection, gaps=gaps, narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count)).lower()
+        assert "hospice_continuity_break" not in text
+
+    def test_top10_sanitizer_removes_double_periods(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="s1",
+                    date_display="2024-01-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Hospital Admission",
+                    patient_label="P6",
+                    facts=["Hospital admission documented.."],
+                    citation_display="s.pdf p. 1",
+                    confidence=90,
+                )
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection("Sanitize", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+        top10_slice = text.split("Top 10 Case-Driving Events", 1)[1].split("Appendix A:", 1)[0]
+        assert ".." not in top10_slice
+        assert "  " not in top10_slice
+
+    def test_gap_collapsing_for_repeated_routine_intervals(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(event_id="g0", date_display="2020-01-01 (time not documented)", provider_display="Unknown", event_type_display="Follow-Up Visit", patient_label="P7", facts=["Routine follow-up."], citation_display="r.pdf p. 1", confidence=80),
+                ChronologyProjectionEntry(event_id="g1", date_display="2021-01-06 (time not documented)", provider_display="Unknown", event_type_display="Follow-Up Visit", patient_label="P7", facts=["Routine follow-up."], citation_display="r.pdf p. 2", confidence=80),
+                ChronologyProjectionEntry(event_id="g2", date_display="2022-01-11 (time not documented)", provider_display="Unknown", event_type_display="Follow-Up Visit", patient_label="P7", facts=["Routine follow-up."], citation_display="r.pdf p. 3", confidence=80),
+                ChronologyProjectionEntry(event_id="g3", date_display="2023-01-16 (time not documented)", provider_display="Unknown", event_type_display="Follow-Up Visit", patient_label="P7", facts=["Routine follow-up."], citation_display="r.pdf p. 4", confidence=80),
+            ],
+        )
+        gaps = [
+            Gap(gap_id="ga", start_date=date(2020, 1, 1), end_date=date(2021, 1, 6), duration_days=371, threshold_days=180, confidence=80, related_event_ids=["g0", "g1"]),
+            Gap(gap_id="gb", start_date=date(2021, 1, 6), end_date=date(2022, 1, 11), duration_days=370, threshold_days=180, confidence=80, related_event_ids=["g1", "g2"]),
+            Gap(gap_id="gc", start_date=date(2022, 1, 11), end_date=date(2023, 1, 16), duration_days=370, threshold_days=180, confidence=80, related_event_ids=["g2", "g3"]),
+        ]
+        pdf_bytes = generate_pdf_from_projection("Gap Collapse", projection, gaps=gaps, narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+        c1 = text.split("Appendix C1: Gap Boundary Anchors", 1)[1].split("Appendix C: Treatment Gaps", 1)[0]
+        assert "Repeated annual continuity gaps collapsed" in c1
+        assert c1.count("days) [routine_continuity_gap_collapsed]") == 1
+
+    def test_collapsed_gap_uses_outer_boundary_anchors(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(event_id="h0", date_display="2020-01-01 (time not documented)", provider_display="Unknown", event_type_display="Follow-Up Visit", patient_label="P8", facts=["Routine follow-up."], citation_display="r.pdf p. 1", confidence=80),
+                ChronologyProjectionEntry(event_id="h1", date_display="2021-01-06 (time not documented)", provider_display="Unknown", event_type_display="Follow-Up Visit", patient_label="P8", facts=["Routine follow-up."], citation_display="r.pdf p. 2", confidence=80),
+                ChronologyProjectionEntry(event_id="h2", date_display="2022-01-11 (time not documented)", provider_display="Unknown", event_type_display="Follow-Up Visit", patient_label="P8", facts=["Routine follow-up."], citation_display="r.pdf p. 3", confidence=80),
+                ChronologyProjectionEntry(event_id="h3", date_display="2023-01-16 (time not documented)", provider_display="Unknown", event_type_display="Follow-Up Visit", patient_label="P8", facts=["Routine follow-up."], citation_display="r.pdf p. 4", confidence=80),
+            ],
+        )
+        gaps = [
+            Gap(gap_id="ha", start_date=date(2020, 1, 1), end_date=date(2021, 1, 6), duration_days=371, threshold_days=180, confidence=80, related_event_ids=["h0", "h1"]),
+            Gap(gap_id="hb", start_date=date(2021, 1, 6), end_date=date(2022, 1, 11), duration_days=370, threshold_days=180, confidence=80, related_event_ids=["h1", "h2"]),
+            Gap(gap_id="hc", start_date=date(2022, 1, 11), end_date=date(2023, 1, 16), duration_days=370, threshold_days=180, confidence=80, related_event_ids=["h2", "h3"]),
+        ]
+        pdf_bytes = generate_pdf_from_projection("Gap Anchor Collapse", projection, gaps=gaps, narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+        c1 = text.split("Appendix C1: Gap Boundary Anchors", 1)[1].split("Appendix C: Treatment Gaps", 1)[0]
+        assert "Last before gap: 2020-01-01" in c1
+        assert "First after gap: 2023-01-16" in c1
+
+    def test_inpatient_progress_variant_does_not_repeat_more_than_twice(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(event_id="ip1", date_display="2024-01-01 (time not documented)", provider_display="Unknown", event_type_display="Inpatient Progress", patient_label="P9", facts=["Inpatient progress note."], citation_display="r.pdf p. 1", confidence=88),
+                ChronologyProjectionEntry(event_id="ip2", date_display="2024-01-02 (time not documented)", provider_display="Unknown", event_type_display="Inpatient Progress", patient_label="P9", facts=["Inpatient progress note."], citation_display="r.pdf p. 2", confidence=88),
+                ChronologyProjectionEntry(event_id="ip3", date_display="2024-01-03 (time not documented)", provider_display="Unknown", event_type_display="Inpatient Progress", patient_label="P9", facts=["Inpatient progress note."], citation_display="r.pdf p. 3", confidence=88),
+                ChronologyProjectionEntry(event_id="ip4", date_display="2024-01-04 (time not documented)", provider_display="Unknown", event_type_display="Inpatient Progress", patient_label="P9", facts=["Inpatient progress note."], citation_display="r.pdf p. 4", confidence=88),
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection("Inpatient Variants", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count)).lower()
+        # Primary inpatient phrase must not repeat more than twice when alternatives exist.
+        assert text.count("inpatient course documented; ongoing monitoring and management") <= 2
+
     def test_disposition_normalization_outputs_canonical_label(self):
         import fitz
         from datetime import datetime, timezone

@@ -59,6 +59,7 @@ from apps.worker.steps.events.event_weighting import annotate_event_weights
 from apps.worker.steps.events.legal_usability import improve_legal_usability
 from apps.worker.steps.step12a_narrative_synthesis import synthesize_narrative
 from apps.worker.steps.step12_export import render_exports, render_patient_chronology_reports
+from apps.worker.steps.step12b_litigation_review import run_litigation_review
 from apps.worker.steps.step13_receipt import create_run_record
 from apps.worker.lib.provider_normalize import normalize_provider_entities, compute_coverage_spans
 from apps.worker.steps.step14_provider_directory import render_provider_directory
@@ -423,6 +424,15 @@ def run_pipeline(run_id: str) -> None:
             page_map=page_map,
             page_text_by_number={p.page_number: (p.text or "") for p in all_pages},
         )
+
+        # ── Step 12b: Litigation Review ─────────────────────────────────────
+        logger.info(f"[{run_id}] Step 12b: Litigation Review")
+        litigation_checklist, review_warnings = run_litigation_review(
+            run_id, 
+            chronology_events, 
+            {p.page_number: (p.text or "") for p in all_pages}
+        )
+        all_warnings.extend(review_warnings)
 
         # ── Step 13: Run receipt ──────────────────────────────────────────────
         logger.info(f"[{run_id}] Step 13: Run receipt")
