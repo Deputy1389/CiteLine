@@ -49,7 +49,7 @@ from apps.worker.steps.step12_export import render_exports
 from apps.worker.steps.step15_missing_records import detect_missing_records
 from apps.worker.lib.provider_normalize import normalize_provider_entities
 from apps.worker.steps.step12a_narrative_synthesis import synthesize_narrative
-from apps.worker.project.chronology import build_chronology_projection
+from apps.worker.project.chronology import build_chronology_projection, infer_page_patient_labels
 from packages.shared.models import CaseInfo, EvidenceGraph, RunConfig, SourceDocument
 from packages.shared.storage import get_artifact_dir
 
@@ -122,11 +122,14 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
     filtered_for_gaps = [e.model_copy(deep=True) for e in all_events]
     filtered_for_gaps, gaps, _ = detect_gaps(filtered_for_gaps, config)
     chronology_events = improve_legal_usability([e.model_copy(deep=True) for e in all_events])
+    page_text_by_number = {p.page_number: (p.text or "") for p in pages}
+    page_patient_labels = infer_page_patient_labels(page_text_by_number)
     projection_debug: list[dict] = []
     projection = build_chronology_projection(
         chronology_events,
         providers,
         page_map=None,
+        page_patient_labels=page_patient_labels,
         debug_sink=projection_debug,
     )
 
@@ -160,7 +163,7 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
         case_info=case_info,
         all_citations=all_citations,
         narrative_synthesis=narrative,
-        page_text_by_number={p.page_number: (p.text or "") for p in pages},
+        page_text_by_number=page_text_by_number,
     )
 
     graph = EvidenceGraph(pages=pages, documents=docs, providers=providers, events=chronology_events, citations=all_citations)

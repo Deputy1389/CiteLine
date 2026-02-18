@@ -49,7 +49,12 @@ def evaluate_mega_stress() -> dict:
         "date_of_injury": date_of_injury.group(1).strip() if date_of_injury else None,
         "mechanism": mechanism.group(1).strip() if mechanism else None,
         "projection_entry_count": len(ctx.get("projection_entries", [])),
+        "projection_patient_label_count": len(
+            {e.patient_label for e in ctx.get("projection_entries", []) if getattr(e, "patient_label", "Unknown Patient") != "Unknown Patient"}
+        ),
+        "patient_section_count": len(re.findall(r"^Patient:\s+", text, re.IGNORECASE | re.MULTILINE)),
     }
+    requires_patient_sections = scorecard["projection_patient_label_count"] > 1
     scorecard["overall_pass"] = not any(
         [
             scorecard["contains_date_not_documented_pt_visit"],
@@ -57,6 +62,7 @@ def evaluate_mega_stress() -> dict:
             scorecard["contains_encounter_fallback"],
             scorecard["contains_gunshot"],
             scorecard["timeline_rows"] >= 80,
+            requires_patient_sections and scorecard["patient_section_count"] < 2,
         ]
     )
 

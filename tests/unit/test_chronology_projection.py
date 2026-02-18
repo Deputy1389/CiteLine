@@ -98,7 +98,9 @@ def test_infer_page_patient_labels_for_synthea_pattern():
             1: "Derek111 Lehner980\nSome encounter text",
             2: "No patient header here",
             3: "Patient Name: Jane Doe\nVisit details",
+            4: "No patient header here either",
         }
     )
     assert labels[1] == "Derek111 Lehner980"
     assert labels[3] == "Jane Doe"
+    assert labels[4] == "Jane Doe"

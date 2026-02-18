@@ -80,7 +80,29 @@ def infer_page_patient_labels(page_text_by_number: dict[int, str] | None) -> dic
         m2 = patient_name_re.search(text)
         if m2:
             labels[page_number] = m2.group(1).strip()
-    return labels
+    if not labels:
+        return labels
+
+    # Propagate labels forward across pages so one header page can label subsequent pages.
+    filled: dict[int, str] = {}
+    sorted_pages = sorted(page_text_by_number.keys())
+    last_label: str | None = None
+    for page_number in sorted_pages:
+        if page_number in labels:
+            last_label = labels[page_number]
+        if last_label:
+            filled[page_number] = last_label
+
+    # Backfill the initial gap from the first detected label to preceding pages.
+    first_labeled_page = min(labels.keys())
+    first_label = labels[first_labeled_page]
+    for page_number in sorted_pages:
+        if page_number < first_labeled_page:
+            filled[page_number] = first_label
+
+    # Keep direct detections authoritative.
+    filled.update(labels)
+    return filled
 
 
 def _event_patient_label(event: Event, page_patient_labels: dict[int, str] | None) -> str:

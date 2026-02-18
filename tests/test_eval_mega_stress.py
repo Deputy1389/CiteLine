@@ -11,3 +11,5 @@ def test_eval_mega_stress_output_quality():
     assert score["contains_encounter_fallback"] is False
     assert score["contains_gunshot"] is False
     assert score["timeline_rows"] < 80
+    if score["projection_patient_label_count"] > 1:
+        assert score["patient_section_count"] >= 2
