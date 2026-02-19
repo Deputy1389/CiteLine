@@ -152,6 +152,12 @@ DX_MEDICAL_TERM_RE = re.compile(
     r"\b(fracture|radiculopathy|protrusion|herniation|stenosis|infection|dislocation|tear|sprain|strain|pain|neuropathy|degeneration|spondylosis|wound)\b",
     re.IGNORECASE,
 )
+TOP10_LOW_VALUE_RE = re.compile(
+    r"(i,\s*the undersigned|consent to the performance|risks?,\s*benefits?,\s*and alternatives?|"
+    r"discharge summary\s+discharge summary|from:\s*\(\d{3}\)\s*\d{3}[-\d]+\s*to:\s*records dept|"
+    r"risks?:.*alternatives?:)",
+    re.IGNORECASE,
+)
 
 
 def _has_inpatient_markers(event_type_display: str, facts: list[str]) -> bool:
@@ -366,9 +372,11 @@ def _repair_case_summary_narrative(
         for line in out:
             low = line.lower().strip()
             if low.startswith("primary injuries:"):
-                source_labels = anchored_primary or [x.strip() for x in line.split(":", 1)[1].split(",") if x.strip()]
-                refined = _refine_primary_injuries(source_labels, projection_entries)
-                updated.append(f"Primary Injuries: {', '.join(refined) if refined else 'Not established from records'}")
+                if anchored_primary:
+                    refined = _refine_primary_injuries(anchored_primary, projection_entries)
+                    updated.append(f"Primary Injuries: {', '.join(refined) if refined else 'Not established from records'}")
+                else:
+                    updated.append("Primary Injuries: Not established from records")
                 continue
             if low.startswith("total surgeries:"):
                 saw_total = True
@@ -1909,10 +1917,14 @@ def _build_projection_flowables(
                     continue
                 cleaned = re.sub(r"\bimpact was\b.*$", "", cleaned, flags=re.IGNORECASE).strip()
                 cleaned = re.sub(r"[.;:,]+\s*$", "", cleaned).strip()
+                if TOP10_LOW_VALUE_RE.search(cleaned):
+                    continue
                 if cleaned:
                     snippets.append(cleaned)
             sentence = " ".join(snippets[:2]).strip()
             if not sentence:
+                continue
+            if TOP10_LOW_VALUE_RE.search(sentence):
                 continue
             if disposition:
                 sentence = f"{sentence} Disposition: {disposition}"

@@ -88,6 +88,10 @@ def _detect_encounter_type(text: str) -> EventType:
     # 1. Discharge
     if any(kw in n for kw in ["discharge summary", "discharged", "discharge teaching", "orders received for discharge", "discharged to home", "discharge order", "patient discharged"]):
         return EventType.HOSPITAL_DISCHARGE
+
+    # 1.5 Explicit ED/ER visit cues that may not include admission wording.
+    if re.search(r"\b(seen in er|seen in ed|er visit|ed visit|emergency room|emergency department)\b", n):
+        return EventType.ER_VISIT
         
     # 2. Admission (Avoid labels like "Date Admitted:")
     if re.search(r"\b(admitted|admission|admit to oncology|triage|er admission|inpatient admission|admit to oncology floor)\b", n):

@@ -31,7 +31,7 @@ class RunConfig(BaseModel):
     pt_aggregate_window_days: int = 7
     gap_threshold_days: int = 60
     event_confidence_min_export: int = 50
-    low_confidence_event_behavior: object = "include_with_flag"  # exclude or include_with_flag
+    low_confidence_event_behavior: object = "exclude_from_export"  # exclude_from_export or include_with_flag
 
 
 class SourceDocument(BaseModel):

@@ -31,10 +31,10 @@ def _merge_events(a: Event, b: Event) -> Event:
         a.extensions["merged_from"] = [a.event_id]
     a.extensions["merged_from"].append(b.event_id)
 
-    # Combine facts (dedup by text, cap at 100)
+    # Combine facts (dedup by text, cap at 10 to keep merged rows concise/useful)
     seen_texts = {f.text for f in a.facts}
     for fact in b.facts:
-        if fact.text not in seen_texts and len(a.facts) < 100:
+        if fact.text not in seen_texts and len(a.facts) < 10:
             a.facts.append(fact)
             seen_texts.add(fact.text)
 

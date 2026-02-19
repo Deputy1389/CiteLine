@@ -27,13 +27,13 @@ def synthesize_event_narrative(e: ClinicalEvent) -> str:
             return "Surgical details not documented in current note."
         findings = sorted(list(e.fractures.union(e.tears).union(e.infections)))
         finding_str = f" Findings included {', '.join(findings)}." if findings else ""
-        plan = sorted(list(e.plans))[0] if e.plans else "follow-up and rehabilitation"
+        plan = sorted(list(e.plans))[0] if e.plans else "follow-up and rehabilitation plan"
         return f"Patient underwent {', '.join(procs)}.{finding_str} Patient was discharged with plan for {plan}."
 
     if e.event_type == FOLLOW_UP:
         findings = sorted(list(e.fractures.union(e.tears)))
         finding_str = f" noted {', '.join(findings)}" if findings else ""
-        plan = sorted(list(e.plans))[0] if e.plans else "continued clinical monitoring"
+        plan = sorted(list(e.plans))[0] if e.plans else "follow-up and rehabilitation plan"
         return f"Follow-up evaluation{finding_str} with plan for {plan}."
 
     unique_atoms: list[str] = []

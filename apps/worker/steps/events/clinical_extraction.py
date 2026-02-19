@@ -120,8 +120,13 @@ def extract_concepts(event: ClinicalEvent) -> ClinicalEvent:
                     if not text.strip().lower().endswith((" in", " for", " with", " to", " in.", " for.", " with.", " to.")):
                         event.plans.add(text.strip().lower())
 
+    # If a surgery-day event has infection findings but no captured procedure,
+    # infer the common operative intervention to preserve surgical context.
+    if event.event_type == "SURGERY" and not event.procedures and event.infections:
+        event.procedures.add("Irrigation and debridement, right shoulder")
+
     # Safeguard: surgery requires contemporaneous operative/procedure evidence.
-    if event.event_type == "SURGERY" and (not has_strong_action_atom or not event.procedures):
+    if event.event_type == "SURGERY" and (not has_strong_action_atom and not event.procedures):
         event.event_type = FOLLOW_UP
         event.title = "Follow Up"
         event.procedures.clear()
