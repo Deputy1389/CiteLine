@@ -72,7 +72,8 @@ def choose_care_window(events: list) -> tuple[Optional[date], Optional[date]]:
             continue
         if len(getattr(event, "citation_ids", []) or []) == 0 and len(getattr(event, "source_page_numbers", []) or []) == 0:
             continue
-        if _event_substance_score(event) < 1:
+        event_type = event.event_type.value if hasattr(event.event_type, "value") else str(event.event_type)
+        if _event_substance_score(event) < 1 and event_type != "pt_visit":
             continue
         dated.append((d, event))
     if not dated:
@@ -81,10 +82,11 @@ def choose_care_window(events: list) -> tuple[Optional[date], Optional[date]]:
     start = dated[0][0]
     all_dates = [d for d, _ in dated]
     end = all_dates[-1]
-    if (end - start).days > 365:
+    # Preserve full documented care windows for long-running treatment packets.
+    if (end - start).days > 730:
         idx95 = int(0.95 * (len(all_dates) - 1))
         p95 = all_dates[idx95]
-        high_value_tail = [d for d, e in dated if d > p95 and _event_substance_score(e) >= 3]
+        high_value_tail = [d for d, e in dated if d > p95 and _event_substance_score(e) >= 2]
         end = max([p95] + high_value_tail) if high_value_tail else p95
     return start, end
 

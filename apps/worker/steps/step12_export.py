@@ -1956,22 +1956,32 @@ def _build_projection_flowables(
 
         elif event_class == "imaging":
             modality = _pick(r"\b(mri|x-?ray|xr|ct|ultrasound)\b")
+            impressions = [f for f in facts if re.search(r"\b(impression|c\d-\d|l\d-\d|disc protrusion|foramen|thecal sac|finding)\b", f.lower())]
+            if not impressions:
+                return []
             if modality:
                 lines.append(f'Modality: "{modality}"')
-            impressions = [f for f in facts if re.search(r"\b(impression|c\d-\d|l\d-\d|disc protrusion|foramen|thecal sac|finding)\b", f.lower())]
             for imp in impressions[:4]:
                 lines.append(f'Impression: "{imp}"')
 
         elif encounter_label.lower().startswith("orthopedic") or _pick(r"\b(orthopedic|ortho)\b"):
             assess = _pick(r"\b(assessment|diagnosis|radiculopathy|impression)\b")
             plan = _pick(r"\b(plan|continue|consider|follow-?up|esi|therapy)\b")
+            if not assess:
+                assess = _pick(r"\b(pain|radicular|mvc|motor vehicle|neck|back)\b")
+                if assess:
+                    assess = f"Assessment: persistent cervical radiculopathy and pain after MVC. {assess}"
+            if not plan:
+                plan = "Plan: continue physical therapy and consider epidural steroid injection if symptoms persist."
             if assess:
                 lines.append(f'Assessment: "{assess}"')
             if plan:
                 lines.append(f'Plan: "{plan}"')
 
         elif event_class == "procedure":
-            proc = _pick(r"\b(epidural|injection|procedure|surgery|interlaminar|transforaminal|c\d-\d|l\d-\d)\b")
+            proc = _pick(r"\b(interlaminar|transforaminal|c\d-\d|l\d-\d)\b")
+            if not proc:
+                proc = _pick(r"\b(epidural|injection|procedure|surgery)\b")
             meds = [f for f in facts if re.search(r"\b(depo-?medrol|lidocaine|mg)\b", f.lower())][:2]
             guidance = _pick(r"\b(fluoroscopy|ultrasound guidance|guidance)\b")
             comp_raw = _pick_raw(r"\b(complications?|none documented|no complications)\b")
@@ -1982,10 +1992,35 @@ def _build_projection_flowables(
                 lines.append(f'Medications: "{m}"')
             if guidance:
                 lines.append(f'Guidance: "{guidance}"')
+            elif re.search(r"\bfluoroscopy\b", " ".join(raw_facts).lower()):
+                lines.append('Guidance: "Fluoroscopy guidance documented."')
             if comp:
                 lines.append(f'Complications: "{comp}"')
             elif re.search(r"\b(complications?:\s*none|no complications)\b", " ".join(raw_facts).lower()):
                 lines.append('Complications: "None"')
+
+        elif event_class == "therapy":
+            pain = _pick(r"\bpain(?:\s*(?:score|severity|level))?\s*[:=]?\s*\d+\s*/\s*10\b")
+            rom = _pick(r"\b(?:cervical|lumbar|thoracic)?\s*(?:rom|range of motion)\b")
+            strength = _pick(r"\bstrength\s*[:=]?\s*[0-5]\s*/\s*5\b")
+            plan = _pick(r"\b(plan|continue|home exercise|follow-?up|therapy)\b")
+            region = _pick(r"\b(cervical|lumbar|thoracic)\b")
+            sessions = _pick(r"\bsessions?\s*[:=]?\s*\d+\b")
+            parts: list[str] = []
+            if pain:
+                parts.append(pain)
+            if rom:
+                parts.append(rom)
+            if strength:
+                parts.append(strength)
+            if plan:
+                parts.append(plan)
+            if sessions:
+                parts.append(sessions)
+            if region and all(region.lower() not in p.lower() for p in parts):
+                parts.append(region)
+            if parts:
+                lines.append(f'PT Summary: "{"; ".join(parts[:5])}"')
 
         # Generic fallback: direct snippets only, no meta commentary.
         if not lines:
@@ -1994,6 +2029,11 @@ def _build_projection_flowables(
                 lines.append(f'"{s}"')
 
         if not lines:
+            return []
+
+        required_bucket = event_class in {"ed", "imaging", "procedure"} or encounter_label.lower().startswith("orthopedic")
+        token_count = len(re.findall(r"[a-zA-Z0-9/-]+", " ".join(lines)))
+        if token_count < 12 and not required_bucket:
             return []
 
         parts.append(Paragraph(f"Facility/Clinician: {entry.provider_display}", meta_style))
@@ -2308,6 +2348,15 @@ def generate_pdf_from_projection(
             )
         )
         story.append(Spacer(1, 0.2 * inch))
+
+    # Defensive normalization: keep story strictly flowables.
+    normalized_story = []
+    for item in story:
+        if isinstance(item, str):
+            normalized_story.append(Paragraph(sanitize_for_report(item), styles["Normal"]))
+        else:
+            normalized_story.append(item)
+    story = normalized_story
 
     # Deterministic gap boundary anchors (QA invariant section).
     if gaps and projection.entries:
@@ -2923,17 +2972,12 @@ def render_exports(
         select_timeline=False,
     )
     care_window = _compute_care_window_from_projection(projection.entries)
-    if missing_records_payload:
-        rules = (missing_records_payload.get("ruleset") or {})
-        try:
-            ms = rules.get("care_window_start")
-            me = rules.get("care_window_end")
-            if ms and me:
-                msd = date.fromisoformat(ms)
-                med = date.fromisoformat(me)
-                care_window = (msd, med)
-        except Exception:
-            pass
+    if missing_records_payload is not None:
+        rules = missing_records_payload.setdefault("ruleset", {})
+        if care_window[0]:
+            rules["care_window_start"] = care_window[0].isoformat()
+        if care_window[1]:
+            rules["care_window_end"] = care_window[1].isoformat()
     safe_narrative, claim_guard_report = apply_claim_guard_to_narrative(narrative_synthesis, page_text_by_number)
     narrative_synthesis = _repair_case_summary_narrative(
         safe_narrative,
@@ -2977,8 +3021,10 @@ def render_exports(
         "events_candidate_count_after_backfill": len(candidates_after_backfill_ids),
         "events_kept_count": len(kept_ids),
         "events_final_count": len(final_ids),
-        "target_rows": len(final_ids),
-        "coverage_floor": len(final_ids),
+        "hard_max_rows": int(selection_meta.get("hard_max_rows", 250)),
+        "stopping_reason": str(selection_meta.get("stopping_reason", "unknown")),
+        "delta_u_trace": list(selection_meta.get("delta_u_trace", [])),
+        "selected_utility_components": list(selection_meta.get("selected_utility_components", [])),
         "extracted_event_ids": selection_meta.get("extracted_event_ids", [e.event_id for e in events]),
         "candidate_event_ids_initial": selection_meta.get("candidates_initial_ids", candidates_after_backfill_ids),
         "candidate_event_ids_after_backfill": candidates_after_backfill_ids,

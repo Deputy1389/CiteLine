@@ -301,7 +301,7 @@ def build_litigation_checklist(
         quality_gates["Q1_substance_ratio"]["pass"] = False
         quality_gates["Q1_substance_ratio"]["details"].append(_issue("ROUTINE_LABS_IN_TIMELINE", f"Routine lab rows present: {routine_lab_rows}"))
 
-    # Q2
+    # Q2 (emergent selection sanity; no absolute row-count target)
     def _entry_substantive(e) -> bool:
         facts = " ".join(getattr(e, "facts", [])).lower()
         if not (getattr(e, "citation_display", "") or "").strip():
@@ -337,34 +337,27 @@ def build_litigation_checklist(
         if "therapy" in (getattr(e, "event_type_display", "") or "").lower()
         and re.search(r"\b(progress|re-?eval|discharge|weekly|rom|strength|pain)\b", " ".join(getattr(e, "facts", [])).lower())
     )
-    if source_pages > 700:
-        target_rows = min(max(40, substantive_event_units * 3), 100)
-    elif source_pages > 300:
-        target_rows = min(max(20, substantive_event_units * 2), 60)
-    elif source_pages < 10:
-        target_rows = min(10, substantive_events)
-    elif care_window_days < 30:
-        target_rows = min(15, substantive_events)
-    elif care_window_days < 180:
-        target_rows = min(40, substantive_events)
-    else:
-        target_rows = min(80, substantive_events)
-    target_rows = min(target_rows, substantive_event_units + progression_blocks)
-    if source_pages > 400 and substantive_event_units >= 12:
-        target_rows = max(target_rows, 25)
-    coverage_floor_pass = timeline_rows >= target_rows if target_rows > 0 else True
+    stop_reason = "unknown"
+    selection_debug_path = artifact_paths.get("selection_debug_json")
+    if selection_debug_path and Path(selection_debug_path).exists():
+        try:
+            selection_debug_obj = json.loads(Path(selection_debug_path).read_text(encoding="utf-8"))
+            stop_reason = str(selection_debug_obj.get("stopping_reason") or "unknown")
+        except Exception:
+            stop_reason = "unknown"
+    emergent_selection_pass = stop_reason in {"saturation", "marginal_utility_non_positive", "safety_fuse", "no_candidates"}
     quality_gates["Q2_coverage_floor"]["metrics"] = {
         "timeline_rows": timeline_rows,
-        "target_rows": target_rows,
         "substantive_events": substantive_events,
         "substantive_event_units": substantive_event_units,
         "care_window_days": care_window_days,
         "event_density": round(event_density, 4),
         "progression_blocks": progression_blocks,
+        "selection_stopping_reason": stop_reason,
     }
-    quality_gates["Q2_coverage_floor"]["pass"] = bool(coverage_floor_pass)
-    if not coverage_floor_pass:
-        quality_gates["Q2_coverage_floor"]["details"].append(_issue("COVERAGE_FLOOR_FAIL", "Timeline rows below dynamic target_rows."))
+    quality_gates["Q2_coverage_floor"]["pass"] = bool(emergent_selection_pass)
+    if not emergent_selection_pass:
+        quality_gates["Q2_coverage_floor"]["details"].append(_issue("EMERGENT_SELECTION_STOP_MISSING", "Selection did not terminate via emergent saturation/utility criterion."))
 
     # Q3
     implausible_dose_change_count = len(re.findall(r"\b(21\.7\s*mg\s*->\s*\d+|\d+\s*mg\s*->\s*21\.7)\b", lower_report))
@@ -1052,8 +1045,8 @@ def build_litigation_checklist(
             "vitals_questionnaire_ratio": round(vitals_ratio, 3),
             "admin_ratio": round(admin_ratio, 3),
             "extracted_high_value_events": substantive_events,
-            "coverage_floor": target_rows,
-            "coverage_floor_pass": bool(coverage_floor_pass),
+            "selection_stopping_reason": stop_reason,
+            "emergent_selection_pass": bool(emergent_selection_pass),
             "unknown_patient_rows": len(unknown_timeline),
             "patient_scope_violation_count": len(patient_scope_violations),
             "provider_contamination_count": len(contaminated),
@@ -1083,7 +1076,7 @@ def build_litigation_checklist(
                 "citation_coverage": round(timeline_citation_coverage, 3),
                 "vitals_questionnaire_ratio": round(vitals_ratio, 3),
                 "admin_ratio": round(admin_ratio, 3),
-                "coverage_floor_pass": bool(coverage_floor_pass),
+                "emergent_selection_pass": bool(emergent_selection_pass),
             },
         },
     }

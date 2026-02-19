@@ -19,33 +19,43 @@ from scripts.eval_sample_172 import (
     score_report,
 )
 from scripts.litigation_qa import build_litigation_checklist, write_litigation_checklist
+from apps.worker.lib.luqa import build_luqa_report
 from apps.worker.lib.artifacts_writer import safe_copy, write_artifact_json, validate_artifacts_exist
 
 
-def _write_qafail_cover_pdf(out_pdf: Path, checklist: dict) -> None:
-    if bool(checklist.get("pass")):
+def _write_fail_cover_pdf(out_pdf: Path, checklist: dict, luqa: dict | None = None) -> None:
+    luqa = luqa or {}
+    if bool(checklist.get("pass")) and bool(luqa.get("luqa_pass", True)):
         return
     from reportlab.lib.pagesizes import letter
     from reportlab.pdfgen import canvas
     from pypdf import PdfReader, PdfWriter
 
-    fail_lines: list[str] = ["QA FAILED - Do Not Use Without Review"]
-    for gate_name, gate in (checklist.get("quality_gates") or {}).items():
-        if not gate.get("pass", True):
-            fail_lines.append(f"- {gate_name}")
-            for detail in gate.get("details", [])[:2]:
-                fail_lines.append(f"  - {detail.get('code')}: {detail.get('message')}")
-    for hard_name, hard in (checklist.get("hard_invariants") or {}).items():
-        if not hard.get("pass", True):
-            fail_lines.append(f"- {hard_name}")
-            for detail in hard.get("details", [])[:2]:
-                fail_lines.append(f"  - {detail.get('code')}: {detail.get('message')}")
-    fail_lines.append("See: selection_debug.json and missing_records.json")
+    fail_lines: list[str] = []
+    if not bool(checklist.get("pass")):
+        fail_lines.append("LITIGATION QA FAILED - Do Not Use Without Review")
+        for gate_name, gate in (checklist.get("quality_gates") or {}).items():
+            if not gate.get("pass", True):
+                fail_lines.append(f"- {gate_name}")
+                for detail in gate.get("details", [])[:2]:
+                    fail_lines.append(f"  - {detail.get('code')}: {detail.get('message')}")
+        for hard_name, hard in (checklist.get("hard_invariants") or {}).items():
+            if not hard.get("pass", True):
+                fail_lines.append(f"- {hard_name}")
+                for detail in hard.get("details", [])[:2]:
+                    fail_lines.append(f"  - {detail.get('code')}: {detail.get('message')}")
+    if not bool(luqa.get("luqa_pass", True)):
+        fail_lines.append("LITIGATION USABILITY FAIL")
+        for failure in (luqa.get("failures") or [])[:5]:
+            fail_lines.append(f"- {failure.get('code')}: {failure.get('message')}")
+            for ex in (failure.get("examples") or [])[:2]:
+                fail_lines.append(f"  - {str(ex)[:120]}")
+    fail_lines.append("See: selection_debug.json, missing_records.json, luqa_report.json")
 
     cover_buf = io.BytesIO()
     c = canvas.Canvas(cover_buf, pagesize=letter)
     c.setFont("Helvetica-Bold", 16)
-    c.drawString(50, 750, "CiteLine QA Gate")
+    c.drawString(50, 750, "CiteLine Validation Gate")
     c.setFont("Helvetica", 11)
     y = 720
     for line in fail_lines[:25]:
@@ -112,7 +122,11 @@ def run_case(input_pdf: Path, case_id: str, run_label: str | None = None) -> dic
     )
     checklist_path = eval_dir / "qa_litigation_checklist.json"
     write_litigation_checklist(checklist_path, checklist)
-    _write_qafail_cover_pdf(out_pdf, checklist)
+    luqa = build_luqa_report(report_text, ctx)
+    luqa_eval_path = write_artifact_json("luqa_report.json", luqa, eval_dir)
+    write_artifact_json("luqa_report.json", luqa, artifact_dir)
+    manifest["luqa_report.json"] = str(luqa_eval_path.resolve())
+    _write_fail_cover_pdf(out_pdf, checklist, luqa)
     semqa_debug = {
         "run_id": run_id,
         "hard_failures": checklist.get("hard_failures", []),
@@ -132,9 +146,12 @@ def run_case(input_pdf: Path, case_id: str, run_label: str | None = None) -> dic
 
     scorecard["qa_pass"] = bool(checklist.get("pass"))
     scorecard["qa_score"] = int(checklist.get("score_0_100", 0) or 0)
+    scorecard["luqa_pass"] = bool(luqa.get("luqa_pass"))
+    scorecard["luqa_score"] = int(luqa.get("luqa_score_0_100", 0) or 0)
+    scorecard["luqa_failures_count"] = len(luqa.get("failures") or [])
     scorecard["model_score"] = scorecard.get("model_score", scorecard.get("surgery_count", 0))
     scorecard["score_0_100"] = int(checklist.get("score_0_100", scorecard.get("score_0_100", 0)) or 0)
-    scorecard["overall_pass"] = bool(checklist.get("pass"))
+    scorecard["overall_pass"] = bool(checklist.get("pass")) and bool(luqa.get("luqa_pass"))
     scorecard_path = eval_dir / "scorecard.json"
     scorecard_path.write_text(json.dumps(scorecard, indent=2), encoding="utf-8")
 
@@ -145,10 +162,12 @@ def run_case(input_pdf: Path, case_id: str, run_label: str | None = None) -> dic
         "output_pdf": str(out_pdf),
         "qa_litigation_checklist": str(checklist_path),
         "qa_pass": bool(checklist.get("pass")),
+        "luqa_pass": bool(luqa.get("luqa_pass")),
+        "luqa_score": int(luqa.get("luqa_score_0_100", 0) or 0),
         "patient_manifest_ref": ctx.get("patient_manifest_ref"),
         "projection_entry_count": len(ctx.get("projection_entries", [])),
         "gaps_count": ctx.get("gaps_count", 0),
-        "overall_pass": bool(checklist.get("pass")),
+        "overall_pass": bool(checklist.get("pass")) and bool(luqa.get("luqa_pass")),
         "failure_summary": checklist.get("failure_summary", {}),
         "artifact_manifest": manifest,
         "artifact_manifest_ok": artifacts_ok,

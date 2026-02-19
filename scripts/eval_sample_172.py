@@ -64,6 +64,7 @@ from packages.shared.models import CaseInfo, EvidenceGraph, Gap, RunConfig, Sour
 from packages.shared.storage import get_artifact_dir
 from apps.worker.lib.artifacts_writer import write_artifact_json
 from apps.worker.lib.artifacts_writer import safe_copy, validate_artifacts_exist
+from apps.worker.lib.luqa import build_luqa_report
 
 
 FORBIDDEN_STRINGS = [
@@ -438,6 +439,11 @@ def evaluate_sample_172(debug_trace: bool = False) -> dict[str, Any]:
         chronology_pdf_path=out_pdf,
     )
     write_litigation_checklist(eval_dir / "qa_litigation_checklist.json", checklist)
+    luqa = build_luqa_report(report_text, ctx)
+    luqa_path = write_artifact_json("luqa_report.json", luqa, eval_dir)
+    write_artifact_json("luqa_report.json", luqa, artifact_dir)
+    manifest["luqa_report.json"] = str(luqa_path.resolve())
+    ctx["artifact_manifest"] = manifest
     semqa = {
         "run_id": run_id,
         "qa_pass": bool(checklist.get("pass")),
@@ -448,8 +454,11 @@ def evaluate_sample_172(debug_trace: bool = False) -> dict[str, Any]:
     write_artifact_json("semqa_debug.json", semqa, artifact_dir)
     scorecard["qa_litigation_pass"] = bool(checklist["pass"])
     scorecard["qa_score"] = int(checklist.get("score_0_100", 0) or 0)
+    scorecard["luqa_pass"] = bool(luqa.get("luqa_pass"))
+    scorecard["luqa_score"] = int(luqa.get("luqa_score_0_100", 0) or 0)
+    scorecard["luqa_failures_count"] = len(luqa.get("failures") or [])
     scorecard["score_0_100"] = int(checklist.get("score_0_100", scorecard.get("score_0_100", 0)) or 0)
-    scorecard["overall_pass"] = bool(checklist["pass"])
+    scorecard["overall_pass"] = bool(checklist["pass"]) and bool(luqa.get("luqa_pass"))
 
     debug_trace_written = False
     if debug_trace:
