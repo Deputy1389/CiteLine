@@ -53,7 +53,15 @@ from apps.worker.steps.step09_dedup import deduplicate_events
 from apps.worker.steps.step10_confidence import apply_confidence_scoring
 from apps.worker.steps.events.event_weighting import annotate_event_weights
 from apps.worker.steps.step11_gaps import detect_gaps
-from apps.worker.steps.step12_export import render_exports, render_patient_chronology_reports
+from apps.worker.steps.step12_export import (
+    _enrich_projection_procedure_entries,
+    _ensure_mri_bucket_entry,
+    _ensure_ortho_bucket_entry,
+    _ensure_procedure_bucket_entry,
+    _normalize_projection_patient_labels,
+    render_exports,
+    render_patient_chronology_reports,
+)
 from apps.worker.steps.step15_missing_records import detect_missing_records
 from apps.worker.lib.provider_normalize import normalize_provider_entities
 from apps.worker.lib.noise_filter import is_noise_span
@@ -65,6 +73,7 @@ from packages.shared.storage import get_artifact_dir
 from apps.worker.lib.artifacts_writer import write_artifact_json
 from apps.worker.lib.artifacts_writer import safe_copy, validate_artifacts_exist
 from apps.worker.lib.luqa import build_luqa_report
+from apps.worker.lib.attorney_readiness import build_attorney_readiness_report
 
 
 FORBIDDEN_STRINGS = [
@@ -161,6 +170,20 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
         page_text_by_number=page_text_by_number,
         debug_sink=projection_debug,
     )
+    non_unknown_labels = sorted(
+        {
+            (e.patient_label or "").strip()
+            for e in projection.entries
+            if (e.patient_label or "").strip() and (e.patient_label or "").strip().lower() != "unknown patient"
+        }
+    )
+    projection_label_fallback = non_unknown_labels[0] if non_unknown_labels else "See Patient Header"
+    normalized_projection_entries = []
+    for e in projection.entries:
+        if (e.patient_label or "").strip().lower() == "unknown patient":
+            normalized_projection_entries.append(e.model_copy(update={"patient_label": projection_label_fallback}))
+        else:
+            normalized_projection_entries.append(e)
 
     page_map = build_page_map(
         all_pages=pages,
@@ -245,11 +268,36 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
         page_text_by_number=page_text_by_number,
     )
 
+    # Keep QA context projection aligned with export-time enrichment/backfill logic.
+    projection_for_ctx = projection.model_copy(update={"entries": normalized_projection_entries})
+    projection_for_ctx = _enrich_projection_procedure_entries(
+        projection_for_ctx,
+        page_text_by_number=page_text_by_number,
+        page_map=page_map,
+    )
+    projection_for_ctx = _ensure_mri_bucket_entry(
+        projection_for_ctx,
+        page_text_by_number=page_text_by_number,
+        page_map=page_map,
+    )
+    projection_for_ctx = _ensure_procedure_bucket_entry(
+        projection_for_ctx,
+        page_text_by_number=page_text_by_number,
+        page_map=page_map,
+    )
+    projection_for_ctx = _ensure_ortho_bucket_entry(
+        projection_for_ctx,
+        page_text_by_number=page_text_by_number,
+        page_map=page_map,
+        raw_events=chronology_events,
+    )
+    projection_for_ctx = _normalize_projection_patient_labels(projection_for_ctx)
+
     patient_scope_violations = validate_patient_scope_invariants(all_events, all_citations, page_to_patient_scope)
     pdf_path = Path(chronology.exports.pdf.uri)
     return pdf_path, {
         "events": chronology_events,
-        "projection_entries": projection.entries,
+        "projection_entries": projection_for_ctx.entries,
         "projection_debug": projection_debug,
         "patient_manifest_ref": patient_manifest_ref.uri if patient_manifest_ref else None,
         "missing_records_payload": missing_payload,
@@ -443,6 +491,10 @@ def evaluate_sample_172(debug_trace: bool = False) -> dict[str, Any]:
     luqa_path = write_artifact_json("luqa_report.json", luqa, eval_dir)
     write_artifact_json("luqa_report.json", luqa, artifact_dir)
     manifest["luqa_report.json"] = str(luqa_path.resolve())
+    attorney = build_attorney_readiness_report(report_text, ctx)
+    attorney_path = write_artifact_json("attorney_readiness_report.json", attorney, eval_dir)
+    write_artifact_json("attorney_readiness_report.json", attorney, artifact_dir)
+    manifest["attorney_readiness_report.json"] = str(attorney_path.resolve())
     ctx["artifact_manifest"] = manifest
     semqa = {
         "run_id": run_id,
@@ -457,8 +509,11 @@ def evaluate_sample_172(debug_trace: bool = False) -> dict[str, Any]:
     scorecard["luqa_pass"] = bool(luqa.get("luqa_pass"))
     scorecard["luqa_score"] = int(luqa.get("luqa_score_0_100", 0) or 0)
     scorecard["luqa_failures_count"] = len(luqa.get("failures") or [])
+    scorecard["attorney_ready_pass"] = bool(attorney.get("attorney_ready_pass"))
+    scorecard["attorney_ready_score"] = int(attorney.get("attorney_ready_score_0_100", 0) or 0)
+    scorecard["attorney_ready_failures_count"] = len(attorney.get("failures") or [])
     scorecard["score_0_100"] = int(checklist.get("score_0_100", scorecard.get("score_0_100", 0)) or 0)
-    scorecard["overall_pass"] = bool(checklist["pass"]) and bool(luqa.get("luqa_pass"))
+    scorecard["overall_pass"] = bool(checklist["pass"]) and bool(luqa.get("luqa_pass")) and bool(attorney.get("attorney_ready_pass"))
 
     debug_trace_written = False
     if debug_trace:

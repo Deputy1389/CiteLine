@@ -83,6 +83,7 @@ def test_eval_bundle_contains_core_artifacts(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(rc, "extract_pdf_text", lambda p: "Top 10 Case-Driving Events\nAppendix E: Issue Flags")
     monkeypatch.setattr(rc, "score_report", lambda txt, ctx: {"overall_pass": True, "model_score": 77})
     monkeypatch.setattr(rc, "build_luqa_report", lambda report_text, ctx: {"luqa_pass": True, "luqa_score_0_100": 99, "failures": [], "metrics": {}})
+    monkeypatch.setattr(rc, "build_attorney_readiness_report", lambda report_text, ctx: {"attorney_ready_pass": True, "attorney_ready_score_0_100": 99, "failures": [], "metrics": {}})
     monkeypatch.setattr(
         rc,
         "build_litigation_checklist",
@@ -101,7 +102,7 @@ def test_eval_bundle_contains_core_artifacts(monkeypatch, tmp_path: Path):
         },
     )
     monkeypatch.setattr(rc, "write_litigation_checklist", lambda path, checklist: path.write_text(json.dumps(checklist), encoding="utf-8"))
-    monkeypatch.setattr(rc, "_write_fail_cover_pdf", lambda out_pdf, checklist, luqa=None: None)
+    monkeypatch.setattr(rc, "_write_fail_cover_pdf", lambda out_pdf, checklist, luqa=None, attorney=None: None)
 
     rc.run_case(input_pdf=input_pdf, case_id="bundle", run_label="runbundle")
     eval_dir = tmp_path / "data" / "evals" / "bundle"
@@ -112,3 +113,4 @@ def test_eval_bundle_contains_core_artifacts(monkeypatch, tmp_path: Path):
     assert (eval_dir / "claim_guard_report.json").exists()
     assert (eval_dir / "semqa_debug.json").exists()
     assert (eval_dir / "luqa_report.json").exists()
+    assert (eval_dir / "attorney_readiness_report.json").exists()

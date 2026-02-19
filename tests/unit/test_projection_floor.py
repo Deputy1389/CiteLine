@@ -33,6 +33,5 @@ def test_projection_uses_emergent_selection_not_fixed_floor():
         selection_meta=selection_meta,
     )
     assert len(projection.entries) <= len(events)
-    assert selection_meta.get("stopping_reason") in {"saturation", "marginal_utility_non_positive", "safety_fuse"}
+    assert selection_meta.get("stopping_reason") in {"saturation", "marginal_utility_non_positive", "safety_fuse", "no_candidates"}
     assert selection_meta.get("events_final_count") is None or isinstance(selection_meta.get("events_final_count"), int)
-

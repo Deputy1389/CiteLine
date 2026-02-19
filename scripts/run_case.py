@@ -20,12 +20,15 @@ from scripts.eval_sample_172 import (
 )
 from scripts.litigation_qa import build_litigation_checklist, write_litigation_checklist
 from apps.worker.lib.luqa import build_luqa_report
+from apps.worker.lib.attorney_readiness import build_attorney_readiness_report
+from apps.worker.lib.legal_usability import build_legal_usability_report
 from apps.worker.lib.artifacts_writer import safe_copy, write_artifact_json, validate_artifacts_exist
 
 
-def _write_fail_cover_pdf(out_pdf: Path, checklist: dict, luqa: dict | None = None) -> None:
+def _write_fail_cover_pdf(out_pdf: Path, checklist: dict, luqa: dict | None = None, attorney: dict | None = None) -> None:
     luqa = luqa or {}
-    if bool(checklist.get("pass")) and bool(luqa.get("luqa_pass", True)):
+    attorney = attorney or {}
+    if bool(checklist.get("pass")) and bool(luqa.get("luqa_pass", True)) and bool(attorney.get("attorney_ready_pass", True)):
         return
     from reportlab.lib.pagesizes import letter
     from reportlab.pdfgen import canvas
@@ -47,6 +50,12 @@ def _write_fail_cover_pdf(out_pdf: Path, checklist: dict, luqa: dict | None = No
     if not bool(luqa.get("luqa_pass", True)):
         fail_lines.append("LITIGATION USABILITY FAIL")
         for failure in (luqa.get("failures") or [])[:5]:
+            fail_lines.append(f"- {failure.get('code')}: {failure.get('message')}")
+            for ex in (failure.get("examples") or [])[:2]:
+                fail_lines.append(f"  - {str(ex)[:120]}")
+    if not bool(attorney.get("attorney_ready_pass", True)):
+        fail_lines.append("ATTORNEY READINESS FAIL")
+        for failure in (attorney.get("failures") or [])[:5]:
             fail_lines.append(f"- {failure.get('code')}: {failure.get('message')}")
             for ex in (failure.get("examples") or [])[:2]:
                 fail_lines.append(f"  - {str(ex)[:120]}")
@@ -126,7 +135,15 @@ def run_case(input_pdf: Path, case_id: str, run_label: str | None = None) -> dic
     luqa_eval_path = write_artifact_json("luqa_report.json", luqa, eval_dir)
     write_artifact_json("luqa_report.json", luqa, artifact_dir)
     manifest["luqa_report.json"] = str(luqa_eval_path.resolve())
-    _write_fail_cover_pdf(out_pdf, checklist, luqa)
+    attorney = build_attorney_readiness_report(report_text, ctx)
+    attorney_eval_path = write_artifact_json("attorney_readiness_report.json", attorney, eval_dir)
+    write_artifact_json("attorney_readiness_report.json", attorney, artifact_dir)
+    manifest["attorney_readiness_report.json"] = str(attorney_eval_path.resolve())
+    legal = build_legal_usability_report(report_text, ctx, luqa, attorney)
+    legal_eval_path = write_artifact_json("legal_usability_report.json", legal, eval_dir)
+    write_artifact_json("legal_usability_report.json", legal, artifact_dir)
+    manifest["legal_usability_report.json"] = str(legal_eval_path.resolve())
+    _write_fail_cover_pdf(out_pdf, checklist, luqa, attorney)
     semqa_debug = {
         "run_id": run_id,
         "hard_failures": checklist.get("hard_failures", []),
@@ -149,9 +166,15 @@ def run_case(input_pdf: Path, case_id: str, run_label: str | None = None) -> dic
     scorecard["luqa_pass"] = bool(luqa.get("luqa_pass"))
     scorecard["luqa_score"] = int(luqa.get("luqa_score_0_100", 0) or 0)
     scorecard["luqa_failures_count"] = len(luqa.get("failures") or [])
+    scorecard["attorney_ready_pass"] = bool(attorney.get("attorney_ready_pass"))
+    scorecard["attorney_ready_score"] = int(attorney.get("attorney_ready_score_0_100", 0) or 0)
+    scorecard["attorney_ready_failures_count"] = len(attorney.get("failures") or [])
+    scorecard["legal_pass"] = bool(legal.get("legal_pass"))
+    scorecard["legal_score"] = int(legal.get("legal_score_0_100", 0) or 0)
+    scorecard["legal_failures_count"] = len(legal.get("failures") or [])
     scorecard["model_score"] = scorecard.get("model_score", scorecard.get("surgery_count", 0))
     scorecard["score_0_100"] = int(checklist.get("score_0_100", scorecard.get("score_0_100", 0)) or 0)
-    scorecard["overall_pass"] = bool(checklist.get("pass")) and bool(luqa.get("luqa_pass"))
+    scorecard["overall_pass"] = bool(checklist.get("pass")) and bool(legal.get("legal_pass"))
     scorecard_path = eval_dir / "scorecard.json"
     scorecard_path.write_text(json.dumps(scorecard, indent=2), encoding="utf-8")
 
@@ -164,10 +187,14 @@ def run_case(input_pdf: Path, case_id: str, run_label: str | None = None) -> dic
         "qa_pass": bool(checklist.get("pass")),
         "luqa_pass": bool(luqa.get("luqa_pass")),
         "luqa_score": int(luqa.get("luqa_score_0_100", 0) or 0),
+        "attorney_ready_pass": bool(attorney.get("attorney_ready_pass")),
+        "attorney_ready_score": int(attorney.get("attorney_ready_score_0_100", 0) or 0),
+        "legal_pass": bool(legal.get("legal_pass")),
+        "legal_score": int(legal.get("legal_score_0_100", 0) or 0),
         "patient_manifest_ref": ctx.get("patient_manifest_ref"),
         "projection_entry_count": len(ctx.get("projection_entries", [])),
         "gaps_count": ctx.get("gaps_count", 0),
-        "overall_pass": bool(checklist.get("pass")) and bool(luqa.get("luqa_pass")),
+        "overall_pass": bool(checklist.get("pass")) and bool(legal.get("legal_pass")),
         "failure_summary": checklist.get("failure_summary", {}),
         "artifact_manifest": manifest,
         "artifact_manifest_ok": artifacts_ok,

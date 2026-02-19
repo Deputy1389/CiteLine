@@ -25,8 +25,8 @@ INPATIENT_MARKER_RE = re.compile(
 )
 MIN_SUBSTANCE_THRESHOLD = 1
 HIGH_SUBSTANCE_THRESHOLD = 2
-UTILITY_EPSILON = 0.15
-UTILITY_CONSECUTIVE_LOW_K = 5
+UTILITY_EPSILON = 0.03
+UTILITY_CONSECUTIVE_LOW_K = 8
 SELECTION_HARD_MAX_ROWS = 250
 
 
@@ -566,7 +566,16 @@ def _is_substantive_entry(entry: ChronologyProjectionEntry) -> bool:
         return True
     if event_class == "therapy":
         facts = " ".join(entry.facts).lower()
-        if re.search(r"\b(pain|rom|range of motion|strength|assessment|plan|evaluation|re-?evaluation|discharge)\b", facts):
+        category_hits = 0
+        if re.search(r"\bpain(?:\s*(?:score|severity|level))?\s*[:=]?\s*\d{1,2}\s*/\s*10\b", facts):
+            category_hits += 1
+        if re.search(r"\b(rom|range of motion)\b.*\b\d+\s*deg\b|\b\d+\s*deg\b", facts):
+            category_hits += 1
+        if re.search(r"\bstrength\b.*\b[0-5](?:\.\d+)?\s*/\s*5\b|\b[0-5](?:\.\d+)?\s*/\s*5\b", facts):
+            category_hits += 1
+        if re.search(r"\b(work restriction|return to work|functional limitation|adl)\b", facts):
+            category_hits += 1
+        if category_hits >= 2:
             return True
     return _entry_substance_score(entry) >= MIN_SUBSTANCE_THRESHOLD
 
@@ -624,6 +633,19 @@ def _event_has_renderable_snippet(entry: ChronologyProjectionEntry) -> bool:
             cleaned.lower(),
         ):
             continue
+        if _classify_projection_entry(entry) == "therapy":
+            low = cleaned.lower()
+            metric_hits = 0
+            if re.search(r"\bpain(?:\s*(?:score|severity|level))?\s*[:=]?\s*\d{1,2}\s*/\s*10\b", low):
+                metric_hits += 1
+            if re.search(r"\b(rom|range of motion)\b.*\b\d+\s*deg\b|\b\d+\s*deg\b", low):
+                metric_hits += 1
+            if re.search(r"\bstrength\b.*\b[0-5](?:\.\d+)?\s*/\s*5\b|\b[0-5](?:\.\d+)?\s*/\s*5\b", low):
+                metric_hits += 1
+            if re.search(r"\b(work restriction|return to work|functional limitation|adl)\b", low):
+                metric_hits += 1
+            if metric_hits < 2:
+                continue
         return True
     return False
 
@@ -669,6 +691,8 @@ def _redundancy_penalty(entry: ChronologyProjectionEntry, selected: list[Chronol
     current = token_cache.get(entry.event_id) or _entry_novelty_tokens(entry)
     max_pen = 0.0
     for s in selected:
+        entry_base = entry.event_id.split("::", 1)[0]
+        selected_base = s.event_id.split("::", 1)[0]
         same_day = d is not None and d == _entry_date_only(s)
         same_bucket = bucket is not None and bucket == _bucket_for_required_coverage(s)
         st = token_cache.get(s.event_id)
@@ -677,6 +701,8 @@ def _redundancy_penalty(entry: ChronologyProjectionEntry, selected: list[Chronol
             token_cache[s.event_id] = st
         sim = _jaccard_similarity(current, st)
         pen = 0.0
+        if entry_base == selected_base:
+            pen += 0.75
         if same_day:
             pen += 0.3
         if same_bucket:
@@ -852,6 +878,8 @@ def _aggregate_pt_weekly_rows(rows: list[ChronologyProjectionEntry], total_pages
                     plan_snips.append(sanitize_for_report(fact)[:100])
 
         session_count = len(items)
+        if not (pain_vals or rom_vals or strength_vals):
+            continue
         parts: list[str] = [f"PT evaluation/progression ({region}) with {session_count} sessions this week."]
         if pain_vals:
             parts.append(f"Pain scores {min(pain_vals)}/10 to {max(pain_vals)}/10.")
@@ -861,6 +889,8 @@ def _aggregate_pt_weekly_rows(rows: list[ChronologyProjectionEntry], total_pages
             parts.append(f"Strength values include {', '.join(sorted(set(strength_vals))[:3])}.")
         if plan_snips:
             parts.append(f"Plan: {plan_snips[0]}")
+        else:
+            parts.append("Plan: continue therapy and reassess functional status.")
         facts = [" ".join(parts)]
         agg_id_seed = "|".join(sorted(i.event_id for i in items))
         aggregated.append(
@@ -940,6 +970,7 @@ def _apply_timeline_selection(
         )
         selected_patient: list[ChronologyProjectionEntry] = []
         selected_ids_patient: set[str] = set()
+        selected_base_ids_patient: set[str] = set()
         token_cache: dict[str, set[str]] = {row.event_id: _entry_novelty_tokens(row) for _, _, row in substantive}
 
         # Seed with one representative per present bucket.
@@ -955,6 +986,7 @@ def _apply_timeline_selection(
             chosen = candidates[0][2]
             selected_patient.append(chosen)
             selected_ids_patient.add(chosen.event_id)
+            selected_base_ids_patient.add(chosen.event_id.split("::", 1)[0])
             selected_ids_global.add(chosen.event_id)
             selected_utility_components.append(
                 {
@@ -992,6 +1024,9 @@ def _apply_timeline_selection(
             best_payload: dict[str, float] = {}
             for idx, (score, _cls, row) in enumerate(remaining):
                 bucket = _bucket_for_required_coverage(row)
+                row_base = row.event_id.split("::", 1)[0]
+                if bucket == "procedure" and row_base in selected_base_ids_patient:
+                    continue
                 substance_component = min(1.0, _entry_substance_score(row) / 10.0)
                 bucket_component = 1.0 if bucket and bucket in present_buckets and bucket not in covered_buckets else 0.0
                 temporal_component = _temporal_coverage_gain(row, selected_dates)
@@ -1001,9 +1036,9 @@ def _apply_timeline_selection(
                 utility = (
                     0.45 * substance_component
                     + 0.25 * bucket_component
-                    + 0.15 * temporal_component
+                    + 0.20 * temporal_component
                     + 0.20 * novelty_component
-                    - 0.35 * redundancy_component
+                    - 0.20 * redundancy_component
                     - 0.20 * noise_component
                 )
                 # Strongly demote lab rows without abnormal language.
@@ -1037,12 +1072,9 @@ def _apply_timeline_selection(
             else:
                 low_delta_streak = 0
 
-            if delta_u <= 0 and covered_buckets.issuperset(present_buckets):
-                stopping_reason = "marginal_utility_non_positive"
-                break
-
             selected_patient.append(chosen)
             selected_ids_patient.add(chosen.event_id)
+            selected_base_ids_patient.add(chosen.event_id.split("::", 1)[0])
             selected_ids_global.add(chosen.event_id)
             chosen_bucket = _bucket_for_required_coverage(chosen)
             if chosen_bucket:
@@ -1827,6 +1859,8 @@ def build_chronology_projection(
                     summary_parts.append(f"ROM includes {', '.join(sorted(set(data['rom']))[:3])}.")
                 if data["strength"]:
                     summary_parts.append(f"Strength includes {', '.join(sorted(set(data['strength']))[:3])}.")
+                if not (data["pain"] or data["rom"] or data["strength"]):
+                    continue
                 summary_parts.append("Plan: continue therapy and reassess functional status.")
                 entries.append(
                     ChronologyProjectionEntry(

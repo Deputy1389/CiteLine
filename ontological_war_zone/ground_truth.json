@@ -1,0 +1,190 @@
+{
+  "case_id": "2e04f279-d3a9-4076-3407-d20e0e634a9f",
+  "seed": 31337,
+  "archetype": "complex_prior",
+  "patient": {
+    "name": "Christopher Avery",
+    "gender": "Male",
+    "dob": "1948-12-15",
+    "mrn": "MRN416487",
+    "address": "1869 Burgess Drive, North Joshuafort, TX 83122"
+  },
+  "incident": {
+    "date": "2024-10-22",
+    "type": "MVA",
+    "mechanism": "Motor Vehicle Accident - Rear ended while stopped at red light."
+  },
+  "key_events": [
+    {
+      "id": "evt_ed_2024-10-22",
+      "type": "ED Visit",
+      "date": "2024-10-22",
+      "expected_in_top10": true,
+      "notes": "Initial ED presentation for neck/back pain. X-Rays negative."
+    },
+    {
+      "id": "evt_pcp_2024-10-25",
+      "type": "PCP Visit",
+      "date": "2024-10-25",
+      "expected_in_top10": false,
+      "notes": "PCP referral to PT/Ortho. Work status note."
+    },
+    {
+      "id": "evt_pt_eval_2024-10-28",
+      "type": "PT Eval",
+      "date": "2024-10-28",
+      "expected_in_top10": true
+    },
+    {
+      "id": "evt_mri_2024-11-21",
+      "type": "MRI",
+      "date": "2024-11-21",
+      "expected_in_top10": true,
+      "notes": "MRI revealed No acute fracture or dislocation. Mild straightening of lordosis suggestive of spasm."
+    },
+    {
+      "id": "evt_ortho_2024-11-29",
+      "type": "Ortho Consult",
+      "date": "2024-11-29",
+      "expected_in_top10": true,
+      "notes": "Ortho Assessment: Radiculopathy"
+    }
+  ],
+  "diagnoses": [
+    {
+      "date": "2024-10-22",
+      "source": "ED Notes",
+      "code": "S13.4XXA",
+      "description": "Cervical Strain"
+    },
+    {
+      "date": "2024-10-22",
+      "source": "ED Notes",
+      "code": "S33.5XXA",
+      "description": "Lumbar Strain"
+    }
+  ],
+  "imaging": [
+    {
+      "modality": "XR Cervical Spine",
+      "date": "2024-10-22",
+      "impression_contains": [
+        "No acute fracture or dislocation.",
+        "No significant degenerative changes."
+      ]
+    },
+    {
+      "modality": "XR Lumbar Spine",
+      "date": "2024-10-22",
+      "impression_contains": [
+        "Unremarkable lumbar spine series.",
+        "No fracture."
+      ]
+    },
+    {
+      "modality": "MRI Cervical Spine",
+      "date": "2024-11-21",
+      "impression_contains": [
+        "No acute fracture or dislocation.",
+        "Mild straightening of lordosis suggestive of spasm."
+      ]
+    }
+  ],
+  "procedures": [],
+  "med_changes": [
+    {
+      "date": "2024-10-22",
+      "type": "START",
+      "medication": "Flexeril 10mg",
+      "reason": "Muscle Spasm"
+    },
+    {
+      "date": "2024-10-22",
+      "type": "START",
+      "medication": "Ibuprofen 800mg",
+      "reason": "Pain"
+    }
+  ],
+  "work_status": [
+    {
+      "date": "2024-10-25",
+      "status": "Modified Duty: No lifting > 10lbs."
+    }
+  ],
+  "treatment_gaps": [
+    {
+      "start_date": "2027-03-25",
+      "end_date": "2027-05-03",
+      "days": 39,
+      "notes": "Gap in PT attendance."
+    }
+  ],
+  "prior_history_flags": [
+    {
+      "date": "2022-06-21",
+      "fact": "Prior complaints of intermittent neck stiffnes."
+    }
+  ],
+  "expected_text_anchors": [
+    {
+      "anchor_id": "mri_impression_primary",
+      "doc_type": "Radiology Report",
+      "must_contain": [
+        "IMPRESSION:",
+        "No acute fracture or dislocation.",
+        "Mild straightening of lordosis suggestive of spasm."
+      ],
+      "page_global": 137
+    }
+  ],
+  "critical_pages": [],
+  "anomalies": [
+    {
+      "type": "wrong_patient_info",
+      "doc_type": "Packet Noise",
+      "page_in_doc": 1,
+      "page_global": 895,
+      "details": {
+        "expected_name": "Christopher Avery",
+        "incorrect_name": "Christopher Averys"
+      }
+    },
+    {
+      "type": "conflicting_date",
+      "doc_type": "PT Records",
+      "page_in_doc": 1,
+      "page_global": 1189,
+      "details": {
+        "correct_date": "2027-10-21",
+        "incorrect_date": "2027-10-19"
+      }
+    },
+    {
+      "type": "occlusion",
+      "doc_type": "Packet Noise",
+      "page_in_doc": 1,
+      "page_global": 825,
+      "details": {
+        "overlap_type": "FAX_HEADER"
+      }
+    },
+    {
+      "type": "occlusion",
+      "doc_type": "PT Records",
+      "page_in_doc": 4,
+      "page_global": 1034,
+      "details": {
+        "overlap_type": "STAMP_RECEIVED"
+      }
+    },
+    {
+      "type": "occlusion",
+      "doc_type": "Packet Noise",
+      "page_in_doc": 2,
+      "page_global": 782,
+      "details": {
+        "overlap_type": "FAX_HEADER"
+      }
+    }
+  ]
+}

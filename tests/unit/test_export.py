@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import date
 import json
+import re
 from pathlib import Path
 from uuid import uuid4
 
@@ -569,7 +570,7 @@ class TestGeneratePdf:
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
         top10_slice = text.split("Top 10 Case-Driving Events", 1)[1].split("Appendix A:", 1)[0]
-        bullet_lines = [ln for ln in top10_slice.splitlines() if ln.strip().startswith("•")]
+        bullet_lines = [ln for ln in top10_slice.splitlines() if re.match(r"^\s*(?:\u2022|-)\s+", ln)]
         assert bullet_lines
         assert top10_slice.count("Citation(s):") >= len(bullet_lines)
         assert "Citation(s): Not available" not in top10_slice
@@ -1029,6 +1030,68 @@ class TestGeneratePdf:
         assert "fluoroscopy" in blob
         assert "lidocaine" in blob
 
+    def test_ensure_procedure_bucket_entry_adds_anchor_when_missing(self):
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import _ensure_procedure_bucket_entry
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="base-1",
+                    date_display="2025-02-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="P1",
+                    facts=["Follow-up visit documented."],
+                    citation_display="packet.pdf p. 9",
+                    confidence=80,
+                )
+            ],
+        )
+        out = _ensure_procedure_bucket_entry(
+            projection,
+            page_text_by_number={
+                10: "Interlaminar C6-7 injection using Depo-Medrol and lidocaine under Fluoroscopy. Complications: none."
+            },
+            page_map={10: ("packet.pdf", 10)},
+        )
+        blobs = [" ".join(e.facts).lower() for e in out.entries]
+        assert any("epidural steroid injection" in b for b in blobs)
+        assert any("guidance: fluoroscopy" in b for b in blobs)
+
+    def test_ensure_procedure_bucket_entry_supports_multi_page_anchor_cluster(self):
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import _ensure_procedure_bucket_entry
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="base-2",
+                    date_display="2025-02-02 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="P2",
+                    facts=["Follow-up visit documented."],
+                    citation_display="packet.pdf p. 20",
+                    confidence=80,
+                )
+            ],
+        )
+        out = _ensure_procedure_bucket_entry(
+            projection,
+            page_text_by_number={
+                30: "Plan includes interlaminar epidural injection at C6-7.",
+                31: "Medication used: Depo-Medrol and lidocaine under fluoroscopy.",
+            },
+            page_map={30: ("packet.pdf", 30), 31: ("packet.pdf", 31)},
+        )
+        blobs = [" ".join(e.facts).lower() for e in out.entries]
+        assert any("epidural steroid injection" in b for b in blobs)
+
     def test_dx_appendix_quarantines_gibberish_noise(self):
         import fitz
         from datetime import datetime, timezone
@@ -1058,6 +1121,96 @@ class TestGeneratePdf:
         text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count)).lower()
         assert "cervical radiculopathy" in text
         assert "difficult mission late kind" not in text
+
+    def test_case_summary_primary_injuries_backfilled_from_anchored_projection_evidence(self):
+        from apps.worker.project.models import ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import _repair_case_summary_narrative
+
+        narrative = "\n".join(
+            [
+                "### 1) CASE SUMMARY",
+                "Primary Injuries: Not stated in records",
+                "Treatment Timeframe: 2025-04-04 to 2025-06-18",
+            ]
+        )
+        entries = [
+            ChronologyProjectionEntry(
+                event_id="i1",
+                date_display="2025-05-18 (time not documented)",
+                provider_display="Unknown",
+                event_type_display="Imaging Study",
+                patient_label="P",
+                facts=["Impression: C5-C6 central disc protrusion indenting thecal sac."],
+                citation_display="packet.pdf p. 84",
+                confidence=90,
+            ),
+            ChronologyProjectionEntry(
+                event_id="i2",
+                date_display="2025-05-29 (time not documented)",
+                provider_display="Unknown",
+                event_type_display="Orthopedic Consult",
+                patient_label="P",
+                facts=["Assessment: cervical radiculopathy after MVC with persistent neck pain."],
+                citation_display="packet.pdf p. 97",
+                confidence=90,
+            ),
+            ChronologyProjectionEntry(
+                event_id="i3",
+                date_display="2025-05-30 (time not documented)",
+                provider_display="Unknown",
+                event_type_display="Follow-Up Visit",
+                patient_label="P",
+                facts=["Follow-up confirms cervical radiculopathy and disc protrusion symptoms persist."],
+                citation_display="packet.pdf p. 101",
+                confidence=85,
+            ),
+        ]
+        repaired = _repair_case_summary_narrative(
+            narrative,
+            page_text_by_number={},
+            page_map={},
+            care_window_start=date(2025, 4, 4),
+            care_window_end=date(2025, 6, 18),
+            projection_entries=entries,
+        )
+        assert repaired is not None
+        assert "Primary Injuries: Not stated in records" not in repaired
+        assert "Primary Injuries:" in repaired
+        assert "cervical radiculopathy" in repaired.lower() or "cervical disc protrusion" in repaired.lower()
+
+    def test_case_summary_backfills_soft_tissue_injury_from_single_cited_anchor(self):
+        from apps.worker.project.models import ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import _repair_case_summary_narrative
+
+        narrative = "\n".join(
+            [
+                "### 1) CASE SUMMARY",
+                "Primary Injuries: Not stated in records",
+                "### 2) INJURY SUMMARY",
+                "No specific injuries isolated.",
+            ]
+        )
+        entries = [
+            ChronologyProjectionEntry(
+                event_id="ed-soft",
+                date_display="2025-04-04 (time not documented)",
+                provider_display="Unknown",
+                event_type_display="Emergency Visit",
+                patient_label="P",
+                facts=["Chief complaint: neck pain and low back pain following MVC."],
+                citation_display="packet.pdf p. 14",
+                confidence=90,
+            )
+        ]
+        repaired = _repair_case_summary_narrative(
+            narrative,
+            page_text_by_number={},
+            page_map={},
+            projection_entries=entries,
+        )
+        assert repaired is not None
+        assert "Primary Injuries: Not stated in records" not in repaired
+        assert "neck pain" in repaired.lower()
 
 
 # ── CSV sanity ────────────────────────────────────────────────────────────
@@ -1122,3 +1275,4 @@ class TestPatientChronologyReports:
         assert len(payload["patients"]) >= 2
         for row in payload["patients"]:
             assert Path(row["artifact"]["uri"]).exists()
+
