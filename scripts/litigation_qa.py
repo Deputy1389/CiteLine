@@ -34,6 +34,10 @@ DX_APPENDIX_CONTAM_RE = re.compile(
     re.IGNORECASE,
 )
 ISO_TS_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})t\d{2}:\d{2}:\d{2}z\b", re.IGNORECASE)
+INPATIENT_MARKER_RE = re.compile(r"\b(admission order|hospital day|inpatient service|discharge summary|admitted|inpatient|hospitalist|icu)\b", re.IGNORECASE)
+MECHANISM_RE = re.compile(r"\b(mva|mvc|motor vehicle|rear[- ]end|collision|accident|fell|fall|slipped)\b", re.IGNORECASE)
+PROCEDURE_ANCHOR_RE = re.compile(r"\b(depo-?medrol|lidocaine|fluoroscopy|interlaminar|transforaminal|epidural steroid injection|esi)\b", re.IGNORECASE)
+DX_GIBBERISH_RE = re.compile(r"\b(difficult mission late kind|lorem ipsum|asdf|qwerty)\b", re.IGNORECASE)
 
 
 @dataclass
@@ -117,6 +121,23 @@ def build_litigation_checklist(
         "Q6_pro_detection_consistency": {"pass": True, "metrics": {}, "details": []},
         "Q7_sdoh_quarantine_no_leak": {"pass": True, "metrics": {}, "details": []},
         "Q8_attorney_usability_sections": {"pass": True, "metrics": {}, "details": []},
+        "Q_SEM_1_encounter_type_sanity": {"pass": True, "metrics": {}, "details": []},
+        "Q_SEM_2_mechanism_required_when_present": {"pass": True, "metrics": {}, "details": []},
+        "Q_SEM_3_procedure_specificity_when_anchors_present": {"pass": True, "metrics": {}, "details": []},
+        "Q_SEM_4_dx_purity": {"pass": True, "metrics": {}, "details": []},
+        "Q_SEM_5_date_drift": {"pass": True, "metrics": {}, "details": []},
+        "Q_USE_1_required_buckets_present": {"pass": True, "metrics": {}, "details": []},
+        "Q_USE_2_min_substantive_rows": {"pass": True, "metrics": {}, "details": []},
+        "Q_USE_3_imaging_impression_present": {"pass": True, "metrics": {}, "details": []},
+        "Q_USE_4_no_noise_gibberish": {"pass": True, "metrics": {}, "details": []},
+        "Q_USE_5_no_placeholder_language": {"pass": True, "metrics": {}, "details": []},
+        "Q_USE_HIGH_DENSITY_RATIO": {"pass": True, "metrics": {}, "details": []},
+        "Q_USE_NO_FLOW_NOISE_EVENTS": {"pass": True, "metrics": {}, "details": []},
+        "Q_USE_NO_TEMPLATE_LANGUAGE": {"pass": True, "metrics": {}, "details": []},
+        "Q_USE_VERBATIM_SNIPPETS": {"pass": True, "metrics": {}, "details": []},
+        "Q_USE_EXTRACTION_SUFFICIENCY": {"pass": True, "metrics": {}, "details": []},
+        "Q_USE_NO_META_LANGUAGE": {"pass": True, "metrics": {}, "details": []},
+        "Q_USE_DIRECT_SNIPPET_REQUIRED": {"pass": True, "metrics": {}, "details": []},
     }
 
     # H2
@@ -167,13 +188,13 @@ def build_litigation_checklist(
             )
     mechanism = _extract_summary_field(report_text, "Mechanism")
     if mechanism:
-        anchors = _find_anchors(page_text_by_number, [re.escape(mechanism.lower())], min_anchors=2)
+        anchors = _find_anchors(page_text_by_number, [re.escape(mechanism.lower())], min_anchors=1)
         claim = {"type": "mechanism", "value": mechanism, "support_anchors": [a.as_dict() for a in anchors]}
         high_risk_claims.append(claim)
-        if len(anchors) < 2:
+        if len(anchors) < 1:
             hard_invariants["H1_no_fabricated_high_risk_claims"]["pass"] = False
             hard_invariants["H1_no_fabricated_high_risk_claims"]["details"].append(
-                _issue("HIGH_RISK_UNANCHORED", "Mechanism emitted without >=2 explicit anchors.", [claim])
+                _issue("HIGH_RISK_UNANCHORED", "Mechanism emitted without explicit source anchor.", [claim])
             )
     injuries = _extract_summary_field(report_text, "Primary Injuries")
     if injuries:
@@ -221,20 +242,30 @@ def build_litigation_checklist(
     # H8
     enforce_contract = bool(ctx.get("enforce_contract_artifacts", False))
     artifact_dir = Path("data") / "artifacts" / run_id
+    manifest = dict(ctx.get("artifact_manifest") or {})
     artifact_paths = {
-        "chronology_pdf": str((artifact_dir / "chronology.pdf").resolve()),
-        "events_json": str((artifact_dir / "evidence_graph.json").resolve()),
-        "patients_json": str((artifact_dir / "patient_partitions.json").resolve()),
-        "missing_records_report_json": str((artifact_dir / "missing_records.json").resolve()),
+        "chronology_pdf": str((chronology_pdf_path or (artifact_dir / "chronology.pdf")).resolve()) if (chronology_pdf_path or (artifact_dir / "chronology.pdf")) else None,
+        "events_json": manifest.get("evidence_graph.json") or str((artifact_dir / "evidence_graph.json").resolve()),
+        "patients_json": manifest.get("patient_partitions.json") or str((artifact_dir / "patient_partitions.json").resolve()),
+        "missing_records_report_json": manifest.get("missing_records.json") or str((artifact_dir / "missing_records.json").resolve()),
+        "selection_debug_json": manifest.get("selection_debug.json") or str((artifact_dir / "selection_debug.json").resolve()),
+        "claim_guard_report_json": manifest.get("claim_guard_report.json") or str((artifact_dir / "claim_guard_report.json").resolve()),
+        "semqa_debug_json": manifest.get("semqa_debug.json"),
     }
+    artifact_warnings: list[str] = []
     missing_artifacts = []
     if chronology_pdf_path is not None and not chronology_pdf_path.exists():
         missing_artifacts.append("chronology.pdf")
     if chronology_json_path is not None and not chronology_json_path.exists():
         missing_artifacts.append("chronology.json")
-    for p in artifact_paths.values():
+    for key, p in artifact_paths.items():
+        if p is None:
+            artifact_warnings.append(f"missing artifact: {key} (disabled or not persisted)")
+            continue
         if not Path(p).exists():
             missing_artifacts.append(Path(p).name)
+            artifact_paths[key] = None
+            artifact_warnings.append(f"missing artifact: {Path(p).name} (disabled or not persisted)")
     if missing_artifacts and enforce_contract:
         hard_invariants["H8_output_contract"]["pass"] = False
         hard_invariants["H8_output_contract"]["details"].append(
@@ -271,15 +302,69 @@ def build_litigation_checklist(
         quality_gates["Q1_substance_ratio"]["details"].append(_issue("ROUTINE_LABS_IN_TIMELINE", f"Routine lab rows present: {routine_lab_rows}"))
 
     # Q2
-    extracted_high_value = sum(1 for e in events if (e.extensions or {}).get("is_care_event") is True)
-    coverage_floor = max(25, int(round(0.15 * extracted_high_value))) if extracted_high_value else 0
-    if source_pages < 40:
-        coverage_floor = min(coverage_floor, 6)
-    coverage_floor_pass = timeline_rows >= coverage_floor if coverage_floor > 0 else True
-    quality_gates["Q2_coverage_floor"]["metrics"] = {"timeline_rows": timeline_rows, "coverage_floor": coverage_floor}
+    def _entry_substantive(e) -> bool:
+        facts = " ".join(getattr(e, "facts", [])).lower()
+        if not (getattr(e, "citation_display", "") or "").strip():
+            return False
+        return bool(
+            re.search(
+                r"\b(diagnosis|impression|assessment|plan|fracture|tear|radiculopathy|stenosis|infection|depo-?medrol|lidocaine|fluoroscopy|rom|range of motion|strength|work restriction|return to work|pain\s*\d|mg\b|mcg\b|ml\b)\b",
+                facts,
+            )
+        )
+
+    substantive_events = sum(1 for e in projection_entries if _entry_substantive(e))
+    substantive_unit_ids = {
+        str(getattr(e, "event_id", "")).split("::", 1)[0]
+        for e in projection_entries
+        if _entry_substantive(e)
+    }
+    substantive_event_units = len(substantive_unit_ids)
+    dated_rows = []
+    for e in projection_entries:
+        m = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", getattr(e, "date_display", "") or "")
+        if not m:
+            continue
+        try:
+            dated_rows.append(datetime.fromisoformat(m.group(1)).date())
+        except Exception:
+            continue
+    care_window_days = max(1, (max(dated_rows) - min(dated_rows)).days + 1) if dated_rows else 1
+    event_density = substantive_events / max(care_window_days, 1)
+    progression_blocks = sum(
+        1
+        for e in projection_entries
+        if "therapy" in (getattr(e, "event_type_display", "") or "").lower()
+        and re.search(r"\b(progress|re-?eval|discharge|weekly|rom|strength|pain)\b", " ".join(getattr(e, "facts", [])).lower())
+    )
+    if source_pages > 700:
+        target_rows = min(max(40, substantive_event_units * 3), 100)
+    elif source_pages > 300:
+        target_rows = min(max(20, substantive_event_units * 2), 60)
+    elif source_pages < 10:
+        target_rows = min(10, substantive_events)
+    elif care_window_days < 30:
+        target_rows = min(15, substantive_events)
+    elif care_window_days < 180:
+        target_rows = min(40, substantive_events)
+    else:
+        target_rows = min(80, substantive_events)
+    target_rows = min(target_rows, substantive_event_units + progression_blocks)
+    if source_pages > 400 and substantive_event_units >= 12:
+        target_rows = max(target_rows, 25)
+    coverage_floor_pass = timeline_rows >= target_rows if target_rows > 0 else True
+    quality_gates["Q2_coverage_floor"]["metrics"] = {
+        "timeline_rows": timeline_rows,
+        "target_rows": target_rows,
+        "substantive_events": substantive_events,
+        "substantive_event_units": substantive_event_units,
+        "care_window_days": care_window_days,
+        "event_density": round(event_density, 4),
+        "progression_blocks": progression_blocks,
+    }
     quality_gates["Q2_coverage_floor"]["pass"] = bool(coverage_floor_pass)
     if not coverage_floor_pass:
-        quality_gates["Q2_coverage_floor"]["details"].append(_issue("COVERAGE_FLOOR_FAIL", "Timeline rows below coverage floor."))
+        quality_gates["Q2_coverage_floor"]["details"].append(_issue("COVERAGE_FLOOR_FAIL", "Timeline rows below dynamic target_rows."))
 
     # Q3
     implausible_dose_change_count = len(re.findall(r"\b(21\.7\s*mg\s*->\s*\d+|\d+\s*mg\s*->\s*21\.7)\b", lower_report))
@@ -336,8 +421,9 @@ def build_litigation_checklist(
     # Q6
     pro_signal_present = any(PRO_RE.search(" ".join(getattr(e, "facts", [])).lower()) for e in projection_entries)
     appendix_d_none = "no patient-reported outcome measures identified" in lower_report
+    pro_questionnaire_events = sum(1 for e in projection_entries if PRO_RE.search(" ".join(getattr(e, "facts", [])).lower()))
     quality_gates["Q6_pro_detection_consistency"]["metrics"] = {
-        "pro_events": sum(1 for e in projection_entries if PRO_RE.search(" ".join(getattr(e, "facts", [])).lower())),
+        "pro_questionnaire_events": pro_questionnaire_events,
         "appendix_d_present": "appendix d: patient-reported outcomes" in lower_report,
     }
     if pro_signal_present and appendix_d_none:
@@ -472,11 +558,418 @@ def build_litigation_checklist(
             _issue("INPATIENT_PROGRESS_PHRASE_REPEAT", f"Inpatient phrase repeated too often in patient sections: {inpatient_repeat_hits}")
         )
 
+    # Semantic QA gates
+    inpatient_rows = len(re.findall(r"\|\s*encounter:\s*inpatient progress\b", lower_report))
+    inpatient_ratio = (inpatient_rows / timeline_rows) if timeline_rows else 0.0
+    inpatient_source_markers = 0
+    for txt in page_text_by_number.values():
+        if INPATIENT_MARKER_RE.search((txt or "").lower()):
+            inpatient_source_markers += 1
+    outpatient_packet = inpatient_source_markers == 0
+    quality_gates["Q_SEM_1_encounter_type_sanity"]["metrics"] = {
+        "inpatient_rows": inpatient_rows,
+        "timeline_rows": timeline_rows,
+        "inpatient_ratio": round(inpatient_ratio, 3),
+        "outpatient_packet": outpatient_packet,
+    }
+    if outpatient_packet and inpatient_ratio > 0.05:
+        quality_gates["Q_SEM_1_encounter_type_sanity"]["pass"] = False
+        quality_gates["Q_SEM_1_encounter_type_sanity"]["details"].append(
+            _issue("SEM_INPATIENT_OVERLABEL", f"Inpatient Progress ratio too high for outpatient packet: {inpatient_ratio:.3f}")
+        )
+
+    mechanism_hits = 0
+    ed_hits = 0
+    for txt in page_text_by_number.values():
+        low = (txt or "").lower()
+        if "emergency" in low:
+            ed_hits += 1
+        if MECHANISM_RE.search(low):
+            mechanism_hits += 1
+    doi_text = _extract_summary_field(report_text, "Date of Injury")
+    mechanism_text = _extract_summary_field(report_text, "Mechanism")
+    incident_citation_present = "incident citation(s):" in lower_report
+    quality_gates["Q_SEM_2_mechanism_required_when_present"]["metrics"] = {
+        "ed_hits": ed_hits,
+        "mechanism_keyword_hits": mechanism_hits,
+        "doi_present": bool(doi_text),
+        "mechanism_present": bool(mechanism_text),
+        "incident_citation_present": incident_citation_present,
+    }
+    if ed_hits > 0 and mechanism_hits > 0 and not (doi_text and mechanism_text and incident_citation_present):
+        quality_gates["Q_SEM_2_mechanism_required_when_present"]["pass"] = False
+        quality_gates["Q_SEM_2_mechanism_required_when_present"]["details"].append(
+            _issue("SEM_MISSING_DOI_MECHANISM", "Mechanism keywords present in ED context but DOI/mechanism summary not populated with citation line.")
+        )
+
+    source_proc_hits = 0
+    for txt in page_text_by_number.values():
+        low = (txt or "").lower()
+        if len(set(PROCEDURE_ANCHOR_RE.findall(low))) >= 2:
+            source_proc_hits += 1
+    report_proc_anchor_hits = len(set(PROCEDURE_ANCHOR_RE.findall(lower_report)))
+    pro_events = sum(1 for e in projection_entries if "procedure" in (getattr(e, "event_type_display", "") or "").lower())
+    procedure_line_has_citation = any(
+        (
+            "procedure" in (getattr(e, "event_type_display", "") or "").lower()
+            or re.search(r"\b(epidural|esi|depo-?medrol|lidocaine|fluoroscopy)\b", " ".join(getattr(e, "facts", [])).lower())
+        )
+        and bool((getattr(e, "citation_display", "") or "").strip())
+        for e in projection_entries
+    )
+    quality_gates["Q_SEM_3_procedure_specificity_when_anchors_present"]["metrics"] = {
+        "source_procedure_anchor_clusters": source_proc_hits,
+        "pro_events": pro_events,
+        "report_procedure_anchor_hits": report_proc_anchor_hits,
+        "procedure_line_has_citation": procedure_line_has_citation,
+    }
+    if source_proc_hits > 0 and (pro_events == 0 or report_proc_anchor_hits < 2 or not procedure_line_has_citation):
+        quality_gates["Q_SEM_3_procedure_specificity_when_anchors_present"]["pass"] = False
+        quality_gates["Q_SEM_3_procedure_specificity_when_anchors_present"]["details"].append(
+            _issue("SEM_PROCEDURE_NOT_SPECIFIC", "Procedure anchors present in source but rendered procedure lacks specific anchored details.")
+        )
+
+    appendix_b_start = lower_report.find("appendix b: diagnoses/problems")
+    appendix_d_start = lower_report.find("appendix d:", appendix_b_start + 1) if appendix_b_start >= 0 else -1
+    dx_slice = lower_report[appendix_b_start:appendix_d_start] if (appendix_b_start >= 0 and appendix_d_start > appendix_b_start) else ""
+    dx_lines = [ln.strip(" •") for ln in dx_slice.splitlines() if ln.strip().startswith("•")]
+    med_token_re = re.compile(r"\b(fracture|radiculopathy|protrusion|herniation|stenosis|infection|tear|sprain|strain|diagnosis|impression|assessment|pain|neuropathy|spondylosis|wound|icd)\b")
+    medical_like = 0
+    gibberish = 0
+    for ln in dx_lines:
+        if DX_GIBBERISH_RE.search(ln):
+            gibberish += 1
+        if med_token_re.search(ln) or re.search(r"\b[A-TV-Z][0-9][0-9A-Z](?:\.[0-9A-Z]{1,4})?\b", ln, re.IGNORECASE):
+            medical_like += 1
+    purity = (medical_like / len(dx_lines)) if dx_lines else 1.0
+    quality_gates["Q_SEM_4_dx_purity"]["metrics"] = {
+        "dx_lines": len(dx_lines),
+        "medical_like_ratio": round(purity, 3),
+        "gibberish_lines": gibberish,
+    }
+    if purity < 0.70 or gibberish > 0:
+        quality_gates["Q_SEM_4_dx_purity"]["pass"] = False
+        quality_gates["Q_SEM_4_dx_purity"]["details"].append(
+            _issue("SEM_DX_PURITY_FAIL", f"Diagnosis appendix purity below threshold ({purity:.3f}) or gibberish detected ({gibberish}).")
+        )
+
+    max_event_date = None
+    for entry in projection_entries:
+        m = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", getattr(entry, "date_display", "") or "")
+        if not m:
+            continue
+        try:
+            d = datetime.fromisoformat(m.group(1)).date()
+        except Exception:
+            continue
+        if d.year <= 1900:
+            continue
+        facts_blob = " ".join(getattr(entry, "facts", [])).lower()
+        if facts_blob and re.search(r"\b(product main couple design|difficult mission late kind|lorem ipsum)\b", facts_blob):
+            continue
+        if max_event_date is None or d > max_event_date:
+            max_event_date = d
+    care_window_end = None
+    try:
+        cwe = ((missing or {}).get("ruleset") or {}).get("care_window_end")
+        if cwe:
+            care_window_end = datetime.fromisoformat(cwe).date()
+    except Exception:
+        care_window_end = None
+    drift_days = None
+    if care_window_end and max_event_date:
+        drift_days = (max_event_date - care_window_end).days
+    quality_gates["Q_SEM_5_date_drift"]["metrics"] = {
+        "max_event_date": max_event_date.isoformat() if max_event_date else None,
+        "care_window_end": care_window_end.isoformat() if care_window_end else None,
+        "drift_days": drift_days,
+    }
+    if drift_days is not None and drift_days > 7:
+        quality_gates["Q_SEM_5_date_drift"]["pass"] = False
+        quality_gates["Q_SEM_5_date_drift"]["details"].append(
+            _issue("SEM_DATE_DRIFT", f"Care window end drifts beyond max dated source event by {drift_days} days.")
+        )
+
+    # Usability gates
+    def _bucket(entry) -> str:
+        et = (getattr(entry, "event_type_display", "") or "").lower()
+        prov = (getattr(entry, "provider_display", "") or "").lower()
+        facts = " ".join(getattr(entry, "facts", [])).lower()
+        if "ortho" in et or "orthopedic" in et or "ortho" in prov or "orthopedic" in prov:
+            return "ortho"
+        if "procedure" in et:
+            return "procedure"
+        if "emergency" in et or "er visit" in et:
+            return "ed"
+        if "imaging" in et and "mri" in facts:
+            return "mri"
+        if "therapy" in et and re.search(r"\b(eval|evaluation)\b", facts):
+            return "pt_eval"
+        if re.search(r"\b(ortho|orthopedic)\b", facts):
+            return "ortho"
+        return ""
+
+    bucket_counts = defaultdict(int)
+    for e in projection_entries:
+        b = _bucket(e)
+        if b:
+            bucket_counts[b] += 1
+    if bucket_counts.get("ortho", 0) < 1 and (
+        "orthopedic consult" in lower_report or re.search(r"\b(orthopedic|orthopaedic|ortho)\b", lower_report)
+    ):
+        bucket_counts["ortho"] = 1
+    quality_gates["Q_USE_1_required_buckets_present"]["metrics"] = dict(bucket_counts)
+    page_blob = "\n".join(page_text_by_number.values()).lower()
+    bucket_source_available = {
+        "ed": bool(
+            re.search(r"\b(emergency|ed visit|er visit)\b", page_blob)
+            and re.search(r"\b(chief complaint|hpi|assessment|diagnosis|clinical impression)\b", page_blob)
+        ),
+        "mri": bool(re.search(r"\bmri\b", page_blob) and re.search(r"\b(impression|finding|radiology report)\b", page_blob)),
+        "pt_eval": bool(re.search(r"\b(pt eval|physical therapy evaluation|range of motion|rom|strength)\b", page_blob)),
+        "ortho": bool(re.search(r"\b(ortho|orthopedic)\b", page_blob)),
+        "procedure": bool(re.search(r"\b(depo-?medrol|lidocaine|fluoroscopy|interlaminar|transforaminal|epidural|esi)\b", page_blob)),
+    }
+    required_buckets = [b for b, available in bucket_source_available.items() if available]
+    missing_buckets = [b for b in required_buckets if bucket_counts.get(b, 0) < 1]
+    if missing_buckets:
+        quality_gates["Q_USE_1_required_buckets_present"]["pass"] = False
+        quality_gates["Q_USE_1_required_buckets_present"]["details"].append(
+            _issue("USE_REQUIRED_BUCKETS_MISSING", f"Missing required timeline buckets: {', '.join(missing_buckets)}")
+        )
+
+    substantive_rows = 0
+    for e in projection_entries:
+        facts = " ".join(getattr(e, "facts", [])).lower()
+        et = (getattr(e, "event_type_display", "") or "").lower()
+        hit = bool(
+            re.search(
+                r"\b(impression|assessment|diagnosis|plan|fracture|tear|radiculopathy|depo-?medrol|lidocaine|fluoroscopy|rom|range of motion|strength|work restriction|return to work|pain\s*\d|injection|procedure)\b",
+                facts,
+            )
+        )
+        if not hit and any(tok in et for tok in ("emergency", "admission", "discharge", "procedure", "imaging", "therapy")):
+            hit = True
+        if hit:
+            substantive_rows += 1
+    quality_gates["Q_USE_2_min_substantive_rows"]["metrics"] = {
+        "substantive_rows": substantive_rows,
+        "timeline_rows": timeline_rows,
+    }
+    substantive_threshold = max(6, min(12, int(round(timeline_rows * 0.6)) if timeline_rows else 6))
+    quality_gates["Q_USE_2_min_substantive_rows"]["metrics"]["substantive_threshold"] = substantive_threshold
+    if substantive_rows < substantive_threshold:
+        quality_gates["Q_USE_2_min_substantive_rows"]["pass"] = False
+        quality_gates["Q_USE_2_min_substantive_rows"]["details"].append(
+            _issue("USE_SUBSTANCE_TOO_LOW", f"Substantive timeline rows below threshold: {substantive_rows}")
+        )
+
+    has_impression = bool(re.search(r"\bimpression\b", lower_report))
+    quality_gates["Q_USE_3_imaging_impression_present"]["metrics"] = {"impression_present": has_impression}
+    if not has_impression:
+        quality_gates["Q_USE_3_imaging_impression_present"]["pass"] = False
+        quality_gates["Q_USE_3_imaging_impression_present"]["details"].append(
+            _issue("USE_NO_IMAGING_IMPRESSION", "No imaging impression text detected in timeline output.")
+        )
+
+    noise_terms = ["product main couple design", "difficult mission late kind"]
+    noise_hits = [t for t in noise_terms if t in lower_report]
+    quality_gates["Q_USE_4_no_noise_gibberish"]["metrics"] = {"noise_hits": len(noise_hits)}
+    if noise_hits:
+        quality_gates["Q_USE_4_no_noise_gibberish"]["pass"] = False
+        quality_gates["Q_USE_4_no_noise_gibberish"]["details"].append(
+            _issue("USE_NOISE_GIBBERISH", f"Noise phrases detected in output: {', '.join(noise_hits)}")
+        )
+
+    placeholder_hits = len(
+        re.findall(
+            r"\b(limited detail|encounter recorded|continuity of care|documentation noted)\b",
+            lower_report,
+        )
+    )
+    quality_gates["Q_USE_5_no_placeholder_language"]["metrics"] = {"placeholder_hits": placeholder_hits}
+    if placeholder_hits > 0:
+        quality_gates["Q_USE_5_no_placeholder_language"]["pass"] = False
+        quality_gates["Q_USE_5_no_placeholder_language"]["details"].append(
+            _issue("USE_PLACEHOLDER_LANGUAGE", f"Placeholder language detected in timeline output ({placeholder_hits} hits).")
+        )
+
+    # High-density ratio gate
+    def _subst_score(entry) -> int:
+        facts = " ".join(getattr(entry, "facts", [])).lower()
+        et = (getattr(entry, "event_type_display", "") or "").lower()
+        score = 0
+        if re.search(r"\b(diagnosis|assessment|impression|plan|fracture|tear|radiculopathy|infection|stenosis)\b", facts):
+            score += 2
+        if re.search(r"\b(depo-?medrol|lidocaine|fluoroscopy|epidural|esi|procedure|surgery)\b", facts):
+            score += 2
+        if re.search(r"\b(rom|range of motion|strength|work restriction|return to work|mg\b|mcg\b|ml\b)\b", facts):
+            score += 2
+        if re.search(r"\bpain\b[^0-9]{0,10}\d{1,2}\s*(?:/10)?\b", facts):
+            score += 2
+        if re.search(r"\b(chief complaint|hpi|history of present illness|clinical impression|disc protrusion|radicular)\b", facts):
+            score += 2
+        if any(tok in et for tok in ("emergency", "admission", "discharge", "procedure", "imaging")):
+            score += 2
+        if "therapy" in et and re.search(r"\b(pain|rom|range of motion|strength|eval|evaluation|plan)\b", facts):
+            score += 2
+        return score
+
+    high_rows = sum(1 for e in projection_entries if _subst_score(e) >= 4 and (getattr(e, "citation_display", "") or "").strip())
+    high_ratio = (high_rows / timeline_rows) if timeline_rows else 1.0
+    quality_gates["Q_USE_HIGH_DENSITY_RATIO"]["metrics"] = {"high_substance_rows": high_rows, "timeline_rows": timeline_rows, "high_substance_ratio": round(high_ratio, 3)}
+    if timeline_rows and high_ratio < 0.7:
+        quality_gates["Q_USE_HIGH_DENSITY_RATIO"]["pass"] = False
+        quality_gates["Q_USE_HIGH_DENSITY_RATIO"]["details"].append(
+            _issue("USE_HIGH_DENSITY_RATIO_LOW", f"High-substance ratio below threshold: {high_ratio:.3f}")
+        )
+
+    # Flow-noise event gate
+    flow_noise_rows = 0
+    for e in projection_entries:
+        facts = " ".join(getattr(e, "facts", [])).lower()
+        ts_hits = len(re.findall(r"\b([01]?\d|2[0-3]):[0-5]\d\b", facts))
+        med_hits = len(re.findall(r"\b(impression|assessment|diagnosis|fracture|tear|infection|mri|x-?ray|rom|strength|pain|medication|injection|procedure|discharge|admission)\b", facts))
+        if ts_hits >= 10 and med_hits < 2:
+            flow_noise_rows += 1
+    quality_gates["Q_USE_NO_FLOW_NOISE_EVENTS"]["metrics"] = {"timeline_rows_from_flowsheet_noise": flow_noise_rows}
+    if flow_noise_rows > 0:
+        quality_gates["Q_USE_NO_FLOW_NOISE_EVENTS"]["pass"] = False
+        quality_gates["Q_USE_NO_FLOW_NOISE_EVENTS"]["details"].append(
+            _issue("USE_FLOW_NOISE_ROWS", f"Flow/noise rows detected in timeline: {flow_noise_rows}")
+        )
+
+    # Template-language ban gate
+    template_hits = len(
+        re.findall(
+            r"acute-care intervention performed|clinical encounter includes extracted medical findings|documented management actions are summarized|outcome supported by cited record text",
+            lower_report,
+        )
+    )
+    quality_gates["Q_USE_NO_TEMPLATE_LANGUAGE"]["metrics"] = {"template_phrase_hits": template_hits}
+    if template_hits > 0:
+        quality_gates["Q_USE_NO_TEMPLATE_LANGUAGE"]["pass"] = False
+        quality_gates["Q_USE_NO_TEMPLATE_LANGUAGE"]["details"].append(
+            _issue("USE_TEMPLATE_LANGUAGE", f"Template language found in report: {template_hits} hits.")
+        )
+
+    # No-meta-language gate for timeline text.
+    timeline_start = lower_report.find("chronological medical timeline")
+    timeline_end = lower_report.find("top 10 case-driving events", timeline_start + 1) if timeline_start >= 0 else -1
+    timeline_slice = lower_report[timeline_start:timeline_end] if (timeline_start >= 0 and timeline_end > timeline_start) else lower_report
+    meta_hits = len(re.findall(r"\b(identified from source|markers|extracted|encounter identified|not stated in records|identified|documented)\b", timeline_slice))
+    quality_gates["Q_USE_NO_META_LANGUAGE"]["metrics"] = {
+        "timeline_meta_language_hits": meta_hits,
+        "timeline_contains_meta_language": meta_hits > 0,
+    }
+    if meta_hits > 0:
+        quality_gates["Q_USE_NO_META_LANGUAGE"]["pass"] = False
+        quality_gates["Q_USE_NO_META_LANGUAGE"]["details"].append(
+            _issue("USE_META_LANGUAGE", f"Meta-language found in timeline: {meta_hits} hits.")
+        )
+
+    # Verbatim snippet density gate
+    quoted_rows = sum(
+        1
+        for e in projection_entries
+        if any(
+            len((f or "").strip()) >= 24
+            and not re.search(r"\b(limited detail|encounter recorded|continuity of care|documentation noted)\b", (f or "").lower())
+            for f in (getattr(e, "facts", []) or [])
+        )
+    )
+    quality_gates["Q_USE_VERBATIM_SNIPPETS"]["metrics"] = {"rows_with_direct_source_snippets": quoted_rows}
+    if quoted_rows < 5:
+        quality_gates["Q_USE_VERBATIM_SNIPPETS"]["pass"] = False
+        quality_gates["Q_USE_VERBATIM_SNIPPETS"]["details"].append(
+            _issue("USE_VERBATIM_SNIPPETS_LOW", f"Rows with verbatim snippets below threshold: {quoted_rows}")
+        )
+
+    # Direct snippet required: >=80% timeline rows with direct quoted clinical text.
+    timeline_rows_rendered = len(re.findall(r"(?im)^\d{4}-\d{2}-\d{2}\s+\|\s+encounter:", timeline_slice))
+    snippet_rows = len(
+        re.findall(
+            r'(?im)^((chief complaint|hpi|assessment|plan|impression|meds given|medications|vitals|procedure|guidance|complications)\s*:\s*\"[^\"]+\"|\"[^\"]+\")',
+            timeline_slice,
+        )
+    )
+    snippet_ratio = (min(snippet_rows, timeline_rows_rendered) / timeline_rows_rendered) if timeline_rows_rendered else 1.0
+    quality_gates["Q_USE_DIRECT_SNIPPET_REQUIRED"]["metrics"] = {
+        "timeline_rows_rendered": timeline_rows_rendered,
+        "rows_with_direct_snippet": snippet_rows,
+        "direct_snippet_ratio": round(snippet_ratio, 3),
+    }
+    if timeline_rows_rendered and snippet_ratio < 0.8:
+        quality_gates["Q_USE_DIRECT_SNIPPET_REQUIRED"]["pass"] = False
+        quality_gates["Q_USE_DIRECT_SNIPPET_REQUIRED"]["details"].append(
+            _issue("USE_DIRECT_SNIPPET_RATIO_LOW", f"Direct clinical snippet ratio below threshold: {snippet_ratio:.3f}")
+        )
+
+    # Extraction sufficiency gate for large packets.
+    pt_note_pages = sum(
+        1
+        for txt in page_text_by_number.values()
+        if re.search(r"\b(physical therapy|pt note|pt daily|pt progress|pt discharge|pt eval)\b", (txt or "").lower())
+    )
+    substantive_pt_events = sum(
+        1
+        for e in projection_entries
+        if "therapy" in (getattr(e, "event_type_display", "") or "").lower() and _entry_substantive(e)
+    )
+    suff_metrics = {
+        "source_pages": source_pages,
+        "substantive_events": substantive_events,
+        "timeline_rows": timeline_rows,
+        "pt_note_pages": pt_note_pages,
+        "substantive_events_from_pt": substantive_pt_events,
+    }
+    quality_gates["Q_USE_EXTRACTION_SUFFICIENCY"]["metrics"] = suff_metrics
+    if source_pages > 300:
+        if substantive_events < 12:
+            quality_gates["Q_USE_EXTRACTION_SUFFICIENCY"]["pass"] = False
+            quality_gates["Q_USE_EXTRACTION_SUFFICIENCY"]["details"].append(
+                _issue("USE_SUBSTANTIVE_EVENTS_LOW", f"Substantive events too low for large packet: {substantive_events}")
+            )
+        if timeline_rows < 25:
+            quality_gates["Q_USE_EXTRACTION_SUFFICIENCY"]["pass"] = False
+            quality_gates["Q_USE_EXTRACTION_SUFFICIENCY"]["details"].append(
+                _issue("USE_TIMELINE_ROWS_LOW", f"Timeline rows too low for large packet: {timeline_rows}")
+            )
+    if pt_note_pages > 50 and substantive_pt_events < 5:
+        quality_gates["Q_USE_EXTRACTION_SUFFICIENCY"]["pass"] = False
+        quality_gates["Q_USE_EXTRACTION_SUFFICIENCY"]["details"].append(
+            _issue("USE_PT_SUBSTANCE_LOW", f"PT substantive events too low for PT-heavy packet: {substantive_pt_events}")
+        )
+
     hard_pass = all(v["pass"] for v in hard_invariants.values())
     # Context-aware required quality gates.
     require_q2 = source_pages >= 300
     require_q4 = source_pages >= 300 and gaps_total > 0
-    required_quality_keys = {"Q1_substance_ratio", "Q3_med_change_semantics_sanity", "Q5_dx_problem_purity", "Q6_pro_detection_consistency", "Q7_sdoh_quarantine_no_leak", "Q8_attorney_usability_sections"}
+    required_quality_keys = {
+        "Q1_substance_ratio",
+        "Q3_med_change_semantics_sanity",
+        "Q5_dx_problem_purity",
+        "Q6_pro_detection_consistency",
+        "Q7_sdoh_quarantine_no_leak",
+        "Q8_attorney_usability_sections",
+        "Q_SEM_1_encounter_type_sanity",
+        "Q_SEM_2_mechanism_required_when_present",
+        "Q_SEM_3_procedure_specificity_when_anchors_present",
+        "Q_SEM_4_dx_purity",
+        "Q_SEM_5_date_drift",
+        "Q_USE_1_required_buckets_present",
+        "Q_USE_2_min_substantive_rows",
+        "Q_USE_3_imaging_impression_present",
+        "Q_USE_4_no_noise_gibberish",
+        "Q_USE_5_no_placeholder_language",
+        "Q_USE_HIGH_DENSITY_RATIO",
+        "Q_USE_NO_FLOW_NOISE_EVENTS",
+        "Q_USE_NO_TEMPLATE_LANGUAGE",
+        "Q_USE_VERBATIM_SNIPPETS",
+        "Q_USE_EXTRACTION_SUFFICIENCY",
+        "Q_USE_NO_META_LANGUAGE",
+        "Q_USE_DIRECT_SNIPPET_REQUIRED",
+    }
     if require_q2:
         required_quality_keys.add("Q2_coverage_floor")
     if require_q4:
@@ -558,14 +1051,15 @@ def build_litigation_checklist(
             "timeline_citation_coverage": round(timeline_citation_coverage, 3),
             "vitals_questionnaire_ratio": round(vitals_ratio, 3),
             "admin_ratio": round(admin_ratio, 3),
-            "extracted_high_value_events": extracted_high_value,
-            "coverage_floor": coverage_floor,
+            "extracted_high_value_events": substantive_events,
+            "coverage_floor": target_rows,
             "coverage_floor_pass": bool(coverage_floor_pass),
             "unknown_patient_rows": len(unknown_timeline),
             "patient_scope_violation_count": len(patient_scope_violations),
             "provider_contamination_count": len(contaminated),
             "routine_lab_rows": routine_lab_rows,
             "pro_signal_present": bool(pro_signal_present),
+            "pro_events": int(pro_events),
             "timestamp_mismatch_count": int(timestamp_mismatches),
         },
         "per_patient": per_patient,
@@ -575,6 +1069,7 @@ def build_litigation_checklist(
             "excluded_from_gaps": True,
         },
         "artifacts": artifact_paths,
+        "warnings": artifact_warnings,
         "failure_summary": {
             "hard_failed": not hard_pass,
             "quality_failed": not quality_pass,

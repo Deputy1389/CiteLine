@@ -14,6 +14,7 @@ import re
 
 from packages.shared.models import ArtifactRef, EvidenceGraph, MissingRecordsExtension
 from packages.shared.storage import save_artifact
+from apps.worker.lib.noise_filter import is_noise_span
 
 
 CARE_EVENT_TYPES = {
@@ -39,6 +40,53 @@ def _patient_scope_id(event) -> str:
 
 def _fact_blob(event) -> str:
     return " ".join((f.text or "") for f in event.facts).lower()
+
+
+def _event_substance_score(event) -> int:
+    text = _fact_blob(event)
+    score = 0
+    if re.search(r"\b(admission|discharge|procedure|surgery|impression|diagnosis|assessment|emergency|ed)\b", text):
+        score += 3
+    if re.search(r"\b(fracture|tear|infection|radiculopathy|debridement|orif|mri|ct|x-?ray)\b", text):
+        score += 2
+    if re.search(r"\b(started|stopped|switched|increased|decreased|prescribed)\b", text):
+        score += 1
+    if _is_vitals_only(text):
+        score -= 2
+    return score
+
+
+def choose_care_window(events: list) -> tuple[Optional[date], Optional[date]]:
+    dated: list[tuple[date, Any]] = []
+    today = datetime.now(timezone.utc).date()
+    for event in events:
+        if not getattr(event, "date", None):
+            continue
+        d = event.date.sort_date()
+        if d.year <= 1900:
+            continue
+        blob = _fact_blob(event)
+        if d > (today + timedelta(days=7)) and not re.search(r"\b(appointment|scheduled|follow[- ]?up on)\b", blob):
+            continue
+        if is_noise_span(blob):
+            continue
+        if len(getattr(event, "citation_ids", []) or []) == 0 and len(getattr(event, "source_page_numbers", []) or []) == 0:
+            continue
+        if _event_substance_score(event) < 1:
+            continue
+        dated.append((d, event))
+    if not dated:
+        return None, None
+    dated.sort(key=lambda t: t[0])
+    start = dated[0][0]
+    all_dates = [d for d, _ in dated]
+    end = all_dates[-1]
+    if (end - start).days > 365:
+        idx95 = int(0.95 * (len(all_dates) - 1))
+        p95 = all_dates[idx95]
+        high_value_tail = [d for d, e in dated if d > p95 and _event_substance_score(e) >= 3]
+        end = max([p95] + high_value_tail) if high_value_tail else p95
+    return start, end
 
 
 def _is_vitals_only(text: str) -> bool:
@@ -67,6 +115,8 @@ def _is_care_event(event) -> bool:
     if event_type not in CARE_EVENT_TYPES:
         return False
     text = _fact_blob(event)
+    if is_noise_span(text):
+        return False
     severe_signal = bool(
         re.search(
             r"\b(phq-?9|homeless|suicid|opioid|hydrocodone|oxycodone|admission|discharge|procedure|surgery|debridement|orif|infection|fracture|tear|ed|emergency)\b",
@@ -98,6 +148,7 @@ def detect_missing_records(
     # STEP 1 — Build deterministic visit date maps from EVENTS
     provider_visit_dates: dict[tuple[str, str], Set[date]] = {}
     global_visit_dates: dict[str, Set[date]] = {}
+    care_start, care_end = choose_care_window(evidence_graph.events)
 
     # Mapping for provider display names
     provider_names: dict[str, str] = {
@@ -114,6 +165,10 @@ def detect_missing_records(
         visit_date = event.date.sort_date()
         # Skip unknown/placeholder dates (sort_date returns 1900-01-01 for unknown)
         if visit_date.year <= 1900:
+            continue
+        if care_start and visit_date < care_start:
+            continue
+        if care_end and visit_date > care_end:
             continue
 
         patient_scope_id = _patient_scope_id(event)
@@ -170,7 +225,7 @@ def detect_missing_records(
                             and _patient_scope_id(e) == patient_scope_id
                             and e.provider_id == pid and e.date and e.date.sort_date() == d2]
             boundary_acute = bool((events_on_d1 and _is_acute_event(events_on_d1[-1])) or (events_on_d2 and _is_acute_event(events_on_d2[0])))
-            min_days = 90 if boundary_acute else 120
+            min_days = 30
             if gap_days >= min_days:
                 severity = "high" if gap_days >= 60 else "medium"
                 
@@ -230,7 +285,7 @@ def detect_missing_records(
                             and _patient_scope_id(e) == patient_scope_id
                             and e.date and e.date.sort_date() == d2]
             boundary_acute = bool((events_on_d1 and _is_acute_event(events_on_d1[-1])) or (events_on_d2 and _is_acute_event(events_on_d2[0])))
-            min_days = 90 if boundary_acute else 120
+            min_days = 45
             if gap_days < min_days:
                 continue
             severity = "high" if gap_days >= 90 else "medium"
@@ -287,6 +342,13 @@ def detect_missing_records(
     gaps.sort(key=gap_sort_key)
 
     # STEP 4 — Store results in EvidenceGraph.extensions
+    substantive_events = [
+        e for e in evidence_graph.events
+        if _is_care_event(e) and getattr(e, "date", None) and e.date.sort_date().year > 1900
+    ]
+    care_window_days = (care_end - care_start).days if (care_start and care_end) else 0
+    reeval_gap_logic = bool(care_window_days > 60 and len(substantive_events) < 10)
+
     summary = {
         "total_gaps": len(gaps),
         "provider_gap_count": sum(1 for g in gaps if g["rule_name"] == "provider_gap"),
@@ -295,6 +357,15 @@ def detect_missing_records(
         "medium_severity_count": sum(1 for g in gaps if g["severity"] == "medium"),
         "patient_scope_count": len(sorted_global_dates_by_scope),
         "unassigned_events_excluded": sum(1 for e in evidence_graph.events if _patient_scope_id(e) == "ps_unknown"),
+        "no_gap_detected": len(gaps) == 0,
+        "no_gap_evidence": {
+            "care_window_start": care_start.isoformat() if care_start else None,
+            "care_window_end": care_end.isoformat() if care_end else None,
+            "dated_substantive_event_count": len(substantive_events),
+        } if len(gaps) == 0 else None,
+        "care_window_days": care_window_days,
+        "substantive_event_count": len(substantive_events),
+        "reevaluate_gap_logic": reeval_gap_logic,
     }
 
     payload = {
@@ -304,7 +375,9 @@ def detect_missing_records(
             "provider_gap_medium_days": 30,
             "provider_gap_high_days": 60,
             "global_gap_medium_days": 45,
-            "global_gap_high_days": 90
+            "global_gap_high_days": 90,
+            "care_window_start": care_start.isoformat() if care_start else None,
+            "care_window_end": care_end.isoformat() if care_end else None,
         },
         "gaps": gaps,
         "summary": summary

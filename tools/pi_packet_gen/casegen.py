@@ -6,9 +6,10 @@ from faker import Faker
 
 from .schema import (
     Case, PacketConfig, Person, Archetype, Gender, 
-    GeneratedDocument, DocumentType
+    GeneratedDocument, DocumentType, Anomaly, AnomalyType, TextAnchor
 )
 from .page_budget import allocate_pages
+from .text_lib import TextLibrary
 
 class CaseGenerator:
     def __init__(self, config: PacketConfig):
@@ -16,6 +17,7 @@ class CaseGenerator:
         self.rnd = random.Random(config.seed)
         Faker.seed(config.seed)
         self.fake = Faker()
+        self.text_lib = TextLibrary(config.seed)
         
     def generate(self) -> Case:
         gender = self.rnd.choice([Gender.MALE, Gender.FEMALE])
@@ -59,7 +61,66 @@ class CaseGenerator:
         print(f"Page Budget: {budget}")
         
         self._generate_storyline(case, budget)
+        self._generate_anomaly_plan(case)
         return case
+
+    def _generate_anomaly_plan(self, case: Case):
+        level = self.config.anomalies_level
+        if level == "none":
+            return
+            
+        count = self.rnd.randint(1, 3) if level == "light" else self.rnd.randint(4, 8)
+        
+        # 1. Wrong Patient Info
+        if count > 0:
+            doc = self.rnd.choice(case.documents)
+            incorrect_name = case.patient.name + "s" if self.rnd.random() > 0.5 else case.patient.name[:-1]
+            anomaly = Anomaly(
+                type=AnomalyType.WRONG_PATIENT_INFO,
+                doc_type=doc.doc_type.value,
+                page_in_doc=self.rnd.randint(1, doc.page_count),
+                details={
+                    "expected_name": case.patient.name,
+                    "incorrect_name": incorrect_name
+                }
+            )
+            doc.anomalies.append(anomaly)
+            case.anomalies.append(anomaly)
+            count -= 1
+
+        # 2. Conflicting Date
+        if count > 0:
+            pt_docs = [d for d in case.documents if d.doc_type == DocumentType.PT_RECORDS and "Daily" in d.filename]
+            if pt_docs:
+                doc = self.rnd.choice(pt_docs)
+                incorrect_date = doc.date - timedelta(days=2)
+                anomaly = Anomaly(
+                    type=AnomalyType.CONFLICTING_DATE,
+                    doc_type=doc.doc_type.value,
+                    page_in_doc=1,
+                    details={
+                        "correct_date": doc.date.isoformat(),
+                        "incorrect_date": incorrect_date.isoformat()
+                    }
+                )
+                doc.anomalies.append(anomaly)
+                case.anomalies.append(anomaly)
+                count -= 1
+        
+        # 3. Occlusion (Handled in Messifier, but planned here)
+        while count > 0:
+            doc = self.rnd.choice(case.documents)
+            anomaly = Anomaly(
+                type=AnomalyType.OCCLUSION,
+                doc_type=doc.doc_type.value,
+                page_in_doc=self.rnd.randint(1, doc.page_count),
+                details={"overlap_type": self.rnd.choice(["FAX_HEADER", "STAMP_RECEIVED"])}
+            )
+            doc.anomalies.append(anomaly)
+            case.anomalies.append(anomaly)
+            count -= 1
+
+        case.ground_truth["anomalies"] = [a.model_dump(mode='json') for a in case.anomalies]
 
     def _generate_storyline(self, case: Case, budget: Dict[str, int]):
         documents = []
@@ -80,7 +141,9 @@ class CaseGenerator:
             "med_changes": [],
             "work_status": [],
             "treatment_gaps": [],
-            "prior_history_flags": []
+            "prior_history_flags": [],
+            "expected_text_anchors": [],
+            "critical_pages": []
         }
         
         # 1. ED Visit (Day 0)
@@ -171,6 +234,15 @@ class CaseGenerator:
                 "expected_in_top10": True,
                 "notes": f"MRI revealed {impression_text}"
             })
+
+            anchor = TextAnchor(
+                anchor_id="mri_impression_primary",
+                doc_type="Radiology Report",
+                must_contain=["IMPRESSION:"] + mri_doc.content['impression']
+            )
+            mri_doc.anchors.append(anchor)
+            gt["expected_text_anchors"].append(anchor.model_dump())
+
              # Diagnosis
             if case.config.archetype == Archetype.HERNIATION:
                  gt["diagnoses"].append({"date": mri_date.isoformat(), "source": "MRI", "code": "M50.20", "description": "Cervical Disc Displacement"})
@@ -197,6 +269,14 @@ class CaseGenerator:
                     esi_doc = self._create_esi_procedure(esi_date, case.patient, budget["procedure_esi"])
                     documents.append(esi_doc)
                     gt["procedures"].append({"name": "Cervical ESI", "date": esi_date.isoformat(), "details": "C6-C7 Interlaminar ESI"})
+                    
+                    anchor = TextAnchor(
+                        anchor_id="esi_procedure_core",
+                        doc_type="Procedure Note",
+                        must_contain=["C6-C7", "Depo-Medrol", "lidocaine", "Fluoroscopy", "Complications: None"]
+                    )
+                    esi_doc.anchors.append(anchor)
+                    gt["expected_text_anchors"].append(anchor.model_dump())
 
         # 7. Prior Records
         if budget.get("prior_records", 0) > 0:
@@ -306,43 +386,56 @@ class CaseGenerator:
             all_visits.append(start_date)
             
         # 2. Daily Notes
-        # We need to fill `pt_daily` pages. Assume ~2 pages per visit for now (until renderer is smarter).
-        # To be safe, let's assume `render` can stretch a daily note to `n` pages if requested? 
-        # Actually `render` typically renders ONE note per document/file if that's how we structure it, OR multiple notes per file.
-        # Current logic batches them.
-        # Let's approximate: 2 pages per visit.
         daily_pages_target = budget.get("pt_daily", 0)
         num_visits = max(1, daily_pages_target // 2)
         
         daily_notes = []
         visit_date = start_date
+        
+        # State machine for progression
         current_pain = 8
+        trend = "stable"
         
         for i in range(num_visits):
             visit_date += timedelta(days=self.rnd.randint(2, 4))
             # Inject gap?
-            if archetype in [Archetype.HERNIATION, Archetype.COMPLEX_PRIOR] and i == num_visits // 2 and self.rnd.random() < 0.8:
+            if archetype in [Archetype.HERNIATION, Archetype.SURGICAL, Archetype.COMPLEX_PRIOR] and i == num_visits // 2:
                  visit_date += timedelta(days=35) # Force gap
             
             all_visits.append(visit_date)
+            
+            # Update state
+            if i > num_visits * 0.7:
+                current_pain = max(2, current_pain - self.rnd.randint(0, 1))
+                trend = "improving"
+            elif i > num_visits * 0.3:
+                current_pain = max(4, current_pain - self.rnd.randint(0, 1))
+                trend = "stable"
+            
+            # Focus region based on archetype
+            focus = "mixed"
+            if archetype == Archetype.HERNIATION: focus = "cervical"
+            
+            visit_state = {
+                "pain_score": current_pain,
+                "trend": trend,
+                "focus": focus,
+                "narrative": self.text_lib.get_pt_narrative(current_pain, trend)
+            }
+
             daily_notes.append({
                 "date": visit_date,
                 "provider": provider,
-                "subjective": f"Pain {current_pain}/10.",
-                "plan": "Continue."
+                "state": visit_state
             })
             
         # Batching
         if daily_notes:
-            # Create one big file or chunks? Chunks are better for realism.
-            # Split into chunks of ~10 visits (20 pages)
             chunk_size = 10
             for i in range(0, len(daily_notes), chunk_size):
                 chunk = daily_notes[i:i+chunk_size]
                 first = chunk[0]['date']
                 last = chunk[-1]['date']
-                # Calc pages for this chunk
-                # If this is the last chunk, give it the remainder pages
                 is_last = (i + chunk_size >= len(daily_notes))
                 pages_so_far = sum(d.page_count for d in docs if d.doc_type == DocumentType.PT_RECORDS and "Eval" not in d.filename)
                 
@@ -351,7 +444,6 @@ class CaseGenerator:
                 else:
                     chunk_pages = len(chunk) * 2 
                 
-                # Ensure at least 1 page
                 chunk_pages = max(1, chunk_pages)
                 
                 docs.append(GeneratedDocument(
@@ -362,6 +454,37 @@ class CaseGenerator:
                     content={"visits": chunk, "type": "Daily Notes Log"},
                     filename=f"PT_Daily_{first}_{last}.pdf"
                 ))
+
+        # 2b. Progress Notes
+        if budget.get("pt_progress", 0) > 0:
+            prog_date = start_date + timedelta(days=30)
+            docs.append(GeneratedDocument(
+                doc_type=DocumentType.PT_RECORDS,
+                date=prog_date,
+                provider=provider,
+                page_count=budget["pt_progress"],
+                content={
+                    "visit_type": "Progress Note",
+                    "subjective": "Patient making good progress.",
+                    "assessment": "Goals partially met.",
+                    "plan": "Continue POC."
+                },
+                filename=f"PT_Progress_{prog_date}.pdf"
+            ))
+
+        # 3. Discharge
+        if budget.get("pt_discharge", 0) > 0:
+            final_date = visit_date + timedelta(days=3)
+            docs.append(GeneratedDocument(
+                doc_type=DocumentType.DISCHARGE_SUMMARY,
+                date=final_date,
+                provider=provider,
+                page_count=budget["pt_discharge"],
+                content={"title": "Discharge Summary", "final_pain": f"{current_pain}/10"},
+                filename=f"PT_Discharge_{final_date}.pdf"
+            ))
+            
+        return docs, events, all_visits
 
         # 2b. Progress Notes
         if budget.get("pt_progress", 0) > 0:

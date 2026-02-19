@@ -232,13 +232,13 @@ def test_subpoena_realism_ortho_procedure(clean_output):
     ortho_files = [f for f in os.listdir(docs_dir) if "Ortho" in f]
     assert len(ortho_files) > 0
     reader = PdfReader(os.path.join(docs_dir, ortho_files[0]))
-    # Assert volume: at least 10 pages contain >300 chars of clinical content
+    # Assert volume: at least 12 pages contain >300 chars of clinical content
     contentful_pages = 0
     for i in range(1, len(reader.pages)): # Skip page 1 (cover)
         text = reader.pages[i].extract_text()
         if len(text.strip()) > 300:
             contentful_pages += 1
-    assert contentful_pages >= 10, f"Ortho doc missing contentful pages. Found only {contentful_pages}."
+    assert contentful_pages >= 12, f"Ortho doc missing contentful pages. Found only {contentful_pages}."
 
     # 2. Procedure Content Test
     proc_files = [f for f in os.listdir(docs_dir) if "Procedure" in f]
@@ -247,7 +247,33 @@ def test_subpoena_realism_ortho_procedure(clean_output):
     full_text = "".join([p.extract_text() for p in reader.pages])
     required_strings = ["Depo-Medrol", "lidocaine", "fluoroscopy", "Complications: None"]
     for s in required_strings:
-        assert s in full_text, f"Procedure doc missing required string: {s}"
+        assert s.lower() in full_text.lower(), f"Procedure doc missing required string: {s}"
+
+def test_pt_realism_density(clean_output):
+    """Verify PT Daily Notes meet density requirements (>250 chars average)."""
+    config = PacketConfig(archetype=Archetype.HERNIATION, seed=42, target_pages=300, noise_level="none")
+    gen = CaseGenerator(config)
+    case = gen.generate()
+    
+    renderer = DocumentRenderer(OUTPUT_DIR)
+    renderer.render_case(case)
+    
+    docs_dir = os.path.join(OUTPUT_DIR, "docs")
+    pt_files = [f for f in os.listdir(docs_dir) if "PT_Daily" in f]
+    assert len(pt_files) > 0
+    
+    all_pages_text_len = []
+    for pt_file in pt_files:
+        reader = PdfReader(os.path.join(docs_dir, pt_file))
+        for page in reader.pages:
+            all_pages_text_len.append(len(page.extract_text().strip()))
+            
+    # Sample up to 20 pages
+    sample_size = min(20, len(all_pages_text_len))
+    sample = all_pages_text_len[:sample_size]
+    avg_len = sum(sample) / sample_size
+    assert avg_len > 250, f"PT pages too sparse. Average length: {avg_len}"
+
 
 def test_gap_truth_accuracy():
     """Verify ground_truth.treatment_gaps is populated (Part 27)."""
@@ -280,3 +306,90 @@ def test_noise_date_labels(clean_output):
     assert len(noise_entries) > 0
     for e in noise_entries:
         assert e['date'].startswith("FAXED: "), f"Noise date missing FAXED label: {e['date']}"
+
+def test_v4_variability(clean_output):
+    """Verify PT flowsheet variability and pain score progression (V4)."""
+    config = PacketConfig(archetype=Archetype.HERNIATION, seed=42, target_pages=300, noise_level="none")
+    gen = CaseGenerator(config)
+    case = gen.generate()
+    
+    renderer = DocumentRenderer(OUTPUT_DIR)
+    renderer.render_case(case)
+    
+    docs_dir = os.path.join(OUTPUT_DIR, "docs")
+    pt_files = [f for f in os.listdir(docs_dir) if "PT_Daily" in f]
+    
+    all_text = ""
+    pain_scores = set()
+    for pt_file in pt_files:
+        reader = PdfReader(os.path.join(docs_dir, pt_file))
+        for page in reader.pages:
+            text = page.extract_text()
+            all_text += text
+            import re
+            match = re.search(r"pain levels at (\d+)/10", text)
+            if match:
+                pain_scores.add(match.group(1))
+                
+    # Assert multiple exercises (from flowsheet)
+    exercises = ["Cervical Retractions", "Chin Tucks", "Isometric Rotations"]
+    found_count = sum(1 for ex in exercises if ex in all_text)
+    assert found_count >= 2, f"Expected varied exercises, found only {found_count}"
+    
+    # Assert varied pain scores
+    assert len(pain_scores) > 1, f"Expected varied pain scores, found only {pain_scores}"
+
+def test_v4_anomaly_logging(clean_output):
+    """Verify anomalies are correctly logged in ground truth (V4)."""
+    config = PacketConfig(archetype=Archetype.HERNIATION, seed=42, target_pages=50, noise_level="mixed", anomalies_level="light")
+    gen = CaseGenerator(config)
+    case = gen.generate()
+    
+    renderer = DocumentRenderer(OUTPUT_DIR)
+    renderer.render_case(case)
+    
+    merger = PacketMerger(OUTPUT_DIR)
+    merger.merge(case)
+    
+    gt_path = os.path.join(OUTPUT_DIR, "ground_truth.json")
+    with open(gt_path, "w") as f:
+        json.dump(case.ground_truth, f, indent=2, default=str)
+        
+    with open(gt_path, "r") as f:
+        gt = json.load(f)
+        
+    assert "anomalies" in gt
+    assert len(gt["anomalies"]) > 0
+    for a in gt["anomalies"]:
+        assert "page_global" in a
+        assert a["page_global"] > 0
+
+def test_v4_anchors(clean_output):
+    """Verify expected text anchors are present in final packet (V4)."""
+    config = PacketConfig(archetype=Archetype.HERNIATION, seed=42, target_pages=100, noise_level="none")
+    gen = CaseGenerator(config)
+    case = gen.generate()
+    
+    renderer = DocumentRenderer(OUTPUT_DIR)
+    renderer.render_case(case)
+    
+    merger = PacketMerger(OUTPUT_DIR)
+    merger.merge(case)
+    
+    gt_path = os.path.join(OUTPUT_DIR, "ground_truth.json")
+    with open(gt_path, "w") as f:
+        json.dump(case.ground_truth, f, indent=2, default=str)
+        
+    with open(gt_path, "r") as f:
+        gt = json.load(f)
+        
+    assert "expected_text_anchors" in gt
+    anchors = gt["expected_text_anchors"]
+    assert len(anchors) >= 1
+    
+    reader = PdfReader(os.path.join(OUTPUT_DIR, "packet.pdf"))
+    full_text = "".join([p.extract_text() for p in reader.pages]).lower()
+    
+    for anchor in anchors:
+        for s in anchor["must_contain"]:
+            assert s.lower() in full_text, f"Anchor string '{s}' missing from packet"

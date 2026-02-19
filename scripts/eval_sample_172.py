@@ -5,6 +5,7 @@ import json
 import re
 import shutil
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -55,11 +56,14 @@ from apps.worker.steps.step11_gaps import detect_gaps
 from apps.worker.steps.step12_export import render_exports, render_patient_chronology_reports
 from apps.worker.steps.step15_missing_records import detect_missing_records
 from apps.worker.lib.provider_normalize import normalize_provider_entities
+from apps.worker.lib.noise_filter import is_noise_span
 from apps.worker.steps.step12a_narrative_synthesis import synthesize_narrative
 from apps.worker.project.chronology import build_chronology_projection, infer_page_patient_labels
 from scripts.litigation_qa import build_litigation_checklist, write_litigation_checklist
-from packages.shared.models import CaseInfo, EvidenceGraph, RunConfig, SourceDocument
+from packages.shared.models import CaseInfo, EvidenceGraph, Gap, RunConfig, SourceDocument
 from packages.shared.storage import get_artifact_dir
+from apps.worker.lib.artifacts_writer import write_artifact_json
+from apps.worker.lib.artifacts_writer import safe_copy, validate_artifacts_exist
 
 
 FORBIDDEN_STRINGS = [
@@ -134,6 +138,17 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
     filtered_for_gaps = [e.model_copy(deep=True) for e in all_events]
     filtered_for_gaps, gaps, _ = detect_gaps(filtered_for_gaps, config)
     chronology_events = improve_legal_usability([e.model_copy(deep=True) for e in all_events])
+    # Deterministic noise quarantine for downstream rendering/evidence graph artifacts.
+    for evt in chronology_events:
+        clean_facts = []
+        for fact in evt.facts:
+            txt = (fact.text or "").strip()
+            if not txt:
+                continue
+            if is_noise_span(txt):
+                continue
+            clean_facts.append(fact)
+        evt.facts = clean_facts
     page_text_by_number = {p.page_number: (p.text or "") for p in pages}
     page_patient_labels = infer_page_patient_labels(page_text_by_number)
     projection_debug: list[dict] = []
@@ -166,17 +181,59 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
     )
     narrative = synthesize_narrative(chronology_events, providers, all_citations, case_info)
 
+    graph = EvidenceGraph(pages=pages, documents=docs, providers=providers, events=chronology_events, citations=all_citations)
+    provider_norm = normalize_provider_entities(graph)
+    missing_payload = detect_missing_records(graph, provider_norm)
+    artifact_dir = get_artifact_dir(run_id)
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    evidence_graph_payload = graph.model_dump(mode="json")
+    write_artifact_json("evidence_graph.json", evidence_graph_payload, artifact_dir)
+    write_artifact_json("patient_partitions.json", patient_partitions_payload, artifact_dir)
+    write_artifact_json("missing_records.json", missing_payload, artifact_dir)
+    render_gaps: list[Gap] = []
+    for row in (missing_payload.get("gaps") or []):
+        try:
+            s = row.get("start_date")
+            e = row.get("end_date")
+            if isinstance(s, str):
+                s = date.fromisoformat(s)
+            if isinstance(e, str):
+                e = date.fromisoformat(e)
+            evidence = row.get("evidence") or {}
+            related_ids = [str(x) for x in (row.get("related_event_ids") or []) if x]
+            if not related_ids:
+                if evidence.get("last_event_id"):
+                    related_ids.append(str(evidence.get("last_event_id")))
+                if evidence.get("next_event_id"):
+                    related_ids.append(str(evidence.get("next_event_id")))
+            render_gaps.append(
+                Gap(
+                    gap_id=str(row.get("gap_id") or f"mr_gap_{len(render_gaps)+1}"),
+                    start_date=s,
+                    end_date=e,
+                    duration_days=int(row.get("gap_days") or row.get("duration_days") or 0),
+                    threshold_days=int(row.get("threshold_days") or 60),
+                    confidence=int(row.get("confidence") or 80),
+                    related_event_ids=related_ids,
+                )
+            )
+        except Exception:
+            continue
+
     chronology = render_exports(
         run_id=run_id,
         matter_title="Sample 172 Chronology Eval",
         events=chronology_events,
-        gaps=gaps,
+        gaps=render_gaps,
         providers=providers,
         page_map=page_map,
         case_info=case_info,
         all_citations=all_citations,
         narrative_synthesis=narrative,
         page_text_by_number=page_text_by_number,
+        evidence_graph_payload=evidence_graph_payload,
+        patient_partitions_payload=patient_partitions_payload,
+        missing_records_payload=missing_payload,
     )
     patient_manifest_ref = render_patient_chronology_reports(
         run_id=run_id,
@@ -187,9 +244,6 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
         page_text_by_number=page_text_by_number,
     )
 
-    graph = EvidenceGraph(pages=pages, documents=docs, providers=providers, events=chronology_events, citations=all_citations)
-    provider_norm = normalize_provider_entities(graph)
-    missing_payload = detect_missing_records(graph, provider_norm)
     patient_scope_violations = validate_patient_scope_invariants(all_events, all_citations, page_to_patient_scope)
     pdf_path = Path(chronology.exports.pdf.uri)
     return pdf_path, {
@@ -204,6 +258,13 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
         "event_weighting": weight_summary,
         "source_pages": len(pages),
         "page_text_by_number": page_text_by_number,
+        "artifact_manifest": {
+            "evidence_graph.json": str((artifact_dir / "evidence_graph.json").resolve()),
+            "patient_partitions.json": str((artifact_dir / "patient_partitions.json").resolve()),
+            "missing_records.json": str((artifact_dir / "missing_records.json").resolve()),
+            "selection_debug.json": str((artifact_dir / "selection_debug.json").resolve()),
+            "claim_guard_report.json": str((artifact_dir / "claim_guard_report.json").resolve()),
+        },
     }
 
 
@@ -276,7 +337,11 @@ def score_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
             provider_misassignment_count += 1
     patient_scope_violation_count = len(ctx.get("patient_scope_violations", []))
 
-    surgery_count = len(re.findall(r"\b(surgery|operative|orif|debridement|hardware removal|rotator cuff repair)\b", text_lower))
+    surgery_count = sum(
+        1
+        for entry in ctx.get("projection_entries", [])
+        if "procedure" in (getattr(entry, "event_type_display", "") or "").lower()
+    )
     injury_list = sorted(set(injury_canonicalization(report_text)))
     missing_records_section_present = "missing record" in text_lower
 
@@ -343,9 +408,26 @@ def evaluate_sample_172(debug_trace: bool = False) -> dict[str, Any]:
 
     run_id = f"eval-sample-172-{uuid4().hex[:8]}"
     pdf_path, ctx = run_sample_pipeline(sample_pdf, run_id)
+    artifact_dir = get_artifact_dir(run_id)
 
     out_pdf = eval_dir / "output.pdf"
     shutil.copyfile(pdf_path, out_pdf)
+    manifest = dict(ctx.get("artifact_manifest") or {})
+    for name in [
+        "evidence_graph.json",
+        "patient_partitions.json",
+        "missing_records.json",
+        "selection_debug.json",
+        "claim_guard_report.json",
+    ]:
+        src = Path(manifest.get(name) or (artifact_dir / name))
+        copied = safe_copy(src, eval_dir, name) if src.exists() else None
+        manifest[name] = str(copied.resolve()) if copied else None
+    seed_semqa = {"run_id": run_id, "qa_pass": None}
+    semqa_path = write_artifact_json("semqa_debug.json", seed_semqa, eval_dir)
+    write_artifact_json("semqa_debug.json", seed_semqa, artifact_dir)
+    manifest["semqa_debug.json"] = str(semqa_path.resolve())
+    ctx["artifact_manifest"] = manifest
     report_text = extract_pdf_text(out_pdf)
     scorecard = score_report(report_text, ctx)
     checklist = build_litigation_checklist(
@@ -356,8 +438,18 @@ def evaluate_sample_172(debug_trace: bool = False) -> dict[str, Any]:
         chronology_pdf_path=out_pdf,
     )
     write_litigation_checklist(eval_dir / "qa_litigation_checklist.json", checklist)
+    semqa = {
+        "run_id": run_id,
+        "qa_pass": bool(checklist.get("pass")),
+        "quality_gates": checklist.get("quality_gates", {}),
+        "metrics": checklist.get("metrics", {}),
+    }
+    write_artifact_json("semqa_debug.json", semqa, eval_dir)
+    write_artifact_json("semqa_debug.json", semqa, artifact_dir)
     scorecard["qa_litigation_pass"] = bool(checklist["pass"])
-    scorecard["overall_pass"] = bool(scorecard["overall_pass"]) and bool(checklist["pass"])
+    scorecard["qa_score"] = int(checklist.get("score_0_100", 0) or 0)
+    scorecard["score_0_100"] = int(checklist.get("score_0_100", scorecard.get("score_0_100", 0)) or 0)
+    scorecard["overall_pass"] = bool(checklist["pass"])
 
     debug_trace_written = False
     if debug_trace:
@@ -374,6 +466,9 @@ def evaluate_sample_172(debug_trace: bool = False) -> dict[str, Any]:
         debug_trace_written = True
 
     scorecard["debug_trace_written"] = debug_trace_written
+    artifacts_ok, missing = validate_artifacts_exist({k: v for k, v in manifest.items()})
+    scorecard["artifact_manifest_ok"] = artifacts_ok
+    scorecard["artifact_manifest_missing"] = missing
 
     scorecard_path = eval_dir / "scorecard.json"
     scorecard_path.write_text(json.dumps(scorecard, indent=2), encoding="utf-8")

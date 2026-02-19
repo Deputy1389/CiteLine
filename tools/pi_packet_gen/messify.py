@@ -12,7 +12,7 @@ class Messifier:
         self.enabled = noise_level != "clean" and noise_level != "none"
         self.rnd = random.Random(seed)
 
-    def messify_document(self, filepath: str, doc_date: date):
+    def messify_document(self, filepath: str, doc_date: date, anomalies: list = None):
         """Apply noise and fax header to a single document."""
         if not self.enabled:
             return
@@ -46,6 +46,7 @@ class Messifier:
             add_fax = self.rnd.random() < (0.8 if doc_noise == "heavy" else 0.4)
 
             for i, page in enumerate(reader.pages):
+                page_num = i + 1
                 # 1. Rotation (Skew) - Simulate Scanning
                 angle = 0
                 if doc_noise == "light":
@@ -62,9 +63,17 @@ class Messifier:
                     op_scale = Transformation().scale(scale, scale)
                     page.add_transformation(op_scale)
 
-                # 3. Fax Header
-                if add_fax:
-                    overlay_pdf = self._create_fax_overlay(fax_ts, fax_num, i + 1, fax_style)
+                # 3. Fax Header / Occlusion
+                anomaly = None
+                if anomalies:
+                    from .schema import AnomalyType
+                    for a in anomalies:
+                        if a.type == AnomalyType.OCCLUSION and a.page_in_doc == page_num:
+                            anomaly = a
+                            break
+
+                if add_fax or anomaly:
+                    overlay_pdf = self._create_fax_overlay(fax_ts, fax_num, page_num, fax_style, anomaly)
                     overlay_page = PdfReader(overlay_pdf).pages[0]
                     page.merge_page(overlay_page)
 
@@ -77,7 +86,7 @@ class Messifier:
         except Exception as e:
             print(f"Error messifying {filepath}: {e}")
 
-    def _create_fax_overlay(self, timestamp: str, fax_num: str, page_num: int, style: str) -> io.BytesIO:
+    def _create_fax_overlay(self, timestamp: str, fax_num: str, page_num: int, style: str, anomaly: any = None) -> io.BytesIO:
         packet = io.BytesIO()
         can = canvas.Canvas(packet, pagesize=letter)
         width, height = letter
@@ -91,13 +100,28 @@ class Messifier:
             text = f"Fax ID: {self.rnd.randint(100000,999999)} | {timestamp} | Page {page_num}"
         
         can.setFont("Courier", 9 if style != "server" else 7)
-        can.setFillColorRGB(0.1, 0.1, 0.1) # Dark grey, not pitch black
+        can.setFillColorRGB(0.1, 0.1, 0.1)
         
         # Position varies
-        if self.rnd.choice([True, False]):
-            can.drawString(20, height - 15, text)
+        header_top = self.rnd.choice([True, False])
+        if anomaly and anomaly.details["overlap_type"] == "FAX_HEADER":
+            # Force overlap by placing header further in
+            y = height - 100 if header_top else 100
+            can.drawString(50, y, "--- FAX TRANSMISSION OVERLAP TEST --- " + text)
         else:
-            can.drawString(20, 15, text)
+            if header_top:
+                can.drawString(20, height - 15, text)
+            else:
+                can.drawString(20, 15, text)
+
+        if anomaly and anomaly.details["overlap_type"] == "STAMP_RECEIVED":
+            can.setFont("Helvetica-Bold", 40)
+            can.setFillColorRGB(0.8, 0.2, 0.2, alpha=0.4)
+            can.saveState()
+            can.translate(width/2, height/2)
+            can.rotate(30)
+            can.drawCentredString(0, 0, "RECEIVED")
+            can.restoreState()
             
         can.save()
         packet.seek(0)

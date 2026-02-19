@@ -36,16 +36,16 @@
       "expected_in_top10": true
     },
     {
-      "id": "evt_mri_2025-05-08",
+      "id": "evt_mri_2025-05-18",
       "type": "MRI",
-      "date": "2025-05-08",
+      "date": "2025-05-18",
       "expected_in_top10": true,
       "notes": "MRI revealed C5-C6: 3mm central disc protrusion indenting thecal sac. No cord signal abnormality."
     },
     {
-      "id": "evt_ortho_2025-05-19",
+      "id": "evt_ortho_2025-05-29",
       "type": "Ortho Consult",
-      "date": "2025-05-19",
+      "date": "2025-05-29",
       "expected_in_top10": true,
       "notes": "Ortho Assessment: Radiculopathy"
     }
@@ -64,7 +64,7 @@
       "description": "Lumbar Strain"
     },
     {
-      "date": "2025-05-08",
+      "date": "2025-05-18",
       "source": "MRI",
       "code": "M50.20",
       "description": "Cervical Disc Displacement"
@@ -89,7 +89,7 @@
     },
     {
       "modality": "MRI Cervical Spine",
-      "date": "2025-05-08",
+      "date": "2025-05-18",
       "impression_contains": [
         "C5-C6: 3mm central disc protrusion indenting thecal sac.",
         "No cord signal abnormality."
@@ -99,7 +99,7 @@
   "procedures": [
     {
       "name": "Cervical ESI",
-      "date": "2025-06-02",
+      "date": "2025-06-18",
       "details": "C6-C7 Interlaminar ESI"
     }
   ],
@@ -125,16 +125,53 @@
   ],
   "treatment_gaps": [
     {
-      "start_date": "2025-10-08",
-      "end_date": "2025-11-14",
-      "days": 37,
+      "start_date": "2025-10-04",
+      "end_date": "2025-11-11",
+      "days": 38,
       "notes": "Gap in PT attendance."
     }
   ],
   "prior_history_flags": [
     {
-      "date": "2023-04-08",
+      "date": "2022-12-17",
       "fact": "Prior complaints of intermittent neck stiffnes."
+    }
+  ],
+  "expected_text_anchors": [
+    {
+      "anchor_id": "mri_impression_primary",
+      "doc_type": "Radiology Report",
+      "must_contain": [
+        "IMPRESSION:",
+        "C5-C6: 3mm central disc protrusion indenting thecal sac.",
+        "No cord signal abnormality."
+      ],
+      "page_global": 33
+    },
+    {
+      "anchor_id": "esi_procedure_core",
+      "doc_type": "Procedure Note",
+      "must_contain": [
+        "C6-C7",
+        "Depo-Medrol",
+        "lidocaine",
+        "Fluoroscopy",
+        "Complications: None"
+      ],
+      "page_global": 150
+    }
+  ],
+  "critical_pages": [],
+  "anomalies": [
+    {
+      "type": "wrong_patient_info",
+      "doc_type": "Packet Noise",
+      "page_in_doc": 1,
+      "page_global": 283,
+      "details": {
+        "expected_name": "Alexander Hill",
+        "incorrect_name": "Alexander Hills"
+      }
     }
   ]
 }

@@ -228,9 +228,10 @@ class TestGeneratePdf:
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
         assert "Facility/Clinician:" in text
-        assert "What Happened:" in text
-        assert "Why It Matters:" in text
+        assert "Impression:" in text
         assert "Citation(s):" in text
+        assert "What Happened:" not in text
+        assert "Why It Matters:" not in text
         assert "Appendix A: Medications" in text
         assert "Appendix B: Diagnoses/Problems" in text
         assert "Appendix C: Treatment Gaps" in text
@@ -269,7 +270,7 @@ class TestGeneratePdf:
         )
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
-        assert "Medication Changes:" in text
+        assert "Appendix A: Medications (material changes)" in text
         assert "Disposition:" in text
 
     def test_projection_pdf_detects_patient_reported_outcomes(self):
@@ -351,7 +352,7 @@ class TestGeneratePdf:
         assert "hydrocodone" in text
         assert "dose" in text or "formulation changed" in text or "started" in text
 
-    def test_timeline_what_happened_strips_sdoh_noise(self):
+    def test_timeline_snippet_rows_strip_sdoh_noise(self):
         import fitz
         from datetime import datetime, timezone
         from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
@@ -379,10 +380,11 @@ class TestGeneratePdf:
         pdf_bytes = generate_pdf_from_projection("SDOH Guard", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count)).lower()
-        assert "what happened:" in text
-        assert "what happened: reason:" in text
-        assert "preferred language" not in text.split("appendix f: social determinants/intake")[0]
-        assert "afraid of your partner" not in text.split("appendix f: social determinants/intake")[0]
+        timeline_slice = text.split("chronological medical timeline", 1)[1].split("top 10 case-driving events", 1)[0]
+        assert "what happened:" not in timeline_slice
+        assert "preferred language" not in timeline_slice
+        assert "afraid of your partner" not in timeline_slice
+        assert "appendix f: social determinants/intake" in text
 
     def test_gap_anchors_use_adjacent_boundary_events(self):
         import fitz
@@ -967,6 +969,95 @@ class TestGeneratePdf:
         text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
         assert ":." not in text
         assert "Worried about l." not in text
+
+    def test_outpatient_inpatient_label_downgrades_to_clinical_note(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="op1",
+                    date_display="2025-01-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Inpatient Progress",
+                    patient_label="P-OUT",
+                    facts=["Routine outpatient follow-up note."],
+                    citation_display="r.pdf p. 1",
+                    confidence=80,
+                )
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection("Encounter Label", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+        assert "Encounter: Inpatient Progress" not in text
+        assert "ongoing hospitalization" not in text.lower()
+
+    def test_procedure_anchor_enrichment_adds_specific_details(self):
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import _enrich_projection_procedure_entries
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="pr1",
+                    date_display="2025-02-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Procedure/Surgery",
+                    patient_label="P1",
+                    facts=["Procedure milestone recorded."],
+                    citation_display="packet.pdf p. 10",
+                    confidence=85,
+                )
+            ],
+        )
+        enriched = _enrich_projection_procedure_entries(
+            projection,
+            page_text_by_number={
+                10: "Interlaminar C6-7 injection with Depo-Medrol and lidocaine under Fluoroscopy. Complications: none.",
+            },
+            page_map={10: ("packet.pdf", 10)},
+        )
+        blob = " ".join(enriched.entries[0].facts).lower()
+        assert "epidural steroid injection" in blob
+        assert "fluoroscopy" in blob
+        assert "lidocaine" in blob
+
+    def test_dx_appendix_quarantines_gibberish_noise(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        projection = ChronologyProjection(
+            generated_at=datetime.now(timezone.utc),
+            entries=[
+                ChronologyProjectionEntry(
+                    event_id="dx1",
+                    date_display="2025-03-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Follow-Up Visit",
+                    patient_label="DX",
+                    facts=[
+                        "Difficult mission late kind random fax noise.",
+                        "Assessment: Cervical radiculopathy with disc protrusion.",
+                    ],
+                    citation_display="packet.pdf p. 20",
+                    confidence=80,
+                )
+            ],
+        )
+        pdf_bytes = generate_pdf_from_projection("DX Purity", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count)).lower()
+        assert "cervical radiculopathy" in text
+        assert "difficult mission late kind" not in text
 
 
 # ── CSV sanity ────────────────────────────────────────────────────────────

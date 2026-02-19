@@ -44,11 +44,25 @@ class PacketMerger:
                 "end_page": current_page + page_count - 1,
                 "page_count": page_count
             })
+
+            # Map global pages for anomalies
+            for anomaly in doc.anomalies:
+                anomaly.page_global = current_page + anomaly.page_in_doc - 1
+
             current_page += page_count
             
         outfile = os.path.join(self.output_dir, "packet.pdf")
         merger.write(outfile)
         merger.close()
+
+        # Update ground truth with mapped global pages
+        case.ground_truth["anomalies"] = [a.model_dump(mode='json') for a in case.anomalies]
+        
+        # Mapping Anchors to global pages (first page of matching doc)
+        for anchor in case.ground_truth.get("expected_text_anchors", []):
+            matching_entries = [e for e in index_data if e["doc_type"] == anchor["doc_type"]]
+            if matching_entries:
+                anchor["page_global"] = matching_entries[0]["start_page"]
         
         with open(os.path.join(self.output_dir, "packet_index.json"), "w") as f:
             json.dump(index_data, f, indent=2)

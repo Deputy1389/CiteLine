@@ -15,10 +15,34 @@ class Gender(str, Enum):
     MALE = "Male"
     FEMALE = "Female"
 
+class AnomalyType(str, Enum):
+    WRONG_PATIENT_INFO = "wrong_patient_info"
+    CONFLICTING_DATE = "conflicting_date"
+    OCCLUSION = "occlusion"
+
+class Anomaly(BaseModel):
+    type: AnomalyType
+    doc_type: str
+    page_in_doc: int
+    page_global: Optional[int] = None
+    details: Dict[str, Any]
+
+class TextAnchor(BaseModel):
+    anchor_id: str
+    doc_type: str
+    must_contain: List[str]
+
+class CriticalPage(BaseModel):
+    doc_type: str
+    page_in_doc: int
+    page_global: Optional[int] = None
+    anchor_ids: List[str]
+
 class PacketConfig(BaseModel):
     archetype: Archetype
     target_pages: int
     noise_level: str
+    anomalies_level: str = "none"
     seed: int
 
 class Person(BaseModel):
@@ -58,6 +82,8 @@ class GeneratedDocument(BaseModel):
     page_count: int
     content: Any  # Arbitrary content dict for the renderer
     filename: str
+    anomalies: List[Anomaly] = Field(default_factory=list)
+    anchors: List[TextAnchor] = Field(default_factory=list)
 
 class Case(BaseModel):
     case_id: str
@@ -68,3 +94,4 @@ class Case(BaseModel):
     incident_description: str
     documents: List[GeneratedDocument] = Field(default_factory=list)
     ground_truth: Dict[str, Any] = Field(default_factory=dict)
+    anomalies: List[Anomaly] = Field(default_factory=list)

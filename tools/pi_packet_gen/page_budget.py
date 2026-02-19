@@ -20,7 +20,7 @@ def allocate_pages(archetype: Archetype, target_pages: int, noise_level: str, rn
         "pt_daily": 60 if target_pages < 250 else 120,
         "pt_progress": 6 if archetype != Archetype.MINOR else 0,
         "pt_discharge": 2,
-        "ortho_consult": 8 if archetype != Archetype.MINOR else 0,
+        "ortho_consult": 18 if archetype != Archetype.MINOR else 0,
         "procedure_esi": 6 if archetype in [Archetype.HERNIATION, Archetype.SURGICAL] else 0,
         "billing": 30 if target_pages < 250 else 80,
         "noise": 0

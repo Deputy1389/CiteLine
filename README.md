@@ -125,3 +125,20 @@ python scripts/batch_ingest.py
 
 Results will be saved to `data/batch_runs/summary.json`.
 Artifacts for each run are stored in `data/batch_runs/<run_id>/`.
+
+## Eval Output Bundle
+
+For `scripts/run_case.py` and eval harness runs, `data/evals/<case_id>/` is now self-contained and includes:
+
+- `output.pdf`
+- `qa_litigation_checklist.json`
+- `scorecard.json`
+- `context.json`
+- `semqa_debug.json`
+- `evidence_graph.json`
+- `missing_records.json`
+- `patient_partitions.json`
+- `selection_debug.json`
+- `claim_guard_report.json`
+
+`qa_litigation_checklist.json` artifact paths are validated against real files. Missing artifacts are set to `null` with checklist warnings.

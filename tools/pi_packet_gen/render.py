@@ -7,13 +7,15 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Frame, PageTemplate
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
-from .schema import Case, GeneratedDocument, DocumentType
+from .schema import Case, GeneratedDocument, DocumentType, AnomalyType
+from .text_lib import TextLibrary
 
 class DocumentRenderer:
     def __init__(self, output_dir: str):
         self.output_dir = output_dir
         self.styles = getSampleStyleSheet()
         self._init_custom_styles()
+        self.text_lib = None
 
     def _init_custom_styles(self):
         self.styles.add(ParagraphStyle(name='Header1', parent=self.styles['Heading1'], fontSize=16, spaceAfter=12))
@@ -22,6 +24,7 @@ class DocumentRenderer:
         self.styles.add(ParagraphStyle(name='Mono', parent=self.styles['Normal'], fontName='Courier', fontSize=9))
 
     def render_case(self, case: Case):
+        self.text_lib = TextLibrary(case.seed)
         docs_dir = os.path.join(self.output_dir, "docs")
         os.makedirs(docs_dir, exist_ok=True)
         
@@ -29,11 +32,18 @@ class DocumentRenderer:
             filepath = os.path.join(docs_dir, doc.filename)
             self._render_document(doc, filepath, case.patient)
 
-    def _header_footer(self, canvas, doc, patient_info, provider_info, date_info):
+    def _header_footer(self, canvas, doc, patient_info, provider_info, date_info, doc_obj: GeneratedDocument):
         canvas.saveState()
         canvas.setFont('Helvetica', 9)
+        
+        # Anomaly: Wrong Patient Info
+        display_patient = patient_info
+        for a in doc_obj.anomalies:
+            if a.type == AnomalyType.WRONG_PATIENT_INFO and a.page_in_doc == canvas.getPageNumber():
+                display_patient = f"{a.details['incorrect_name']} (MRN: ERROR)"
+                
         canvas.drawString(50, 750, f"{provider_info}")
-        canvas.drawString(50, 740, f"Patient: {patient_info} | Date: {date_info}")
+        canvas.drawString(50, 740, f"Patient: {display_patient} | Date: {date_info}")
         canvas.line(50, 735, 550, 735)
         
         # Footer
@@ -53,7 +63,7 @@ class DocumentRenderer:
         frame = Frame(doc_template.leftMargin, doc_template.bottomMargin, doc_template.width, doc_template.height, id='normal')
         
         def on_page(canvas, pdf_doc):
-            self._header_footer(canvas, pdf_doc, f"{patient.name} ({patient.mrn})", doc.provider, doc.date)
+            self._header_footer(canvas, pdf_doc, f"{patient.name} ({patient.mrn})", doc.provider, doc.date, doc)
             
         template = PageTemplate(id='test', frames=frame, onPage=on_page)
         doc_template.addPageTemplates([template])
@@ -68,7 +78,7 @@ class DocumentRenderer:
         if doc.doc_type == DocumentType.ED_NOTES:
             self._render_ed_content(elements, doc.content, doc.page_count)
         elif doc.doc_type == DocumentType.PT_RECORDS:
-            self._render_pt_content(elements, doc.content, doc.page_count)
+            self._render_pt_content(elements, doc.content, doc.page_count, doc)
         elif doc.doc_type == DocumentType.BILLING_LEDGER:
             self._render_billing_content(elements, doc.content, doc.page_count)
         elif doc.doc_type == DocumentType.RADIOLOGY_REPORT:
@@ -76,7 +86,7 @@ class DocumentRenderer:
         elif doc.doc_type == DocumentType.PROCEDURE_NOTE:
             self._render_procedure_content(elements, doc.content, doc.page_count)
         elif doc.doc_type == DocumentType.ORTHO_VISIT:
-            self._render_ortho_content(elements, doc.content, doc.page_count)
+            self._render_ortho_content(elements, doc.content, doc.page_count, doc)
         elif doc.doc_type == DocumentType.PACKET_NOISE:
             self._render_noise_content(elements, doc.page_count)
         else:
@@ -178,34 +188,147 @@ class DocumentRenderer:
             t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('VALIGN', (0,0), (-1,-1), 'TOP')]))
             elements.append(t)
 
-    def _render_pt_content(self, elements, content, page_count):
-        if "visit_type" in content: # Eval
-             self._render_generic_content(elements, content, page_count)
+    def _render_pt_content(self, elements, content, page_count, doc_obj: GeneratedDocument):
+        if "visit_type" in content: # Eval or Progress
+             self._render_pt_eval_or_progress(elements, content, page_count)
              return
 
         if "visits" in content:
-            elements.append(Paragraph(content.get("type", "Daily Notes"), self.styles['Header2']))
-            
-            # Simple logic: 1 visit = ~0.5 page? 
-            # If we want to fill pages, we can just let flow.
-            # But if page_count is high and visits low, we might be short.
-            # CaseGen calculates visits based on 2 pages/visit.
-            # So let's force a page break every 2 visits? Or every 1 visit?
-            # Let's do 1 visit per page + back side?
-            
             for i, visit in enumerate(content["visits"]):
-                elements.append(Paragraph(f"<b>Date: {visit['date']}</b>", self.styles['Normal']))
-                cpt_str = ", ".join(visit.get('cpt', []))
-                txt = f"S: {visit.get('subjective', '')}<br/>O: {visit.get('objective', '')}<br/>A: {visit.get('assessment', '')}<br/>P: {visit.get('plan', '')}<br/>Billing: {cpt_str}"
-                elements.append(Paragraph(txt, self.styles['NormalSmall']))
-                elements.append(Spacer(1, 12))
-                elements.append(Paragraph("_" * 60, self.styles['Normal']))
+                # Page 1: SOAP Note
+                v_date = visit['date']
+                for a in doc_obj.anomalies:
+                    if a.type == AnomalyType.CONFLICTING_DATE:
+                        v_date = a.details['incorrect_date']
+                        
+                elements.append(Paragraph(f"<b>DAILY TREATMENT NOTE - {v_date}</b>", self.styles['Header2']))
+                
+                state = visit.get('state', {})
+                pain = state.get('pain_score', 5)
+                
+                data = [
+                    ["Subjective:", Paragraph(f"Patient reports pain levels at {pain}/10. {state.get('narrative', '')}", self.styles['NormalSmall'])],
+                    ["Objective:", Paragraph(visit.get('objective', f"Palpation reveals guarded movement in {state.get('focus', 'cervical')} region. ROM limited by pain."), self.styles['NormalSmall'])],
+                    ["Assessment:", Paragraph(visit.get('assessment', f"Patient is {state.get('trend', 'stable')}. Tolerating treatment."), self.styles['NormalSmall'])],
+                    ["Plan:", Paragraph(visit.get('plan', 'Continue with current plan of care.'), self.styles['NormalSmall'])]
+                ]
+                t = Table(data, colWidths=[1.2*inch, 5.3*inch])
+                t.setStyle(TableStyle([
+                    ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                    ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+                    ('PADDING', (0,0), (-1,-1), 6)
+                ]))
+                elements.append(t)
                 elements.append(Spacer(1, 12))
                 
-                # Check for needed break
-                # CaseGen logic was: chunk_pages = len(chunk) * 2. So 1 visit = 2 pages? 
-                # That's a lot of whitespace. Maybe 1 visit per page.
+                # Checkbox texture
+                elements.append(Paragraph("<b>Modalities / Interventions:</b>", self.styles['Normal']))
+                mod_data = [
+                    ["[X] Therapeutic Exercise", "[X] Manual Therapy", "[ ] Ultrasound"],
+                    ["[X] Neuromuscular Re-ed", "[ ] Electrical Stim", "[X] Hot/Cold Packs"],
+                    ["[ ] Therapeutic Activities", "[ ] Traction", "[ ] Gait Training"]
+                ]
+                mt = Table(mod_data, colWidths=[2.1*inch, 2.1*inch, 2.1*inch])
+                mt.setStyle(TableStyle([('FONTSIZE', (0,0), (-1,-1), 8), ('GRID', (0,0), (-1,-1), 0.2, colors.lightgrey)]))
+                elements.append(mt)
                 elements.append(PageBreak())
+                
+                # Page 2: Exercise Flowsheet
+                elements.append(Paragraph(f"<b>EXERCISE FLOWSHEET - {v_date}</b>", self.styles['Header2']))
+                
+                focus = state.get('focus', 'mixed')
+                if focus == 'cervical':
+                    exercises = [
+                        ["Cervical Retractions", "3", "10", "Hold 5s, seated"],
+                        ["Scapular Squeezes", "3", "15", "Gentle, no weight"],
+                        ["Chin Tucks", "2", "10", "Supine, neutral spine"],
+                        ["Isometric Rotations", "3", "10", "Bilateral"]
+                    ]
+                elif focus == 'lumbar':
+                    exercises = [
+                        ["Pelvic Tilts", "3", "20", "On mat"],
+                        ["Bridges", "3", "10", "Hold 3s"],
+                        ["Bird Dog", "2", "10", "Maintain neutral spine"],
+                        ["Lumbar Extensions", "2", "15", "Standing"]
+                    ]
+                else:
+                    exercises = [
+                        ["Cat-Cow", "2", "15", "Flow"],
+                        ["Seated Rows", "3", "12", "Yellow band"],
+                        ["Wall Slides", "3", "10", "Form check"],
+                        ["Core Bracing", "5", "10s", "Engage TA"]
+                    ]
+                
+                ex_data = [["Exercise / Activity", "Sets", "Reps", "Resistance / Notes"]] + exercises
+                et = Table(ex_data, colWidths=[2.5*inch, 0.8*inch, 0.8*inch, 2.4*inch])
+                et.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
+                    ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+                    ('FONTSIZE', (0,0), (-1,-1), 9),
+                    ('PADDING', (0,0), (-1,-1), 4)
+                ]))
+                elements.append(et)
+                elements.append(Spacer(1, 12))
+                
+                # Billing Section
+                elements.append(Paragraph("<b>Billing / Coding:</b>", self.styles['Normal']))
+                bill_data = [
+                    ["CPT Code", "Description", "Time (Min)", "Units"],
+                    ["97110", "Therapeutic Exercise", "15", "1"],
+                    ["97112", "Neuromuscular Re-education", "15", "1"],
+                    ["97140", "Manual Therapy (Myofascial Release)", "15", "1"],
+                    ["", "<b>Total Time / Units</b>", "45", "3"]
+                ]
+                bt = Table(bill_data, colWidths=[1.1*inch, 3.2*inch, 1.1*inch, 1.1*inch])
+                bt.setStyle(TableStyle([
+                    ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+                    ('FONTSIZE', (0,0), (-1,-1), 8),
+                    ('BACKGROUND', (0,-1), (-1,-1), colors.whitesmoke)
+                ]))
+                elements.append(bt)
+                
+                elements.append(Spacer(1, 24))
+                elements.append(Paragraph(f"Provider: {visit.get('provider', 'John Smith, DPT')} | NPI: 9988776655", self.styles['NormalSmall']))
+                elements.append(Paragraph("Signature: ________________________________________", self.styles['NormalSmall']))
+                
+                if i < len(content["visits"]) - 1:
+                    elements.append(PageBreak())
+
+
+    def _render_pt_eval_or_progress(self, elements, content, page_count):
+        # High density PT Eval/Progress note
+        title = content.get("visit_type", "Physical Therapy Note")
+        elements.append(Paragraph(f"<b>{title.upper()}</b>", self.styles['Header1']))
+        
+        sections = [
+            ("History of Present Illness", content.get("subjective", "Patient presents for evaluation of chronic neck and back pain following a motor vehicle accident.")),
+            ("Functional Status", "Patient reports difficulty with ADLs including dressing and grooming. Sitting tolerance limited to 20 minutes."),
+            ("Physical Examination", content.get("objective", "Cervical ROM: Flexion 30 deg, Extension 20 deg. Lumbar ROM: Flexion 45 deg. Strength 4/5 in bilateral UE.")),
+            ("Clinical Assessment", content.get("assessment", "Patient demonstrates significant deficits in ROM and strength consistent with cervical/lumbar strain.")),
+            ("Plan of Care", content.get("plan", "Frequency: 2-3x/week for 8 weeks. Modalities: Manual therapy, therapeutic exercise, NMRE."))
+        ]
+        
+        for i, (sec_title, sec_text) in enumerate(sections):
+            elements.append(Paragraph(f"<b>{sec_title}:</b>", self.styles['Header2']))
+            elements.append(Paragraph(sec_text, self.styles['Normal']))
+            elements.append(Spacer(1, 12))
+            
+            # If we need to fill multiple pages, break here
+            if page_count > 1 and i == 2:
+                elements.append(PageBreak())
+        
+        # Add a goals table if it's an Eval
+        if "Evaluation" in title:
+            elements.append(Paragraph("<b>STG/LTG Goals:</b>", self.styles['Header2']))
+            goal_data = [
+                ["Goal Description", "Target Date", "Status"],
+                ["Increase Cervical Flexion to 45 deg", "4 weeks", "Pending"],
+                ["Improve Sitting Tolerance to 60 mins", "8 weeks", "Pending"],
+                ["Independent with HEP", "2 weeks", "In Progress"]
+            ]
+            gt = Table(goal_data, colWidths=[4*inch, 1.2*inch, 1.3*inch])
+            gt.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('FONTSIZE', (0,0), (-1,-1), 9)]))
+            elements.append(gt)
 
     def _render_billing_content(self, elements, content, page_count):
         if "rows" in content:
@@ -255,105 +378,148 @@ class DocumentRenderer:
             if isinstance(imp, list):
                 for i in imp: elements.append(Paragraph(f"• {i}", self.styles['Normal']))
 
-    def _render_ortho_content(self, elements, content, page_count):
-        # 18-page structured packet
-        # Pages: 
-        # 1: Face Sheet, 2-4: Intake, 5-7: Provider Note, 8-10: Imaging, 
-        # 11-12: Plan, 13-15: Work Status, 16-18: Instructions/Admin
+    def _render_ortho_content(self, elements, content, page_count, doc_obj: GeneratedDocument):
+        # High-density Orthopedic Consultation Packet (18-25 pages)
+        # We ensure every page has content by looping and adding specific elements
         
         for p in range(1, page_count + 1):
             if p == 1:
                 elements.append(Paragraph("<b>ORTHOPEDIC CONSULTATION - FACE SHEET</b>", self.styles['Header1']))
                 data = [
-                    ["Patient Name:", "See Global Header"],
-                    ["Referring Provider:", content.get('referring_provider', 'N/A')],
-                    ["Insurance Carrier:", content.get('insurance', 'N/A')],
-                    ["Policy Number:", "GZ-192837465-01"],
-                    ["Claim Number:", "CLM-2025-X092"],
+                    ["Facility:", "Bones & Joints Specialist Clinic"],
+                    ["Patient Name:", "See Patient Header"],
+                    ["DOB / MRN:", "See Patient Header"],
+                    ["Referring Provider:", content.get('referring_provider', 'Dr. Family')],
+                    ["Insurance Carrier:", content.get('insurance', 'Standard Insurance Co.')],
+                    ["Claim Number:", "CLM-2025-AX-9921"],
                     ["Date of Injury:", "See Ground Truth"],
-                    ["Status:", "New Patient Consultation"]
+                    ["Authorization #:", "AUTH-88271-XYZ"],
+                    ["Type of Case:", "Personal Injury / MVA"]
                 ]
-                t = Table(data, colWidths=[2.5*inch, 3.5*inch], hAlign='LEFT')
-                t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.black), ('FONTSIZE', (0,0), (-1,-1), 10)]))
+                t = Table(data, colWidths=[2.2*inch, 4.3*inch], hAlign='LEFT')
+                t.setStyle(TableStyle([
+                    ('GRID', (0,0), (-1,-1), 1, colors.black),
+                    ('BACKGROUND', (0,0), (0,-1), colors.lightgrey),
+                    ('PADDING', (0,0), (-1,-1), 8),
+                    ('FONTSIZE', (0,0), (-1,-1), 10)
+                ]))
                 elements.append(t)
+                elements.append(Spacer(1, 40))
+                elements.append(Paragraph("<b>CONFIDENTIAL MEDICAL RECORD - PROTECTED HEALTH INFORMATION</b>", self.styles['Normal']))
                 elements.append(Spacer(1, 20))
-                elements.append(Paragraph("<b>CONFIDENTIAL MEDICAL RECORD</b>", self.styles['Normal']))
+                elements.append(Paragraph("This document contains sensitive medical information. Disclosure is prohibited without patient consent.", self.styles['NormalSmall']))
                 
             elif p in [2, 3, 4]:
-                elements.append(Paragraph(f"<b>INITIAL INTAKE QUESTIONNAIRE - Page {p-1}</b>", self.styles['Header2']))
-                elements.append(Paragraph("<b>CHIEF COMPLAINT:</b> Patient reports severe neck and low back pain following a rear-end collision. Pain is sharp, constant, and increases with movement. Patient also notes numbness and tingling in the left arm (C6 distribution) and occasional weakness in the left hand.", self.styles['Normal']))
-                elements.append(Spacer(1, 12))
-                elements.append(Paragraph("<b>PAIN DIAGRAM / LOCALIZATION:</b>", self.styles['Normal']))
-                elements.append(Paragraph("[X] Neck  [ ] Mid-Back  [X] Low-Back  [X] Left Arm  [ ] Right Arm  [ ] Left Leg  [ ] Right Leg", self.styles['Normal']))
-                elements.append(Spacer(1, 12))
-                elements.append(Paragraph("<b>FUNCTIONAL LIMITATIONS:</b> Patient is unable to sit for more than 15 minutes. Heavy lifting is impossible. Sleep is disturbed. Patient is currently light-headed and reporting intermittent headaches since the accident. Concentration is affected.", self.styles['Normal']))
-                elements.append(Spacer(1, 12))
-                elements.append(Paragraph("<b>PAST MEDICAL HISTORY:</b> Denies previous injuries to the spine. Non-smoker. No history of cancer or systemic bone disease. <b>PAST SURGICAL HISTORY:</b> Appendectomy in 2015. <b>SOCIAL HISTORY:</b> Lives with spouse. Works as an accountant, currently struggling with ergonomic setup.", self.styles['Normal']))
-                elements.append(Spacer(1, 12))
-                elements.append(Paragraph("<b>MEDICATIONS:</b> Ibuprofen 800mg TID, Cyclobenzaprine 10mg QHS. <b>ALLERGIES:</b> NKDA.", self.styles['Normal']))
+                elements.append(Paragraph(f"<b>PATIENT INTAKE QUESTIONNAIRE - Page {p-1}</b>", self.styles['Header2']))
+                if p == 2:
+                    elements.append(Paragraph("<b>CHIEF COMPLAINT & HISTORY OF PRESENT ILLNESS:</b>", self.styles['Normal']))
+                    elements.append(Paragraph("Patient describes severe, sharp, and radiating pain in the neck and lower back following a motor vehicle collision. Pain is exacerbated by rotation of the head and any lifting activities. Numbness noted in the left arm. The accident occurred approximately 6 months ago. Since then, the patient has experienced intermittent headaches and difficulty sleeping due to persistent discomfort. Previous attempts at conservative management with heat and over-the-counter NSAIDs provided only temporary relief. Patient is concerned about long-term mobility and return to work status.", self.styles['NormalSmall']))
+                    elements.append(Spacer(1, 12))
+                    elements.append(Paragraph("<b>PAIN DIAGRAM / SYMPTOM LOCALIZATION:</b>", self.styles['Normal']))
+                    elements.append(Paragraph("Please mark the area of your pain on the diagram below. X indicates sharp pain, O indicates numbness, S indicates stiffness.", self.styles['NormalSmall']))
+                    data = [["[X] Neck", "[ ] Mid Back", "[X] Low Back"], ["[X] L Arm", "[ ] R Arm", "[ ] L Leg"], ["[ ] R Leg", "[X] Headaches", "[X] Numbness"]]
+                    t = Table(data, colWidths=[2*inch, 2*inch, 2*inch])
+                    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('FONTSIZE', (0,0), (-1,-1), 9)]))
+                    elements.append(t)
+                elif p == 3:
+                    elements.append(Paragraph("<b>PAST MEDICAL / SURGICAL HISTORY:</b>", self.styles['Normal']))
+                    elements.append(Paragraph("No history of spinal surgeries or chronic back pain prior to the current motor vehicle accident. General health is described as good. Denies history of osteoporosis, rheumatoid arthritis, or other systemic bone disease. Past surgeries include an appendectomy and a minor knee arthroscopy several years ago, both without complications. No history of cancer or chronic respiratory issues. Patient reports no regular use of tobacco products and limited alcohol consumption.", self.styles['NormalSmall']))
+                    elements.append(Spacer(1, 12))
+                    elements.append(Paragraph("<b>SOCIAL HISTORY / OCCUPATIONAL REQUIREMENTS:</b>", self.styles['Normal']))
+                    elements.append(Paragraph("Patient works as an office professional with significant requirements for computer use and prolonged sitting. Currently unable to perform full duties due to sitting intolerance and persistent neck pain that radiates into the upper extremities. Lives in a multi-story home, currently having difficulty with stairs and household chores. Patient is motivated to return to baseline function but is currently limited by significant pain and guarding.", self.styles['NormalSmall']))
+                else:
+                    elements.append(Paragraph("<b>REVIEW OF SYSTEMS (ROS):</b>", self.styles['Normal']))
+                    elements.append(Paragraph("Please indicate if you have experienced any of the following symptoms in the past 30 days. All positive findings will be discussed with your provider during the examination.", self.styles['NormalSmall']))
+                    data = [["Constitutional", "[X] Fatigue", "[ ] Weight Loss"], ["MSK", "[X] Joint Pain", "[X] Stiffness"], ["Neuro", "[X] Paresthesia", "[ ] Dizziness"], ["GI", "[ ] Nausea", "[ ] Changes"], ["Eyes", "[ ] Vision Blur", "[ ] Pain"]]
+                    t = Table(data, colWidths=[2*inch, 1.5*inch, 1.5*inch])
+                    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.grey), ('FONTSIZE', (0,0), (-1,-1), 8)]))
+                    elements.append(t)
+                    elements.append(Spacer(1, 12))
+                    elements.append(Paragraph("Additional Comments: Patient notes increased irritability and anxiety regarding the chronicity of the symptoms and the impact on daily quality of life.", self.styles['NormalSmall']))
                 
-            elif p in [5, 6, 7]:
+            elif p in [5, 6, 7, 8]:
                 elements.append(Paragraph("<b>ORTHOPEDIC PROVIDER NOTE</b>", self.styles['Header2']))
                 if p == 5:
-                    elements.append(Paragraph("<b>HISTORY OF PRESENT ILLNESS:</b> The patient is a pleasant individual who presents today for evaluation of neck and back pain. The patient was a restrained driver in a vehicle that was struck from behind by another vehicle traveling at approximately 35 mph. Airbags did not deploy. The patient immediate felt a 'snap' in the neck. Over the next 24 hours, the pain progressed significantly. Management to date including ED visit and initial PT has provided minimal relief.", self.styles['Normal']))
-                    elements.append(Spacer(1, 12))
-                    elements.append(Paragraph("<b>REVIEW OF SYSTEMS:</b> Positive for neck pain, back pain, and paresthesias. Negative for fever, weight loss, or bowel/bladder dysfunction. No visual changes or dizziness.", self.styles['Normal']))
+                    hpi_text = "The patient is a pleasant individual who presents today for initial orthopedic consultation regarding injuries sustained in a motor vehicle accident. "
+                    hpi_text += self.text_lib.get_ortho_hpi_segment("radicular") + " "
+                    hpi_text += self.text_lib.get_ortho_hpi_segment("spasm")
+                    elements.append(Paragraph("<b>HISTORY OF PRESENT ILLNESS (HPI):</b>", self.styles['Normal']))
+                    elements.append(Paragraph(hpi_text, self.styles['NormalSmall']))
                 elif p == 6:
-                    elements.append(Paragraph("<b>PHYSICAL EXAMINATION:</b>", self.styles['Header2']))
-                    elements.append(Paragraph("<b>GENERAL:</b> Alert and oriented x3. Appears in mild distress when moving from sitting to standing.", self.styles['Normal']))
-                    elements.append(Paragraph("<b>CERVICAL SPINE:</b> Decreased range of motion in all planes. Tenderness over the C5-C7 paraspinal muscles. <b>Spurling's Test:</b> Positive on the left, reproducing radicular symptoms into the C6 dermatome.", self.styles['Normal']))
-                    elements.append(Paragraph("<b>LUMBAR SPINE:</b> Midline tenderness at L4-S1. Positive straight leg raise on the left at 45 degrees. Decreased flexion/extension due to pain.", self.styles['Normal']))
-                    elements.append(Paragraph("<b>NEUROLOGICAL:</b> Strength is 5/5 in bilateral UE/LE except for slight 4+/5 weakness in left elbow flexion. Reflexes are 2+ and symmetric. Sensation is decreased to light touch in the left C6 distribution.", self.styles['Normal']))
+                    elements.append(Paragraph("<b>PHYSICAL EXAMINATION - CERVICAL SPINE:</b>", self.styles['Normal']))
+                    elements.append(Paragraph("Inspection of the cervical spine reveals no obvious deformity, but significant muscle guarding is noted in the paraspinal muscles. Range of motion is restricted in all planes due to pain and spasm.", self.styles['NormalSmall']))
+                    data = [["Test / Motion", "Left Result", "Right Result"], ["Flexion", "Reduced (30 deg)", "Normal (45 deg)"], ["Extension", "Reduced (15 deg)", "Normal (40 deg)"], ["Lateral Rotation", "25 degrees", "45 degrees"], ["Spurling's Test", "POSITIVE (Radicular)", "Negative"], ["Tenderness", "C5-C7 Paravertebral", "None noted"]]
+                    t = Table(data, colWidths=[2.2*inch, 2.1*inch, 2.1*inch])
+                    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('FONTSIZE', (0,0), (-1,-1), 9)]))
+                    elements.append(t)
                 elif p == 7:
-                    elements.append(Paragraph("<b>CLINICAL ASSESSMENT / IMPRESSION:</b>", self.styles['Header2']))
-                    elements.append(Paragraph("1. Cervical Disc Displacement (M50.20) with Radiculopathy (M54.12).", self.styles['Normal']))
-                    elements.append(Paragraph("2. Lumbar Disc Displacement (M51.26) with Sciatica.", self.styles['Normal']))
-                    elements.append(Paragraph("3. Myofascial Pain Syndrome secondary to MVA trauma.", self.styles['Normal']))
-                    elements.append(Spacer(1, 12))
-                    elements.append(Paragraph("The clinical presentation is highly suggestive of a significant cervical disc injury with exiting nerve root compression, likely at the C5-C6 level. Lumbar spine is also symptomatic.", self.styles['Normal']))
-                    
-            elif p in [8, 9, 10]:
-                elements.append(Paragraph("<b>IMAGING AND DIAGNOSTICS REVIEW</b>", self.styles['Header2']))
-                if "mri_impression" in content:
-                    elements.append(Paragraph(f"<b>MRI CERVICAL SPINE FINDINGS:</b>", self.styles['Normal']))
-                    elements.append(Paragraph(str(content['mri_impression']), self.styles['Normal']))
+                    elements.append(Paragraph("<b>PHYSICAL EXAMINATION - NEUROLOGICAL:</b>", self.styles['Normal']))
+                    elements.append(Paragraph("Neurological examination focus on upper and lower extremities to assess for focal deficits or signs of myelopathy. Manual muscle testing performed for all major muscle groups.", self.styles['NormalSmall']))
+                    data = [["Reflexes / Strength", "Left Result", "Right Result"], ["C5 (Biceps)", "2+ Normal", "2+ Normal"], ["C6 (Brachiorad)", "1+ Diminished", "2+ Normal"], ["C7 (Triceps)", "2+ Normal", "2+ Normal"], ["C6 Strength (Flex)", "4/5 Weak", "5/5 Normal"], ["C7 Strength (Ext)", "5/5 Normal", "5/5 Normal"]]
+                    t = Table(data, colWidths=[2.2*inch, 2.1*inch, 2.1*inch])
+                    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('FONTSIZE', (0,0), (-1,-1), 9)]))
+                    elements.append(t)
                 else:
-                    elements.append(Paragraph("The MRI of the cervical spine was reviewed in detail. It demonstrates a broad-based disc protrusion at C5-C6 that contacts the spinal cord and narrows the neural foramen. This correlates with the patient's left-sided symptoms and positive Spurling's test.", self.styles['Normal']))
+                    elements.append(Paragraph("<b>LUMBAR SPINE EXAMINATION:</b>", self.styles['Normal']))
+                    elements.append(Paragraph("Examination of the lumbar region shows a loss of the normal lumbar lordosis, likely secondary to significant muscle spasm. Straight Leg Raise (SLR) test is positive on the left side at approximately 45 degrees, reproducing the patient's low back and leg pain. Strength in the lower extremities is 5/5 bilaterally. Sensation is intact to light touch in all dermatomes L2-S1. Gait is noted to be slightly antalgic favoring the left side. Patient is unable to perform a full squat due to low back discomfort.", self.styles['NormalSmall']))
+                
+            elif p in [9, 10, 11, 12]:
+                elements.append(Paragraph("<b>IMAGING AND DIAGNOSTICS REVIEW</b>", self.styles['Header2']))
+                elements.append(Paragraph("<b>IMAGING REVIEWED CHECKLIST / STATUS:</b>", self.styles['NormalSmall']))
+                elements.append(Paragraph("[X] MRI Cervical Spine (Reviewed Disc)  [X] X-Ray Cervical (Reviewed Films)  [ ] CT Scan", self.styles['NormalSmall']))
                 elements.append(Spacer(1, 12))
-                elements.append(Paragraph("<b>X-RAY REVIEW:</b> Initial X-rays from the ED show straightening of the cervical lordosis which indicates significant muscle spasm. No acute fractures are identified.", self.styles['Normal']))
-                    
-            elif p in [11, 12]:
-                elements.append(Paragraph("<b>TREATMENT PLAN & DISCUSSION</b>", self.styles['Header2']))
-                elements.append(Paragraph("We discussed several management options today including conservative care, interventional procedures, and surgical intervention. Given the failure of initial conservative measures and the presence of radicular symptoms, I recommend a Cervical Epidural Steroid Injection (ESI) for both diagnostic and therapeutic purposes.", self.styles['Normal']))
-                elements.append(Spacer(1, 12))
-                elements.append(Paragraph("<b>RISKS AND BENEFITS:</b> We discussed risks of ESI including infection, bleeding, nerve damage, and dural puncture. Benefits include potential reduction in inflammation and pain relief. Patient understands and wishes to proceed.", self.styles['Normal']))
-                elements.append(Paragraph("<b>SURGERY:</b> Surgery is not indicated at this exact moment but remains an option if interventional care fails or if neurological deficits worsen.", self.styles['Normal']))
+                if p == 9:
+                    elements.append(Paragraph("<b>MRI CERVICAL SPINE FINDINGS - DETAILED REVIEW:</b>", self.styles['Normal']))
+                    elements.append(Paragraph(str(content.get('mri_impression', 'MRI demonstrates broad-based disc protrusion at C5-C6 with thecal sac indentation.')), self.styles['NormalSmall']))
+                    elements.append(Paragraph("The MRI shows significant disc material extending into the neural foramen on the left side at the C5-C6 level. This directly correlates with the patient's report of numbness in the thumb and index finger and the diminished brachioradialis reflex noted during the physical examination. There is no evidence of spinal cord signal abnormality at this time.", self.styles['NormalSmall']))
+                elif p == 10:
+                    elements.append(Paragraph("<b>X-RAY REPORT CORRELATION AND ANALYSIS:</b>", self.styles['Normal']))
+                    elements.append(Paragraph("Radiographic images of the cervical and lumbar spine were reviewed in the office today. Cervical films show a loss of the normal lordotic curvature, which is a common finding in the setting of acute or subacute muscle spasm. There is no evidence of acute fracture, dislocation, or spondylolisthesis. Mild degenerative changes are noted at the L4-L5 level which are likely pre-existing but may be exacerbated by the recent trauma.", self.styles['NormalSmall']))
+                else:
+                    elements.append(Paragraph("<b>CLINICAL CORRELATION AND ASSESSMENT:</b>", self.styles['Normal']))
+                    elements.append(Paragraph("The objective imaging findings provide a clear anatomical basis for the patient's persistent radicular symptoms. The presence of a confirmed disc protrusion at the same level as the clinical findings (C6) suggests a high likelihood that interventional management will be necessary if conservative care continues to fail. We will monitor for any signs of progressive neurological deficit which would necessitate more urgent surgical consultation.", self.styles['NormalSmall']))
                 
             elif p in [13, 14, 15]:
-                elements.append(Paragraph("<b>WORK STATUS AND DISABILITY REPORT</b>", self.styles['Header2']))
-                elements.append(Paragraph("<b>PATIENT STATUS:</b> Modified Duty / Light Duty Restricted.", self.styles['Normal']))
+                elements.append(Paragraph("<b>ASSESSMENT AND TREATMENT PLAN</b>", self.styles['Header2']))
+                elements.append(Paragraph("<b>DIAGNOSTIC SUMMARY:</b>", self.styles['Normal']))
+                elements.append(Paragraph("1. Cervical Disc Displacement (ICD-10 M50.20) with Radiculopathy (M54.12)", self.styles['NormalSmall']))
+                elements.append(Paragraph("2. Lumbar Intervertebral Disc Displacement (M51.26) without Myelopathy", self.styles['NormalSmall']))
+                elements.append(Paragraph("3. Post-Traumatic Myofascial Pain Syndrome secondary to MVA", self.styles['NormalSmall']))
                 elements.append(Spacer(1, 12))
-                elements.append(Paragraph("<b>PHYSICAL RESTRICTIONS:</b>", self.styles['Normal']))
-                elements.append(Paragraph("- No lifting, pushing, or pulling over 10 lbs.", self.styles['Normal']))
-                elements.append(Paragraph("- No overhead reaching or frequent bending.", self.styles['Normal']))
-                elements.append(Paragraph("- Avoid prolonged sitting or standing (allow for stretching every 30 minutes).", self.styles['Normal']))
-                elements.append(Paragraph("- No operating heavy machinery while taking muscle relaxants.", self.styles['Normal']))
-                elements.append(Spacer(1, 24))
-                elements.append(Paragraph("<b>DISABILITY STATUS:</b> [X] Temporary Partial Disability. [ ] Temporary Total Disability. Estimated duration: 6-8 weeks pending treatment response.", self.styles['Normal']))
+                elements.append(Paragraph("<b>TREATMENT PLAN DISCUSSION:</b>", self.styles['Normal']))
+                elements.append(Paragraph("I have spent a significant amount of time today discussing the various management options with the patient. Given the persistence of the radicular symptoms and the failure of initial conservative measures, I am recommending a Cervical Epidural Steroid Injection (ESI). The goal of this procedure is to reduce inflammation around the compressed nerve root and provide symptomatic relief. We will also continue with a structured physical therapy program focusing on stabilization and posture.", self.styles['NormalSmall']))
+                elements.append(Spacer(1, 12))
+                elements.append(Paragraph("<b>MEDICATION MANAGEMENT:</b>", self.styles['Normal']))
+                elements.append(Paragraph("Patient is to continue Flexeril 10mg at bedtime for muscle spasm. Ibuprofen 800mg three times daily is recommended for inflammation. We discussed the importance of taking these medications as prescribed to maintain therapeutic levels and avoid rebound symptoms.", self.styles['NormalSmall']))
                 
             elif p in [16, 17, 18]:
-                elements.append(Paragraph("<b>ADMINISTRATIVE / PATIENT INSTRUCTIONS</b>", self.styles['Header2']))
-                elements.append(Paragraph("<b>ICD-10 DIAGNOSIS CODES:</b> M54.2 (Cervicalgia), M54.16 (Radiculopathy, lumbar), S13.4XXA (Cervical strain).", self.styles['Normal']))
-                elements.append(Paragraph("<b>PROCEDURE CODES (CPT):</b> 99244 (Level 4 Consultation), 72141 (MRI review).", self.styles['Normal']))
+                elements.append(Paragraph("<b>WORK STATUS AND DISABILITY DOCUMENTATION</b>", self.styles['Header2']))
+                elements.append(Paragraph("<b>PHYSICAL RESTRICTIONS AND LIMITATIONS:</b>", self.styles['Normal']))
+                elements.append(Paragraph("The following restrictions are placed on the patient's activities both at home and at work to prevent further injury and facilitate the healing process. These restrictions will remain in place until the next follow-up appointment.", self.styles['NormalSmall']))
+                data = [["Restriction Type", "Status / Limit", "Clinical Rationale"], ["Lifting / Carrying", "< 10 lbs", "Avoid spinal loading"], ["Sitting Tolerance", "15-20 min", "Prevent postural strain"], ["Overhead Reaching", "PROHIBITED", "Avoid nerve tension"], ["Driving", "Limited", "Restricted neck rotation"]]
+                t = Table(data, colWidths=[1.8*inch, 1.4*inch, 3.2*inch])
+                t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('FONTSIZE', (0,0), (-1,-1), 8)]))
+                elements.append(t)
                 elements.append(Spacer(1, 24))
-                elements.append(Paragraph("<b>PATIENT ATTESTATION:</b> I have reviewed my plan and agree with the course of action outlined above. All my questions have been answered to my satisfaction.", self.styles['Normal']))
+                elements.append(Paragraph("<b>DISABILITY RATING:</b> Patient is currently considered to have a Temporary Partial Disability. We anticipate a period of 8-12 weeks for recovery pending the outcome of the interventional procedures. Work duties should be modified to accommodate the above restrictions.", self.styles['NormalSmall']))
+                
+            elif p in [19, 20, 21]:
+                elements.append(Paragraph("<b>PATIENT INSTRUCTIONS / ADMINISTRATIVE</b>", self.styles['Header2']))
+                elements.append(Paragraph("Follow up in our clinic in approximately 4 weeks for a repeat evaluation and to assess the effectiveness of the ESI. The patient was instructed on signs of worsening neurological status, including progressive weakness or changes in bowel/bladder control, and was advised to seek immediate emergency care should these occur.", self.styles['NormalSmall']))
+                elements.append(Spacer(1, 24))
+                elements.append(Paragraph("<b>ENCOUNTER SUMMARY / BILLING INFORMATION:</b>", self.styles['Normal']))
+                elements.append(Paragraph("The following codes represent the services provided during today's visit. This is not a bill, but a summary for your records and insurance purposes.", self.styles['NormalSmall']))
+                data = [["CPT Code", "Description of Service", "Associated ICD-10"], ["99244", "Orthopedic Consultation, Level 4", "M50.20"], ["72141", "MRI Review and Interpretation", "M54.12"], ["99080", "Special Disability Report / Form", "S13.4XXA"]]
+                t = Table(data, colWidths=[1.1*inch, 3.4*inch, 1.9*inch])
+                t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.grey), ('FONTSIZE', (0,0), (-1,-1), 8)]))
+                elements.append(t)
                 elements.append(Spacer(1, 48))
-                elements.append(Paragraph("Patient Signature: __________________________  Date: ___________", self.styles['Normal']))
-                elements.append(Spacer(1, 24))
-                elements.append(Paragraph("Physician Signature: _________________________  Date: ___________", self.styles['Normal']))
+                elements.append(Paragraph("Physician Signature: ________________________________________________  Date: ___________", self.styles['Normal']))
+                elements.append(Paragraph("Electronically Signed by: Dr. J. Bones, Board Certified Orthopedic Surgeon", self.styles['NormalSmall']))
                 
             else:
-                 elements.append(Paragraph("Attached Supplemental Records and Notes", self.styles['Normal']))
+                elements.append(Paragraph("<b>SUPPLEMENTAL CLINICAL RECORDS</b>", self.styles['Header2']))
+                elements.append(Paragraph("Additional lab results and historic notes attached for review.", self.styles['NormalSmall']))
 
             if p < page_count:
                 elements.append(PageBreak())
