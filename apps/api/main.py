@@ -44,10 +44,10 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
-logger = logging.getLogger("citeline")
+logger = logging.getLogger("linecite")
 
 app = FastAPI(
-    title="CiteLine API",
+    title="Linecite API",
     description="Citeable medical chronologies for PI law firms",
     version="0.1.0",
 )

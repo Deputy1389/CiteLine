@@ -1,7 +1,7 @@
 [project]
-name = "citeline"
+name = "linecite"
 version = "0.1.0"
-description = "CiteLine – Citeable medical chronologies for PI law firms"
+description = "Linecite – Citeable medical chronologies for PI law firms"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.109",
