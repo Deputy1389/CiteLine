@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from apps.api.authz import RequestIdentity, assert_firm_access, get_request_identity
 from packages.db.database import get_db
 from packages.db.models import Firm, Matter
 
@@ -29,7 +30,14 @@ class MatterResponse(BaseModel):
 
 
 @router.post("/firms/{firm_id}/matters", response_model=MatterResponse, status_code=201)
-def create_matter(firm_id: str, req: CreateMatterRequest, db: Session = Depends(get_db)):
+def create_matter(
+    firm_id: str,
+    req: CreateMatterRequest,
+    db: Session = Depends(get_db),
+    identity: RequestIdentity | None = Depends(get_request_identity),
+):
+    assert_firm_access(identity, firm_id)
+
     firm = db.query(Firm).filter_by(id=firm_id).first()
     if not firm:
         raise HTTPException(status_code=404, detail="Firm not found")
@@ -51,9 +59,16 @@ def create_matter(firm_id: str, req: CreateMatterRequest, db: Session = Depends(
         created_at=matter.created_at.isoformat(),
     )
 
+
 @router.get("/firms/{firm_id}/matters", response_model=list[MatterResponse])
-def list_matters(firm_id: str, db: Session = Depends(get_db)):
+def list_matters(
+    firm_id: str,
+    db: Session = Depends(get_db),
+    identity: RequestIdentity | None = Depends(get_request_identity),
+):
     """List matters for a firm."""
+    assert_firm_access(identity, firm_id)
+
     matters = db.query(Matter).filter_by(firm_id=firm_id).all()
     return [
         MatterResponse(
@@ -69,11 +84,17 @@ def list_matters(firm_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/matters/{matter_id}", response_model=MatterResponse)
-def get_matter(matter_id: str, db: Session = Depends(get_db)):
+def get_matter(
+    matter_id: str,
+    db: Session = Depends(get_db),
+    identity: RequestIdentity | None = Depends(get_request_identity),
+):
     """Get matter details."""
     matter = db.query(Matter).filter_by(id=matter_id).first()
     if not matter:
         raise HTTPException(status_code=404, detail="Matter not found")
+
+    assert_firm_access(identity, matter.firm_id)
     return MatterResponse(
         id=matter.id,
         firm_id=matter.firm_id,

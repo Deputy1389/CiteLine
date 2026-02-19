@@ -4,19 +4,16 @@ API route: Runs
 from __future__ import annotations
 
 import json
-import threading
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from apps.api.authz import RequestIdentity, assert_firm_access, get_request_identity
 from packages.db.database import get_db
 from packages.db.models import Artifact, Matter, Run, SourceDocument
-from packages.shared.artifacts import (
-    artifact_extension,
-    is_valid_artifact_type,
-)
+from packages.shared.artifacts import artifact_extension, is_valid_artifact_type
 
 router = APIRouter(tags=["runs"])
 
@@ -42,19 +39,20 @@ class RunResponse(BaseModel):
     processing_seconds: float | None
 
 
-
 @router.post("/matters/{matter_id}/runs", response_model=RunResponse, status_code=202)
 def start_run(
     matter_id: str,
     req: CreateRunRequest = CreateRunRequest(),
     db: Session = Depends(get_db),
+    identity: RequestIdentity | None = Depends(get_request_identity),
 ):
     """Start a new processing run for a matter."""
     matter = db.query(Matter).filter_by(id=matter_id).first()
     if not matter:
         raise HTTPException(status_code=404, detail="Matter not found")
 
-    # Check for source documents
+    assert_firm_access(identity, matter.firm_id)
+
     doc_count = db.query(SourceDocument).filter_by(matter_id=matter_id).count()
     if doc_count == 0:
         raise HTTPException(status_code=400, detail="No documents uploaded for this matter")
@@ -75,7 +73,6 @@ def start_run(
     )
     db.add(run)
     db.flush()
-    run_id = run.id
 
     return RunResponse(
         id=run.id,
@@ -91,39 +88,56 @@ def start_run(
 
 
 @router.get("/matters/{matter_id}/runs", response_model=list[RunResponse])
-def list_runs(matter_id: str, db: Session = Depends(get_db)):
+def list_runs(
+    matter_id: str,
+    db: Session = Depends(get_db),
+    identity: RequestIdentity | None = Depends(get_request_identity),
+):
     """List all processing runs for a matter."""
     matter = db.query(Matter).filter_by(id=matter_id).first()
     if not matter:
         raise HTTPException(status_code=404, detail="Matter not found")
 
+    assert_firm_access(identity, matter.firm_id)
+
     runs = db.query(Run).filter_by(matter_id=matter_id).order_by(Run.created_at.desc()).all()
-    
+
     response = []
     for r in runs:
         metrics = json.loads(r.metrics_json) if r.metrics_json else None
         warnings = json.loads(r.warnings_json) if r.warnings_json else None
-        
-        response.append(RunResponse(
-            id=r.id,
-            matter_id=r.matter_id,
-            status=r.status,
-            started_at=r.started_at.isoformat() if r.started_at else None,
-            finished_at=r.finished_at.isoformat() if r.finished_at else None,
-            metrics=metrics,
-            warnings=warnings,
-            error_message=r.error_message,
-            processing_seconds=r.processing_seconds,
-        ))
+
+        response.append(
+            RunResponse(
+                id=r.id,
+                matter_id=r.matter_id,
+                status=r.status,
+                started_at=r.started_at.isoformat() if r.started_at else None,
+                finished_at=r.finished_at.isoformat() if r.finished_at else None,
+                metrics=metrics,
+                warnings=warnings,
+                error_message=r.error_message,
+                processing_seconds=r.processing_seconds,
+            )
+        )
     return response
 
 
 @router.get("/runs/{run_id}", response_model=RunResponse)
-def get_run(run_id: str, db: Session = Depends(get_db)):
+def get_run(
+    run_id: str,
+    db: Session = Depends(get_db),
+    identity: RequestIdentity | None = Depends(get_request_identity),
+):
     """Get run status and metrics."""
     run = db.query(Run).filter_by(id=run_id).first()
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
+
+    matter = db.query(Matter).filter_by(id=run.matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+    assert_firm_access(identity, matter.firm_id)
 
     metrics = json.loads(run.metrics_json) if run.metrics_json else None
     warnings = json.loads(run.warnings_json) if run.warnings_json else None
@@ -142,41 +156,44 @@ def get_run(run_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/runs/{run_id}/artifacts/{artifact_type}")
-def download_artifact(run_id: str, artifact_type: str, db: Session = Depends(get_db)):
+def download_artifact(
+    run_id: str,
+    artifact_type: str,
+    db: Session = Depends(get_db),
+    identity: RequestIdentity | None = Depends(get_request_identity),
+):
     """Download a run artifact."""
     if not is_valid_artifact_type(artifact_type):
         raise HTTPException(status_code=400, detail="Invalid artifact type")
 
-    artifact = (
-        db.query(Artifact)
-        .filter_by(run_id=run_id, artifact_type=artifact_type)
-        .first()
-    )
+    run = db.query(Run).filter_by(id=run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    matter = db.query(Matter).filter_by(id=run.matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+    assert_firm_access(identity, matter.firm_id)
+
+    artifact = db.query(Artifact).filter_by(run_id=run_id, artifact_type=artifact_type).first()
     if not artifact:
         raise HTTPException(status_code=404, detail="Artifact not found")
-        
-    # Security check: Ensure file is within valid data directory to prevent path traversal
-    # usage of os.path.abspath and commonprefix is a robust way if strict pathlib isn't available,
-    # but pathlib is better.
+
     from pathlib import Path
+
     from packages.shared.storage import DATA_DIR
-    
+
     data_dir = DATA_DIR.resolve()
     file_path = Path(artifact.storage_uri).resolve()
-    
     ext = artifact_extension(artifact_type)
-    
-    # Check if file is within data directory
-    # verification using pathlib
+
     try:
         file_path.relative_to(data_dir)
     except ValueError:
-        # Not relative to data_dir
-        # logger.warning(f"Path traversal attempt: {file_path} not in {data_dir}")
         raise HTTPException(status_code=404, detail="Artifact not found")
 
     if not file_path.exists():
-         raise HTTPException(status_code=404, detail="Artifact file missing")
+        raise HTTPException(status_code=404, detail="Artifact file missing")
 
     return FileResponse(
         path=str(file_path),

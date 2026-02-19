@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from packages.db.database import get_db
 from packages.db.models import Artifact, Matter, Run
+from apps.api.authz import RequestIdentity, assert_firm_access, get_request_identity
 
 router = APIRouter(tags=["exports"])
 
@@ -29,11 +30,16 @@ class ExportsResponse(BaseModel):
 
 
 @router.get("/matters/{matter_id}/exports/latest", response_model=ExportsResponse)
-def get_latest_exports(matter_id: str, db: Session = Depends(get_db)):
+def get_latest_exports(
+    matter_id: str,
+    db: Session = Depends(get_db),
+    identity: RequestIdentity | None = Depends(get_request_identity),
+):
     """Get artifacts from the latest completed run for a matter."""
     matter = db.query(Matter).filter_by(id=matter_id).first()
     if not matter:
         raise HTTPException(status_code=404, detail="Matter not found")
+    assert_firm_access(identity, matter.firm_id)
 
     run = (
         db.query(Run)
