@@ -10,9 +10,14 @@ from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///C:/CiteLine/data/citeline.db")
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///C:/Citeline/data/citeline.db")
 
-engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
+# Connection arguments for SQLite (not needed for Postgres)
+connect_args = {}
+if DATABASE_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+
+engine = create_engine(DATABASE_URL, echo=False, connect_args=connect_args)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
