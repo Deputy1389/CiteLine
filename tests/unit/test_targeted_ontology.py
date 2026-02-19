@@ -25,6 +25,13 @@ def test_canonical_injuries_returns_specific_labels():
     assert "disc protrusion" in got or "cervical disc protrusion" in got
 
 
+def test_canonical_injuries_keeps_neck_scope_when_combined_with_low_back_phrase():
+    facts = ["Chief complaint: neck and low back pain following rear-end MVC."]
+    got = canonical_injuries(facts)
+    assert "neck pain" in got
+    assert "low back pain" in got
+
+
 def test_canonical_procedures_normalizes_esi():
     facts = ["Procedure: C6-7 interlaminar epidural steroid injection under fluoroscopy."]
     got = canonical_procedures(facts)
@@ -34,4 +41,3 @@ def test_canonical_procedures_normalizes_esi():
 def test_canonical_disposition_prefers_home():
     facts = ["Disposition: discharged home with instructions."]
     assert canonical_disposition(facts) == "Home"
-

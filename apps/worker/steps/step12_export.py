@@ -412,6 +412,35 @@ def _repair_case_summary_narrative(
             if (getattr(e, "citation_display", "") or "").strip()
         ]
         if cited_entries:
+            def _fact_excerpt(entry, *patterns: str) -> str:
+                noise_hint_re = re.compile(
+                    r"\b(product main couple design|difficult mission late kind|peace around debate|policy power measure)\b",
+                    re.IGNORECASE,
+                )
+                medical_signal_re = re.compile(
+                    r"\b(chief complaint|hpi|mva|mvc|collision|pain\s*\d+\s*/\s*10|rom|range of motion|strength|"
+                    r"impression|assessment|diagnosis|radiculopathy|herniation|stenosis|fracture|tear|"
+                    r"mri|ct|x-?ray|injection|epidural|procedure|surgery)\b",
+                    re.IGNORECASE,
+                )
+                for fact in list(getattr(entry, "facts", []) or []):
+                    cleaned = sanitize_for_report(str(fact or ""))
+                    if not cleaned:
+                        continue
+                    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+                    cleaned = re.sub(r"\bimpact was\b.*$", "", cleaned, flags=re.IGNORECASE).strip()
+                    if patterns and not any(re.search(p, cleaned, re.IGNORECASE) for p in patterns):
+                        continue
+                    if noise_hint_re.search(cleaned):
+                        continue
+                    if not medical_signal_re.search(cleaned):
+                        continue
+                    if len(cleaned.split()) < 5:
+                        continue
+                    # Keep short, concrete excerpts in theory sections.
+                    return cleaned[:180]
+                return ""
+
             def _pick_entry(*patterns: str):
                 for e in cited_entries:
                     blob = (
@@ -423,23 +452,32 @@ def _repair_case_summary_narrative(
                 return cited_entries[0]
 
             liab = _pick_entry(r"\b(mva|mvc|motor vehicle|rear[- ]end|collision|accident|fall|slip)\b", r"\bemergency\b")
-            caus = _pick_entry(r"\b(procedure|surgery|injection|epidural|fluoroscopy|impression|mri|assessment)\b")
+            caus = _pick_entry(r"\b(procedure|surgery|injection|epidural|fluoroscopy|impression|mri|ct|x-?ray)\b")
+            if caus is liab:
+                caus = _pick_entry(r"\b(diagnosis|assessment|radiculopathy|herniation|stenosis|fracture|tear)\b")
             dmg = _pick_entry(r"\b(pain\s*\d+\s*/\s*10|rom|range of motion|strength|work restriction|return to work|therapy)\b")
+
+            liab_excerpt = _fact_excerpt(liab, r"\b(mva|mvc|motor vehicle|rear[- ]end|collision|accident|fall|slip|chief complaint|hpi)\b")
+            caus_excerpt = _fact_excerpt(caus, r"\b(impression|diagnosis|procedure|surgery|injection|epidural|fluoroscopy|mri|ct|x-?ray|radiculopathy|herniation|stenosis|fracture|tear)\b")
+            dmg_excerpt = _fact_excerpt(dmg, r"\b(pain\s*\d+\s*/\s*10|rom|range of motion|strength|work restriction|return to work|therapy)\b")
 
             sections = [
                 (
                     "Liability Facts",
-                    "Record evidence documents incident/mechanism context tied to initial treatment presentation.",
+                    (f"Incident/mechanism is documented in cited records: {liab_excerpt}" if liab_excerpt
+                     else "Record evidence documents incident/mechanism context tied to initial treatment presentation."),
                     (getattr(liab, "citation_display", "") or "").strip(),
                 ),
                 (
                     "Causation Chain",
-                    "Timeline shows diagnostic and treatment events consistent with injury-driven care progression.",
+                    (f"Diagnostic/treatment progression supports causation: {caus_excerpt}" if caus_excerpt
+                     else "Timeline shows diagnostic and treatment events consistent with injury-driven care progression."),
                     (getattr(caus, "citation_display", "") or "").strip(),
                 ),
                 (
                     "Damages Progression",
-                    "Symptoms and functional findings demonstrate ongoing impact and treatment response over time.",
+                    (f"Symptoms/functional findings document damages progression: {dmg_excerpt}" if dmg_excerpt
+                     else "Symptoms and functional findings demonstrate ongoing impact and treatment response over time."),
                     (getattr(dmg, "citation_display", "") or "").strip(),
                 ),
             ]
@@ -1014,6 +1052,7 @@ def _build_projection_flowables(
     patient_meta_style = ParagraphStyle("ProjectionPatientMetaStyle", parent=styles["Normal"], fontSize=8, leading=11, textColor=colors.HexColor("#34495E"), spaceAfter=2)
     inpatient_variant_state: dict[str, dict[str, int]] = {}
     timeline_row_keys: set[str] = set()
+    therapy_recent_signatures: dict[tuple[str, str], tuple[str, date]] = {}
 
     non_unknown_labels = sorted({e.patient_label for e in projection.entries if e.patient_label != "Unknown Patient"})
     use_patient_sections = len(non_unknown_labels) > 1
@@ -2559,22 +2598,22 @@ def _build_projection_flowables(
             plan = _pick(r"\b(plan|continue|home exercise|follow-?up|therapy)\b")
             region = _pick(r"\b(cervical|lumbar|thoracic)\b")
             sessions = _pick(r"\bsessions?\s*[:=]?\s*\d+\b")
-            parts: list[str] = []
+            segments: list[str] = []
             if pain:
-                parts.append(pain)
+                segments.append(pain)
             if rom:
-                parts.append(rom)
+                segments.append(rom)
             if strength:
-                parts.append(strength)
+                segments.append(strength)
             if plan:
-                parts.append(plan)
+                segments.append(plan)
             if sessions:
-                parts.append(sessions)
-            if region and all(region.lower() not in p.lower() for p in parts):
-                parts.append(region)
+                segments.append(sessions)
+            if region and all(region.lower() not in p.lower() for p in segments):
+                segments.append(region)
             dedup_parts: list[str] = []
             seen_parts: set[str] = set()
-            for part in parts:
+            for part in segments:
                 cleaned_part = re.sub(r"\s+", " ", part).strip().rstrip(".;")
                 if re.search(r"\b(?:includ|assessm|continu|progressio|sympto|diagnos|intervent|manageme|therap)\s*$", cleaned_part, re.IGNORECASE):
                     continue
@@ -2583,11 +2622,11 @@ def _build_projection_flowables(
                     continue
                 seen_parts.add(key)
                 dedup_parts.append(cleaned_part)
-            parts = dedup_parts
-            if parts:
-                q = _quoted("; ".join(parts[:5]))
+            segments = dedup_parts
+            if segments:
+                q = _quoted("; ".join(segments[:5]))
                 if q:
-                    lines.append(f"PT Summary: {q}")
+                    lines.append(f"PT Progress: {q}")
 
         # Generic fallback: direct snippets only, no meta commentary.
         if not lines:
@@ -2623,6 +2662,20 @@ def _build_projection_flowables(
         if dedupe_key in timeline_row_keys:
             return []
         timeline_row_keys.add(dedupe_key)
+
+        # Cross-row PT compression: suppress near-duplicate PT rows within 21 days per patient/provider.
+        if event_class == "therapy":
+            row_date = _extract_date(display_date)
+            normalized_pt_lines = re.sub(r"\b\d+\b", "N", lines_key)
+            pt_signature = hashlib.sha1(normalized_pt_lines.encode("utf-8")).hexdigest()[:12]
+            pt_key = (str(getattr(entry, "patient_label", "")), provider_key or "unknown")
+            prior = therapy_recent_signatures.get(pt_key)
+            if prior and row_date:
+                prior_sig, prior_date = prior
+                if prior_sig == pt_signature and abs((row_date - prior_date).days) <= 21:
+                    return []
+            if row_date:
+                therapy_recent_signatures[pt_key] = (pt_signature, row_date)
 
         parts.append(Paragraph(f"Facility/Clinician: {entry.provider_display}", meta_style))
         for line in lines:

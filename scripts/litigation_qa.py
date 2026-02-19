@@ -983,6 +983,10 @@ def build_litigation_checklist(
             score += 2
         if re.search(r"\b(emergency|admission|discharge|procedure|imaging)\b", low):
             score += 2
+        if re.search(r"\b(therapy visit|pt summary|pt progress|physical therapy)\b", low) and re.search(
+            r"\b(pain|rom|range of motion|strength|plan)\b", low
+        ):
+            score += 2
         return score
 
     if row_blobs:
@@ -1045,7 +1049,7 @@ def build_litigation_checklist(
     timeline_rows_rendered = len(re.findall(r"(?im)^\d{4}-\d{2}-\d{2}\s+\|\s+encounter:", timeline_slice))
     snippet_rows = len(
         re.findall(
-            r'(?im)^((chief complaint|hpi|assessment|plan|impression|meds given|medications|vitals|procedure|guidance|complications)\s*:\s*\"[^\"]+\"|\"[^\"]+\")',
+            r'(?im)^((chief complaint|hpi|assessment|plan|impression|meds given|medications|vitals|procedure|guidance|complications|pt summary|pt progress)\s*:\s*\"[^\"]+\"|\"[^\"]+\")',
             timeline_slice,
         )
     )
