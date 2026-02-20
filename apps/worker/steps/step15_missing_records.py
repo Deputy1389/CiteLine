@@ -384,7 +384,43 @@ def detect_missing_records(
         "gaps": gaps,
         "summary": summary
     }
+    payload["priority_requests_top3"] = _prioritize_missing_record_requests(gaps, limit=3)
     return MissingRecordsExtension.model_validate(payload).model_dump(mode="json")
+
+
+def _prioritize_missing_record_requests(gaps: list[dict], *, limit: int = 3) -> list[dict]:
+    ranked: list[dict] = []
+    for gap in gaps:
+        days = int(gap.get("gap_days") or 0)
+        sev = str(gap.get("severity") or "medium").lower()
+        sev_weight = 40 if sev == "high" else 20
+        provider_named = bool((gap.get("provider_display_name") or "").strip())
+        provider_bonus = 8 if provider_named else 0
+        acute_bonus = 10 if "post-acute" in str(gap.get("rationale") or "").lower() else 0
+        score = min(100, sev_weight + min(50, int(days / 2)) + provider_bonus + acute_bonus)
+        req = dict(gap.get("suggested_records_to_request") or {})
+        ranked.append(
+            {
+                "gap_id": str(gap.get("gap_id") or ""),
+                "priority_score": score,
+                "priority_tier": "High" if score >= 75 else ("Medium" if score >= 45 else "Low"),
+                "provider_display_name": str(gap.get("provider_display_name") or "Any provider"),
+                "date_range": {
+                    "from": str(req.get("from") or ""),
+                    "to": str(req.get("to") or ""),
+                },
+                "request_type": str(req.get("type") or "Medical records"),
+                "rationale": str(gap.get("rationale") or "Potential continuity gap requiring source records."),
+                "citation_ids": list(((gap.get("evidence") or {}).get("citation_ids") or []))[:3],
+            }
+        )
+    ranked.sort(key=lambda r: (-int(r.get("priority_score") or 0), str(r.get("gap_id") or "")))
+    out: list[dict] = []
+    for idx, item in enumerate(ranked[:limit], start=1):
+        row = dict(item)
+        row["rank"] = idx
+        out.append(row)
+    return out
 
 
 def render_missing_records(

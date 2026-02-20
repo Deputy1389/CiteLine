@@ -1,0 +1,876 @@
+LineCite Moat Features (Medical Chronology Only)
+=================================================
+
+Purpose
+-------
+This document lists high-leverage moat ideas to make LineCite best-in-class for
+litigation-grade medical chronologies without expanding scope beyond medical records.
+
+
+Gold Ticket Bundle (Highest Strategic Value)
+-------------------------------------------
+1) Defense Attack Simulator (Deterministic)
+- Identify likely defense attacks:
+  - Pre-existing overlap
+  - Degenerative/chronic language
+  - Symptom inconsistency/denial
+  - Gaps in treatment
+- For each attack, show strongest supporting and weakening citations.
+- Outcome: turns chronology into trial-prep intelligence.
+
+2) Causation Ladder
+- Deterministic chain:
+  Incident marker -> First complaint -> First objective finding ->
+  Escalation milestones -> Intervention/procedure -> Current status.
+- Explicitly flag chain breaks and care gaps.
+- Outcome: gives attorneys a case-theory spine.
+
+3) Record-Quote Lock
+- Every major bullet must include a short direct source quote + citation.
+- If quote/citation missing, downgrade or remove the assertion.
+- Outcome: increases trust and deposition survivability.
+
+
+Additional Moat Features
+------------------------
+4) Cross-Examination Mode
+- For each major claim:
+  - best supporting line
+  - best contradictory line
+  - confidence/strength delta
+- Outcome: instant prep for depo/trial questioning.
+
+5) Evidence Strength Heatmap
+- Deterministic labels on timeline rows:
+  - Objective finding
+  - Provider diagnosis
+  - Subjective complaint
+  - Admin/routine
+- Outcome: high-signal rows surface first; noise is compressed.
+
+6) Outcome Delta Engine
+- Track trend over time for objective/functional metrics:
+  - ROM, pain scores, neuro findings, functional statements
+- Render deterministic trend states:
+  improved / worsened / unchanged / mixed.
+- Outcome: damages progression becomes concrete.
+
+7) Provider Reliability Profile
+- Deterministic provider-level signals:
+  specialty, objective documentation density, visit concentration.
+- Outcome: helps prioritize witness-record strategy.
+
+8) Citation Survivability Score
+- Section-level quality score based on:
+  citation coverage, unsupported language risk, contradiction density.
+- Output red/yellow/green readiness before export.
+- Outcome: objective quality gate for attorney-ready output.
+
+9) Case-Type Playbooks (Rule Presets)
+- Deterministic rules by packet phenotype:
+  soft tissue / herniation / surgical / complex prior.
+- Adjust ranking + compression thresholds per type.
+- Outcome: consistent quality across packet variants.
+
+10) Attorney Memory Layer (No LLM Required)
+- Firm-level preferences:
+  section order, risk threshold sensitivity, must-include evidence categories.
+- Outcome: sticky product fit per firm workflow.
+
+
+Buildability Assessment
+-----------------------
+Low Risk / Fast to Build
+- Record-Quote Lock
+- Causation Ladder
+- Evidence Strength labeling + ordering
+- Citation Survivability Score
+- Case-Type Playbooks
+
+Medium Complexity
+- Defense Attack Simulator (v1)
+- Outcome Delta Engine
+- Provider Reliability Profile
+
+Higher Complexity / More Tuning
+- Full Cross-Examination Mode ranking
+- Attorney Memory Layer (settings and UX depth)
+
+
+Recommended Build Order
+-----------------------
+1) Record-Quote Lock
+2) Causation Ladder
+3) Defense Attack Simulator (v1)
+4) Citation Survivability Score
+5) Case-Type Playbooks
+6) Outcome Delta Engine
+7) Provider Reliability + Cross-Examination refinements
+
+
+Non-Negotiable Product Principles
+---------------------------------
+- Deterministic runtime (no LLM dependency for core output).
+- Medical records only (no scope creep into liability/settlement).
+- Citation-first rendering.
+- Deposition-safe language gating.
+- Noise compression with legal-signal preservation.
+
+
+Case Collapse Detector (V1 Spec)
+================================
+
+Objective
+---------
+Provide a deterministic, attorney-visible answer to:
+"If this case weakens, where does the medical chain break first?"
+
+Important framing:
+- Medical-structural fragility only.
+- Not legal advice.
+- Not outcome prediction.
+
+
+User-Facing Output Block (First Page)
+-------------------------------------
+Section title:
+- Case Structural Risk Summary
+
+Required fields:
+1) Primary Weak Link
+2) Why It Matters (medical chain impact only)
+3) Defense Narrative Path (medical-only wording)
+4) To Neutralize (minimum evidence classes needed)
+5) Citations
+
+Optional:
+- Secondary Weak Link #1
+- Secondary Weak Link #2
+
+If evidence insufficient:
+- "Insufficient evidence to rank structural weak links with confidence."
+
+
+Data Model (Deterministic)
+--------------------------
+collapse_candidate
+- id (stable hash)
+- fragility_type:
+  - PRE_EXISTING_OVERLAP
+  - GAP_BEFORE_ESCALATION
+  - LOW_OBJECTIVE_CORROBORATION
+  - DEGENERATIVE_COMPETING_EXPLANATION
+  - SYMPTOM_INCONSISTENCY
+  - TIMING_BREAK
+- body_region (if known)
+- date_window
+- supporting_rows[] (citations)
+- weakening_rows[] (citations)
+- score_components (dict[str, float])
+- fragility_score (0-100)
+- confidence_tier (High/Medium/Low)
+- neutralization_targets[] (evidence classes)
+
+
+Scoring Components (V1)
+-----------------------
+All scores deterministic and citation-backed.
+
+Base components (example normalized ranges):
+- pre_existing_depth: 0..20
+  - same region pre-incident diagnosis/symptoms near incident => higher
+- gap_severity: 0..20
+  - longer untreated intervals before escalation => higher
+- objective_corroboration_deficit: 0..20
+  - few objective findings supporting symptom progression => higher
+- degenerative_competition: 0..15
+  - degenerative/chronic language without acute qualifier => higher
+- inconsistency_density: 0..15
+  - symptom denials/conflicts in short windows => higher
+- timing_break: 0..10
+  - delayed first complaint/objective finding vs incident context => higher
+
+Mitigation offsets:
+- acute_marker_strength: -0..15
+  - clear post-incident complaint + objective escalation chain lowers fragility
+- specialty_support: -0..5
+  - specialist documentation that aligns with acute progression lowers fragility
+
+Final score:
+- sum(components + offsets), clamped to 0..100
+
+Confidence tier:
+- High: >=75 and citation coverage complete
+- Medium: 45-74
+- Low: <45 or sparse citations
+
+
+Ranking Logic
+-------------
+1) Build all candidates from normalized evidence graph.
+2) Drop candidates failing minimum citation sufficiency.
+3) Score each candidate.
+4) Rank descending by:
+   - fragility_score
+   - confidence tier
+   - recency relevance
+5) Render:
+   - Primary Weak Link = top candidate
+   - Secondary links = next two (if materially distinct)
+
+Distinctness rule:
+- Do not render two links with same fragility_type + same body_region unless evidence sets are non-overlapping.
+
+
+Neutralization Targets (Deterministic Mapping)
+----------------------------------------------
+PRE_EXISTING_OVERLAP:
+- comparative pre/post objective findings
+- provider acute aggravation documentation
+- asymptomatic interval records
+
+GAP_BEFORE_ESCALATION:
+- records explaining delayed care
+- interim symptom documentation
+- access barriers with dates
+
+LOW_OBJECTIVE_CORROBORATION:
+- imaging/lab/objective exam findings
+- specialist assessment with objective metrics
+
+DEGENERATIVE_COMPETING_EXPLANATION:
+- acute-on-chronic differentiation language
+- objective change over baseline
+
+SYMPTOM_INCONSISTENCY:
+- contemporaneous clarification notes
+- repeat objective exam trends
+
+TIMING_BREAK:
+- earliest complaint/source anchor recovery
+- incident-linked symptom onset documentation
+
+
+Rendering Templates (Safe Language)
+-----------------------------------
+Primary Weak Link:
+- "Most fragile medical link: {short factual description}."
+
+Why It Matters:
+- "The documented timeline allows a competing medical interpretation because {factual reason}."
+
+Defense Narrative Path:
+- "A competing interpretation is: {medical-only competing path}."
+
+To Neutralize:
+- "Additional medical evidence that would reduce this fragility: {neutralization_targets}."
+
+Citations:
+- "Citation(s): {refs}"
+
+Prohibited wording:
+- "case will lose"
+- "case will win"
+- "liable/not liable"
+- uncited causation certainty claims
+
+
+Guardrails
+----------
+- Never render collapse assertions without citations.
+- No legal conclusions.
+- No probabilistic legal outcome statements.
+- Suppress if evidence is sparse or conflicting beyond confidence threshold.
+- Keep language deposition-safe and factual.
+
+
+QA and Acceptance Tests (V1)
+----------------------------
+Unit tests:
+- candidate generation deterministic
+- score component math deterministic
+- ranking deterministic with tie-breakers
+- safe-language template enforcement
+- citation-required gating
+
+Golden tests:
+- pre-existing-heavy packet -> top weak link is pre-existing overlap
+- long-gap packet -> top weak link is gap before escalation
+- strong objective packet -> objective deficit not top-ranked
+- contradiction packet -> symptom inconsistency appears
+
+Regression tests:
+- no unsupported causal certainty phrases
+- no empty-citation collapse output
+- deterministic output across repeated runs
+
+Pilot acceptance:
+- primary weak link present in >=90% of evaluable packets
+- false-positive rate on manual attorney review below agreed threshold
+- no hard QA regressions in baseline chronology gates
+
+
+Implementation Order for Case Collapse Detector
+-----------------------------------------------
+1) Candidate schema + extraction from existing claim rows
+2) Deterministic scoring module
+3) Ranking + confidence tiering
+4) Safe render block on first page
+5) Unit + golden + batch validation
+
+
+V1 Specs for All Moat Features
+==============================
+
+1) Record-Quote Lock (V1)
+-------------------------
+Goal:
+- Ensure every substantive rendered assertion is visibly anchored to source text.
+
+Deterministic rules:
+- For each major bullet, require:
+  - at least one short verbatim quote fragment
+  - at least one citation
+- If quote missing:
+  - attempt deterministic quote extraction from source snippet/fact
+  - if still missing, downgrade or drop bullet
+
+Output behavior:
+- Render format: assertion + quote + citation.
+
+Tests:
+- Fail output if any major bullet lacks quote/citation.
+- Deterministic quote selection across repeated runs.
+
+Acceptance:
+- 100% citation coverage for substantive bullets.
+- 95%+ quote lock coverage on Top events.
+
+
+2) Defense Attack Simulator (V1)
+--------------------------------
+Goal:
+- Surface likely defense attack paths from medical records only.
+
+Fragility classes:
+- pre_existing_overlap
+- degenerative_competition
+- treatment_gap
+- symptom_inconsistency
+- low_objective_support
+
+Deterministic rules:
+- Generate attack cards with:
+  - attack label
+  - supporting evidence
+  - weakening/rebuttal evidence
+  - confidence tier
+- Drop cards without minimum citation sufficiency.
+
+Output behavior:
+- Section: Defense Attack Paths (max 5 cards).
+
+Tests:
+- Known pre-existing packet -> pre-existing card appears.
+- Known gap packet -> gap card appears.
+- No-citation card suppressed.
+
+Acceptance:
+- Manual review false-positive rate below agreed threshold.
+- Stable ordering across repeated runs.
+
+
+3) Causation Ladder (V1)
+------------------------
+Goal:
+- Build deterministic incident-to-care progression chain.
+
+Required nodes:
+- incident marker
+- first complaint
+- first objective finding
+- escalation milestone
+- intervention/procedure
+- current/latest status
+
+Deterministic rules:
+- If incident marker missing, render "incident anchor not established."
+- Compute elapsed days between nodes.
+- Flag breaks (gaps, delayed objective corroboration).
+
+Output behavior:
+- Section: Causation Ladder with citations per node.
+
+Tests:
+- Incident-present packet -> full ladder populated.
+- Incident-missing packet -> safe fallback wording.
+
+Acceptance:
+- Node-level citation presence >=95%.
+
+
+4) Outcome Delta Engine (V1)
+----------------------------
+Goal:
+- Deterministically summarize change over time in objective/functional indicators.
+
+Tracked domains:
+- pain scores
+- ROM values
+- strength findings
+- neuro symptom descriptors
+- function/activity tolerance statements
+
+Deterministic rules:
+- Normalize numeric and qualitative terms.
+- Compute trend state per domain:
+  improved / worsened / unchanged / mixed / insufficient.
+- Require minimum observations before trend declaration.
+
+Output behavior:
+- Section: Clinical Trend Summary.
+
+Tests:
+- Synthetic monotonic improvement -> improved.
+- Mixed values -> mixed.
+- Sparse data -> insufficient.
+
+Acceptance:
+- Trend stability across reruns.
+- No trend claim without required evidence count.
+
+
+5) Cross-Examination Mode (V1)
+------------------------------
+Goal:
+- Give attorneys direct support-vs-challenge excerpts per major claim.
+
+Deterministic rules:
+- For each high-impact claim:
+  - pick best support excerpt
+  - pick best challenge excerpt (if exists)
+  - include citations
+- Rank claims by impact and contradiction potential.
+
+Output behavior:
+- Section: Cross-Examination Prep (top 5 claims).
+
+Tests:
+- Contradiction packet -> support/challenge pair appears.
+- No contradiction packet -> support only, explicit note.
+
+Acceptance:
+- 100% claim rows include at least support citation.
+
+
+6) Evidence Strength Heatmap (V1)
+---------------------------------
+Goal:
+- Make signal level visible instantly.
+
+Deterministic categories:
+- objective_high
+- provider_diagnosis
+- subjective_only
+- routine_admin
+
+Deterministic rules:
+- Classify each timeline row by evidence type + support score.
+- Drive ordering and compression from class.
+
+Output behavior:
+- Text labels (and optional subtle styling), no dependency on graphics.
+
+Tests:
+- Imaging/procedure rows classify above routine visits.
+
+Acceptance:
+- High-signal rows consistently appear earlier than low-signal rows.
+
+
+7) Provider Reliability Profile (V1)
+------------------------------------
+Goal:
+- Provide provider-level documentation context without speculative judgments.
+
+Metrics:
+- objective documentation density
+- specialty indicator
+- visit volume share
+- citation completeness rate
+
+Deterministic rules:
+- Strictly factual metrics; no "good/bad doctor" language.
+
+Output behavior:
+- Section: Provider Documentation Profile (optional, short).
+
+Tests:
+- Metric reproducibility across reruns.
+
+Acceptance:
+- No speculative/provider quality labels rendered.
+
+
+8) Citation Survivability Score (V1)
+------------------------------------
+Goal:
+- Internal and client-visible readiness indicator for evidentiary robustness.
+
+Subscores:
+- citation completeness
+- unsupported-language risk
+- contradiction density
+- objective support ratio
+
+Deterministic rules:
+- Score 0-100 with fixed formula.
+- Produce red/yellow/green bands.
+
+Output behavior:
+- Section: Citation Survivability (summary + drivers).
+
+Tests:
+- Removing citations decreases score deterministically.
+
+Acceptance:
+- Score tracks QA quality gates monotonically.
+
+
+9) Case-Type Playbooks (V1)
+---------------------------
+Goal:
+- Improve consistency across packet phenotypes.
+
+Playbook types:
+- soft_tissue
+- herniation
+- surgical
+- complex_prior
+
+Deterministic rules:
+- Per-type thresholds for:
+  - compression aggressiveness
+  - risk-flag sensitivity
+  - top-event bucket weights
+
+Output behavior:
+- No user-facing complexity; applied automatically.
+
+Tests:
+- Same input type yields stable playbook assignment.
+
+Acceptance:
+- Reduced variance in 50-pack quality across categories.
+
+
+10) Attorney Memory Layer (V1)
+------------------------------
+Goal:
+- Increase retention via firm-level output preferences (no model retraining required).
+
+Config examples:
+- section order preference
+- risk sensitivity level
+- must-show event categories
+- preferred citation format
+
+Deterministic rules:
+- Apply config as render-time policy only.
+- Keep core evidence extraction/scoring unchanged.
+
+Output behavior:
+- Consistent firm-tailored exports.
+
+Tests:
+- Same packet + same profile -> identical output.
+- Different profile -> predictable format differences only.
+
+Acceptance:
+- Zero evidence integrity regressions under profile changes.
+
+
+Global V1 Release Gate (All Features)
+-------------------------------------
+Ship only when:
+- deterministic output reproducibility confirmed
+- no unsupported high-risk language leakage
+- no uncited substantive assertions
+- batch quality threshold met on representative corpus
+- manual attorney review approves first-page usefulness within 30 seconds
+
+
+Additional Artillery Features (V1 Specs)
+========================================
+
+11) Alternate Narrative Generator - Defense Path (V1)
+-----------------------------------------------------
+Goal:
+- Build a coherent, deterministic, citation-backed competing medical narrative path.
+
+Scope:
+- Medical-only framing.
+- No legal conclusions, no liability statements.
+
+Input signals:
+- pre-existing overlap
+- degenerative/chronic language
+- objective finding profile
+- treatment gap timeline
+- symptom variability/inconsistency
+
+Output block:
+- "Defense Narrative (Record-Supported)"
+- 3-6 bullets ordered by structural importance.
+- Final line:
+  "Competing medical interpretation supported by cited records: {short path statement}."
+
+Deterministic rules:
+- Use only extracted claims with citations.
+- Require minimum evidence count before rendering final path line.
+- If insufficient support:
+  - render "Insufficient support to build coherent competing medical path."
+
+Tests:
+- Pre-existing-heavy packet -> narrative includes pre-existing anchor.
+- Degenerative packet -> narrative includes degenerative competition.
+- Sparse packet -> safe fallback.
+
+Acceptance:
+- No uncited narrative statements.
+- No prohibited legal-outcome language.
+
+
+12) Medical Contradiction Matrix (V1)
+-------------------------------------
+Goal:
+- Make record fractures visible in a structured grid.
+
+Matrix columns:
+- category
+- supporting evidence
+- contradicting evidence
+- strength_delta
+- citations
+
+Core categories:
+- pain_severity
+- laterality
+- functional_limit
+- neuro_symptoms
+- work_status
+- objective_vs_subjective_mismatch
+
+Deterministic rules:
+- Build row only when both support and contradiction are citation-backed.
+- strength_delta computed from support_score differences and recency weighting.
+- Suppress rows below minimum materiality.
+
+Output behavior:
+- Section: Medical Contradiction Matrix (max 10 rows).
+
+Tests:
+- Known inconsistency packet -> relevant row appears.
+- Consistent packet -> section shows no material contradictions.
+
+Acceptance:
+- Matrix rows reproducible across reruns.
+- Zero rows without dual-sided citations.
+
+
+13) Comparative Pattern Engine (V1 Foundation)
+----------------------------------------------
+Goal:
+- Build deterministic infrastructure for cross-case pattern baselines.
+
+V1 scope (foundation only):
+- No clinical/outcome claims in client output yet.
+- Produce internal baseline artifacts by case phenotype:
+  - care cadence bands
+  - common escalation intervals
+  - procedure timing windows
+
+Data requirements:
+- normalized corpus with stable event taxonomy
+- minimum sample size thresholds per phenotype
+
+Output behavior (V1):
+- Internal debug artifact only:
+  pattern_baseline.json
+
+Tests:
+- Baseline generation deterministic on fixed corpus snapshot.
+- No baseline emitted below sample threshold.
+
+Acceptance:
+- Stable baseline artifacts across reruns.
+- Ready for controlled client-facing flags in V2.
+
+
+14) Structural Plausibility Index (Defense Path) (V1)
+-----------------------------------------------------
+Goal:
+- Quantify plausibility of competing medical interpretation.
+
+Important wording:
+- "Structural Plausibility Index"
+- Avoid "probability of winning" phrasing.
+
+Inputs:
+- pre-existing density
+- objective corroboration deficit
+- gap burden
+- degenerative burden
+- inconsistency density
+
+Output:
+- score 0-100
+- band: low / moderate / elevated
+- top 3 score drivers with citations
+
+Deterministic rules:
+- fixed weighted formula
+- no stochastic elements
+- suppress score when citation sufficiency fails
+
+Tests:
+- Controlled synthetic cases produce monotonic score behavior.
+
+Acceptance:
+- Score shifts consistently with known signal toggles.
+- No score shown when evidence is insufficient.
+
+
+15) Evidence Required to Upgrade Engine (V1)
+---------------------------------------------
+Goal:
+- Convert fragility detection into concrete next-record actions.
+
+Output format:
+- "Evidence Needed to Strengthen Medical Chain"
+- For each weak link:
+  - missing evidence class
+  - why it matters (medical-structural)
+  - examples of acceptable record types
+
+Deterministic mapping:
+- weak_link_type -> evidence_request_templates
+- Never request documents outside permitted product scope by default.
+
+Tests:
+- Each fragility type maps to at least one deterministic recommendation.
+- No empty recommendation rows.
+
+Acceptance:
+- Recommendations are specific, non-generic, and citation-contextual.
+
+
+16) Narrative Dominance Comparator (V1)
+---------------------------------------
+Goal:
+- Compare coherence strength of plaintiff-path vs defense-path medical narratives.
+
+Inputs:
+- plaintiff narrative structural score
+- defense narrative structural score
+- citation density
+- contradiction penalties
+
+Output:
+- side-by-side table:
+  - plaintiff path score
+  - defense path score
+  - dominant path (if margin threshold met)
+  - tie/uncertain state
+
+Deterministic rules:
+- fixed formula + fixed dominance margin.
+- If margin below threshold:
+  - render "No dominant narrative structure."
+
+Tests:
+- Balanced synthetic case -> tie/uncertain.
+- Clear asymmetry case -> dominant path set correctly.
+
+Acceptance:
+- Deterministic and explainable score decomposition.
+
+
+17) Litigation Readiness Simulator (V1)
+---------------------------------------
+Goal:
+- Provide structural readiness signal before export.
+
+Inputs:
+- unsupported assertion count
+- unresolved contradiction count
+- vulnerability burden
+- objective corroboration count
+- citation completeness
+
+Output:
+- readiness score 0-100
+- readiness band:
+  - not ready / review needed / ready for attorney review
+- top blockers list
+
+Deterministic rules:
+- fixed penalties and thresholds.
+- no hidden components.
+
+Tests:
+- Injected unsupported assertions reduce score.
+- Improved citations raise score.
+
+Acceptance:
+- Score correlates with existing QA hard/quality gates.
+
+
+18) Narrative Duality Engine (V1)
+---------------------------------
+Goal:
+- Render strongest plaintiff medical narrative and strongest defense medical narrative
+  side-by-side, from same record set, deterministically.
+
+Output block:
+- Plaintiff Medical Narrative (Record-Supported)
+- Defense Medical Narrative (Record-Supported)
+- Structural Comparison Summary
+- Citations for every bullet
+
+Deterministic rules:
+- Reuse shared claim graph and scoring.
+- Build each narrative with explicit:
+  - chronology anchors
+  - objective support nodes
+  - vulnerability nodes
+- Enforce neutral tone and safe language gate on both narratives.
+
+Guardrails:
+- No legal advice language.
+- No jury outcome language.
+- Suppress overconfident statements without support.
+
+Tests:
+- Same input always yields same dual narratives.
+- Removing key evidence shifts both narratives consistently.
+
+Acceptance:
+- Attorneys can identify meaningful narrative differences within 30 seconds.
+- Zero uncited narrative bullets.
+
+
+Recommended Integration Order (Updated)
+---------------------------------------
+1) Record-Quote Lock
+2) Case Collapse Detector V1
+3) Defense Attack Simulator V1
+4) Causation Ladder V1
+5) Evidence Required to Upgrade V1
+6) Medical Contradiction Matrix V1
+7) Narrative Duality Engine V1
+8) Litigation Readiness Simulator V1
+9) Outcome Delta Engine V1
+10) Narrative Dominance Comparator V1
+11) Comparative Pattern Engine foundation
+12) Provider Profile and Memory Layer refinements

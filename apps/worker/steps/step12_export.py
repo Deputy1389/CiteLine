@@ -7,6 +7,7 @@ import csv
 import hashlib
 import io
 import json
+import os
 import re
 import uuid
 from collections import defaultdict
@@ -54,6 +55,20 @@ from apps.worker.steps.events.report_quality import (
 from apps.worker.project.chronology import build_chronology_projection, infer_page_patient_labels
 from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
 from apps.worker.lib.claim_guard import apply_claim_guard_to_narrative
+from apps.worker.lib.claim_ledger_lite import (
+    build_claim_ledger_lite,
+    depo_safe_rewrite,
+    select_top_claim_rows,
+    summarize_risk_flags,
+)
+from apps.worker.steps.case_collapse import (
+    build_case_collapse_candidates,
+    build_defense_attack_paths,
+    build_objection_profiles,
+    build_upgrade_recommendations,
+    defense_narrative_for_candidate,
+    quote_lock,
+)
 from apps.worker.lib.noise_filter import is_noise_span
 from apps.worker.lib.targeted_ontology import canonical_disposition, canonical_injuries, canonical_procedures
 
@@ -158,6 +173,18 @@ TOP10_LOW_VALUE_RE = re.compile(
     r"risks?:.*alternatives?:)",
     re.IGNORECASE,
 )
+APPENDIX_DX_RELEVANT_RE = re.compile(
+    r"\b("
+    r"neck pain|cervical|low back pain|lumbar|thoracic|back pain|"
+    r"strain|sprain|radiculopathy|sciatica|disc|herniation|protrusion|stenosis|"
+    r"fracture|dislocation|myofascial|spasm|whiplash|cervicalgia|lumbago|paresthesia"
+    r")\b",
+    re.IGNORECASE,
+)
+APPENDIX_DX_EXCLUDE_RE = re.compile(
+    r"\b(years ago|appendectomy|arthroscopy|no history of|reports no regular use of tobacco)\b",
+    re.IGNORECASE,
+)
 
 
 def _has_inpatient_markers(event_type_display: str, facts: list[str]) -> bool:
@@ -173,6 +200,28 @@ def _normalized_encounter_label(entry) -> str:
     if label.lower() == "inpatient progress" and not _has_inpatient_markers(label, list(getattr(entry, "facts", []) or [])):
         return "Clinical Note"
     return label or "Record Entry"
+
+
+def _appendix_dx_line_ok(text: str) -> bool:
+    cleaned = sanitize_for_report(text or "").strip()
+    if not cleaned:
+        return False
+    if is_noise_span(cleaned):
+        return False
+    if APPENDIX_DX_EXCLUDE_RE.search(cleaned):
+        return False
+    if re.search(r"\b[A-TV-Z][0-9]{2}(?:\.[0-9A-TV-Z]{1,4})?\b", cleaned):
+        return True
+    return bool(APPENDIX_DX_RELEVANT_RE.search(cleaned))
+
+
+def _appendix_dx_line_generic(text: str) -> bool:
+    cleaned = sanitize_for_report(text or "").strip().lower()
+    if not cleaned:
+        return True
+    if re.search(r"\b(diagnosis:\s*n/?a|problem list:\s*n/?a)\b", cleaned):
+        return True
+    return False
 
 
 def _scan_incident_signal(
@@ -301,6 +350,7 @@ def _repair_case_summary_narrative(
     if not saw_mech and incident.get("found") and incident.get("mechanism"):
         out.append(f"Mechanism: {incident['mechanism']}")
     anchored_primary: list[str] = []
+    anchored_injury_summary: list[str] = []
     # Build anchor-backed primary injuries from projection evidence.
     if projection_entries:
         anchors: dict[str, set[str]] = defaultdict(set)
@@ -312,31 +362,76 @@ def _repair_case_summary_narrative(
                     anchors[label].add(citation)
         high_risk_terms = {"fracture", "dislocation", "wound infection", "infection", "tear"}
         anchored_hard = sorted([k for k, cites in anchors.items() if len(cites) >= 2 or k in high_risk_terms and len(cites) >= 2])
-        # Soft-tissue symptoms are clinically useful in litigation and can be accepted with one cited anchor.
+        # Keep primary injuries fully anchor-backed to satisfy litigation QA invariants.
         soft_terms = {"neck pain", "low back pain", "back pain", "cervical radiculopathy", "lumbar radiculopathy", "disc protrusion", "disc herniation"}
-        anchored_soft = sorted([k for k, cites in anchors.items() if k in soft_terms and len(cites) >= 1])
+        anchored_soft = sorted([k for k, cites in anchors.items() if k in soft_terms and len(cites) >= 2])
         anchored_primary = sorted(dict.fromkeys(anchored_hard + anchored_soft))
+        anchored_soft_relaxed = sorted([k for k, cites in anchors.items() if k in soft_terms and len(cites) >= 1])
+        anchored_injury_summary = sorted(dict.fromkeys(anchored_hard + anchored_soft_relaxed))
         if anchored_primary and any(l.lower().startswith("primary injuries: not stated") for l in out):
             out = [
                 (f"Primary Injuries: {', '.join(anchored_primary[:5])}" if l.lower().startswith("primary injuries:") else l)
                 for l in out
             ]
+        if anchored_injury_summary:
             out = [
-                (f"Injury Summary: {', '.join(anchored_primary[:5]).capitalize()}." if l.lower().strip() == "no specific injuries isolated." else l)
+                (f"Injury Summary: {', '.join(anchored_injury_summary[:5]).capitalize()}." if l.lower().strip() == "no specific injuries isolated." else l)
                 for l in out
             ]
     def _refine_primary_injuries(labels: list[str], entries: list) -> list[str]:
         vals = [re.sub(r"\s+", " ", (x or "").strip().lower()) for x in labels if (x or "").strip()]
         vals = list(dict.fromkeys(vals))
-        # Collapse lexical overlap.
-        if "low back pain" in vals and "back pain" in vals:
-            vals = [v for v in vals if v != "back pain"]
-        if "cervical radiculopathy" in vals and "neck pain" in vals:
-            vals = [v for v in vals if v != "neck pain"]
-        if "lumbar radiculopathy" in vals and "low back pain" in vals:
-            vals = [v for v in vals if v != "low back pain"]
 
-        return [v[0].upper() + v[1:] if v else v for v in vals[:5]]
+        canonical_map = {
+            "back pain": "back pain",
+            "low back pain": "low back pain",
+            "neck pain": "neck pain",
+            "cervicalgia": "neck pain (cervicalgia)",
+            "lumbago": "low back pain (lumbago)",
+            "cervical strain": "cervical strain",
+            "lumbar strain": "lumbar strain",
+            "whiplash": "cervical strain (whiplash-associated)",
+            "myofascial pain": "myofascial pain syndrome",
+            "radiculopathy": "radiculopathy",
+            "cervical radiculopathy": "cervical radiculopathy",
+            "lumbar radiculopathy": "lumbar radiculopathy",
+        }
+        normalized: list[str] = []
+        for v in vals:
+            mapped = canonical_map.get(v, v)
+            normalized.append(mapped)
+        normalized = list(dict.fromkeys(normalized))
+
+        # Specificity dominance rules.
+        if "low back pain" in normalized and "back pain" in normalized:
+            normalized = [v for v in normalized if v != "back pain"]
+        if "lumbar strain" in normalized and "low back pain" in normalized:
+            normalized = [v for v in normalized if v != "low back pain"]
+        if "cervical strain" in normalized and "neck pain" in normalized:
+            normalized = [v for v in normalized if v != "neck pain"]
+        if "cervical strain (whiplash-associated)" in normalized and "neck pain" in normalized:
+            normalized = [v for v in normalized if v != "neck pain"]
+        if "lumbar radiculopathy" in normalized and "low back pain" in normalized:
+            normalized = [v for v in normalized if v != "low back pain"]
+        if "cervical radiculopathy" in normalized and "neck pain" in normalized:
+            normalized = [v for v in normalized if v != "neck pain"]
+
+        rank = {
+            "cervical strain": 1,
+            "cervical strain (whiplash-associated)": 1,
+            "lumbar strain": 1,
+            "cervical radiculopathy": 2,
+            "lumbar radiculopathy": 2,
+            "radiculopathy": 3,
+            "low back pain": 4,
+            "neck pain": 4,
+            "low back pain (lumbago)": 4,
+            "neck pain (cervicalgia)": 4,
+            "myofascial pain syndrome": 5,
+            "back pain": 6,
+        }
+        normalized.sort(key=lambda x: (rank.get(x, 50), x))
+        return [v[0].upper() + v[1:] if v else v for v in normalized[:6]]
 
     def _procedure_counts(entries: list) -> tuple[int, int]:
         operative_dates: set[str] = set()
@@ -369,6 +464,7 @@ def _repair_case_summary_narrative(
         updated: list[str] = []
         saw_total = False
         saw_interventional = False
+        saw_injury_summary = False
         for line in out:
             low = line.lower().strip()
             if low.startswith("primary injuries:"):
@@ -377,6 +473,17 @@ def _repair_case_summary_narrative(
                     updated.append(f"Primary Injuries: {', '.join(refined) if refined else 'Not established from records'}")
                 else:
                     updated.append("Primary Injuries: Not established from records")
+                continue
+            if low.startswith("injury summary:"):
+                saw_injury_summary = True
+                if anchored_injury_summary:
+                    refined = _refine_primary_injuries(anchored_injury_summary, projection_entries)
+                    if refined:
+                        updated.append(f"Injury Summary: {', '.join(refined)}.")
+                    else:
+                        updated.append("Injury Summary: No specific injuries isolated.")
+                else:
+                    updated.append(line)
                 continue
             if low.startswith("total surgeries:"):
                 saw_total = True
@@ -393,6 +500,9 @@ def _repair_case_summary_narrative(
             updated.append(f"Total Surgeries: {operative_count}")
         if interventional_count > 0 and not saw_interventional:
             updated.append(f"Total Interventional Procedures: {interventional_count}")
+        if not saw_injury_summary:
+            refined = _refine_primary_injuries(anchored_injury_summary, projection_entries) if anchored_injury_summary else []
+            updated.append(f"Injury Summary: {', '.join(refined)}." if refined else "Injury Summary: No specific injuries isolated.")
         if operative_count == 0 and interventional_count > 0:
             updated.append("No operative surgeries documented.")
         out = updated
@@ -961,6 +1071,122 @@ def _normalize_projection_patient_labels(projection: ChronologyProjection) -> Ch
     return projection.model_copy(update={"entries": normalized})
 
 
+def _parse_projection_entry_date(entry: ChronologyProjectionEntry) -> date | None:
+    m = re.search(r"\b(\d{4})-(\d{2})-(\d{2})\b", entry.date_display or "")
+    if not m:
+        return None
+    try:
+        d = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except ValueError:
+        return None
+    return d if date_sanity(d) else None
+
+
+def _merge_projection_entries_same_day(projection: ChronologyProjection) -> ChronologyProjection:
+    entries = list(projection.entries or [])
+    if not entries:
+        return projection
+
+    def _bucket(et: str) -> str:
+        low = (et or "").lower()
+        if any(t in low for t in ("therapy", "physical therapy", "pt visit", "ot", "chiro")):
+            return "therapy"
+        if "imaging" in low:
+            return "imaging"
+        if any(t in low for t in ("clinic", "office", "consult", "follow-up", "orthopedic")):
+            return "clinic"
+        return "other"
+
+    def _provider_group(name: str) -> str:
+        low = re.sub(r"[^a-z0-9 ]+", " ", (name or "").lower()).strip()
+        low = re.sub(r"\s+", " ", low)
+        if "physical therapy" in low:
+            return "physical therapy"
+        return low or "unknown"
+
+    groups: defaultdict[tuple[str, str, str, str], list[ChronologyProjectionEntry]] = defaultdict(list)
+    passthrough: list[ChronologyProjectionEntry] = []
+    for e in entries:
+        d = _parse_projection_entry_date(e)
+        b = _bucket(e.event_type_display or "")
+        if not d or b == "other":
+            passthrough.append(e)
+            continue
+        key = (
+            e.patient_label or "See Patient Header",
+            d.isoformat(),
+            _provider_group(e.provider_display or ""),
+            b,
+        )
+        groups[key].append(e)
+
+    merged: list[ChronologyProjectionEntry] = []
+    for key in sorted(groups.keys()):
+        group = groups[key]
+        if len(group) == 1:
+            merged.append(group[0])
+            continue
+        group_sorted = sorted(group, key=lambda x: (x.date_display, x.event_id))
+        patient_label, day, provider_group, bucket = key
+        fact_seen: set[str] = set()
+        facts_out: list[str] = []
+        for g in group_sorted:
+            for fact in list(g.facts or []):
+                cleaned = sanitize_for_report(fact or "").strip()
+                if not cleaned:
+                    continue
+                norm = re.sub(r"\W+", " ", cleaned.lower()).strip()
+                if norm in fact_seen:
+                    continue
+                fact_seen.add(norm)
+                facts_out.append(cleaned)
+        cite_seen: set[str] = set()
+        cites_out: list[str] = []
+        for g in group_sorted:
+            raw = str(g.citation_display or "")
+            for part in re.split(r"\s*\|\s*|,\s*", raw):
+                c = _sanitize_citation_display(part)
+                if not c:
+                    continue
+                if c in cite_seen:
+                    continue
+                cite_seen.add(c)
+                cites_out.append(c)
+        provider_candidates = [sanitize_for_report(g.provider_display or "").strip() for g in group_sorted]
+        provider_candidates = [p for p in provider_candidates if p and p.lower() not in {"unknown", "unknown provider"}]
+        provider_display = max(provider_candidates, key=len) if provider_candidates else group_sorted[0].provider_display
+        if bucket == "therapy":
+            event_type_display = "Therapy Visit"
+        elif bucket == "imaging":
+            event_type_display = "Imaging Study"
+        else:
+            event_type_display = "Clinic Visit"
+        combined_id = hashlib.sha1("|".join(sorted(g.event_id for g in group_sorted)).encode("utf-8")).hexdigest()[:12]
+        merged.append(
+            ChronologyProjectionEntry(
+                event_id=f"merged_{bucket}_{combined_id}",
+                date_display=f"{day} (time not documented)",
+                provider_display=provider_display,
+                event_type_display=event_type_display,
+                patient_label=patient_label,
+                facts=facts_out[:16],
+                citation_display=" | ".join(cites_out[:8]),
+                confidence=max(int(g.confidence or 0) for g in group_sorted),
+            )
+        )
+
+    all_entries = passthrough + merged
+    all_entries.sort(
+        key=lambda e: (
+            _parse_projection_entry_date(e) or date(1900, 1, 1),
+            e.patient_label or "",
+            e.event_type_display or "",
+            e.event_id,
+        )
+    )
+    return projection.model_copy(update={"entries": all_entries})
+
+
 def _build_events_flowables(events: list[Event], providers: list[Provider], page_map: dict[int, tuple[str, int]] | None, all_citations: list[Citation] | None, styles) -> list:
     """Render events as a list of Paragraphs/Spacers instead of a Table (safer for massive docs)."""
     flowables = []
@@ -1056,6 +1282,10 @@ def _build_projection_flowables(
 
     non_unknown_labels = sorted({e.patient_label for e in projection.entries if e.patient_label != "Unknown Patient"})
     use_patient_sections = len(non_unknown_labels) > 1
+    claim_rows_core = build_claim_ledger_lite(projection.entries, raw_events=raw_events)
+    claims_by_event: dict[str, list[dict]] = defaultdict(list)
+    for row in claim_rows_core:
+        claims_by_event[str(row.get("event_id") or "")].append(row)
 
     def _extract_date(entry_date_display: str) -> date | None:
         m = re.search(r"\b(\d{4})-(\d{2})-(\d{2})\b", entry_date_display or "")
@@ -1593,6 +1823,10 @@ def _build_projection_flowables(
 
     def _extract_diagnosis_items(entries: list) -> list[str]:
         dx: set[str] = set()
+        section_header = re.compile(
+            r"\b(assessment|impression|diagnosis|dx|problem list|icd|a/p|treatment diagnosis|medical diagnosis|primary dx|secondary dx)\b",
+            re.IGNORECASE,
+        )
         deny = re.compile(
             r"\b(encounter:|hospital admission|emergency room admission|general examination|check up|tobacco status|questionnaire|pain interference|mg\b|tablet|capsule|discharge summary only|fax|cover sheet|difficult mission late kind)\b",
             re.IGNORECASE,
@@ -1605,44 +1839,81 @@ def _build_projection_flowables(
             r"\b(fracture|infection|dislocation|tear|sprain|strain|radiculopathy|protrusion|degeneration|neuropathy|stenosis|herniation|spondylosis|icd-?10)\b",
             re.IGNORECASE,
         )
+        pt_dx_signal = re.compile(
+            r"\b(cervicalgia|lumbago|cervical strain|lumbar strain|thoracic strain|radiculopathy|sciatica|myofascial pain|whiplash|muscle spasm)\b",
+            re.IGNORECASE,
+        )
+        icd_re = re.compile(r"\b[A-TV-Z][0-9]{2}(?:\.[0-9A-TV-Z]{1,4})?\b")
         english_med_lexicon = {
             "fracture", "infection", "dislocation", "tear", "sprain", "strain", "radiculopathy", "disc", "protrusion",
             "degeneration", "pain", "wound", "hypertension", "diabetes", "anxiety", "depression", "neuropathy",
             "cervical", "lumbar", "thoracic", "shoulder", "knee", "hip", "ankle", "arm", "leg", "impression",
             "assessment", "diagnosis", "condition", "syndrome", "stenosis", "herniation", "spondylosis",
         }
+
+        def _negated(text: str) -> bool:
+            low = text.lower()
+            return bool(re.search(r"\b(denies|negative for|without)\b", low) or re.search(r"\bno\s+(?:evidence of\s+)?(?:pain|strain|sprain|radiculopathy|herniation|stenosis|fracture|dislocation)\b", low))
+
+        def _line_ok(text: str) -> bool:
+            if not text:
+                return False
+            if is_noise_span(text):
+                return False
+            if _is_sdoh_noise(text):
+                return False
+            if deny.search(text):
+                return False
+            if _negated(text):
+                return False
+            low = text.lower()
+            if low.startswith("pain assessment:") and not hard_dx_signal.search(low) and not icd_re.search(text):
+                return False
+            if suspicious_noise.search(low) and not hard_dx_signal.search(low) and not icd_re.search(text):
+                return False
+            return True
+
         for entry in entries:
-            for fact in entry.facts:
-                text = sanitize_for_report(fact)
-                if not text:
-                    continue
-                if is_noise_span(text):
-                    continue
-                if "discharge summary" in text.lower():
-                    continue
-                if _is_sdoh_noise(text):
-                    continue
-                if deny.search(text):
-                    continue
-                low = text.lower()
-                # "Pain Assessment:" lines frequently include generic/noisy prose and are
-                # not diagnosis-grade unless they carry explicit clinical diagnosis terms.
-                if low.startswith("pain assessment:") and not hard_dx_signal.search(low) and not DX_CODE_RE.search(text):
-                    continue
-                if suspicious_noise.search(low) and not hard_dx_signal.search(low) and not DX_CODE_RE.search(text):
-                    continue
-                if not (DX_ALLOWED_SECTION_RE.search(low) or DX_CODE_RE.search(text) or DX_MEDICAL_TERM_RE.search(low)):
-                    continue
-                tokens = re.findall(r"[a-z]+", low)
-                if not tokens:
-                    continue
-                med_hits = sum(1 for t in tokens if t in english_med_lexicon)
-                med_density = med_hits / max(1, len(tokens))
-                if med_density < 0.20 and not DX_CODE_RE.search(text):
-                    continue
-                cleaned = _sanitize_render_sentence(text[:160])
-                if cleaned:
-                    dx.add(cleaned)
+            lines = [sanitize_for_report(f) for f in list(entry.facts or [])]
+            lines = [ln for ln in lines if ln]
+            if not lines:
+                continue
+
+            # section-window capture: header line plus next 1-3 lines
+            for i, line in enumerate(lines):
+                low = line.lower()
+                capture_window: list[str] = []
+                if section_header.search(low):
+                    capture_window.append(line)
+                    for j in range(i + 1, min(len(lines), i + 4)):
+                        nxt = lines[j]
+                        nxt_low = nxt.lower().strip()
+                        if re.match(r"^[A-Z][A-Z\s/&-]{4,}$", nxt.strip()):
+                            break
+                        if re.match(r"^[A-Za-z][A-Za-z\s/&-]{2,40}:\s*$", nxt.strip()):
+                            break
+                        capture_window.append(nxt)
+                elif pt_dx_signal.search(low) or icd_re.search(line):
+                    capture_window.append(line)
+
+                for text in capture_window:
+                    if not _line_ok(text):
+                        continue
+                    low_txt = text.lower()
+                    if "discharge summary" in low_txt:
+                        continue
+                    if not (section_header.search(low_txt) or icd_re.search(text) or pt_dx_signal.search(low_txt) or hard_dx_signal.search(low_txt) or DX_MEDICAL_TERM_RE.search(low_txt)):
+                        continue
+                    tokens = re.findall(r"[a-z]+", low_txt)
+                    if not tokens:
+                        continue
+                    med_hits = sum(1 for t in tokens if t in english_med_lexicon)
+                    med_density = med_hits / max(1, len(tokens))
+                    if med_density < 0.18 and not icd_re.search(text) and not pt_dx_signal.search(low_txt):
+                        continue
+                    cleaned = _sanitize_render_sentence(text[:180])
+                    if cleaned:
+                        dx.add(cleaned)
         return sorted(dx)[:12]
 
     def _extract_pro_items(entries: list) -> list[str]:
@@ -2060,6 +2331,10 @@ def _build_projection_flowables(
         selected: list[dict] = []
         used_ids: set[str] = set()
         seen_keys: set[tuple[str, str, str]] = set()
+        seen_story_keys: set[tuple[str, str, str]] = set()
+        seen_patient_date_label: set[tuple[str, str, str]] = set()
+        seen_render_keys: set[tuple[str, str, str]] = set()
+        global_date_label_counts: dict[tuple[str, str], int] = defaultdict(int)
         bucket_patient_counts: dict[tuple[str, str], int] = defaultdict(int)
         admission_total = 0
 
@@ -2084,7 +2359,23 @@ def _build_projection_flowables(
             if key in seen_keys:
                 return False
             patient = str(c.get("patient_label") or "Unknown Patient")
+            story_norm = re.sub(r"\W+", " ", str(c.get("narrative") or "").lower()).strip()
+            story_key = (patient, str(c.get("bucket") or ""), story_norm[:140])
+            if story_norm and story_key in seen_story_keys:
+                return False
             bucket = str(c.get("bucket") or "")
+            dkey = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", str(c.get("date") or ""))
+            norm_date = dkey.group(1) if dkey else str(c.get("date") or "")
+            norm_label = str(c.get("label") or c.get("event_type_display") or "").strip().lower()
+            norm_cite = re.sub(r"\s+", " ", str(c.get("citation") or "").lower()).strip()
+            render_key = (norm_date, norm_label, norm_cite)
+            if render_key in seen_render_keys:
+                return False
+            if global_date_label_counts[(norm_date, norm_label)] >= 2:
+                return False
+            if bucket != "material_gap":
+                if (patient, norm_date, norm_label) in seen_patient_date_label:
+                    return False
             if bucket_patient_counts[(patient, bucket)] >= 2:
                 return False
             if bucket == "admission" and admission_total >= 3:
@@ -2095,9 +2386,20 @@ def _build_projection_flowables(
             nonlocal admission_total
             patient = str(c.get("patient_label") or "Unknown Patient")
             bucket = str(c.get("bucket") or "")
+            story_norm = re.sub(r"\W+", " ", str(c.get("narrative") or "").lower()).strip()
             selected.append(c)
             used_ids.add(c["event_id"])
             seen_keys.add(_candidate_key(c))
+            if story_norm:
+                seen_story_keys.add((patient, bucket, story_norm[:140]))
+            dkey = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", str(c.get("date") or ""))
+            norm_date = dkey.group(1) if dkey else str(c.get("date") or "")
+            norm_label = str(c.get("label") or c.get("event_type_display") or "").strip().lower()
+            norm_cite = re.sub(r"\s+", " ", str(c.get("citation") or "").lower()).strip()
+            seen_render_keys.add((norm_date, norm_label, norm_cite))
+            global_date_label_counts[(norm_date, norm_label)] += 1
+            if bucket != "material_gap":
+                seen_patient_date_label.add((patient, norm_date, norm_label))
             bucket_patient_counts[(patient, bucket)] += 1
             if bucket == "admission":
                 admission_total += 1
@@ -2680,6 +2982,7 @@ def _build_projection_flowables(
         parts.append(Paragraph(f"Facility/Clinician: {entry.provider_display}", meta_style))
         for line in lines:
             clean_line = _sanitize_render_sentence(line)
+            clean_line = depo_safe_rewrite(clean_line, claims_by_event.get(entry.event_id, []))
             if _is_meta_language(clean_line):
                 continue
             parts.append(Paragraph(clean_line, fact_style))
@@ -2692,6 +2995,27 @@ def _build_projection_flowables(
             ]
         )
         return parts
+
+    appendix_source_entries = appendix_entries if appendix_entries is not None else projection.entries
+    grouped_entries: dict[str, list] = defaultdict(list)
+    for entry in appendix_source_entries:
+        grouped_entries[entry.patient_label].append(entry)
+
+    entries_by_patient: dict[str, list] = defaultdict(list)
+    for e in appendix_source_entries:
+        entries_by_patient[e.patient_label].append(e)
+    for patient_label in list(entries_by_patient.keys()):
+        entries_by_patient[patient_label].sort(key=lambda e: (_extract_date(e.date_display) or date.min, e.event_id))
+    raw_event_by_id: dict[str, Event] = {evt.event_id: evt for evt in (raw_events or [])}
+    material_gap_rows = _material_gap_rows(gaps or [], entries_by_patient, raw_event_by_id)
+    claim_rows_full = build_claim_ledger_lite(
+        appendix_source_entries,
+        material_gap_rows=material_gap_rows,
+        raw_events=raw_events,
+    )
+    claim_rows_by_patient: dict[str, list[dict]] = defaultdict(list)
+    for row in claim_rows_full:
+        claim_rows_by_patient[str(row.get("patient_label") or "Unknown Patient")].append(row)
 
     if use_patient_sections:
         grouped: dict[str, list] = {}
@@ -2708,31 +3032,33 @@ def _build_projection_flowables(
         for entry in projection.entries:
             flowables.extend(_render_entry(entry))
 
-    appendix_source_entries = appendix_entries if appendix_entries is not None else projection.entries
-    grouped_entries: dict[str, list] = defaultdict(list)
-    for entry in appendix_source_entries:
-        grouped_entries[entry.patient_label].append(entry)
-
-    entries_by_patient: dict[str, list] = defaultdict(list)
-    for e in appendix_source_entries:
-        entries_by_patient[e.patient_label].append(e)
-    for patient_label in list(entries_by_patient.keys()):
-        entries_by_patient[patient_label].sort(key=lambda e: (_extract_date(e.date_display) or date.min, e.event_id))
-    raw_event_by_id: dict[str, Event] = {evt.event_id: evt for evt in (raw_events or [])}
-    material_gap_rows = _material_gap_rows(gaps or [], entries_by_patient, raw_event_by_id)
-
     flowables.append(Spacer(1, 0.25 * inch))
     flowables.append(Paragraph("Top 10 Case-Driving Events", styles["Heading3"]))
-    top_events = _top_case_events(projection.entries, grouped_entries, material_gap_rows)
+    top_events = select_top_claim_rows(claim_rows_full, limit=10)
+    claim_label_map = {
+        "INJURY_DX": "Diagnosis",
+        "SYMPTOM": "Symptom",
+        "IMAGING_FINDING": "Imaging Finding",
+        "PROCEDURE": "Procedure/Surgery",
+        "MEDICATION_CHANGE": "Medication Change",
+        "WORK_RESTRICTION": "Work Restriction",
+        "TREATMENT_VISIT": "Treatment Visit",
+        "GAP_IN_CARE": "Treatment Gap",
+        "PRE_EXISTING_MENTION": "Pre-existing Mention",
+    }
     if top_events:
         for item in top_events:
-            if "date not documented" in str(item.get("date", "")).lower():
+            if "unknown" in str(item.get("date", "")).lower():
                 continue
             cite = _sanitize_citation_display(str(item.get("citation", "") or ""))
             if not cite:
                 continue
+            narrative = depo_safe_rewrite(str(item.get("assertion") or ""), [item])
+            if not narrative:
+                continue
+            label = claim_label_map.get(str(item.get("claim_type") or ""), "Clinical Event")
             line = _sanitize_render_sentence(
-                f"- {item['date']} | {item['label']} | {item['narrative']} | Citation(s): {cite}"
+                f"- {item['date']} | {label} | {narrative} | Citation(s): {cite}"
             )
             if line:
                 flowables.append(Paragraph(line, fact_style))
@@ -2761,7 +3087,19 @@ def _build_projection_flowables(
     flowables.append(Paragraph("Appendix B: Diagnoses/Problems (assessment/impression)", styles["Heading3"]))
     has_dx = False
     for label in sorted(grouped_entries.keys()):
-        dxs = _extract_diagnosis_items(grouped_entries[label])
+        claim_dxs = [
+            _sanitize_render_sentence(str(r.get("assertion") or ""))
+            for r in claim_rows_by_patient.get(label, [])
+            if str(r.get("claim_type") or "") == "INJURY_DX"
+        ]
+        claim_dxs = sorted(
+            dict.fromkeys(
+                [d for d in claim_dxs if d and _appendix_dx_line_ok(d) and not _appendix_dx_line_generic(d)]
+            )
+        )
+        fallback_dxs = [d for d in _extract_diagnosis_items(grouped_entries[label]) if _appendix_dx_line_ok(d)]
+        fallback_dxs = [d for d in fallback_dxs if not _appendix_dx_line_generic(d)]
+        dxs = claim_dxs if claim_dxs else fallback_dxs
         if not dxs:
             continue
         has_dx = True
@@ -2946,6 +3284,7 @@ def generate_pdf_from_projection(
     raw_events: list[Event] | None = None,
     page_map: dict[int, tuple[str, int]] | None = None,
     care_window: tuple[date | None, date | None] | None = None,
+    missing_records_payload: dict | None = None,
 ) -> bytes:
     """Generate client-facing chronology PDF strictly from projection output."""
     buf = io.BytesIO()
@@ -2978,6 +3317,155 @@ def generate_pdf_from_projection(
     else:
         summary_text = _clean_narrative_text(narrative_synthesis) if narrative_synthesis else f"Chronology contains {len(projection.entries)} reportable events."
     story.append(Paragraph(summary_text.replace("\n", "<br/>"), summary_body_style))
+
+    if projection.entries:
+        claim_rows_front = build_claim_ledger_lite(projection.entries, raw_events=raw_events)
+        story.append(Paragraph("Record-Quote Lock Summary", styles["Heading3"]))
+        strong_types = {"PROCEDURE", "IMAGING_FINDING", "INJURY_DX", "WORK_RESTRICTION", "MEDICATION_CHANGE", "GAP_IN_CARE"}
+        strongest = [
+            r
+            for r in select_top_claim_rows(claim_rows_front, limit=12)
+            if str(r.get("claim_type") or "") in strong_types and str(r.get("date") or "").lower() != "unknown"
+        ]
+        quote_lock_rows = 0
+        for item in strongest[:6]:
+            cite = _sanitize_citation_display(str(item.get("citation", "") or ""))
+            if not cite:
+                continue
+            narrative = depo_safe_rewrite(str(item.get("assertion") or ""), [item])
+            if not narrative:
+                continue
+            if re.search(r"\b(risks?:|alternatives?:|i,\s*the undersigned|consent to the performance)\b", narrative, re.IGNORECASE):
+                continue
+            quote = quote_lock(narrative)
+            if not quote:
+                continue
+            line = sanitize_for_report(f"• {item.get('date', 'Date not documented')}: {quote} | Citation(s): {cite}")
+            line = re.sub(r"\s+", " ", line).strip()
+            if line:
+                story.append(Paragraph(line, styles["Normal"]))
+                quote_lock_rows += 1
+        if quote_lock_rows == 0:
+            fallback_rows = [
+                r for r in select_top_claim_rows(claim_rows_front, limit=4)
+                if str(r.get("claim_type") or "") in {"SYMPTOM", "TREATMENT_VISIT"}
+            ]
+            rendered_fallback = False
+            for item in fallback_rows:
+                cite = _sanitize_citation_display(str(item.get("citation", "") or ""))
+                narrative = quote_lock(depo_safe_rewrite(str(item.get("assertion") or ""), [item]))
+                if not cite or not narrative:
+                    continue
+                line = sanitize_for_report(
+                    f"• {item.get('date', 'Date not documented')}: {narrative} | Citation(s): {cite}"
+                )
+                story.append(Paragraph(re.sub(r"\s+", " ", line).strip(), styles["Normal"]))
+                rendered_fallback = True
+                break
+            if not rendered_fallback:
+                story.append(Paragraph("No high-signal quote-locked assertions detected.", styles["Normal"]))
+
+        collapse_candidates = build_case_collapse_candidates(claim_rows_front)
+        collapse_candidates_material = [
+            c for c in collapse_candidates if int(c.get("fragility_score") or 0) >= 10
+        ]
+        story.append(Spacer(1, 0.12 * inch))
+        story.append(Paragraph("Case Structural Risk Summary", styles["Heading3"]))
+        if collapse_candidates_material:
+            primary = collapse_candidates_material[0]
+            cits = " | ".join(primary.get("citations", [])[:3])
+            weak_link = str(primary.get("fragility_type") or "").replace("_", " ").title()
+            why = quote_lock(str(primary.get("why") or "Record structure indicates a vulnerable link."))
+            story.append(Paragraph(sanitize_for_report(f"Primary Weak Link: {weak_link}"), styles["Normal"]))
+            story.append(Paragraph(sanitize_for_report(f"Why It Matters: {why}"), styles["Normal"]))
+            story.append(
+                Paragraph(
+                    sanitize_for_report(
+                        f"Defense Narrative Path: {quote_lock(defense_narrative_for_candidate(primary))}"
+                    ),
+                    styles["Normal"],
+                )
+            )
+            story.append(Paragraph(sanitize_for_report(f"Citation(s): {cits}"), styles["Normal"]))
+        else:
+            story.append(Paragraph("Insufficient evidence to rank structural weak links with confidence.", styles["Normal"]))
+
+        defense_paths = build_defense_attack_paths(collapse_candidates_material, limit=3)
+        story.append(Spacer(1, 0.1 * inch))
+        story.append(Paragraph("Defense Attack Paths (Medical-Only)", styles["Heading3"]))
+        if defense_paths:
+            for card in defense_paths:
+                cits = " | ".join(card.get("citations", [])[:3])
+                path_text = quote_lock(str(card.get("path") or ""))
+                line = sanitize_for_report(
+                    f"• {card.get('attack')}: {path_text} | Confidence: {card.get('confidence_tier')} | Citation(s): {cits}"
+                )
+                story.append(Paragraph(re.sub(r"\s+", " ", line).strip(), styles["Normal"]))
+        else:
+            story.append(Paragraph("No material defense attack paths identified.", styles["Normal"]))
+
+        upgrades = build_upgrade_recommendations(collapse_candidates_material, limit=4)
+        story.append(Spacer(1, 0.1 * inch))
+        story.append(Paragraph("Evidence Needed to Strengthen Medical Chain", styles["Heading3"]))
+        if upgrades:
+            for rec in upgrades:
+                cits = " | ".join(rec.get("citations", [])[:3])
+                actions = rec.get("actions", [])[:2]
+                story.append(Paragraph(sanitize_for_report(f"• Weak Link: {rec.get('weak_link')}"), styles["Normal"]))
+                for act in actions:
+                    story.append(Paragraph(sanitize_for_report(f"  - {act}"), styles["Normal"]))
+                if cits:
+                    story.append(Paragraph(sanitize_for_report(f"  Citation(s): {cits}"), styles["Normal"]))
+        else:
+            story.append(Paragraph("No targeted evidence upgrades identified.", styles["Normal"]))
+
+        objection_profiles = build_objection_profiles(claim_rows_front, limit=6)
+        story.append(Spacer(1, 0.1 * inch))
+        story.append(Paragraph("Objection Anticipation (Deterministic)", styles["Heading3"]))
+        if objection_profiles:
+            for obj in objection_profiles:
+                cats = ", ".join(obj.get("objection_types", []))
+                reqs = obj.get("foundation_requirements", [])[:2]
+                cits = " | ".join(obj.get("citations", [])[:3])
+                line = sanitize_for_report(
+                    f"• {obj.get('date', 'Date not documented')} | {obj.get('claim_type', 'Claim')} "
+                    f"| Objection Risk: {cats}"
+                )
+                story.append(Paragraph(re.sub(r"\s+", " ", line).strip(), styles["Normal"]))
+                for req in reqs:
+                    story.append(Paragraph(sanitize_for_report(f"  - Foundation Needed: {req}"), styles["Normal"]))
+                if cits:
+                    story.append(Paragraph(sanitize_for_report(f"  Citation(s): {cits}"), styles["Normal"]))
+        else:
+            story.append(Paragraph("No material objection-risk claims identified.", styles["Normal"]))
+
+        top_requests = list((missing_records_payload or {}).get("priority_requests_top3") or [])
+        story.append(Spacer(1, 0.1 * inch))
+        story.append(Paragraph("Highest-Value Missing Records To Request", styles["Heading3"]))
+        if top_requests:
+            for req in top_requests[:3]:
+                dfrom = str(((req.get("date_range") or {}).get("from") or ""))
+                dto = str(((req.get("date_range") or {}).get("to") or ""))
+                line = sanitize_for_report(
+                    f"• #{req.get('rank', '?')} {req.get('provider_display_name', 'Any provider')} "
+                    f"| {dfrom} to {dto} | Priority: {req.get('priority_tier', 'Medium')} "
+                    f"({req.get('priority_score', 0)})"
+                )
+                story.append(Paragraph(re.sub(r"\s+", " ", line).strip(), styles["Normal"]))
+                story.append(Paragraph(sanitize_for_report(f"  - Why: {req.get('rationale', '')}"), styles["Normal"]))
+        else:
+            story.append(Paragraph("No high-priority missing record requests identified.", styles["Normal"]))
+
+        risk_items = summarize_risk_flags(claim_rows_front)
+        if risk_items:
+            story.append(Spacer(1, 0.12 * inch))
+            story.append(Paragraph("Medical Risk Flags", styles["Heading3"]))
+            for item in risk_items:
+                line = sanitize_for_report(f"• {item}")
+                line = re.sub(r"\s+", " ", line).strip()
+                if line:
+                    story.append(Paragraph(line, styles["Normal"]))
+        story.append(Spacer(1, 0.2 * inch))
 
     if projection.entries:
         story.append(Paragraph("Chronological Medical Timeline", styles["Heading2"]))
@@ -3639,6 +4127,7 @@ def render_exports(
         raw_events=events,
     )
     projection = _normalize_projection_patient_labels(projection)
+    projection = _merge_projection_entries_same_day(projection)
     appendix_projection = _enrich_projection_procedure_entries(
         appendix_projection,
         page_text_by_number=page_text_by_number,
@@ -3661,6 +4150,7 @@ def render_exports(
         raw_events=events,
     )
     appendix_projection = _normalize_projection_patient_labels(appendix_projection)
+    appendix_projection = _merge_projection_entries_same_day(appendix_projection)
     care_window = _compute_care_window_from_projection(projection.entries)
     if missing_records_payload is not None:
         rules = missing_records_payload.setdefault("ruleset", {})
@@ -3712,6 +4202,23 @@ def render_exports(
     assert selection_debug_payload["events_final_count"] <= selection_debug_payload["events_candidate_count_after_backfill"]
     selection_debug_path = save_artifact(run_id, "selection_debug.json", json.dumps(selection_debug_payload, indent=2).encode("utf-8"))
     claim_guard_path = save_artifact(run_id, "claim_guard_report.json", json.dumps(claim_guard_report, indent=2).encode("utf-8"))
+    debug_artifacts = str(os.getenv("DEBUG_ARTIFACTS", "false")).strip().lower() in {"1", "true", "yes", "on"}
+    if debug_artifacts:
+        claim_rows_debug = build_claim_ledger_lite(
+            projection.entries,
+            raw_events=events,
+        )
+        collapse_debug = build_case_collapse_candidates(claim_rows_debug)
+        save_artifact(
+            run_id,
+            "claim_ledger_lite.json",
+            json.dumps(claim_rows_debug, indent=2).encode("utf-8"),
+        )
+        save_artifact(
+            run_id,
+            "case_collapse.json",
+            json.dumps(collapse_debug, indent=2).encode("utf-8"),
+        )
     if evidence_graph_payload is not None:
         save_artifact(run_id, "evidence_graph.json", json.dumps(evidence_graph_payload, indent=2).encode("utf-8"))
     if patient_partitions_payload is not None:
@@ -3729,6 +4236,7 @@ def render_exports(
         raw_events=events,
         page_map=page_map,
         care_window=care_window,
+        missing_records_payload=missing_records_payload,
     )
     pdf_path = save_artifact(run_id, "chronology.pdf", pdf_bytes)
     pdf_sha = hashlib.sha256(pdf_bytes).hexdigest()
@@ -3742,6 +4250,21 @@ def render_exports(
     docx_bytes = generate_docx(run_id, matter_title, events, gaps, providers, page_map, narrative_synthesis=narrative_synthesis)
     docx_path = save_artifact(run_id, "chronology.docx", docx_bytes)
     docx_sha = hashlib.sha256(docx_bytes).hexdigest()
+
+    # Markdown (structured, copy/paste friendly)
+    md_lines: list[str] = [f"# {matter_title}", "", "## Medical Chronology Analysis"]
+    summary_for_md = _clean_narrative_text(narrative_synthesis) if narrative_synthesis else generate_executive_summary(events, matter_title, case_info=case_info)
+    if summary_for_md:
+        md_lines.extend(["", summary_for_md.strip(), ""])
+    md_lines.extend(["## Chronological Medical Timeline", ""])
+    for entry in projection.entries:
+        date_cell = sanitize_for_report(entry.date_display or "Date not documented")
+        type_cell = sanitize_for_report(entry.event_type_display or "Clinical Event")
+        facts_cell = sanitize_for_report(" ".join((entry.facts or [])[:2]) or "Encounter documented.")
+        cite_cell = sanitize_for_report(entry.citation_display or "Citation unavailable")
+        md_lines.append(f"- **{date_cell}** | **{type_cell}** | {facts_cell} | Citation(s): {cite_cell}")
+    md_bytes = ("\n".join(md_lines).strip() + "\n").encode("utf-8")
+    save_artifact(run_id, "chronology.md", md_bytes)
 
     # Summary
     summary_text = _clean_narrative_text(narrative_synthesis) if narrative_synthesis else generate_executive_summary(events, matter_title, case_info=case_info)

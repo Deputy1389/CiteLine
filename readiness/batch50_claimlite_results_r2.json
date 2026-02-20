@@ -1,0 +1,452 @@
+[
+  {
+    "index": 1,
+    "packet_dir": "01_soft_tissue_easy",
+    "case_id": "batch50r2_001",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 2,
+    "packet_dir": "02_herniation_med",
+    "case_id": "batch50r2_002",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 3,
+    "packet_dir": "03_surgical_hard",
+    "case_id": "batch50r2_003",
+    "exit_code": 3,
+    "pass": false,
+    "score": 95,
+    "hard_failures": 0
+  },
+  {
+    "index": 4,
+    "packet_dir": "04_prior_complex",
+    "case_id": "batch50r2_004",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 5,
+    "packet_dir": "05_minor_quick",
+    "case_id": "batch50r2_005",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 6,
+    "packet_dir": "06_herniation_large_clean",
+    "case_id": "batch50r2_006",
+    "exit_code": 3,
+    "pass": false,
+    "score": 95,
+    "hard_failures": 0
+  },
+  {
+    "index": 7,
+    "packet_dir": "07_surgical_warzone",
+    "case_id": "batch50r2_007",
+    "exit_code": 3,
+    "pass": false,
+    "score": 95,
+    "hard_failures": 0
+  },
+  {
+    "index": 8,
+    "packet_dir": "08_soft_tissue_noisy",
+    "case_id": "batch50r2_008",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 9,
+    "packet_dir": "09_prior_extreme",
+    "case_id": "batch50r2_009",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 10,
+    "packet_dir": "10_surgical_standard",
+    "case_id": "batch50r2_010",
+    "exit_code": 3,
+    "pass": false,
+    "score": 95,
+    "hard_failures": 0
+  },
+  {
+    "index": 11,
+    "packet_dir": "batch_011_soft_tissue",
+    "case_id": "batch50r2_011",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 12,
+    "packet_dir": "batch_012_minor",
+    "case_id": "batch50r2_012",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 13,
+    "packet_dir": "batch_013_minor",
+    "case_id": "batch50r2_013",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 14,
+    "packet_dir": "batch_014_complex_prior",
+    "case_id": "batch50r2_014",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 15,
+    "packet_dir": "batch_015_minor",
+    "case_id": "batch50r2_015",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 16,
+    "packet_dir": "batch_016_minor",
+    "case_id": "batch50r2_016",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 17,
+    "packet_dir": "batch_016_soft_tissue",
+    "case_id": "batch50r2_017",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 18,
+    "packet_dir": "batch_017_complex_prior",
+    "case_id": "batch50r2_018",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 19,
+    "packet_dir": "batch_017_soft_tissue",
+    "case_id": "batch50r2_019",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 20,
+    "packet_dir": "batch_018_minor",
+    "case_id": "batch50r2_020",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 21,
+    "packet_dir": "batch_018_soft_tissue",
+    "case_id": "batch50r2_021",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 22,
+    "packet_dir": "batch_019_minor",
+    "case_id": "batch50r2_022",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 23,
+    "packet_dir": "batch_020_herniation",
+    "case_id": "batch50r2_023",
+    "exit_code": 3,
+    "pass": false,
+    "score": 95,
+    "hard_failures": 0
+  },
+  {
+    "index": 24,
+    "packet_dir": "batch_021_complex_prior",
+    "case_id": "batch50r2_024",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 25,
+    "packet_dir": "batch_022_surgical",
+    "case_id": "batch50r2_025",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 26,
+    "packet_dir": "batch_023_surgical",
+    "case_id": "batch50r2_026",
+    "exit_code": 3,
+    "pass": false,
+    "score": 95,
+    "hard_failures": 0
+  },
+  {
+    "index": 27,
+    "packet_dir": "batch_024_surgical",
+    "case_id": "batch50r2_027",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 28,
+    "packet_dir": "batch_025_complex_prior",
+    "case_id": "batch50r2_028",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 29,
+    "packet_dir": "batch_026_herniation",
+    "case_id": "batch50r2_029",
+    "exit_code": 3,
+    "pass": false,
+    "score": 95,
+    "hard_failures": 0
+  },
+  {
+    "index": 30,
+    "packet_dir": "batch_027_soft_tissue",
+    "case_id": "batch50r2_030",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 31,
+    "packet_dir": "batch_028_surgical",
+    "case_id": "batch50r2_031",
+    "exit_code": 3,
+    "pass": false,
+    "score": 95,
+    "hard_failures": 0
+  },
+  {
+    "index": 32,
+    "packet_dir": "batch_029_complex_prior",
+    "case_id": "batch50r2_032",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 33,
+    "packet_dir": "batch_030_complex_prior",
+    "case_id": "batch50r2_033",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 34,
+    "packet_dir": "batch_031_surgical",
+    "case_id": "batch50r2_034",
+    "exit_code": 3,
+    "pass": false,
+    "score": 95,
+    "hard_failures": 0
+  },
+  {
+    "index": 35,
+    "packet_dir": "batch_032_surgical",
+    "case_id": "batch50r2_035",
+    "exit_code": 3,
+    "pass": false,
+    "score": 95,
+    "hard_failures": 0
+  },
+  {
+    "index": 36,
+    "packet_dir": "batch_033_complex_prior",
+    "case_id": "batch50r2_036",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 37,
+    "packet_dir": "batch_034_complex_prior",
+    "case_id": "batch50r2_037",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 38,
+    "packet_dir": "batch_035_complex_prior",
+    "case_id": "batch50r2_038",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 39,
+    "packet_dir": "batch_036_soft_tissue",
+    "case_id": "batch50r2_039",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 40,
+    "packet_dir": "batch_037_herniation",
+    "case_id": "batch50r2_040",
+    "exit_code": 3,
+    "pass": false,
+    "score": 95,
+    "hard_failures": 0
+  },
+  {
+    "index": 41,
+    "packet_dir": "batch_038_soft_tissue",
+    "case_id": "batch50r2_041",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 42,
+    "packet_dir": "batch_039_soft_tissue",
+    "case_id": "batch50r2_042",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 43,
+    "packet_dir": "batch_040_surgical",
+    "case_id": "batch50r2_043",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 44,
+    "packet_dir": "batch_041_complex_prior",
+    "case_id": "batch50r2_044",
+    "exit_code": 0,
+    "pass": true,
+    "score": 105,
+    "hard_failures": 0
+  },
+  {
+    "index": 45,
+    "packet_dir": "batch_042_soft_tissue",
+    "case_id": "batch50r2_045",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 46,
+    "packet_dir": "batch_043_surgical",
+    "case_id": "batch50r2_046",
+    "exit_code": 3,
+    "pass": false,
+    "score": 95,
+    "hard_failures": 0
+  },
+  {
+    "index": 47,
+    "packet_dir": "batch_044_soft_tissue",
+    "case_id": "batch50r2_047",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 48,
+    "packet_dir": "batch_045_herniation",
+    "case_id": "batch50r2_048",
+    "exit_code": 3,
+    "pass": false,
+    "score": 95,
+    "hard_failures": 0
+  },
+  {
+    "index": 49,
+    "packet_dir": "batch_046_minor",
+    "case_id": "batch50r2_049",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  },
+  {
+    "index": 50,
+    "packet_dir": "batch_047_soft_tissue",
+    "case_id": "batch50r2_050",
+    "exit_code": 2,
+    "pass": false,
+    "score": 85,
+    "hard_failures": 1
+  }
+]

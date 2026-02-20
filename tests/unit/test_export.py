@@ -886,6 +886,82 @@ class TestGeneratePdf:
         assert top10_slice.count("Hospital Admission") <= 3
         assert "Citation(s): Not available" not in top10_slice
 
+    def test_top10_dedupes_duplicate_narrative_within_bucket(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        entries = [
+            ChronologyProjectionEntry(
+                event_id="proc_a",
+                date_display="2024-03-01 (time not documented)",
+                provider_display="Unknown",
+                event_type_display="Procedure/Surgery",
+                patient_label="PX",
+                facts=["Epidural steroid injection performed with fluoroscopy guidance."],
+                citation_display="p.pdf p. 1",
+                confidence=96,
+            ),
+            ChronologyProjectionEntry(
+                event_id="proc_b",
+                date_display="2024-03-01 (time not documented)",
+                provider_display="Unknown",
+                event_type_display="Procedure/Surgery",
+                patient_label="PX",
+                facts=["Epidural steroid injection performed with fluoroscopy guidance."],
+                citation_display="p.pdf p. 2",
+                confidence=95,
+            ),
+            ChronologyProjectionEntry(
+                event_id="ed1",
+                date_display="2024-02-20 (time not documented)",
+                provider_display="Unknown",
+                event_type_display="Emergency Visit",
+                patient_label="PX",
+                facts=["Emergency visit after MVC with neck and low back pain."],
+                citation_display="e.pdf p. 1",
+                confidence=90,
+            ),
+        ]
+        projection = ChronologyProjection(generated_at=datetime.now(timezone.utc), entries=entries)
+        pdf_bytes = generate_pdf_from_projection("Top10 Duplicate Narrative", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+        top10_slice = text.split("Top 10 Case-Driving Events", 1)[1].split("Appendix A:", 1)[0]
+        assert top10_slice.lower().count("epidural steroid injection performed with fluoroscopy guidance") == 1
+
+    def test_top10_caps_same_date_same_label(self):
+        import fitz
+        from datetime import datetime, timezone
+        from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
+        from apps.worker.steps.step12_export import generate_pdf_from_projection
+
+        entries = []
+        for idx in range(1, 6):
+            entries.append(
+                ChronologyProjectionEntry(
+                    event_id=f"proc_same_{idx}",
+                    date_display="2024-03-01 (time not documented)",
+                    provider_display="Unknown",
+                    event_type_display="Procedure/Surgery",
+                    patient_label=f"P{idx}",
+                    facts=[f"Procedure detail {idx} with fluoroscopy and injection."],
+                    citation_display=f"p.pdf p. {idx}",
+                    confidence=90 - idx,
+                )
+            )
+        projection = ChronologyProjection(generated_at=datetime.now(timezone.utc), entries=entries)
+        pdf_bytes = generate_pdf_from_projection("Top10 Same Date Label Cap", projection, gaps=[], narrative_synthesis="Deterministic narrative.")
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+        top10_slice = text.split("Top 10 Case-Driving Events", 1)[1].split("Appendix A:", 1)[0]
+        proc_rows = [
+            ln for ln in top10_slice.splitlines()
+            if "2024-03-01" in ln and "| Procedure/Surgery |" in ln
+        ]
+        assert len(proc_rows) <= 2
+
     def test_med_changes_dedupes_strength_vs_formulation_same_day(self):
         import fitz
         from datetime import datetime, timezone

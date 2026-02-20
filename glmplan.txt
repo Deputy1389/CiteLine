@@ -1,0 +1,249 @@
+# CiteLine Invariant-First Execution Plan
+# Updated: 2026-02-20
+# Objective: Litigation-grade chronology engine with structural generalization across arbitrary medical packets.
+
+================================================================================
+NON-NEGOTIABLE PRINCIPLES
+================================================================================
+
+1) No corpus-specific logic.
+2) No filename-based assumptions.
+3) No fixed row-count targets tied to a specific packet set.
+4) Every major assertion must remain citation-anchored.
+5) Missing data must degrade deterministically and safely.
+6) Robustness under perturbation is a release gate, not a nice-to-have.
+
+================================================================================
+SYSTEM INVARIANTS (RELEASE GATES)
+================================================================================
+
+I1 Citation Anchor Integrity
+- Timeline citation coverage floor >= 0.85 under perturbation.
+- No Top 10 item without inline citation token.
+
+I2 Determinism
+- Re-running same input with same config produces stable QA/legal outcome and stable structural counts.
+- No nondeterministic pass/fail flips.
+
+I3 Date Resilience
+- Date extraction must be format-agnostic.
+- If dates are sparse/unavailable, system degrades to conservative labeling without fabricated chronology claims.
+
+I4 Event Structural Stability
+- Required clinical buckets should remain represented when source evidence remains present.
+- Event volume should not collapse unexpectedly in non-destructive perturbations.
+
+I5 Defensive Language Safety
+- No unsupported causation/permanency/work-disability language.
+- Unsupported statements rewritten or dropped deterministically.
+
+I6 Cross-Packet Robustness
+- Mixed packet structures cannot introduce artifact leakage or unsupported claims.
+
+================================================================================
+PHASE 0: ROBUSTNESS HARNESS FOUNDATION (DONE / ACTIVE)
+================================================================================
+
+Status
+- Implemented adversarial harness: scripts/eval_invariant_robustness.py
+- Perturbations: shuffle pages, drop pages, inject noise, mixed packets.
+- Determinism probe integrated.
+- Unit tests added for perturbation determinism and invariant comparison.
+
+Current Baseline
+- 25-sample robustness sweep: 100 comparisons.
+- Material-change rate: ~1%.
+- Determinism failures: 0.
+- Remaining failure class: narrow QA sensitivity under shuffle for one herniation packet.
+
+Exit Criteria
+- Harness remains deterministic.
+- Results artifact produced per run in readiness/.
+
+================================================================================
+PHASE 1: CLOSE REMAINING INVARIANT DRIFT (P0)
+================================================================================
+
+Goal
+- Reduce material-change rate from ~1% to 0% on the current stress sweep without adding corpus-specific logic.
+
+Workstream A: QA Sensitivity Stabilization
+- Trace gate-level deltas between baseline and perturbation for residual failing cases.
+- Align Top 10 dedupe semantics between selector and QA gate keys.
+- Prevent order-induced duplicate detection by normalizing dedupe identity on rendered item structure.
+
+Workstream B: Order-Invariance in Selection
+- Enforce deterministic tie-breaks using stable identity keys.
+- Ensure ranking does not depend on page/document iteration order.
+
+Workstream C: Degradation Rules
+- If perturbation removes essential anchors, fail safely with explicit insufficiency messaging.
+- Avoid false hard-fail triggers for expected sparse-document behavior.
+
+Exit Criteria
+- 25-sample robustness sweep (same seed) -> material-change rate 0%.
+- Determinism failures remain 0.
+
+================================================================================
+PHASE 2: PERSIST CORE LITIGATION PRIMITIVES (P0)
+================================================================================
+
+Goal
+- Move existing reasoning outputs from render-only behavior into first-class EvidenceGraph extensions.
+
+Required Extensions
+- claim_rows
+- case_collapse_candidates
+- defense_attack_paths
+- evidence_upgrade_recommendations
+- quote_lock_rows
+
+Requirements
+- Each primitive deterministic and citation-backed.
+- Stable IDs based on normalized fields.
+- Serializable and versionable in evidence_graph.extensions.
+
+Exit Criteria
+- Extensions persisted for every run.
+- Unit tests validate schema shape and deterministic IDs.
+
+================================================================================
+PHASE 3: CAUSATION LADDER V1 (P1)
+================================================================================
+
+Goal
+- Build deterministic temporal chain structure by body region.
+
+Implementation
+- Module: apps/worker/lib/causation_ladder.py
+- Inputs: normalized events + citations + date parsing output.
+- Outputs:
+  - rungs: INCIDENT, INITIAL_DX, TREATMENT, ESCALATION, OUTCOME
+  - chain_integrity_score
+  - break_points
+  - missing_rungs
+
+Rules
+- Incident marker is optional; if absent, chain remains partial with explicit uncertainty.
+- Temporal gaps computed from parsed dates only.
+- No inferred medical conclusions beyond explicit evidence.
+
+Exit Criteria
+- Causation chain artifacts persisted in extensions.
+- Unit tests for multi-region chains, missing-rung behavior, and temporal consistency.
+
+================================================================================
+PHASE 4: CONTRADICTION MATRIX + DEFENSE ATTACK SIMULATOR V1 (P1)
+================================================================================
+
+Goal
+- Deterministic adversarial modeling based on concrete record contradictions and vulnerabilities.
+
+Contradiction Matrix Types
+- laterality_conflict
+- temporal_resolution_conflict
+- severity_inconsistency
+- medication_same_day_conflict
+- diagnosis_state_conflict
+
+Defense Attack Simulator Types
+- pre_existing_overlap
+- degenerative_competing_explanation
+- treatment_gap_exploitation
+- contradiction_exploitation
+- chain_break_exploitation
+
+Requirements
+- Every attack path includes:
+  - evidence citations
+  - deterministic severity score
+  - explicit mitigation actions
+
+Exit Criteria
+- Attack paths and contradictions persisted in extensions.
+- Renderer consumes these primitives without adding uncited narrative.
+
+================================================================================
+PHASE 5: EXPORT DECOMPOSITION (P1)
+================================================================================
+
+Goal
+- Reduce coupling and regression risk in step12_export by modular extraction.
+
+Target Modules
+- apps/worker/render/pdf_renderer.py
+- apps/worker/render/csv_renderer.py
+- apps/worker/render/docx_renderer.py
+- apps/worker/render/top10_selector.py
+- apps/worker/render/appendix_builder.py
+- apps/worker/render/litigation_sections.py
+
+Rules
+- Move logic in thin slices with tests after each extraction.
+- No behavioral drift allowed without explicit invariant update.
+- Keep orchestration in step12_export.py.
+
+Exit Criteria
+- step12_export reduced to orchestration-focused module.
+- Snapshot + invariant tests pass post-refactor.
+
+================================================================================
+PHASE 6: TYPE SAFETY + CONTRACT HARDENING (P2)
+================================================================================
+
+Goal
+- Strong extension contracts and safer long-term evolution.
+
+Implementation
+- Typed models for extension primitives in shared models.
+- Extension version field.
+- Backward-compat adapter for older artifacts.
+
+Exit Criteria
+- Contract tests verify serialization/deserialization and version compatibility.
+
+================================================================================
+TEST STRATEGY (MANDATORY)
+================================================================================
+
+Unit
+- Deterministic scoring and tie-break tests.
+- Date parsing normalization tests across multiple formats.
+- Dedupe identity tests (Top 10 and timeline rows).
+
+Integration
+- End-to-end deterministic replay test.
+- Extension persistence contract tests.
+
+Robustness
+- Adversarial perturbation sweep is required in CI (configurable sample size).
+- Any material-change regression blocks release.
+
+Manual Spot Review
+- Review multiple generated PDFs across packet styles.
+- Confirm no artifact leakage, no uncited assertions, and no unsupported legal language.
+
+================================================================================
+RELEASE GATE CHECKLIST
+================================================================================
+
+Release is blocked if any of the following are true:
+- Robustness material-change rate > 0.
+- Determinism probe failures > 0.
+- Any hard invariant failure introduced by non-destructive perturbation.
+- Unsupported causation/permanency/work-disability phrasing appears.
+- Citation integrity gate fails.
+
+================================================================================
+NEXT EXECUTION ORDER (IMMEDIATE)
+================================================================================
+
+1) Eliminate last residual shuffle-order QA flip.
+2) Persist collapse/attack/quote primitives into evidence_graph.extensions.
+3) Implement Causation Ladder V1 with tests.
+4) Implement Contradiction Matrix + Attack Simulator V1 with tests.
+5) Begin step12_export decomposition only after invariants remain green.
+
+================================================================================
+END PLAN
+================================================================================

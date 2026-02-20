@@ -64,6 +64,15 @@ from apps.worker.steps.step12_export import (
 )
 from apps.worker.steps.step15_missing_records import detect_missing_records
 from apps.worker.lib.provider_normalize import normalize_provider_entities
+from apps.worker.lib.claim_ledger_lite import build_claim_ledger_lite, select_top_claim_rows
+from apps.worker.lib.causation_ladder import build_causation_ladders
+from apps.worker.steps.case_collapse import (
+    build_case_collapse_candidates,
+    build_defense_attack_paths,
+    build_objection_profiles,
+    build_upgrade_recommendations,
+    quote_lock,
+)
 from apps.worker.lib.noise_filter import is_noise_span
 from apps.worker.steps.step12a_narrative_synthesis import synthesize_narrative
 from apps.worker.project.chronology import build_chronology_projection, infer_page_patient_labels
@@ -86,6 +95,43 @@ FORBIDDEN_STRINGS = [
 ]
 DATE_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
 UUID_PROVIDER_RE = UUID_RE
+
+
+def _build_litigation_extensions(claim_rows: list[dict]) -> dict[str, list[dict]]:
+    anchored_rows = [r for r in claim_rows if (r.get("citations") or [])]
+    collapse_candidates = build_case_collapse_candidates(anchored_rows)
+    attack_paths = build_defense_attack_paths(collapse_candidates, limit=6)
+    objection_profiles = build_objection_profiles(anchored_rows, limit=24)
+    upgrade_recs = build_upgrade_recommendations(collapse_candidates, limit=8)
+    locked_quotes: list[dict] = []
+    for row in select_top_claim_rows(anchored_rows, limit=12):
+        q = quote_lock(str(row.get("assertion") or ""))
+        if not q:
+            continue
+        locked_quotes.append(
+            {
+                "id": str(row.get("id") or ""),
+                "date": str(row.get("date") or "unknown"),
+                "claim_type": str(row.get("claim_type") or ""),
+                "quote": q,
+                "citation": str(row.get("citation") or ""),
+                "event_id": str(row.get("event_id") or ""),
+            }
+        )
+    return {
+        "claim_rows": anchored_rows,
+        "causation_chains": build_causation_ladders(anchored_rows),
+        "citation_fidelity": {
+            "claim_rows_total": len(claim_rows),
+            "claim_rows_anchored": len(anchored_rows),
+            "claim_row_anchor_ratio": round((len(anchored_rows) / len(claim_rows)), 4) if claim_rows else 1.0,
+        },
+        "case_collapse_candidates": collapse_candidates,
+        "defense_attack_paths": attack_paths,
+        "objection_profiles": objection_profiles,
+        "evidence_upgrade_recommendations": upgrade_recs,
+        "quote_lock_rows": locked_quotes,
+    }
 
 
 def locate_sample_pdf() -> Path:
@@ -206,6 +252,8 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
     narrative = synthesize_narrative(chronology_events, providers, all_citations, case_info)
 
     graph = EvidenceGraph(pages=pages, documents=docs, providers=providers, events=chronology_events, citations=all_citations)
+    claim_rows = build_claim_ledger_lite([], raw_events=chronology_events)
+    graph.extensions.update(_build_litigation_extensions(claim_rows))
     provider_norm = normalize_provider_entities(graph)
     missing_payload = detect_missing_records(graph, provider_norm)
     artifact_dir = get_artifact_dir(run_id)

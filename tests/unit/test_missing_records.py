@@ -205,3 +205,17 @@ class TestMissingRecords:
             cits = gap["evidence"]["citation_ids"]
             assert "cit1" in cits
             assert "cit2" in cits
+
+    def test_priority_requests_top3_present_and_ranked(self):
+        graph = EvidenceGraph(events=[
+            _evt("e1", date(2024, 1, 1), pid="p1"),
+            _evt("e2", date(2024, 5, 1), pid="p1"),
+            _evt("e3", date(2024, 9, 1), pid="p2"),
+        ])
+        result = detect_missing_records(graph, [])
+        top3 = result.get("priority_requests_top3", [])
+        assert isinstance(top3, list)
+        assert len(top3) >= 1
+        assert int(top3[0]["rank"]) == 1
+        if len(top3) > 1:
+            assert int(top3[0]["priority_score"]) >= int(top3[1]["priority_score"])

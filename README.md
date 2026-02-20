@@ -126,6 +126,22 @@ python scripts/batch_ingest.py
 Results will be saved to `data/batch_runs/summary.json`.
 Artifacts for each run are stored in `data/batch_runs/<run_id>/`.
 
+## Adversarial Robustness Eval
+
+Run perturbation testing against arbitrary packet folders (not corpus-specific):
+
+```powershell
+python scripts/eval_invariant_robustness.py --input-dir PacketIntake --sample-size 12
+```
+
+This harness evaluates invariant stability under:
+- page-order randomization
+- random page removal
+- noise injection
+- mixed packet composition
+
+It writes a full report to `readiness/robustness_invariant_report.json`.
+
 ## Eval Output Bundle
 
 For `scripts/run_case.py` and eval harness runs, `data/evals/<case_id>/` is now self-contained and includes:

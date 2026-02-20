@@ -50,9 +50,4 @@ def synthesize_narrative(
     # 6. Render Report
     report = render_report(clinical_events, case_info)
     
-    # Schema limit is 10000. Truncate with a message if over.
-    MAX_LEN = 9900
-    if len(report) > MAX_LEN:
-        report = report[:MAX_LEN] + "\n\n... [Narrative truncated due to document size. Refer to timeline for full details.]"
-
     return report
