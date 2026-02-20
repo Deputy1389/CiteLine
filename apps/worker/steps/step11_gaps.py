@@ -44,7 +44,7 @@ def detect_gaps(
         return sorted_events, [], warnings
 
     gaps: list[Gap] = []
-    base_threshold = max(config.gap_threshold_days, 120)
+    base_threshold = config.gap_threshold_days
     short_gap_anchor_types = {EventType.HOSPITAL_ADMISSION, EventType.PROCEDURE}
 
     for i in range(1, len(dated_events)):

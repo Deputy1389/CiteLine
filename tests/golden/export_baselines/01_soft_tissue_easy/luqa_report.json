@@ -1,0 +1,18 @@
+{
+  "luqa_pass": true,
+  "luqa_score_0_100": 100,
+  "failures": [],
+  "metrics": {
+    "meta_hits": 0,
+    "placeholder_ratio": 0.0,
+    "duplicate_lines": 0,
+    "duplicate_rows_ratio": 0.0,
+    "fact_density_ratio": 0.75,
+    "verbatim_ratio": 1.0,
+    "care_window_mismatch": false,
+    "missing_buckets": [],
+    "timeline_row_count": 4,
+    "noise_rows_ratio": 0.0,
+    "render_quality_defect_count": 0
+  }
+}

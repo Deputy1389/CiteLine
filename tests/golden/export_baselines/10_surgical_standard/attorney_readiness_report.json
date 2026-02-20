@@ -1,0 +1,12 @@
+{
+  "attorney_ready_pass": true,
+  "attorney_ready_score_0_100": 100,
+  "failures": [],
+  "metrics": {
+    "timeline_row_count": 6,
+    "uncited_ratio": 0.0,
+    "fact_density_ratio": 1.0,
+    "missing_buckets": [],
+    "missing_sections": []
+  }
+}

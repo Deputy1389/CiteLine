@@ -35,5 +35,13 @@ class ClinicalEvent:
     fragments: Set[str] = field(default_factory=set)
     plans: Set[str] = field(default_factory=set)
     
+    # CASEMARK ADAPTATION: Structured Encounter Fields
+    reason_for_visit: Optional[str] = None
+    chief_complaint: Optional[str] = None
+    exam_findings: List[str] = field(default_factory=list)
+    treatment_plan: List[str] = field(default_factory=list)
+    diagnoses: List[str] = field(default_factory=list)
+    coding: dict = field(default_factory=dict)
+    
     provider: Optional[str] = None
     facility: Optional[str] = None

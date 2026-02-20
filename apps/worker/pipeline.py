@@ -294,7 +294,7 @@ def run_pipeline(run_id: str) -> None:
         all_citations.extend(op_cits)
         all_warnings.extend(op_warns)
         all_skipped.extend(op_skipped)
-        print(f"extraction: {len(all_events)} events")
+        logger.info(f"[{run_id}] Extraction complete: {len(all_events)} events")
         assign_patient_scope_to_events(all_events, page_to_patient_scope)
         enforce_event_patient_scope(all_events, all_citations, page_to_patient_scope)
 
@@ -316,11 +316,11 @@ def run_pipeline(run_id: str) -> None:
 
         # Full-graph chronology path (do not use explicit export filtering).
         chronology_events = improve_legal_usability([e.model_copy(deep=True) for e in all_events])
-        print(f"normalization: {len(chronology_events)} events")
+        logger.info(f"[{run_id}] Legal usability normalization: {len(chronology_events)} events")
 
         # Explicit filtered path kept for gap detection and strict exports.
         export_events = filter_for_export([e.model_copy(deep=True) for e in all_events], config)
-        print(f"after_explicit_filter: {len(export_events)} events")
+        logger.info(f"[{run_id}] After confidence filter: {len(export_events)} events")
 
         # ── Step 11: Gap detection ─────────────────────────────────────────
         logger.info(f"[{run_id}] Step 11: Gap detection")
@@ -395,7 +395,7 @@ def run_pipeline(run_id: str) -> None:
         coverage_spans = compute_coverage_spans(providers_normalized)
         evidence_graph.extensions["providers_normalized"] = providers_normalized
         evidence_graph.extensions["coverage_spans"] = coverage_spans
-        print(f"provider_normalization: {len(chronology_events)} events")
+        logger.info(f"[{run_id}] Provider normalization complete: {len(providers_normalized)} providers")
 
         # ── Step 14b: Provider directory artifact ───────────────────────
         logger.info(f"[{run_id}] Step 14b: Provider directory artifact")
@@ -407,7 +407,7 @@ def run_pipeline(run_id: str) -> None:
         missing_records_payload = detect_missing_records(evidence_graph, providers_normalized)
         evidence_graph.extensions["missing_records"] = missing_records_payload
         mr_csv_ref, mr_json_ref = render_missing_records(run_id, missing_records_payload)
-        print(f"missing_record_detection: {len(chronology_events)} events")
+        logger.info(f"[{run_id}] Missing record detection complete: {missing_records_payload.get('summary', {}).get('total_gaps', 0)} gaps")
 
         logger.info(f"[{run_id}] Step 15a: Missing record request generator")
         missing_record_requests_payload = generate_missing_record_requests(evidence_graph)
@@ -465,7 +465,7 @@ def run_pipeline(run_id: str) -> None:
         )
 
         # First render exports
-        print(f"chronology_generation_input: {len(chronology_events)} events")
+        logger.info(f"[{run_id}] Chronology generation input: {len(chronology_events)} events")
         chronology = render_exports(
             run_id, matter_title, chronology_events, gaps, providers,
             page_map=page_map,

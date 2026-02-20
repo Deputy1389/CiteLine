@@ -1,0 +1,70 @@
+﻿You are taking over a refactor in C:\Citeline.
+
+Goal:
+Refactor apps/worker/steps/step12_export.py (currently ~4.2k lines) into modular files under apps/worker/steps/export_render/ while preserving behavior.
+
+Hard constraints:
+- Refactor only. Do not change output semantics.
+- No scoring/threshold/business-rule edits.
+- Keep backward-compatible API surface in step12_export.py.
+- If any regression appears, revert that phase and retry with smaller extraction.
+
+Current state already done:
+- Litigation sections extracted to apps/worker/steps/litigation/render_sections.py.
+- Projection orchestration extracted:
+  - apps/worker/steps/export_render/projection_pipeline.py
+- Markdown builder extracted:
+  - apps/worker/steps/export_render/markdown_render.py
+- step12_export.py already calls those modules.
+- Tests and robustness currently pass.
+
+Your tasks (in order):
+
+1) Extract timeline/appendix PDF builders
+- Move timeline-related builders from step12_export.py to:
+  - apps/worker/steps/export_render/timeline_pdf.py
+- Move appendix-related builders to:
+  - apps/worker/steps/export_render/appendices_pdf.py
+- Keep function signatures and call order unchanged.
+
+2) Extract CSV and DOCX renderers
+- Move CSV logic to:
+  - apps/worker/steps/export_render/csv_render.py
+- Move DOCX logic to:
+  - apps/worker/steps/export_render/docx_render.py
+- No behavior changes.
+
+3) Extract export orchestration
+- Move render orchestration internals to:
+  - apps/worker/steps/export_render/orchestrator.py
+- Keep step12_export.py exporting same callable names as compatibility wrappers.
+
+4) Keep markdown integration intact
+- Ensure build_markdown_bytes(...) is still used from markdown_render.py.
+- Preserve chronology.md artifact.
+
+5) Clean up imports/dead code
+- Remove unused imports/functions from step12_export.py.
+- Keep only thin wrappers + compatibility-facing functions.
+
+Verification after each phase:
+Run:
+- python -m pytest tests/unit/test_export.py tests/unit/test_pipeline_litigation_extensions.py tests/unit/test_run_case_wiring.py -q
+- python scripts/run_case.py --input PacketIntake/01_soft_tissue_easy/packet.pdf --case-id refactor_delegate_check --run-label refactor_delegate_check_01
+- python scripts/eval_invariant_robustness.py --input-dir PacketIntake --sample-size 10 --seed 20260220 --output-json readiness/robustness_delegate_phase.json
+
+Acceptance criteria:
+- Tests pass.
+- run_case returns successful payload (qa/legal/luqa/attorney pass unchanged for the sample).
+- Robustness report shows:
+  - overall_invariant_stable: true
+  - material_changes: 0
+  - determinism_failures: 0
+- step12_export.py materially reduced in size and complexity.
+- No public API break in modules importing from step12_export.py.
+
+Deliverables:
+- List of files changed.
+- Brief before/after architecture summary.
+- Validation command outputs summarized.
+- Note any residual risks.

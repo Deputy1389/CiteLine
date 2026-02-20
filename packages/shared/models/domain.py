@@ -188,12 +188,17 @@ class Event(BaseModel):
     event_type: EventType
     date: Optional[EventDate] = None
     encounter_type_raw: Optional[str] = None
+    reason_for_visit: Optional[str] = None
+    chief_complaint: Optional[str] = None
     author_name: Optional[str] = None
     author_role: Optional[str] = None
     facts: list[Fact] = Field(default_factory=list, max_length=100)
     diagnoses: list[Fact] = Field(default_factory=list)
     medications: list[Fact] = Field(default_factory=list)
     procedures: list[Fact] = Field(default_factory=list)
+    exam_findings: list[Fact] = Field(default_factory=list)
+    treatment_plan: list[Fact] = Field(default_factory=list)
+    coding: dict[str, list[str]] = Field(default_factory=dict) # e.g. {"icd10": ["Z87.09"], "snomed": ["268565007"]}
     imaging: Optional[ImagingDetails] = None
     billing: Optional[BillingDetails] = None
     confidence: int = Field(ge=0, le=100)

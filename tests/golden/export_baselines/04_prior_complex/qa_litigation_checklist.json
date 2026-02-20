@@ -1,0 +1,422 @@
+{
+  "run_id": "baseline_04_prior_complex_20260220_194727",
+  "source_pdf": "C:\\CiteLine\\PacketIntake\\04_prior_complex\\packet.pdf",
+  "created_at": "2026-02-20T19:47:33.289962+00:00",
+  "tool_version": "qa-litigation-1.0",
+  "pass": true,
+  "score_0_100": 105,
+  "thresholds": {
+    "target_score": 98,
+    "min_timeline_citation_coverage": 0.95,
+    "max_vitals_pro_ratio": 0.1,
+    "max_admin_ratio": 0.05
+  },
+  "hard_invariants": {
+    "H1_no_fabricated_high_risk_claims": {
+      "pass": true,
+      "details": []
+    },
+    "H2_patient_boundary_integrity": {
+      "pass": true,
+      "details": []
+    },
+    "H3_no_unknown_patient_in_core": {
+      "pass": true,
+      "details": []
+    },
+    "H4_citations_present_on_timeline_rows": {
+      "pass": true,
+      "details": []
+    },
+    "H5_temporal_sanity": {
+      "pass": true,
+      "details": []
+    },
+    "H6_provider_facility_contamination": {
+      "pass": true,
+      "details": []
+    },
+    "H7_determinism_placeholder": {
+      "pass": true,
+      "details": []
+    },
+    "H8_output_contract": {
+      "pass": true,
+      "details": []
+    }
+  },
+  "quality_gates": {
+    "Q1_substance_ratio": {
+      "pass": true,
+      "metrics": {
+        "vitals_pro_ratio": 0.0,
+        "admin_ratio": 0.0,
+        "routine_labs_in_timeline": 0
+      },
+      "details": []
+    },
+    "Q2_coverage_floor": {
+      "pass": true,
+      "metrics": {
+        "timeline_rows": 10,
+        "substantive_events": 6,
+        "substantive_event_units": 6,
+        "care_window_days": 52,
+        "event_density": 0.1154,
+        "progression_blocks": 4,
+        "selection_stopping_reason": "no_candidates"
+      },
+      "details": []
+    },
+    "Q3_med_change_semantics_sanity": {
+      "pass": true,
+      "metrics": {
+        "implausible_dose_change_count": 0
+      },
+      "details": []
+    },
+    "Q4_gap_anchoring": {
+      "pass": true,
+      "metrics": {
+        "gaps_total": 1,
+        "gaps_with_bracketing_citations": 1,
+        "noisy_short_gap_rows": 0
+      },
+      "details": []
+    },
+    "Q5_dx_problem_purity": {
+      "pass": true,
+      "metrics": {
+        "non_dx_items_in_dx_appendix": 0
+      },
+      "details": []
+    },
+    "Q6_pro_detection_consistency": {
+      "pass": true,
+      "metrics": {
+        "pro_questionnaire_events": 0,
+        "appendix_d_present": true
+      },
+      "details": []
+    },
+    "Q7_sdoh_quarantine_no_leak": {
+      "pass": true,
+      "metrics": {
+        "sdoh_leak_events": 0
+      },
+      "details": []
+    },
+    "Q8_attorney_usability_sections": {
+      "pass": true,
+      "metrics": {
+        "top_10_section_present": true,
+        "issue_flags_section_present": true,
+        "top10_bucket_diversity": 6
+      },
+      "details": []
+    },
+    "Q_SEM_1_encounter_type_sanity": {
+      "pass": true,
+      "metrics": {
+        "inpatient_rows": 0,
+        "timeline_rows": 10,
+        "inpatient_ratio": 0.0,
+        "outpatient_packet": false
+      },
+      "details": []
+    },
+    "Q_SEM_2_mechanism_required_when_present": {
+      "pass": true,
+      "metrics": {
+        "ed_hits": 3,
+        "mechanism_keyword_hits": 13,
+        "doi_present": true,
+        "mechanism_present": true,
+        "incident_citation_present": true
+      },
+      "details": []
+    },
+    "Q_SEM_3_procedure_specificity_when_anchors_present": {
+      "pass": true,
+      "metrics": {
+        "source_procedure_anchor_clusters": 0,
+        "pro_events": 1,
+        "report_procedure_anchor_hits": 1,
+        "procedure_line_has_citation": true
+      },
+      "details": []
+    },
+    "Q_SEM_4_dx_purity": {
+      "pass": true,
+      "metrics": {
+        "dx_lines": 1,
+        "medical_like_ratio": 1.0,
+        "gibberish_lines": 0
+      },
+      "details": []
+    },
+    "Q_SEM_5_date_drift": {
+      "pass": true,
+      "metrics": {
+        "max_event_date": "2025-05-12",
+        "care_window_end": "2025-05-25",
+        "drift_days": -13
+      },
+      "details": []
+    },
+    "Q_USE_1_required_buckets_present": {
+      "pass": true,
+      "metrics": {
+        "ed": 1,
+        "pt_eval": 4,
+        "mri": 1,
+        "ortho": 1,
+        "procedure": 1
+      },
+      "details": []
+    },
+    "Q_USE_2_min_substantive_rows": {
+      "pass": true,
+      "metrics": {
+        "substantive_rows": 9,
+        "timeline_rows": 10,
+        "substantive_threshold": 6
+      },
+      "details": []
+    },
+    "Q_USE_3_imaging_impression_present": {
+      "pass": true,
+      "metrics": {
+        "impression_present": true
+      },
+      "details": []
+    },
+    "Q_USE_4_no_noise_gibberish": {
+      "pass": true,
+      "metrics": {
+        "noise_hits": 0
+      },
+      "details": []
+    },
+    "Q_USE_5_no_placeholder_language": {
+      "pass": true,
+      "metrics": {
+        "placeholder_hits": 0
+      },
+      "details": []
+    },
+    "Q_USE_HIGH_DENSITY_RATIO": {
+      "pass": true,
+      "metrics": {
+        "high_substance_rows": 5,
+        "timeline_rows": 5,
+        "high_substance_ratio": 1.0
+      },
+      "details": []
+    },
+    "Q_USE_NO_FLOW_NOISE_EVENTS": {
+      "pass": true,
+      "metrics": {
+        "timeline_rows_from_flowsheet_noise": 0
+      },
+      "details": []
+    },
+    "Q_USE_NO_TEMPLATE_LANGUAGE": {
+      "pass": true,
+      "metrics": {
+        "template_phrase_hits": 0
+      },
+      "details": []
+    },
+    "Q_USE_VERBATIM_SNIPPETS": {
+      "pass": true,
+      "metrics": {
+        "rows_with_direct_source_snippets": 3,
+        "rows_with_direct_source_snippets_threshold": 3,
+        "rows_with_direct_snippet": 6
+      },
+      "details": []
+    },
+    "Q_USE_EXTRACTION_SUFFICIENCY": {
+      "pass": true,
+      "metrics": {
+        "source_pages": 600,
+        "substantive_events": 6,
+        "timeline_rows": 10,
+        "pt_note_pages": 156,
+        "substantive_events_from_pt": 4,
+        "required_bucket_present_count": 5,
+        "selection_stopping_reason": "no_candidates"
+      },
+      "details": []
+    },
+    "Q_USE_NO_META_LANGUAGE": {
+      "pass": true,
+      "metrics": {
+        "timeline_meta_language_hits": 0,
+        "timeline_contains_meta_language": false
+      },
+      "details": []
+    },
+    "Q_USE_DIRECT_SNIPPET_REQUIRED": {
+      "pass": true,
+      "metrics": {
+        "timeline_rows_rendered": 4,
+        "rows_with_direct_snippet": 6,
+        "direct_snippet_ratio": 1.0
+      },
+      "details": []
+    },
+    "Q_FINAL_RENDER_CONSISTENCY": {
+      "pass": true,
+      "metrics": {
+        "total_surgeries": 0,
+        "timeline_procedure_rows": 0,
+        "summary_no_surgery": false,
+        "dot_pdf_render_hits": 0,
+        "pt_duplicate_fragment_hits": 0,
+        "top10_item_count": 5,
+        "timeline_bucket_count": 3
+      },
+      "details": []
+    }
+  },
+  "hard_failures": [],
+  "claims": {
+    "high_risk": [
+      {
+        "type": "doi",
+        "value": "2025-04-04",
+        "support_anchors": [
+          {
+            "page_number": 13,
+            "snippet_hash": "cdc988b427005bc2",
+            "confidence": 0.85
+          },
+          {
+            "page_number": 46,
+            "snippet_hash": "47c3a2f51754f3be",
+            "confidence": 0.85
+          },
+          {
+            "page_number": 48,
+            "snippet_hash": "c41c8454b587d418",
+            "confidence": 0.85
+          },
+          {
+            "page_number": 431,
+            "snippet_hash": "8f86b45be9024708",
+            "confidence": 0.85
+          },
+          {
+            "page_number": 432,
+            "snippet_hash": "120b67644f928bc2",
+            "confidence": 0.85
+          }
+        ]
+      },
+      {
+        "type": "mechanism",
+        "value": "mvc",
+        "support_anchors": [
+          {
+            "page_number": 13,
+            "snippet_hash": "cdc988b427005bc2",
+            "confidence": 0.85
+          }
+        ]
+      }
+    ]
+  },
+  "metrics": {
+    "timeline_rows": 10,
+    "timeline_citation_coverage": 1.0,
+    "vitals_questionnaire_ratio": 0.0,
+    "admin_ratio": 0.0,
+    "extracted_high_value_events": 6,
+    "selection_stopping_reason": "no_candidates",
+    "emergent_selection_pass": true,
+    "unknown_patient_rows": 0,
+    "patient_scope_violation_count": 0,
+    "provider_contamination_count": 0,
+    "routine_lab_rows": 0,
+    "pro_signal_present": false,
+    "pro_events": 1,
+    "timestamp_mismatch_count": 0
+  },
+  "per_patient": [
+    {
+      "patient_scope_id": "70ed6e85",
+      "label": "See Patient Header",
+      "date_range": {
+        "start": null,
+        "end": null
+      },
+      "metrics": {
+        "timeline_rows": 10,
+        "timeline_citation_coverage": 1.0,
+        "vitals_pro_ratio": 0.0,
+        "routine_labs_in_timeline": 0
+      },
+      "failures": []
+    }
+  ],
+  "unassigned": {
+    "pages": [],
+    "events": 0,
+    "excluded_from_gaps": true
+  },
+  "artifacts": {
+    "chronology_pdf": "C:\\CiteLine\\data\\evals\\baseline_04_prior_complex\\output.pdf",
+    "events_json": "C:\\CiteLine\\data\\evals\\baseline_04_prior_complex\\evidence_graph.json",
+    "patients_json": "C:\\CiteLine\\data\\evals\\baseline_04_prior_complex\\patient_partitions.json",
+    "missing_records_report_json": "C:\\CiteLine\\data\\evals\\baseline_04_prior_complex\\missing_records.json",
+    "selection_debug_json": "C:\\CiteLine\\data\\evals\\baseline_04_prior_complex\\selection_debug.json",
+    "claim_guard_report_json": "C:\\CiteLine\\data\\evals\\baseline_04_prior_complex\\claim_guard_report.json",
+    "semqa_debug_json": "C:\\CiteLine\\data\\evals\\baseline_04_prior_complex\\semqa_debug.json"
+  },
+  "warnings": [],
+  "failure_summary": {
+    "hard_failed": false,
+    "quality_failed": false,
+    "contract_failed": false,
+    "required_quality_gates": [
+      "Q1_substance_ratio",
+      "Q2_coverage_floor",
+      "Q3_med_change_semantics_sanity",
+      "Q4_gap_anchoring",
+      "Q5_dx_problem_purity",
+      "Q6_pro_detection_consistency",
+      "Q7_sdoh_quarantine_no_leak",
+      "Q8_attorney_usability_sections",
+      "Q_FINAL_RENDER_CONSISTENCY",
+      "Q_SEM_1_encounter_type_sanity",
+      "Q_SEM_2_mechanism_required_when_present",
+      "Q_SEM_3_procedure_specificity_when_anchors_present",
+      "Q_SEM_4_dx_purity",
+      "Q_SEM_5_date_drift",
+      "Q_USE_1_required_buckets_present",
+      "Q_USE_2_min_substantive_rows",
+      "Q_USE_3_imaging_impression_present",
+      "Q_USE_4_no_noise_gibberish",
+      "Q_USE_5_no_placeholder_language",
+      "Q_USE_DIRECT_SNIPPET_REQUIRED",
+      "Q_USE_EXTRACTION_SUFFICIENCY",
+      "Q_USE_HIGH_DENSITY_RATIO",
+      "Q_USE_NO_FLOW_NOISE_EVENTS",
+      "Q_USE_NO_META_LANGUAGE",
+      "Q_USE_NO_TEMPLATE_LANGUAGE",
+      "Q_USE_VERBATIM_SNIPPETS"
+    ]
+  },
+  "scores": {
+    "rubric_score_0_100": 105,
+    "breakdown": {
+      "hard_failures": 0,
+      "citation_coverage": 1.0,
+      "vitals_questionnaire_ratio": 0.0,
+      "admin_ratio": 0.0,
+      "emergent_selection_pass": true
+    }
+  }
+}

@@ -1,0 +1,346 @@
+{
+  "created_at_utc": "2026-02-20T19:47:14.419648+00:00",
+  "packets": [
+    "01_soft_tissue_easy",
+    "02_herniation_med",
+    "03_surgical_hard",
+    "04_prior_complex",
+    "06_herniation_large_clean",
+    "07_surgical_warzone",
+    "08_soft_tissue_noisy",
+    "09_prior_extreme",
+    "10_surgical_standard",
+    "batch_014_complex_prior"
+  ],
+  "artifacts": [
+    "chronology.pdf",
+    "chronology.csv",
+    "chronology.docx",
+    "chronology.md",
+    "qa_litigation_checklist.json",
+    "luqa_report.json",
+    "attorney_readiness_report.json"
+  ],
+  "results": {
+    "01_soft_tissue_easy": {
+      "case_id": "baseline_01_soft_tissue_easy",
+      "run_label": "baseline_01_soft_tissue_easy_20260220_194714",
+      "returncode": 0,
+      "artifacts": {
+        "chronology.pdf": {
+          "error": "not found"
+        },
+        "chronology.csv": {
+          "error": "not found"
+        },
+        "chronology.docx": {
+          "error": "not found"
+        },
+        "chronology.md": {
+          "sha256": "08db08123cda2b42e386e75bc84aef034fed5cb48b2674b676193ebf2dd7a1aa",
+          "bytes": 2168
+        },
+        "qa_litigation_checklist.json": {
+          "sha256": "ec240c8332f799d755923aaad14f783fce95bb71f31b3846af5dac1a730f6171",
+          "bytes": 11099
+        },
+        "luqa_report.json": {
+          "sha256": "9716ada6bc0882e7b083cd61a3e501a0f06cc7464011ccee6ecadba51b83629e",
+          "bytes": 430
+        },
+        "attorney_readiness_report.json": {
+          "sha256": "2d5b89022e21c5cd686ec4bb02e6b22c2a3ce00fcd647d343dd393f5af1afd56",
+          "bytes": 259
+        }
+      }
+    },
+    "02_herniation_med": {
+      "case_id": "baseline_02_herniation_med",
+      "run_label": "baseline_02_herniation_med_20260220_194718",
+      "returncode": 0,
+      "artifacts": {
+        "chronology.pdf": {
+          "error": "not found"
+        },
+        "chronology.csv": {
+          "error": "not found"
+        },
+        "chronology.docx": {
+          "error": "not found"
+        },
+        "chronology.md": {
+          "sha256": "79803b8166b84e794832cda1323139c82a7d68247b639f0e09a39f87a00b2237",
+          "bytes": 4871
+        },
+        "qa_litigation_checklist.json": {
+          "sha256": "01a0333c4ad7101125fad3bfeff6808ae0dcf83d0b97ba0c2c2f34f6f1527415",
+          "bytes": 11295
+        },
+        "luqa_report.json": {
+          "sha256": "4b8fdce40c6ed0f9cf496735407ea9c9b383c46cb04d49a254e10e4dfe451248",
+          "bytes": 431
+        },
+        "attorney_readiness_report.json": {
+          "sha256": "407eaf9388cfd6664c9a7cac8655279b10aba970fb5aaa95210f8e3106758ed8",
+          "bytes": 259
+        }
+      }
+    },
+    "03_surgical_hard": {
+      "case_id": "baseline_03_surgical_hard",
+      "run_label": "baseline_03_surgical_hard_20260220_194722",
+      "returncode": 0,
+      "artifacts": {
+        "chronology.pdf": {
+          "error": "not found"
+        },
+        "chronology.csv": {
+          "error": "not found"
+        },
+        "chronology.docx": {
+          "error": "not found"
+        },
+        "chronology.md": {
+          "sha256": "cf242f11f0134ddf10b0ee4fa0326a362a959a889adc524b0c12519ca5847089",
+          "bytes": 4856
+        },
+        "qa_litigation_checklist.json": {
+          "sha256": "87f8cc1c43f683ebdb6ecb37f69420362ada4fcad14e6cc25497f1917b2ed5f1",
+          "bytes": 11340
+        },
+        "luqa_report.json": {
+          "sha256": "757d44787014918a0766ff3147364a2dec9d579f04ca6182ccca95feec391cee",
+          "bytes": 431
+        },
+        "attorney_readiness_report.json": {
+          "sha256": "c82f8c310afa60829a0b96b132789e9018298615fdae4f56e86a38be65cac746",
+          "bytes": 259
+        }
+      }
+    },
+    "04_prior_complex": {
+      "case_id": "baseline_04_prior_complex",
+      "run_label": "baseline_04_prior_complex_20260220_194727",
+      "returncode": 0,
+      "artifacts": {
+        "chronology.pdf": {
+          "error": "not found"
+        },
+        "chronology.csv": {
+          "error": "not found"
+        },
+        "chronology.docx": {
+          "error": "not found"
+        },
+        "chronology.md": {
+          "sha256": "6ac38328738f1f2898c00ef492ae855ac17edeced994b0757d46c7db833179d0",
+          "bytes": 5319
+        },
+        "qa_litigation_checklist.json": {
+          "sha256": "3b2b9a50853dc28aedef26397cef63b4d143e1421d2eca118612d00a83d5946a",
+          "bytes": 11347
+        },
+        "luqa_report.json": {
+          "sha256": "f14521eb75246d4c8bbea42075d41ebe4383163b031a81cd963f54963780b918",
+          "bytes": 429
+        },
+        "attorney_readiness_report.json": {
+          "sha256": "41ac56cfcd99f01731916b9267ffad267efae2916fadd4c9efec06c4d05cb1de",
+          "bytes": 259
+        }
+      }
+    },
+    "06_herniation_large_clean": {
+      "case_id": "baseline_06_herniation_large_clean",
+      "run_label": "baseline_06_herniation_large_clean_20260220_194733",
+      "returncode": 0,
+      "artifacts": {
+        "chronology.pdf": {
+          "error": "not found"
+        },
+        "chronology.csv": {
+          "error": "not found"
+        },
+        "chronology.docx": {
+          "error": "not found"
+        },
+        "chronology.md": {
+          "sha256": "82eb0790930e0635ae7dade599622b1519733fc9cfd37c95edf310094d9c1dd4",
+          "bytes": 5642
+        },
+        "qa_litigation_checklist.json": {
+          "sha256": "beacc493a824d8b5cfb3d6dd9682015e84191ba4a5b1c9ac144b9c3358abc2df",
+          "bytes": 11432
+        },
+        "luqa_report.json": {
+          "sha256": "757d44787014918a0766ff3147364a2dec9d579f04ca6182ccca95feec391cee",
+          "bytes": 431
+        },
+        "attorney_readiness_report.json": {
+          "sha256": "c82f8c310afa60829a0b96b132789e9018298615fdae4f56e86a38be65cac746",
+          "bytes": 259
+        }
+      }
+    },
+    "07_surgical_warzone": {
+      "case_id": "baseline_07_surgical_warzone",
+      "run_label": "baseline_07_surgical_warzone_20260220_194742",
+      "returncode": 0,
+      "artifacts": {
+        "chronology.pdf": {
+          "error": "not found"
+        },
+        "chronology.csv": {
+          "error": "not found"
+        },
+        "chronology.docx": {
+          "error": "not found"
+        },
+        "chronology.md": {
+          "sha256": "20b5b4fbe7e18300c5e57a92a4e498533b2958bef542c7029d9063f81ce6b578",
+          "bytes": 5583
+        },
+        "qa_litigation_checklist.json": {
+          "sha256": "bd0ec7ef0ff8f9b970d457ec8739f06ff36f4fe33fc76e31d1c946872ad6f834",
+          "bytes": 11376
+        },
+        "luqa_report.json": {
+          "sha256": "f14521eb75246d4c8bbea42075d41ebe4383163b031a81cd963f54963780b918",
+          "bytes": 429
+        },
+        "attorney_readiness_report.json": {
+          "sha256": "41ac56cfcd99f01731916b9267ffad267efae2916fadd4c9efec06c4d05cb1de",
+          "bytes": 259
+        }
+      }
+    },
+    "08_soft_tissue_noisy": {
+      "case_id": "baseline_08_soft_tissue_noisy",
+      "run_label": "baseline_08_soft_tissue_noisy_20260220_194751",
+      "returncode": 0,
+      "artifacts": {
+        "chronology.pdf": {
+          "error": "not found"
+        },
+        "chronology.csv": {
+          "error": "not found"
+        },
+        "chronology.docx": {
+          "error": "not found"
+        },
+        "chronology.md": {
+          "sha256": "6a6935fdaaf193451fefd29b5267617bdfa4bc34defe89d7b4343c1f5d13ec7b",
+          "bytes": 2472
+        },
+        "qa_litigation_checklist.json": {
+          "sha256": "59a031fc2f2f4bf1e660ce53e649caf1043789e2f23102b89214b75cce669bf2",
+          "bytes": 11256
+        },
+        "luqa_report.json": {
+          "sha256": "9716ada6bc0882e7b083cd61a3e501a0f06cc7464011ccee6ecadba51b83629e",
+          "bytes": 430
+        },
+        "attorney_readiness_report.json": {
+          "sha256": "2d5b89022e21c5cd686ec4bb02e6b22c2a3ce00fcd647d343dd393f5af1afd56",
+          "bytes": 259
+        }
+      }
+    },
+    "09_prior_extreme": {
+      "case_id": "baseline_09_prior_extreme",
+      "run_label": "baseline_09_prior_extreme_20260220_194756",
+      "returncode": 0,
+      "artifacts": {
+        "chronology.pdf": {
+          "error": "not found"
+        },
+        "chronology.csv": {
+          "error": "not found"
+        },
+        "chronology.docx": {
+          "error": "not found"
+        },
+        "chronology.md": {
+          "sha256": "6ea844f7da3ead61922f311cb9f53ce3e2c6c963b7af4807f92dbf6146deed90",
+          "bytes": 4911
+        },
+        "qa_litigation_checklist.json": {
+          "sha256": "f8c057920374b415216e44059b5aae7bec0b2db12e48ce606e82935945f984c5",
+          "bytes": 11071
+        },
+        "luqa_report.json": {
+          "sha256": "f14521eb75246d4c8bbea42075d41ebe4383163b031a81cd963f54963780b918",
+          "bytes": 429
+        },
+        "attorney_readiness_report.json": {
+          "sha256": "41ac56cfcd99f01731916b9267ffad267efae2916fadd4c9efec06c4d05cb1de",
+          "bytes": 259
+        }
+      }
+    },
+    "10_surgical_standard": {
+      "case_id": "baseline_10_surgical_standard",
+      "run_label": "baseline_10_surgical_standard_20260220_194803",
+      "returncode": 0,
+      "artifacts": {
+        "chronology.pdf": {
+          "error": "not found"
+        },
+        "chronology.csv": {
+          "error": "not found"
+        },
+        "chronology.docx": {
+          "error": "not found"
+        },
+        "chronology.md": {
+          "sha256": "1ffaf96674ec1c3d133bea112d70dc1b5c2c36db4efb59d18759442227b7d0ce",
+          "bytes": 4998
+        },
+        "qa_litigation_checklist.json": {
+          "sha256": "145fe314385ca7f166d3ef662e2dd6ab6627363bfdb4ecf69584e73c9cb68409",
+          "bytes": 11321
+        },
+        "luqa_report.json": {
+          "sha256": "757d44787014918a0766ff3147364a2dec9d579f04ca6182ccca95feec391cee",
+          "bytes": 431
+        },
+        "attorney_readiness_report.json": {
+          "sha256": "c82f8c310afa60829a0b96b132789e9018298615fdae4f56e86a38be65cac746",
+          "bytes": 259
+        }
+      }
+    },
+    "batch_014_complex_prior": {
+      "case_id": "baseline_batch_014_complex_prior",
+      "run_label": "baseline_batch_014_complex_prior_20260220_194808",
+      "returncode": 0,
+      "artifacts": {
+        "chronology.pdf": {
+          "error": "not found"
+        },
+        "chronology.csv": {
+          "error": "not found"
+        },
+        "chronology.docx": {
+          "error": "not found"
+        },
+        "chronology.md": {
+          "sha256": "d202456fa1e6f84d4af9aa42ec36ac4994a545e4f3984896304dc240e6cd9f47",
+          "bytes": 4914
+        },
+        "qa_litigation_checklist.json": {
+          "sha256": "b7b12d0833722faecc970f0f146f490cd87f369089c0e1953c40412b811afeb6",
+          "bytes": 11412
+        },
+        "luqa_report.json": {
+          "sha256": "757d44787014918a0766ff3147364a2dec9d579f04ca6182ccca95feec391cee",
+          "bytes": 431
+        },
+        "attorney_readiness_report.json": {
+          "sha256": "c82f8c310afa60829a0b96b132789e9018298615fdae4f56e86a38be65cac746",
+          "bytes": 259
+        }
+      }
+    }
+  }
+}
