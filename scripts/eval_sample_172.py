@@ -73,11 +73,16 @@ from apps.worker.steps.case_collapse import (
     build_upgrade_recommendations,
     quote_lock,
 )
+from apps.worker.steps.litigation import (
+    build_comparative_pattern_snapshot,
+    build_contradiction_matrix,
+    build_narrative_duality,
+)
 from apps.worker.lib.noise_filter import is_noise_span
 from apps.worker.steps.step12a_narrative_synthesis import synthesize_narrative
 from apps.worker.project.chronology import build_chronology_projection, infer_page_patient_labels
 from scripts.litigation_qa import build_litigation_checklist, write_litigation_checklist
-from packages.shared.models import CaseInfo, EvidenceGraph, Gap, RunConfig, SourceDocument
+from packages.shared.models import CaseInfo, EvidenceGraph, Gap, LitigationExtensions, RunConfig, SourceDocument
 from packages.shared.storage import get_artifact_dir
 from apps.worker.lib.artifacts_writer import write_artifact_json
 from apps.worker.lib.artifacts_writer import safe_copy, validate_artifacts_exist
@@ -97,7 +102,7 @@ DATE_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
 UUID_PROVIDER_RE = UUID_RE
 
 
-def _build_litigation_extensions(claim_rows: list[dict]) -> dict[str, list[dict]]:
+def _build_litigation_extensions(claim_rows: list[dict]) -> dict:
     anchored_rows = [r for r in claim_rows if (r.get("citations") or [])]
     collapse_candidates = build_case_collapse_candidates(anchored_rows)
     attack_paths = build_defense_attack_paths(collapse_candidates, limit=6)
@@ -118,7 +123,7 @@ def _build_litigation_extensions(claim_rows: list[dict]) -> dict[str, list[dict]
                 "event_id": str(row.get("event_id") or ""),
             }
         )
-    return {
+    payload = {
         "claim_rows": anchored_rows,
         "causation_chains": build_causation_ladders(anchored_rows),
         "citation_fidelity": {
@@ -131,7 +136,11 @@ def _build_litigation_extensions(claim_rows: list[dict]) -> dict[str, list[dict]
         "objection_profiles": objection_profiles,
         "evidence_upgrade_recommendations": upgrade_recs,
         "quote_lock_rows": locked_quotes,
+        "contradiction_matrix": build_contradiction_matrix(anchored_rows),
+        "narrative_duality": build_narrative_duality(anchored_rows),
+        "comparative_pattern_engine": build_comparative_pattern_snapshot(anchored_rows),
     }
+    return LitigationExtensions.model_validate(payload).model_dump(mode="json")
 
 
 def locate_sample_pdf() -> Path:

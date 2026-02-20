@@ -17,6 +17,7 @@ from packages.shared.models import (
     CaseInfo,
     ChronologyResult,
     EvidenceGraph,
+    LitigationExtensions,
     PipelineInputs,
     PipelineOutputs,
     RunConfig,
@@ -71,6 +72,11 @@ from apps.worker.steps.case_collapse import (
     build_upgrade_recommendations,
     quote_lock,
 )
+from apps.worker.steps.litigation import (
+    build_comparative_pattern_snapshot,
+    build_contradiction_matrix,
+    build_narrative_duality,
+)
 from apps.worker.steps.step14_provider_directory import render_provider_directory
 from apps.worker.steps.step15_missing_records import detect_missing_records, render_missing_records
 from apps.worker.steps.step15a_missing_record_requests import (
@@ -90,7 +96,7 @@ from apps.worker.pipeline_persistence import persist_pipeline_state
 logger = logging.getLogger(__name__)
 
 
-def _build_litigation_extensions(claim_rows: list[dict]) -> dict[str, list[dict]]:
+def _build_litigation_extensions(claim_rows: list[dict]) -> dict:
     anchored_rows = [r for r in claim_rows if (r.get("citations") or [])]
     collapse_candidates = build_case_collapse_candidates(anchored_rows)
     attack_paths = build_defense_attack_paths(collapse_candidates, limit=6)
@@ -111,7 +117,7 @@ def _build_litigation_extensions(claim_rows: list[dict]) -> dict[str, list[dict]
                 "event_id": str(row.get("event_id") or ""),
             }
         )
-    return {
+    payload = {
         "claim_rows": anchored_rows,
         "causation_chains": build_causation_ladders(anchored_rows),
         "citation_fidelity": {
@@ -124,7 +130,11 @@ def _build_litigation_extensions(claim_rows: list[dict]) -> dict[str, list[dict]
         "objection_profiles": objection_profiles,
         "evidence_upgrade_recommendations": upgrade_recs,
         "quote_lock_rows": locked_quotes,
+        "contradiction_matrix": build_contradiction_matrix(anchored_rows),
+        "narrative_duality": build_narrative_duality(anchored_rows),
+        "comparative_pattern_engine": build_comparative_pattern_snapshot(anchored_rows),
     }
+    return LitigationExtensions.model_validate(payload).model_dump(mode="json")
 
 
 def run_pipeline(run_id: str) -> None:

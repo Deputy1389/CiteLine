@@ -110,3 +110,19 @@ class SpecialsSummaryExtension(BaseModel):
     dedupe: dict[str, Any] = Field(default_factory=dict)
     confidence: float = 0.0
     flags: list[str] = Field(default_factory=list)
+
+
+class LitigationExtensions(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    claim_rows: list[dict[str, Any]] = Field(default_factory=list)
+    causation_chains: list[dict[str, Any]] = Field(default_factory=list)
+    case_collapse_candidates: list[dict[str, Any]] = Field(default_factory=list)
+    defense_attack_paths: list[dict[str, Any]] = Field(default_factory=list)
+    objection_profiles: list[dict[str, Any]] = Field(default_factory=list)
+    evidence_upgrade_recommendations: list[dict[str, Any]] = Field(default_factory=list)
+    quote_lock_rows: list[dict[str, Any]] = Field(default_factory=list)
+    contradiction_matrix: list[dict[str, Any]] = Field(default_factory=list)
+    narrative_duality: dict[str, Any] = Field(default_factory=dict)
+    comparative_pattern_engine: dict[str, Any] = Field(default_factory=dict)
+    citation_fidelity: dict[str, Any] = Field(default_factory=dict)

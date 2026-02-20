@@ -53,6 +53,9 @@ def test_build_litigation_extensions_contract() -> None:
     assert "objection_profiles" in ext
     assert "evidence_upgrade_recommendations" in ext
     assert "quote_lock_rows" in ext
+    assert "contradiction_matrix" in ext
+    assert "narrative_duality" in ext
+    assert "comparative_pattern_engine" in ext
     assert isinstance(ext["quote_lock_rows"], list)
     if ext["quote_lock_rows"]:
         assert all("quote" in q for q in ext["quote_lock_rows"])

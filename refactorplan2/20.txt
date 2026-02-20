@@ -1,0 +1,123 @@
+﻿Step12 Export Refactor Plan (Behavior-Preserving)
+Date: 2026-02-20
+
+Objective
+Refactor apps/worker/steps/step12_export.py (~4.3k lines) into modular files without changing output behavior, artifact contracts, or QA outcomes.
+
+Non-Negotiables
+- No semantic output changes unless explicitly approved.
+- Keep public API compatibility in step12_export.py.
+- Preserve artifact names and structures.
+- Block merge on golden/snapshot regressions.
+
+Phase 0: Baseline Freeze
+1) Select 10 representative packets:
+- soft tissue
+- herniation
+- surgical
+- noisy OCR
+- multi-patient
+2) Generate baseline artifacts for each:
+- chronology.pdf
+- chronology.csv
+- chronology.docx
+- chronology.md
+- qa_litigation_checklist.json
+- luqa_report.json
+- attorney_readiness_report.json
+3) Store checksums and PDF extracted text snapshots.
+4) Record baseline robustness smoke:
+- scripts/eval_invariant_robustness.py --sample-size 10
+
+Phase 1: Create Module Skeleton (No Logic Change)
+Create package: apps/worker/steps/export_render/
+Files:
+- __init__.py
+- common.py
+- projection_pipeline.py
+- timeline_pdf.py
+- litigation_pdf.py
+- appendices_pdf.py
+- csv_render.py
+- docx_render.py
+- markdown_render.py
+- orchestrator.py
+
+Phase 2: Move Shared Helpers First
+Move helper functions from step12_export.py into common.py exactly as-is:
+- sanitizers
+- citation formatters
+- date parsing helpers
+- shared regex constants
+Then import back into step12_export.py via thin wrappers.
+
+Phase 3: Extract Projection/Selection Pipeline
+Move projection preparation into projection_pipeline.py:
+- projection build/normalize/merge/enrich steps
+- selection debug payload assembly
+Keep function signatures identical where referenced.
+
+Phase 4: Extract PDF Subsections
+Split generate_pdf_from_projection into modular builders:
+- header/summary block
+- litigation sections block
+- timeline block
+- appendices block
+Move into:
+- litigation_pdf.py
+- timeline_pdf.py
+- appendices_pdf.py
+Maintain exact call order and style usage.
+
+Phase 5: Extract Non-PDF Renderers
+Move renderers unchanged:
+- generate_csv_from_projection -> csv_render.py
+- generate_docx -> docx_render.py
+- markdown section generation -> markdown_render.py
+Preserve filenames and save_artifact behavior.
+
+Phase 6: Orchestrator Consolidation
+Move render_exports orchestration internals to orchestrator.py.
+Keep step12_export.py as backward-compatible facade exposing:
+- render_exports
+- generate_pdf_from_projection
+- generate_docx
+- generate_csv_from_projection
+
+Phase 7: Verification Gates Per Phase
+Required after each phase:
+1) Unit tests pass.
+2) Golden artifact diffs pass:
+- no meaningful PDF text drift
+- CSV row parity
+- docx size/text parity within tolerance
+3) QA parity:
+- checklist pass/fail unchanged
+- LUQA pass/fail unchanged
+- attorney readiness pass/fail unchanged
+4) Robustness smoke remains stable:
+- no new material changes
+- determinism failures remain 0
+
+Phase 8: Final Cleanup
+- Remove dead code/imports from step12_export.py.
+- Add docs/export_render_architecture.md:
+  - module map
+  - function ownership
+  - call graph
+  - extension points
+
+Suggested Ticket Breakdown
+Ticket A: Baseline freeze artifacts + checksums
+Ticket B: Module skeleton + helper extraction
+Ticket C: Projection pipeline extraction
+Ticket D: PDF subsection extraction
+Ticket E: CSV/DOCX/MD extraction
+Ticket F: Orchestrator + facade compatibility
+Ticket G: Full regression + robustness + cleanup docs
+
+Delegation Guardrails For Cheaper AI
+- "Refactor only; do not change behavior."
+- "No threshold/prompt/scoring edits during refactor."
+- "If any snapshot diff fails, revert that phase and retry smaller."
+- "Keep step12_export.py public API stable."

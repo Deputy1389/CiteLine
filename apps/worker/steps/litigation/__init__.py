@@ -1,0 +1,5 @@
+from .contradiction_matrix import build_contradiction_matrix
+from .narrative_duality import build_narrative_duality
+from .comparative_pattern_engine import build_comparative_pattern_snapshot
+from .render_sections import append_litigation_sections
+
