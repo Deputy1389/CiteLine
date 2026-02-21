@@ -17,6 +17,7 @@ from reportlab.platypus import (
     Frame,
     PageTemplate,
     Paragraph,
+    PageBreak,
     Spacer,
 )
 
@@ -29,17 +30,18 @@ from apps.worker.steps.export_render.common import (
     _clean_direct_snippet,
     _is_meta_language,
     parse_date_string,
-    _sanitize_render_sentence,
-    _is_sdoh_noise,
-)
-from apps.worker.steps.export_render.constants import (
-    META_LANGUAGE_RE,
 )
 from apps.worker.steps.export_render.timeline_render_utils import _render_entry
 from apps.worker.steps.export_render.appendices_pdf import (
     build_appendix_sections,
     build_projection_appendix_sections,
 )
+from apps.worker.steps.export_render.render_manifest import (
+    RenderManifest,
+    chron_anchor,
+    appendix_anchor,
+)
+from apps.worker.steps.export_render.moat_section import build_moat_section_flowables
 
 if TYPE_CHECKING:
     from packages.shared.models import Event, Gap, Provider, CaseInfo, Citation
@@ -83,6 +85,8 @@ def _build_projection_flowables(
     raw_events: list[Event] | None,
     page_map: dict[int, tuple[str, int]] | None,
     styles: Any,
+    manifest: RenderManifest | None = None,
+    all_citations: list[Citation] | None = None,
 ) -> list:
     flowables = []
     h2 = styles["Heading2"]
@@ -100,10 +104,13 @@ def _build_projection_flowables(
         if eid:
             claims_by_event[eid].append(c)
 
+    filename_doc_map = _build_filename_doc_map(all_citations, page_map)
+
     timeline_row_keys: set[str] = set()
     therapy_recent_signatures: dict[tuple[str, str], tuple[str, date]] = {}
 
     for entry in projection.entries:
+        citation_links = _build_citation_links(entry, filename_doc_map)
         entry_flowables = _render_entry(
             entry=entry,
             date_style=date_style,
@@ -113,6 +120,9 @@ def _build_projection_flowables(
             therapy_recent_signatures=therapy_recent_signatures,
             claims_by_event=claims_by_event,
             extract_date_func=parse_date_string,
+            chron_anchor=chron_anchor(entry.event_id),
+            citation_links=citation_links,
+            manifest=manifest,
         )
         if entry_flowables:
             flowables.extend(entry_flowables)
@@ -145,6 +155,7 @@ def generate_pdf_from_projection(
     care_window: tuple[date, date] | None = None,
     missing_records_payload: dict | None = None,
     evidence_graph_payload: dict | None = None,
+    run_id: str | None = None,
 ) -> bytes:
     buffer = BytesIO()
     doc = BaseDocTemplate(buffer, pagesize=letter, leftMargin=0.75 * inch, rightMargin=0.75 * inch, topMargin=0.75 * inch, bottomMargin=0.75 * inch)
@@ -154,98 +165,20 @@ def generate_pdf_from_projection(
     h1_style = ParagraphStyle("H1Style", parent=styles["Heading1"], fontSize=14, spaceBefore=12, spaceAfter=6, textColor=colors.HexColor("#2E548A"))
     normal_style = styles["Normal"]
 
+    manifest = RenderManifest()
+
     flowables = [Paragraph(f"Medical Chronology: {matter_title}", title_style)]
 
     # Moat section (top of document)
     flowables.append(Paragraph("Moat Analysis", h1_style))
-    ext = {}
-    if evidence_graph_payload and isinstance(evidence_graph_payload, dict):
-        ext = evidence_graph_payload.get("extensions", {}) or {}
-
-    def _render_section(title: str, rows: list[str] | None):
-        flowables.append(Paragraph(title, h1_style))
-        if not rows:
-            flowables.append(Paragraph("No findings for this category.", normal_style))
-            flowables.append(Spacer(1, 0.1 * inch))
-            return
-        for row in rows[:12]:
-            flowables.append(Paragraph(f"• {row}", normal_style))
-            flowables.append(Spacer(1, 0.05 * inch))
-        flowables.append(Spacer(1, 0.1 * inch))
-
-    collapse_rows = [str(r.get("title") or r.get("fragility_type") or r) for r in (ext.get("case_collapse_candidates") or []) if isinstance(r, dict)]
-    _render_section("Case Collapse Candidates", collapse_rows)
-
-    causation_rows = [str(r.get("summary") or r) for r in (ext.get("causation_chains") or []) if isinstance(r, dict)]
-    _render_section("Causation Ladder", causation_rows)
-
-    contradiction_rows = [str(r.get("description") or r.get("analysis") or r) for r in (ext.get("contradiction_matrix") or []) if isinstance(r, dict)]
-    _render_section("Contradiction Matrix", contradiction_rows)
-
-    duality = ext.get("narrative_duality")
-    duality_rows = []
-    if isinstance(duality, dict):
-        duality_rows.append(f"Plaintiff: {duality.get('plaintiff_summary', 'N/A')}")
-        duality_rows.append(f"Defense: {duality.get('defense_summary', 'N/A')}")
-    _render_section("Narrative Duality", duality_rows)
-
-    # Top 10 Case-Driving Events
-    flowables.append(Paragraph("Top 10 Case-Driving Events", h1_style))
-    from apps.worker.steps.export_render.common import _projection_entry_substance_score
-
-    candidates = []
-    for entry in projection.entries:
-        blob = " ".join(entry.facts or []).lower()
-        if "routine follow-up" in blob and "acetaminophen" in blob: continue
-        if "routine continuity gap" in blob: continue
-        if "difficult mission late kind" in blob: continue
-        if "preferred language" in blob: continue
-        if _is_sdoh_noise(blob): continue
-
-        score = _projection_entry_substance_score(entry)
-        label = (entry.event_type_display or "").lower()
-        if "emergency" in label: score += 10
-        if "imaging" in label: score += 10
-        if "procedure" in label: score += 15
-        candidates.append((score, entry))
-
-    scored = sorted(candidates, key=lambda x: x[0], reverse=True)
-    top10_entries = []
-    seen_blobs = set()
-    for _, entry in scored:
-        blob = " ".join(entry.facts or []).lower().strip()
-        clean_blob = re.sub(r"\W+", " ", blob)
-        if clean_blob in seen_blobs: continue
-        seen_blobs.add(clean_blob)
-        top10_entries.append(entry)
-        if len(top10_entries) >= 10: break
-
-    top10_entries = sorted(top10_entries, key=lambda e: (parse_date_string(e.date_display) or date.min, e.event_id))
-    same_day_label_counts: dict[tuple[str, str], int] = {}
-
-    if not top10_entries:
-        flowables.append(Paragraph("No case-driving events identified.", normal_style))
-    for entry in top10_entries:
-        evt_date = parse_date_string(entry.date_display)
-        if not evt_date:
-            continue
-        facts_blob = _sanitize_render_sentence(" ".join(entry.facts or []))
-        facts_blob = re.sub(r"\.\.+", ".", facts_blob)
-        facts_blob = re.sub(r"\s{2,}", " ", facts_blob).strip()
-        facts_blob = re.sub(r"\b(?:and|or|with|to)\.?\s*$", "", facts_blob, flags=re.IGNORECASE).strip()
-        if not facts_blob: continue
-        if not entry.citation_display:
-            continue
-        same_day_label = (evt_date.isoformat(), str(entry.event_type_display or "").strip().lower())
-        if same_day_label_counts.get(same_day_label, 0) >= 2:
-            continue
-        same_day_label_counts[same_day_label] = same_day_label_counts.get(same_day_label, 0) + 1
-        flowables.append(Paragraph(
-            f"• {evt_date.isoformat()} | {entry.event_type_display} | {facts_blob} | Citation(s): {entry.citation_display}",
-            normal_style,
-        ))
-        flowables.append(Spacer(1, 0.05 * inch))
-    flowables.append(Spacer(1, 0.1 * inch))
+    flowables.extend(
+        build_moat_section_flowables(
+            projection_entries=projection.entries,
+            evidence_graph_payload=evidence_graph_payload,
+            missing_records_payload=missing_records_payload,
+            styles=styles,
+        )
+    )
 
     # Executive Summary (after moat)
     flowables.append(PageBreak())
@@ -262,8 +195,15 @@ def generate_pdf_from_projection(
 
     # Timeline
     flowables.append(PageBreak())
-    flowables.append(Paragraph("Chronological Medical Timeline", h1_style))
-    timeline_flowables = _build_projection_flowables(projection, raw_events, page_map, styles)
+    flowables.append(Paragraph('<a name="chronology_section_header"/>Chronological Medical Timeline', h1_style))
+    timeline_flowables = _build_projection_flowables(
+        projection,
+        raw_events,
+        page_map,
+        styles,
+        manifest=manifest,
+        all_citations=all_citations,
+    )
     if not timeline_flowables:
         flowables.append(Paragraph("No timeline events met the criteria for inclusion in this view.", normal_style))
     else:
@@ -280,6 +220,7 @@ def generate_pdf_from_projection(
         raw_events=raw_events,
         all_citations=all_citations,
         missing_records_payload=missing_records_payload,
+        manifest=manifest,
     ))
 
     def footer(canvas, doc):
@@ -293,4 +234,64 @@ def generate_pdf_from_projection(
     template = PageTemplate(id="test", frames=[frame], onPage=footer)
     doc.addPageTemplates([template])
     doc.build(flowables)
+    if run_id:
+        from dataclasses import asdict
+        from packages.shared.storage import save_artifact
+        import json
+        manifest_bytes = json.dumps(asdict(manifest), indent=2).encode("utf-8")
+        save_artifact(run_id, "render_manifest.json", manifest_bytes)
     return buffer.getvalue()
+
+
+def _normalize_filename(name: str) -> str:
+    return re.sub(r"\s+", " ", (name or "").strip()).lower()
+
+
+def _build_filename_doc_map(
+    all_citations: list[Citation] | None,
+    page_map: dict[int, tuple[str, int]] | None,
+) -> dict[str, str]:
+    mapping: dict[str, str] = {}
+    if not all_citations:
+        return mapping
+    for cit in all_citations:
+        filename = str(cit.source_document_id)
+        if page_map and cit.page_number in page_map:
+            mapped_name, _mapped_page = page_map[cit.page_number]
+            if mapped_name:
+                filename = mapped_name
+        key = _normalize_filename(filename)
+        if key and key not in mapping:
+            mapping[key] = str(cit.source_document_id)
+    return mapping
+
+
+def _parse_citation_display(citation_display: str) -> list[tuple[str, int]]:
+    if not citation_display:
+        return []
+    cite_pat = re.compile(r"([^,|;]+?)\s+p\.\s*(\d+)", re.IGNORECASE)
+    refs: list[tuple[str, int]] = []
+    for m in cite_pat.finditer(citation_display):
+        fname = re.sub(r"\s+", " ", m.group(1).strip())
+        try:
+            page = int(m.group(2))
+        except ValueError:
+            continue
+        if page <= 0:
+            continue
+        refs.append((fname, page))
+    return refs
+
+
+def _build_citation_links(
+    entry: ChronologyProjectionEntry,
+    filename_doc_map: dict[str, str],
+) -> list[dict[str, str]]:
+    links: list[dict[str, str]] = []
+    for fname, page in _parse_citation_display(entry.citation_display or ""):
+        doc_id = filename_doc_map.get(_normalize_filename(fname))
+        if not doc_id:
+            continue
+        anchor = appendix_anchor(doc_id, page)
+        links.append({"label": f"{fname} p. {page}", "anchor": anchor})
+    return links

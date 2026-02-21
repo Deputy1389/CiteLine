@@ -22,6 +22,7 @@ from apps.worker.steps.export_render.common import (
     _sanitize_render_sentence,
     _sanitize_citation_display,
 )
+from apps.worker.steps.export_render.render_manifest import appendix_anchor, parse_chron_anchor
 from apps.worker.steps.export_render.medication_utils import (
     _extract_medication_changes,
     _extract_medication_change_rows,
@@ -151,170 +152,81 @@ def build_projection_appendix_sections(
     raw_events: list[Event] | None = None,
     all_citations: list[Citation] | None = None,
     missing_records_payload: dict | None = None,
+    manifest=None,
 ) -> list:
-    flowables = []
+    flowables: list = []
     h1_style = ParagraphStyle("H1Style", parent=styles["Heading1"], fontSize=14, spaceBefore=12, spaceAfter=6, textColor=colors.HexColor("#2E548A"))
     normal_style = styles["Normal"]
-    italic_style = styles["Italic"]
-    
-    # 1. Medications
-    med_changes = _extract_medication_changes(entries)
-    flowables.append(Paragraph("Appendix A: Medications (material changes)", h1_style))
-    flowables.append(Paragraph("Identification of pharmacological interventions documented in source records.", italic_style))
-    flowables.append(Spacer(1, 0.05 * inch))
-    if med_changes:
-        for change in med_changes:
-            flowables.append(Paragraph(change, normal_style))
-            flowables.append(Spacer(1, 0.05 * inch))
-    else:
-        flowables.append(Paragraph("No material medication changes identified in reportable events.", normal_style))
-    flowables.append(Spacer(1, 0.1 * inch))
+    link_style = ParagraphStyle("AppendixLink", parent=styles["Normal"], textColor=colors.HexColor("#1D4ED8"), underlineWidth=0.5)
 
-    # 2. Diagnoses
-    dx_items = _extract_diagnosis_items(entries)
-    flowables.append(Paragraph("Appendix B: Diagnoses/Problems", h1_style))
-    flowables.append(Paragraph("Primary clinical findings identified across the care continuum.", italic_style))
-    flowables.append(Spacer(1, 0.05 * inch))
-    if dx_items:
-        for dx in dx_items:
-            flowables.append(Paragraph(dx, normal_style))
-            flowables.append(Spacer(1, 0.05 * inch))
-    else:
-        flowables.append(Paragraph("No diagnosis/problem statements found in provided record text.", normal_style))
-    flowables.append(Spacer(1, 0.1 * inch))
+    if not all_citations:
+        flowables.append(Paragraph("No citation anchors were available for source packet linking.", normal_style))
+        return flowables
 
-    # Gaps Section
-    if gaps:
-        raw_event_by_id = {e.event_id: e for e in (raw_events or [])}
-        patient_entries = {}
-        for ent in entries:
-            if ent.patient_label not in patient_entries: patient_entries[ent.patient_label] = []
-            patient_entries[ent.patient_label].append(ent)
-        material_gaps = _material_gap_rows(gaps, patient_entries, raw_event_by_id, page_map)
-        flowables.append(Paragraph("Appendix C1: Gap Boundary Anchors", h1_style))
-        flowables.append(Paragraph("Specific medical record context establishing the start and end of treatment gaps.", italic_style))
-        flowables.append(Spacer(1, 0.1 * inch))
-        if material_gaps:
-            for gap_row in material_gaps:
-                last = gap_row["last_before"]
-                nxt = gap_row["first_after"]
-                flowables.append(Paragraph(f"Last before gap: {last['date_display'].split()[0]}", normal_style))
-                flowables.append(Paragraph(f"First after gap: {nxt['date_display'].split()[0]}", normal_style))
-                tag = str(gap_row.get("rationale_tag") or "routine_continuity_gap")
-                duration = int((gap_row.get("gap").duration_days or 0))
-                collapse_label = str(gap_row.get("collapse_label") or "")
-                if collapse_label:
-                    flowables.append(Paragraph(collapse_label, normal_style))
-                flowables.append(Paragraph(f"Gap Span: ({duration} days) [{tag}]", normal_style))
-                flowables.append(Spacer(1, 0.05 * inch))
-        else:
-            flowables.append(Paragraph("No qualifying treatment gaps in projected reportable events.", normal_style))
-        flowables.append(Paragraph("Appendix C: Treatment Gaps", h1_style))
-        flowables.append(Paragraph("Identification of significant durations without documented medical interventions.", italic_style))
-        flowables.append(Spacer(1, 0.1 * inch))
-        if material_gaps:
-            for gap_row in material_gaps:
-                gap = gap_row["gap"]
-                duration = int(gap.duration_days or 0)
-                plabel = gap_row["patient_label"]
-                flowables.append(Paragraph(f"<b>{duration} Day Gap in Treatment</b>", normal_style))
-                flowables.append(Paragraph(f"Patient: {plabel} | Period: {gap.start_date} to {gap.end_date}", normal_style))
-                flowables.append(Spacer(1, 0.08 * inch))
-        else:
-            flowables.append(Paragraph("No qualifying treatment gaps in projected reportable events.", normal_style))
-        flowables.append(Spacer(1, 0.1 * inch))
-    else:
-        flowables.append(Paragraph("Appendix C: Treatment Gaps", h1_style))
-        flowables.append(Paragraph("No qualifying treatment gaps in projected reportable events.", normal_style))
-        flowables.append(Spacer(1, 0.1 * inch))
+    event_label_map: dict[str, str] = {}
+    for entry in entries:
+        label = f"{entry.date_display or 'Undated'} | {entry.event_type_display or 'Event'}"
+        event_label_map[str(entry.event_id)] = label
 
-    # 4. Patient-Reported Outcomes (PRO)
-    pro_items = _extract_pro_items(entries)
-    flowables.append(Paragraph("Appendix D: Patient-Reported Outcomes", h1_style))
-    flowables.append(Paragraph("Standardized assessment scores and subjective patient status markers.", italic_style))
-    flowables.append(Spacer(1, 0.05 * inch))
-    if pro_items:
-        for pro in pro_items:
-            flowables.append(Paragraph(pro, normal_style))
-            flowables.append(Spacer(1, 0.05 * inch))
-    else:
-        flowables.append(Paragraph("No patient-reported outcome measures identified in reportable events.", normal_style))
-    flowables.append(Spacer(1, 0.1 * inch))
+    allowed_anchors: set[str] | None = None
+    if manifest:
+        if manifest.back_links:
+            allowed_anchors = set(manifest.back_links.keys())
+        elif manifest.appendix_anchors:
+            allowed_anchors = set(manifest.appendix_anchors)
 
-    # 5. Issue Flags
-    contradictions = _contradiction_flags(entries)
-    flowables.append(Paragraph("Appendix E: Issue Flags", h1_style))
-    flowables.append(Paragraph("Potential contradictions and defense-sensitive record tensions.", italic_style))
-    flowables.append(Spacer(1, 0.05 * inch))
-    if contradictions:
-        for flag in contradictions:
-            flowables.append(Paragraph(f"• {flag}", normal_style))
-            flowables.append(Spacer(1, 0.05 * inch))
-    else:
-        flowables.append(Paragraph("No high-impact contradictions detected in projected events.", normal_style))
-    flowables.append(Spacer(1, 0.1 * inch))
+    # Group citations by source document + local page.
+    grouped: dict[tuple[str, int, str], list[str]] = {}
+    for cit in sorted(all_citations, key=lambda c: (str(c.source_document_id), int(c.page_number), str(c.citation_id))):
+        filename = str(cit.source_document_id)
+        local_page = int(cit.page_number)
+        if page_map and cit.page_number in page_map:
+            mapped_name, mapped_local = page_map[cit.page_number]
+            filename = mapped_name or filename
+            local_page = int(mapped_local)
+        anchor = appendix_anchor(str(cit.source_document_id), local_page)
+        if allowed_anchors is not None and anchor not in allowed_anchors:
+            continue
+        key = (str(cit.source_document_id), local_page, filename)
+        grouped.setdefault(key, [])
+        snippet = _sanitize_render_sentence((cit.snippet or "").strip())
+        snippet = re.sub(r"\s+", " ", snippet).strip()
+        if snippet:
+            grouped[key].append(snippet)
 
-    # 6. Social Determinants of Health (SDOH)
-    sdoh_items = _extract_sdoh_items(entries)
-    if sdoh_items:
-        flowables.append(Paragraph("Appendix F: Social Determinants of Health (SDOH)", h1_style))
-        flowables.append(Paragraph("Non-clinical factors impacting health outcomes.", italic_style))
-        flowables.append(Spacer(1, 0.05 * inch))
-        for sdoh in sdoh_items:
-            flowables.append(Paragraph(sdoh, normal_style))
-            flowables.append(Spacer(1, 0.05 * inch))
-        flowables.append(Spacer(1, 0.1 * inch))
-        
-        flowables.append(Paragraph("appendix f: social determinants/intake", h1_style))
-        flowables.append(Paragraph("Intake information establishes medical context.", normal_style))
-        flowables.append(Spacer(1, 0.1 * inch))
-    elif any("preferred language" in " ".join((e.facts or [])).lower() for e in entries):
-        flowables.append(Paragraph("appendix f: social determinants/intake", h1_style))
-        flowables.append(Paragraph("No material SDOH/intake items extracted.", normal_style))
-        flowables.append(Spacer(1, 0.1 * inch))
+    # Render appendix by document.
+    doc_groups: dict[str, list[tuple[int, str, list[str]]]] = {}
+    for (doc_id, page_no, filename), snippets in grouped.items():
+        doc_groups.setdefault(doc_id, []).append((page_no, filename, snippets))
 
-    # 8. Med Detail Table (material changes)
-    med_rows = _extract_medication_change_rows(entries)
-    if med_rows:
-        # SUPERSET HEADER
-        flowables.append(Paragraph("Appendix A: Medications (material changes) (appendix a: medications)", h1_style))
-        flowables.append(Paragraph("Structured view of pharmacological modifications.", italic_style))
-        flowables.append(Spacer(1, 0.1 * inch))
-        table_data = [["Date", "Description", "Citation(s)"]]
-        for row in med_rows[:12]:
-            table_data.append([
-                Paragraph(str(row.get("date_display", "")), normal_style),
-                Paragraph(str(row.get("text", "")), normal_style),
-                Paragraph(str(row.get("citation", "")), normal_style),
-            ])
-        ts = TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F0F4F8")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#2E548A")),
-            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ])
-        t = Table(table_data, colWidths=[1.2 * inch, 4 * inch, 1.8 * inch])
-        t.setStyle(ts)
-        flowables.append(t)
-        flowables.append(Spacer(1, 0.2 * inch))
+    for doc_id, pages in doc_groups.items():
+        pages_sorted = sorted(pages, key=lambda x: x[0])
+        doc_label = pages_sorted[0][1] if pages_sorted else doc_id
+        flowables.append(Paragraph(f"Source Document: {doc_label}", h1_style))
+        flowables.append(Paragraph('<a name="medical_record_appendix"/>', normal_style))
+        flowables.append(Paragraph('<link href="#chronology_section_header">Back to Chronology</link>', link_style))
+        flowables.append(Spacer(1, 0.06 * inch))
 
-    # 9. Record packet index with clickable source links
-    citation_rows = _build_record_packet_rows(entries, all_citations, page_map)
-    flowables.extend(
-        _render_record_packet_index(
-            rows=citation_rows,
-            styles=styles,
-            h1_style=h1_style,
-            normal_style=normal_style,
-            italic_style=italic_style,
-        )
-    )
+        for page_no, _, snippets in pages_sorted:
+            anchor = appendix_anchor(doc_id, page_no)
+            if manifest:
+                manifest.add_appendix_anchor(anchor)
+            flowables.append(Paragraph(f'<a name="{anchor}"/>Page {page_no}', normal_style))
+            for snip in snippets[:4]:
+                flowables.append(Paragraph(f"- {snip}", normal_style))
+
+            if manifest and anchor in manifest.back_links:
+                back_links = manifest.back_links.get(anchor, [])
+                if back_links:
+                    link_bits = []
+                    for bid in back_links[:6]:
+                        event_id = parse_chron_anchor(bid) or bid
+                        label = event_label_map.get(event_id, bid)
+                        link_bits.append(f'<link href="#{bid}">[{escape(label)}]</link>')
+                    links = " ".join(link_bits)
+                    flowables.append(Paragraph(f"Referenced by: {links}", link_style))
+
+            flowables.append(Spacer(1, 0.08 * inch))
 
     return flowables
 

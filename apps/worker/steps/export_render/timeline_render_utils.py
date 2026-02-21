@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from reportlab.platypus import Paragraph, Spacer
 from reportlab.lib.units import inch
+from xml.sax.saxutils import escape
 
 from apps.worker.lib.noise_filter import is_noise_span
 from apps.worker.lib.targeted_ontology import canonical_procedures
@@ -26,6 +27,7 @@ from apps.worker.steps.export_render.common import (
 
 if TYPE_CHECKING:
     from apps.worker.project.models import ChronologyProjectionEntry
+    from apps.worker.steps.export_render.render_manifest import RenderManifest
 
 
 def _fact_category_count(text: str) -> int:
@@ -64,6 +66,9 @@ def _render_entry(
     therapy_recent_signatures: dict[tuple[str, str], tuple[str, Any]],
     claims_by_event: dict[str, list[dict]],
     extract_date_func: Any,
+    chron_anchor: str | None = None,
+    citation_links: list[dict[str, str]] | None = None,
+    manifest: "RenderManifest | None" = None,
 ) -> list:
     disposition = _extract_disposition(entry.facts)
     encounter_label = _normalized_encounter_label(entry)
@@ -79,7 +84,12 @@ def _render_entry(
 
     from apps.worker.steps.export_render.projection_enrichment import _normalize_event_class_local
     normalized_event_class = _normalize_event_class_local(entry)
-    parts: list = [Paragraph(f"{display_date} | Encounter: {encounter_label}", date_style)]
+    if chron_anchor:
+        parts: list = [Paragraph(f'<a name="{escape(chron_anchor)}"/>{display_date} | Encounter: {encounter_label}', date_style)]
+        if manifest:
+            manifest.add_chron_anchor(chron_anchor)
+    else:
+        parts = [Paragraph(f"{display_date} | Encounter: {encounter_label}", date_style)]
     lines: list[str] = []
 
     if normalized_event_class == "ed":
@@ -239,8 +249,21 @@ def _render_entry(
         parts.append(Paragraph(clean_line, fact_style))
     if disposition and not any(str(ln).lower().startswith("disposition:") for ln in lines):
         parts.append(Paragraph(_sanitize_render_sentence(f"Disposition: {disposition}"), fact_style))
-    parts.extend([
-        Paragraph(f"Citation(s): {_sanitize_citation_display(entry.citation_display or 'Not available')}", meta_style),
-        Spacer(1, 0.15 * inch),
-    ])
+    if citation_links:
+        link_bits = []
+        for link in citation_links:
+            anchor = link.get("anchor") or ""
+            label = link.get("label") or ""
+            if not anchor or not label:
+                continue
+            link_bits.append(f'<link href="#{escape(anchor)}">[{escape(label)}]</link>')
+            if manifest and chron_anchor:
+                manifest.add_link(chron_anchor, anchor)
+        if link_bits:
+            parts.append(Paragraph(f"Citation(s): {' '.join(link_bits)}", meta_style))
+        else:
+            parts.append(Paragraph(f"Citation(s): {_sanitize_citation_display(entry.citation_display or 'Not available')}", meta_style))
+    else:
+        parts.append(Paragraph(f"Citation(s): {_sanitize_citation_display(entry.citation_display or 'Not available')}", meta_style))
+    parts.append(Spacer(1, 0.15 * inch))
     return parts
