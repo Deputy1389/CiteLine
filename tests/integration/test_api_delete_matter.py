@@ -18,3 +18,21 @@ def test_delete_matter_legacy_and_prefixed():
 
     resp2 = client.delete(f"/api/citeline/matters/{m2['id']}")
     assert resp2.status_code == 204
+
+
+def test_delete_matter_blocked_with_active_run():
+    client = TestClient(app)
+
+    firm_resp = client.post("/firms", json={"name": "Active Run Firm"})
+    assert firm_resp.status_code == 201
+    firm_id = firm_resp.json()["id"]
+
+    matter = client.post(f"/firms/{firm_id}/matters", json={"title": "Active Matter"}).json()
+
+    files = {"file": ("test.pdf", b"%PDF-1.4...", "application/pdf")}
+    client.post(f"/matters/{matter['id']}/documents", files=files)
+
+    client.post(f"/matters/{matter['id']}/runs", json={"max_pages": 1})
+
+    resp = client.delete(f"/matters/{matter['id']}")
+    assert resp.status_code == 409

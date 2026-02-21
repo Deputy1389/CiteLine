@@ -117,5 +117,15 @@ def delete_matter(
         raise HTTPException(status_code=404, detail="Matter not found")
 
     assert_firm_access(identity, matter.firm_id)
+    from packages.db.models import Run
+    has_active = (
+        db.query(Run)
+        .filter(Run.matter_id == matter_id)
+        .filter(Run.status.in_(["pending", "running"]))
+        .first()
+        is not None
+    )
+    if has_active:
+        raise HTTPException(status_code=409, detail="Cannot delete matter with active runs")
     db.delete(matter)
     db.flush()

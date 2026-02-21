@@ -4,6 +4,7 @@ API route: Runs
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
@@ -32,6 +33,7 @@ class RunResponse(BaseModel):
     matter_id: str
     status: str
     started_at: str | None
+    heartbeat_at: str | None
     finished_at: str | None
     metrics: dict | None
     warnings: list | None
@@ -79,6 +81,7 @@ def start_run(
         matter_id=run.matter_id,
         status=run.status,
         started_at=None,
+        heartbeat_at=run.heartbeat_at.isoformat() if run.heartbeat_at else None,
         finished_at=None,
         metrics=None,
         warnings=None,
@@ -113,6 +116,7 @@ def list_runs(
                 matter_id=r.matter_id,
                 status=r.status,
                 started_at=r.started_at.isoformat() if r.started_at else None,
+                heartbeat_at=r.heartbeat_at.isoformat() if r.heartbeat_at else None,
                 finished_at=r.finished_at.isoformat() if r.finished_at else None,
                 metrics=metrics,
                 warnings=warnings,
@@ -147,6 +151,47 @@ def get_run(
         matter_id=run.matter_id,
         status=run.status,
         started_at=run.started_at.isoformat() if run.started_at else None,
+        heartbeat_at=run.heartbeat_at.isoformat() if run.heartbeat_at else None,
+        finished_at=run.finished_at.isoformat() if run.finished_at else None,
+        metrics=metrics,
+        warnings=warnings,
+        error_message=run.error_message,
+        processing_seconds=run.processing_seconds,
+    )
+
+
+@router.post("/runs/{run_id}/cancel", response_model=RunResponse)
+def cancel_run(
+    run_id: str,
+    db: Session = Depends(get_db),
+    identity: RequestIdentity | None = Depends(get_request_identity),
+):
+    """Cancel a pending or running run."""
+    run = db.query(Run).filter_by(id=run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    matter = db.query(Matter).filter_by(id=run.matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+    assert_firm_access(identity, matter.firm_id)
+
+    if run.status not in {"pending", "running"}:
+        raise HTTPException(status_code=409, detail="Run is not active")
+
+    run.status = "failed"
+    run.finished_at = datetime.now(timezone.utc)
+    run.error_message = "Cancelled by user"
+
+    metrics = json.loads(run.metrics_json) if run.metrics_json else None
+    warnings = json.loads(run.warnings_json) if run.warnings_json else None
+
+    return RunResponse(
+        id=run.id,
+        matter_id=run.matter_id,
+        status=run.status,
+        started_at=run.started_at.isoformat() if run.started_at else None,
+        heartbeat_at=run.heartbeat_at.isoformat() if run.heartbeat_at else None,
         finished_at=run.finished_at.isoformat() if run.finished_at else None,
         metrics=metrics,
         warnings=warnings,
