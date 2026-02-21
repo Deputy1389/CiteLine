@@ -256,7 +256,7 @@ def _render_entry(
             label = link.get("label") or ""
             if not anchor or not label:
                 continue
-            link_bits.append(f'<link href="#{escape(anchor)}">[{escape(label)}]</link>')
+            link_bits.append(f"[{escape(label)}]")  # link annotations are added post-render
             if manifest and chron_anchor:
                 manifest.add_link(chron_anchor, anchor)
         if link_bits:

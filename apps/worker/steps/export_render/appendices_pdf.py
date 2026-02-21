@@ -204,7 +204,7 @@ def build_projection_appendix_sections(
         doc_label = pages_sorted[0][1] if pages_sorted else doc_id
         flowables.append(Paragraph(f"Source Document: {doc_label}", h1_style))
         flowables.append(Paragraph('<a name="medical_record_appendix"/>', normal_style))
-        flowables.append(Paragraph('<link href="#chronology_section_header">Back to Chronology</link>', link_style))
+        flowables.append(Paragraph("Back to Chronology", link_style))
         flowables.append(Spacer(1, 0.06 * inch))
 
         for page_no, _, snippets in pages_sorted:
@@ -222,7 +222,7 @@ def build_projection_appendix_sections(
                     for bid in back_links[:6]:
                         event_id = parse_chron_anchor(bid) or bid
                         label = event_label_map.get(event_id, bid)
-                        link_bits.append(f'<link href="#{bid}">[{escape(label)}]</link>')
+                        link_bits.append(f"[{escape(label)}]")
                     links = " ".join(link_bits)
                     flowables.append(Paragraph(f"Referenced by: {links}", link_style))
 
