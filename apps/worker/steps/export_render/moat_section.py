@@ -27,6 +27,7 @@ def _render_section_block(
     *,
     empty_text: str = "No findings for this category.",
     stats: dict | None = None,
+    allow_fallback: bool = True,
 ) -> None:
     flowables.append(Paragraph(title, h2_style))
     if not rows:
@@ -40,6 +41,9 @@ def _render_section_block(
         if not line or is_garbage(line):
             if stats is not None:
                 stats["top10_items_dropped_due_to_quality"] = stats.get("top10_items_dropped_due_to_quality", 0) + 1
+            if allow_fallback:
+                flowables.append(Paragraph("Content present but low-quality/duplicative; see cited source.", normal_style))
+                rendered += 1
             continue
         flowables.append(Paragraph(f"- {line}", normal_style))
         rendered += 1
@@ -234,7 +238,7 @@ def build_moat_section_flowables(
 
     from apps.worker.steps.export_render.common import _projection_entry_substance_score
     top10_rows = _top10_rows(projection_entries, _projection_entry_substance_score)
-    sections.append(("Top 10 Case-Driving Events", top10_rows))
+    sections.append(("Case Driving Events", top10_rows))
 
     sections.append(("Missing Record Detection", _missing_record_rows(ext, missing_records_payload)))
 
@@ -251,6 +255,14 @@ def build_moat_section_flowables(
     for title, rows in sections:
         if not rows or not any(r.strip() for r in rows):
             continue
-        _render_section_block(flowables, title, rows, h2_style, normal_style, stats=stats)
+        _render_section_block(
+            flowables,
+            title,
+            rows,
+            h2_style,
+            normal_style,
+            stats=stats,
+            allow_fallback=(title != "Case Driving Events"),
+        )
 
     return flowables, stats
