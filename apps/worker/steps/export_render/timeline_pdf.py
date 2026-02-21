@@ -144,43 +144,55 @@ def generate_pdf_from_projection(
     page_map: dict[int, tuple[str, int]] | None = None,
     care_window: tuple[date, date] | None = None,
     missing_records_payload: dict | None = None,
+    evidence_graph_payload: dict | None = None,
 ) -> bytes:
     buffer = BytesIO()
     doc = BaseDocTemplate(buffer, pagesize=letter, leftMargin=0.75 * inch, rightMargin=0.75 * inch, topMargin=0.75 * inch, bottomMargin=0.75 * inch)
     styles = getSampleStyleSheet()
-    
+
     title_style = ParagraphStyle("TitleStyle", parent=styles["Title"], fontSize=18, spaceAfter=12)
     h1_style = ParagraphStyle("H1Style", parent=styles["Heading1"], fontSize=14, spaceBefore=12, spaceAfter=6, textColor=colors.HexColor("#2E548A"))
     normal_style = styles["Normal"]
-    
+
     flowables = [Paragraph(f"Medical Chronology: {matter_title}", title_style)]
-    flowables.append(Paragraph("Medical Chronology Analysis", h1_style))
-    
-    if narrative_synthesis:
-        flowables.append(Paragraph("Executive Summary", h1_style))
-        clean_narrative = _clean_narrative_text(narrative_synthesis)
-        for p_text in clean_narrative.split("\n\n"):
-            if p_text.strip():
-                flowables.append(Paragraph(p_text.strip().replace("\n", "<br/>"), normal_style))
-                flowables.append(Spacer(1, 0.1 * inch))
+
+    # Moat section (top of document)
+    flowables.append(Paragraph("Moat Analysis", h1_style))
+    ext = {}
+    if evidence_graph_payload and isinstance(evidence_graph_payload, dict):
+        ext = evidence_graph_payload.get("extensions", {}) or {}
+
+    def _render_section(title: str, rows: list[str] | None):
+        flowables.append(Paragraph(title, h1_style))
+        if not rows:
+            flowables.append(Paragraph("No findings for this category.", normal_style))
+            flowables.append(Spacer(1, 0.1 * inch))
+            return
+        for row in rows[:12]:
+            flowables.append(Paragraph(f"• {row}", normal_style))
+            flowables.append(Spacer(1, 0.05 * inch))
         flowables.append(Spacer(1, 0.1 * inch))
-    flowables.append(Paragraph("What to Review First", h1_style))
-    flowables.append(Paragraph("1) Top events panel: fast triage of the strongest record-backed facts.", normal_style))
-    flowables.append(Paragraph("2) Chronological Medical Timeline: full encounter sequence with citations.", normal_style))
-    flowables.append(Paragraph("3) Appendix G: Record Packet Citation Index for direct page-level source review.", normal_style))
-    flowables.append(Spacer(1, 0.1 * inch))
 
-    # ORDER MATTERS: tests split on timeline header then top10 header.
-    flowables.append(Paragraph("Chronological Medical Timeline", h1_style))
-    timeline_flowables = _build_projection_flowables(projection, raw_events, page_map, styles)
-    if not timeline_flowables:
-        flowables.append(Paragraph("No timeline events met the criteria for inclusion in this view.", normal_style))
-    else:
-        flowables.extend(timeline_flowables)
+    collapse_rows = [str(r.get("title") or r.get("fragility_type") or r) for r in (ext.get("case_collapse_candidates") or []) if isinstance(r, dict)]
+    _render_section("Case Collapse Candidates", collapse_rows)
 
+    causation_rows = [str(r.get("summary") or r) for r in (ext.get("causation_chains") or []) if isinstance(r, dict)]
+    _render_section("Causation Ladder", causation_rows)
+
+    contradiction_rows = [str(r.get("description") or r.get("analysis") or r) for r in (ext.get("contradiction_matrix") or []) if isinstance(r, dict)]
+    _render_section("Contradiction Matrix", contradiction_rows)
+
+    duality = ext.get("narrative_duality")
+    duality_rows = []
+    if isinstance(duality, dict):
+        duality_rows.append(f"Plaintiff: {duality.get('plaintiff_summary', 'N/A')}")
+        duality_rows.append(f"Defense: {duality.get('defense_summary', 'N/A')}")
+    _render_section("Narrative Duality", duality_rows)
+
+    # Top 10 Case-Driving Events
     flowables.append(Paragraph("Top 10 Case-Driving Events", h1_style))
     from apps.worker.steps.export_render.common import _projection_entry_substance_score
-    
+
     candidates = []
     for entry in projection.entries:
         blob = " ".join(entry.facts or []).lower()
@@ -189,14 +201,14 @@ def generate_pdf_from_projection(
         if "difficult mission late kind" in blob: continue
         if "preferred language" in blob: continue
         if _is_sdoh_noise(blob): continue
-        
+
         score = _projection_entry_substance_score(entry)
         label = (entry.event_type_display or "").lower()
         if "emergency" in label: score += 10
         if "imaging" in label: score += 10
         if "procedure" in label: score += 15
         candidates.append((score, entry))
-    
+
     scored = sorted(candidates, key=lambda x: x[0], reverse=True)
     top10_entries = []
     seen_blobs = set()
@@ -207,10 +219,12 @@ def generate_pdf_from_projection(
         seen_blobs.add(clean_blob)
         top10_entries.append(entry)
         if len(top10_entries) >= 10: break
-        
+
     top10_entries = sorted(top10_entries, key=lambda e: (parse_date_string(e.date_display) or date.min, e.event_id))
     same_day_label_counts: dict[tuple[str, str], int] = {}
 
+    if not top10_entries:
+        flowables.append(Paragraph("No case-driving events identified.", normal_style))
     for entry in top10_entries:
         evt_date = parse_date_string(entry.date_display)
         if not evt_date:
@@ -227,12 +241,37 @@ def generate_pdf_from_projection(
             continue
         same_day_label_counts[same_day_label] = same_day_label_counts.get(same_day_label, 0) + 1
         flowables.append(Paragraph(
-            f"\u2022 {evt_date.isoformat()} | {entry.event_type_display} | {facts_blob} | Citation(s): {entry.citation_display}",
+            f"• {evt_date.isoformat()} | {entry.event_type_display} | {facts_blob} | Citation(s): {entry.citation_display}",
             normal_style,
         ))
         flowables.append(Spacer(1, 0.05 * inch))
     flowables.append(Spacer(1, 0.1 * inch))
 
+    # Executive Summary (after moat)
+    flowables.append(PageBreak())
+    flowables.append(Paragraph("Executive Summary", h1_style))
+    if narrative_synthesis:
+        clean_narrative = _clean_narrative_text(narrative_synthesis)
+        for p_text in clean_narrative.split("\n\n"):
+            if p_text.strip():
+                flowables.append(Paragraph(p_text.strip().replace("\n", "<br/>"), normal_style))
+                flowables.append(Spacer(1, 0.1 * inch))
+    else:
+        flowables.append(Paragraph("No executive summary available.", normal_style))
+        flowables.append(Spacer(1, 0.1 * inch))
+
+    # Timeline
+    flowables.append(PageBreak())
+    flowables.append(Paragraph("Chronological Medical Timeline", h1_style))
+    timeline_flowables = _build_projection_flowables(projection, raw_events, page_map, styles)
+    if not timeline_flowables:
+        flowables.append(Paragraph("No timeline events met the criteria for inclusion in this view.", normal_style))
+    else:
+        flowables.extend(timeline_flowables)
+
+    # Appendix
+    flowables.append(PageBreak())
+    flowables.append(Paragraph("Medical Record Appendix", h1_style))
     flowables.extend(build_projection_appendix_sections(
         appendix_entries or projection.entries,
         gaps,

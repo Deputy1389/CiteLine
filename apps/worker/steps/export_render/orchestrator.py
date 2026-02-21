@@ -131,6 +131,7 @@ def render_exports(
         page_map=page_map,
         care_window=care_window,
         missing_records_payload=missing_records_payload,
+        evidence_graph_payload=evidence_graph_payload,
     )
     pdf_path = save_artifact(run_id, "chronology.pdf", pdf_bytes)
     pdf_sha = hashlib.sha256(pdf_bytes).hexdigest() if hasattr(pdf_bytes, "__len__") else None
