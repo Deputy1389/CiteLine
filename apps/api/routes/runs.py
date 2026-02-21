@@ -200,6 +200,43 @@ def cancel_run(
     )
 
 
+@router.post("/runs/{run_id}/force-fail", response_model=RunResponse)
+def force_fail_run(
+    run_id: str,
+    db: Session = Depends(get_db),
+    identity: RequestIdentity | None = Depends(get_request_identity),
+):
+    """Force a run into failed state regardless of current status."""
+    run = db.query(Run).filter_by(id=run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    matter = db.query(Matter).filter_by(id=run.matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+    assert_firm_access(identity, matter.firm_id)
+
+    run.status = "failed"
+    run.finished_at = datetime.now(timezone.utc)
+    run.error_message = "Force-failed by user"
+
+    metrics = json.loads(run.metrics_json) if run.metrics_json else None
+    warnings = json.loads(run.warnings_json) if run.warnings_json else None
+
+    return RunResponse(
+        id=run.id,
+        matter_id=run.matter_id,
+        status=run.status,
+        started_at=run.started_at.isoformat() if run.started_at else None,
+        heartbeat_at=run.heartbeat_at.isoformat() if run.heartbeat_at else None,
+        finished_at=run.finished_at.isoformat() if run.finished_at else None,
+        metrics=metrics,
+        warnings=warnings,
+        error_message=run.error_message,
+        processing_seconds=run.processing_seconds,
+    )
+
+
 @router.get("/runs/{run_id}/artifacts/{artifact_type}")
 def download_artifact(
     run_id: str,

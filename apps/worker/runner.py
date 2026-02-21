@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 # Config
 HEARTBEAT_INTERVAL = 10  # Seconds
 STALE_THRESHOLD_MINUTES = 10
+MAX_RUN_RETRIES = int(os.getenv("MAX_RUN_RETRIES", "3"))
+RUN_TIMEOUT_SECONDS = int(os.getenv("RUN_TIMEOUT_SECONDS", "1800"))
 WORKER_ID = f"{platform.node()}-{os.getpid()}-{uuid.uuid4().hex[:6]}"
 
 def get_utc_now():
@@ -46,6 +48,14 @@ def claim_run() -> str | None:
         target_run = None
         if stale_run:
             logger.warning(f"Found stale run {stale_run.id} (last heartbeat {stale_run.heartbeat_at}). Reclaiming.")
+            if (stale_run.retry_count or 0) >= MAX_RUN_RETRIES:
+                stale_run.status = "failed"
+                stale_run.finished_at = get_utc_now()
+                stale_run.error_message = f"Retry limit exceeded ({MAX_RUN_RETRIES})"
+                session.commit()
+                logger.error(f"Run {stale_run.id} exceeded retry limit; marked failed.")
+                return None
+            stale_run.retry_count = (stale_run.retry_count or 0) + 1
             target_run = stale_run
         else:
             # Normal pending run
@@ -75,6 +85,7 @@ def claim_run() -> str | None:
                 "worker_id": WORKER_ID,
                 "claimed_at": get_utc_now(),
                 "heartbeat_at": get_utc_now(),
+                "retry_count": target_run.retry_count or 0,
             })
         )
         
@@ -130,7 +141,11 @@ def main():
                 beater.start()
                 
                 try:
+                    start = time.monotonic()
                     run_pipeline(run_id)
+                    elapsed = time.monotonic() - start
+                    if elapsed > RUN_TIMEOUT_SECONDS:
+                        logger.error(f"Run {run_id} exceeded timeout ({RUN_TIMEOUT_SECONDS}s) but completed.")
                 finally:
                     beater.stop()
                     beater.join()

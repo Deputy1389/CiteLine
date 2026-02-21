@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+import os
 from datetime import datetime, timezone
 
 from packages.db.database import get_session
@@ -95,6 +96,13 @@ from apps.worker.pipeline_artifacts import build_artifact_ref_entries, build_pag
 from apps.worker.pipeline_persistence import persist_pipeline_state
 
 logger = logging.getLogger(__name__)
+RUN_TIMEOUT_SECONDS = int(os.getenv("RUN_TIMEOUT_SECONDS", "1800"))
+
+
+def _check_deadline(start_time: float, run_id: str, label: str) -> None:
+    elapsed = time.time() - start_time
+    if elapsed > RUN_TIMEOUT_SECONDS:
+        raise TimeoutError(f"Run {run_id} exceeded timeout at {label} ({int(elapsed)}s)")
 
 
 def _build_litigation_extensions(claim_rows: list[dict] | list[ClaimEdge]) -> dict:
@@ -205,6 +213,7 @@ def run_pipeline(run_id: str) -> None:
             return
 
         # ── Step 0: Validate ──────────────────────────────────────────────────
+        _check_deadline(start_time, run_id, "step0")
         logger.info(f"[{run_id}] Step 0: Input validation")
         valid_docs, step_warnings = validate_inputs(source_documents, config)
         all_warnings.extend(step_warnings)
@@ -218,6 +227,7 @@ def run_pipeline(run_id: str) -> None:
         page_offset = 0
 
         for doc in valid_docs:
+            _check_deadline(start_time, run_id, "step1-2")
             pdf_path = str(get_upload_path(doc.document_id))
             logger.info(f"[{run_id}] Step 1: Splitting pages for {doc.document_id}")
             pages, step_warnings = split_pages(
@@ -238,11 +248,13 @@ def run_pipeline(run_id: str) -> None:
             return
 
         # ── Step 3: Classify pages ─────────────────────────────────────────
+        _check_deadline(start_time, run_id, "step3")
         logger.info(f"[{run_id}] Step 3: Page classification")
         all_pages, step_warnings = classify_pages(all_pages)
         all_warnings.extend(step_warnings)
 
         # ── Step 3a: Demographics extraction ────────────────────────────
+        _check_deadline(start_time, run_id, "step3a")
         logger.info(f"[{run_id}] Step 3a: Demographics extraction")
         patient, step_warnings = extract_demographics(all_pages)
         all_warnings.extend(step_warnings)
@@ -250,6 +262,7 @@ def run_pipeline(run_id: str) -> None:
         patient_partitions_payload, page_to_patient_scope = build_patient_partitions(all_pages)
 
         # ── Step 4: Document segmentation ──────────────────────────────────
+        _check_deadline(start_time, run_id, "step4")
         logger.info(f"[{run_id}] Step 4: Document segmentation")
         all_documents = []
         for doc in valid_docs:
@@ -259,15 +272,18 @@ def run_pipeline(run_id: str) -> None:
             all_documents.extend(docs)
 
         # ── Step 5: Provider detection ───────────────────────────────────────
+        _check_deadline(start_time, run_id, "step5")
         logger.info(f"[{run_id}] Step 5: Provider detection")
         providers, page_provider_map, step_warnings = detect_providers(all_pages, all_documents)
         all_warnings.extend(step_warnings)
 
         # ── Step 6: Date extraction ───────────────────────────────────────────
+        _check_deadline(start_time, run_id, "step6")
         logger.info(f"[{run_id}] Step 6: Date extraction")
         dates = extract_dates_for_pages(all_pages)
 
         # ── Step 7: Event extraction ──────────────────────────────────────────
+        _check_deadline(start_time, run_id, "step7")
         logger.info(f"[{run_id}] Step 7: Event extraction")
         all_events = []
         all_citations = []
@@ -319,16 +335,19 @@ def run_pipeline(run_id: str) -> None:
         enforce_event_patient_scope(all_events, all_citations, page_to_patient_scope)
 
         # ── Step 8: Citation post-processing ──────────────────────────────
+        _check_deadline(start_time, run_id, "step8")
         logger.info(f"[{run_id}] Step 8: Citation capture")
         all_citations, step_warnings = post_process_citations(all_citations)
         all_warnings.extend(step_warnings)
 
         # ── Step 9: Deduplication ───────────────────────────────────────────
+        _check_deadline(start_time, run_id, "step9")
         logger.info(f"[{run_id}] Step 9: Deduplication")
         all_events, step_warnings = deduplicate_events(all_events)
         all_warnings.extend(step_warnings)
 
         # ── Step 10: Confidence scoring ─────────────────────────────────────
+        _check_deadline(start_time, run_id, "step10")
         logger.info(f"[{run_id}] Step 10: Confidence scoring")
         all_events, step_warnings = apply_confidence_scoring(all_events, config)
         all_warnings.extend(step_warnings)
@@ -343,6 +362,7 @@ def run_pipeline(run_id: str) -> None:
         logger.info(f"[{run_id}] After confidence filter: {len(export_events)} events")
 
         # ── Step 11: Gap detection ─────────────────────────────────────────
+        _check_deadline(start_time, run_id, "step11")
         logger.info(f"[{run_id}] Step 11: Gap detection")
         export_events, gaps, step_warnings = detect_gaps(export_events, config)
         all_warnings.extend(step_warnings)
@@ -427,6 +447,7 @@ def run_pipeline(run_id: str) -> None:
         patient_partitions_json_ref = render_patient_partitions(run_id, patient_partitions_payload)
 
         # ── Step 15: Missing record detection ───────────────────────────
+        _check_deadline(start_time, run_id, "step15")
         logger.info(f"[{run_id}] Step 15: Missing record detection")
         missing_records_payload = detect_missing_records(evidence_graph, providers_normalized)
         evidence_graph.extensions["missing_records"] = missing_records_payload
@@ -441,18 +462,21 @@ def run_pipeline(run_id: str) -> None:
         )
 
         # ── Step 16: Billing lines extraction ───────────────────────────
+        _check_deadline(start_time, run_id, "step16")
         logger.info(f"[{run_id}] Step 16: Billing lines extraction")
         billing_lines_payload = extract_billing_lines(evidence_graph, providers_normalized)
         evidence_graph.extensions["billing_lines"] = billing_lines_payload
         bl_csv_ref, bl_json_ref = render_billing_lines(run_id, billing_lines_payload)
 
         # ── Step 17: Specials summary ─────────────────────────────────────
+        _check_deadline(start_time, run_id, "step17")
         logger.info(f"[{run_id}] Step 17: Specials summary")
         specials_payload = compute_specials_summary(billing_lines_payload, providers_normalized)
         evidence_graph.extensions["specials_summary"] = specials_payload
         ss_csv_ref, ss_json_ref, ss_pdf_ref = render_specials_summary(run_id, specials_payload, matter_title)
 
         # ── Step 12: Export rendering ─────────────────────────────────────
+        _check_deadline(start_time, run_id, "step12")
         logger.info(f"[{run_id}] Step 12: Export rendering")
         processing_seconds = time.time() - start_time
 
@@ -469,6 +493,7 @@ def run_pipeline(run_id: str) -> None:
         page_map = build_page_map(all_pages, source_documents)
 
         # Step 18: Paralegal chronology + extraction notes
+        _check_deadline(start_time, run_id, "step18")
         logger.info(f"[{run_id}] Step 18: Paralegal chronology artifacts")
         paralegal_payload = build_paralegal_chronology_payload(
             evidence_graph=evidence_graph,
@@ -517,6 +542,7 @@ def run_pipeline(run_id: str) -> None:
         all_warnings.extend(review_warnings)
 
         # ── Step 13: Run receipt ──────────────────────────────────────────────
+        _check_deadline(start_time, run_id, "step13")
         logger.info(f"[{run_id}] Step 13: Run receipt")
         run_record = create_run_record(
             run_id, started_at, source_documents, evidence_graph,
@@ -590,15 +616,24 @@ def run_pipeline(run_id: str) -> None:
             patient_chronologies_json_ref=patient_chronologies_json_ref,
             patient_partitions_json_ref=patient_partitions_json_ref,
         )
-        persist_pipeline_state(
-            run_id=run_id,
-            status=status,
-            processing_seconds=processing_seconds,
-            run_record=run_record,
-            all_warnings=all_warnings,
-            evidence_graph=evidence_graph,
-            artifact_entries=artifact_entries,
-        )
+        with get_session() as session:
+            run_row = session.query(RunORM).filter_by(id=run_id).first()
+            if run_row:
+                run_row.status = "persisting"
+        try:
+            persist_pipeline_state(
+                run_id=run_id,
+                status=status,
+                processing_seconds=processing_seconds,
+                run_record=run_record,
+                all_warnings=all_warnings,
+                evidence_graph=evidence_graph,
+                artifact_entries=artifact_entries,
+            )
+        except Exception as exc:
+            logger.exception(f"[{run_id}] Persist failed: {exc}")
+            _fail_run(run_id, f"Persist failed: {exc}")
+            return
 
         logger.info(f"[{run_id}] Pipeline completed: status={status}, events={len(all_events)}, exported={len(chronology_events)}")
 

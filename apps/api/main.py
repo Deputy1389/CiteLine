@@ -257,6 +257,32 @@ def health_worker():
     return {"status": "ok", "worker_running": alive}
 
 
+@app.get("/health/worker/details")
+def health_worker_details():
+    if DATABASE_URL.startswith("sqlite"):
+        return {"status": "ok", "backend": "sqlite"}
+    with engine.begin() as conn:
+        stale = conn.execute(
+            text(
+                "SELECT count(*) FROM runs WHERE status='running' "
+                "AND (heartbeat_at IS NULL OR heartbeat_at < (NOW() - interval '10 minutes'))"
+            )
+        ).fetchone()[0]
+        running = conn.execute(
+            text("SELECT count(*) FROM runs WHERE status='running'")
+        ).fetchone()[0]
+        pending = conn.execute(
+            text("SELECT count(*) FROM runs WHERE status='pending'")
+        ).fetchone()[0]
+    return {
+        "status": "ok",
+        "backend": "postgres",
+        "running": running,
+        "pending": pending,
+        "stale_running": stale,
+    }
+
+
 @app.get("/health/schema")
 def health_schema():
     if DATABASE_URL.startswith("sqlite"):

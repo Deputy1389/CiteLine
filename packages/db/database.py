@@ -48,6 +48,13 @@ def _apply_schema_migrations() -> None:
         except Exception:
             # Likely already migrated or insufficient privileges; ignore to keep startup resilient.
             logger.exception("Failed to migrate artifacts.artifact_type (may already be migrated).")
+        try:
+            conn.execute(
+                text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS retry_count INTEGER DEFAULT 0")
+            )
+            logger.info("Ensured runs.retry_count column exists.")
+        except Exception:
+            logger.exception("Failed to add runs.retry_count (may already exist).")
 
 
 @contextmanager

@@ -74,6 +74,7 @@ class Run(Base):
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
     provenance_json = Column(JSON, nullable=True)
+    retry_count = Column(Integer, default=0)
     
     # Worker management
     claimed_at = Column(DateTime, nullable=True)

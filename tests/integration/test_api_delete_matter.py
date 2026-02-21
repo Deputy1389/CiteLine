@@ -1,6 +1,20 @@
+import os
+import pytest
 from fastapi.testclient import TestClient
 
+os.environ.setdefault("DATABASE_URL", "sqlite:///C:/CiteLine/data/test_citeline_api_delete_matter.db")
+os.environ.setdefault("DATA_DIR", "C:/CiteLine/data")
+
 from apps.api.main import app
+from packages.db.database import engine
+from packages.db.models import Base
+
+
+@pytest.fixture(autouse=True)
+def setup_db():
+    Base.metadata.create_all(bind=engine)
+    yield
+    Base.metadata.drop_all(bind=engine)
 
 
 def test_delete_matter_legacy_and_prefixed():
