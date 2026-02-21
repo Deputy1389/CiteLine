@@ -12,7 +12,8 @@ eggs/
 .eggs/
 lib/
 lib64/
-!apps/worker/lib/claim_ledger_lite.py
+!apps/worker/lib/
+!apps/worker/lib/*.py
 parts/
 sdist/
 var/
