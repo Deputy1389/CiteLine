@@ -103,3 +103,19 @@ def get_matter(
         client_ref=matter.client_ref,
         created_at=matter.created_at.isoformat(),
     )
+
+
+@router.delete("/matters/{matter_id}", status_code=204)
+def delete_matter(
+    matter_id: str,
+    db: Session = Depends(get_db),
+    identity: RequestIdentity | None = Depends(get_request_identity),
+):
+    """Delete a matter and its related records."""
+    matter = db.query(Matter).filter_by(id=matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+
+    assert_firm_access(identity, matter.firm_id)
+    db.delete(matter)
+    db.flush()
