@@ -42,6 +42,19 @@ export interface Run {
   processing_seconds?: number;
 }
 
+export interface ArtifactMeta {
+  artifact_type: string;
+  storage_uri: string;
+  sha256: string;
+  bytes: number;
+}
+
+export interface LatestExports {
+  run_id: string;
+  status: string;
+  artifacts: ArtifactMeta[];
+}
+
 export const getFirms = async () => {
   const response = await api.get<Firm[]>('/firms');
   return response.data;
@@ -100,4 +113,9 @@ export const getRun = async (runId: string) => {
 
 export const getArtifactUrl = (runId: string, type: string) => {
   return `${API_BASE_URL}/runs/${runId}/artifacts/${type}`;
+};
+
+export const getLatestExports = async (matterId: string) => {
+  const response = await api.get<LatestExports>(`/matters/${matterId}/exports/latest`);
+  return response.data;
 };

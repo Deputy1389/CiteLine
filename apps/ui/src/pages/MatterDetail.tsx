@@ -1,15 +1,27 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-    getMatter, getMatterDocuments, getMatterRuns,
+    getMatter, getMatterDocuments, getMatterRuns, getLatestExports,
     uploadDocument, createRun, getArtifactUrl,
     type Matter, type Document, type Run
 } from '../api';
 import { ARTIFACT_TYPES } from '../artifacts';
 import {
     FileText, Upload, Play, Clock, CheckCircle, AlertTriangle,
-    FileSpreadsheet, ArrowLeft, RefreshCw, Loader2
+    FileSpreadsheet, ArrowLeft, RefreshCw, Loader2, Scale, GitBranch, ShieldAlert, ListChecks
 } from 'lucide-react';
+
+type CommandCenterData = {
+    runId: string;
+    claimRows: Record<string, any>[];
+    causationChains: Record<string, any>[];
+    collapseCandidates: Record<string, any>[];
+    contradictionMatrix: Record<string, any>[];
+    narrativeDuality: Record<string, any>;
+    citationFidelity: Record<string, any>;
+};
+
+const completedStatuses = new Set(['success', 'partial']);
 
 export default function MatterDetail() {
     const { matterId } = useParams<{ matterId: string }>();
@@ -18,6 +30,9 @@ export default function MatterDetail() {
     const [runs, setRuns] = useState<Run[]>([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
+    const [commandCenterLoading, setCommandCenterLoading] = useState(false);
+    const [commandCenterError, setCommandCenterError] = useState<string | null>(null);
+    const [commandCenterData, setCommandCenterData] = useState<CommandCenterData | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -55,6 +70,59 @@ export default function MatterDetail() {
             console.error(err);
         }
     };
+
+    const getLatestCompletedRun = (runList: Run[]) => {
+        return runList.find((r) => completedStatuses.has(r.status)) || null;
+    };
+
+    const loadCommandCenter = async (runList: Run[]) => {
+        const latest = getLatestCompletedRun(runList);
+        if (!latest || !matterId) {
+            setCommandCenterData(null);
+            setCommandCenterError(null);
+            return;
+        }
+
+        setCommandCenterLoading(true);
+        setCommandCenterError(null);
+
+        try {
+            // Try to confirm artifact availability; if this endpoint is unavailable, fallback to direct artifact fetch.
+            try {
+                await getLatestExports(matterId);
+            } catch {
+                // best-effort only
+            }
+
+            const res = await fetch(getArtifactUrl(latest.id, ARTIFACT_TYPES.JSON));
+            if (!res.ok) {
+                throw new Error(`Artifact fetch failed (${res.status})`);
+            }
+
+            const payload = await res.json();
+            const graph = payload?.evidence_graph ?? payload;
+            const ext = graph?.extensions ?? {};
+
+            setCommandCenterData({
+                runId: latest.id,
+                claimRows: Array.isArray(ext?.claim_rows) ? ext.claim_rows : [],
+                causationChains: Array.isArray(ext?.causation_chains) ? ext.causation_chains : [],
+                collapseCandidates: Array.isArray(ext?.case_collapse_candidates) ? ext.case_collapse_candidates : [],
+                contradictionMatrix: Array.isArray(ext?.contradiction_matrix) ? ext.contradiction_matrix : [],
+                narrativeDuality: (ext?.narrative_duality || {}) as Record<string, any>,
+                citationFidelity: (ext?.citation_fidelity || {}) as Record<string, any>,
+            });
+        } catch (err) {
+            setCommandCenterData(null);
+            setCommandCenterError(err instanceof Error ? err.message : 'Unable to load command center data');
+        } finally {
+            setCommandCenterLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        void loadCommandCenter(runs);
+    }, [matterId, runs]);
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files?.length) return;
@@ -278,6 +346,108 @@ export default function MatterDetail() {
                     </div>
                 </section>
             </div>
+
+            <section className="card" style={{ marginTop: '2rem', padding: 0, overflow: 'hidden' }}>
+                <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h2 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Scale style={{ color: 'var(--primary)' }} /> Case Command Center
+                    </h2>
+                    <button
+                        onClick={() => void loadCommandCenter(runs)}
+                        className="text-muted hover:text-white"
+                        title="Refresh command center"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                    >
+                        <RefreshCw size={16} />
+                    </button>
+                </div>
+
+                <div style={{ padding: '1rem' }}>
+                    {!getLatestCompletedRun(runs) && (
+                        <div className="empty-state" style={{ border: 'none', padding: '1rem' }}>
+                            Run a successful analysis to unlock command-center insights.
+                        </div>
+                    )}
+
+                    {commandCenterLoading && (
+                        <div className="flex items-center gap-2 text-muted">
+                            <Loader2 className="animate-spin" size={16} /> Loading command center...
+                        </div>
+                    )}
+
+                    {!commandCenterLoading && commandCenterError && (
+                        <div style={{ fontSize: '0.85rem', color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.1)', padding: '0.75rem', borderRadius: '6px' }}>
+                            Command center unavailable for latest run: {commandCenterError}
+                        </div>
+                    )}
+
+                    {!commandCenterLoading && !commandCenterError && commandCenterData && (
+                        <div className="flex flex-col gap-4">
+                            <div className="grid grid-cols-2 gap-2 text-sm" style={{ background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '6px' }}>
+                                <div>Run: <span className="font-mono">{commandCenterData.runId.slice(0, 8)}</span></div>
+                                <div>Claims: <span className="text-main">{commandCenterData.claimRows.length}</span></div>
+                                <div>Causation Chains: <span className="text-main">{commandCenterData.causationChains.length}</span></div>
+                                <div>Collapse Candidates: <span className="text-main">{commandCenterData.collapseCandidates.length}</span></div>
+                                <div>Contradictions: <span className="text-main">{commandCenterData.contradictionMatrix.length}</span></div>
+                                <div>Anchored Ratio: <span className="text-main">{commandCenterData.citationFidelity?.claim_row_anchor_ratio ?? 'n/a'}</span></div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-8">
+                                <div>
+                                    <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <GitBranch size={16} /> Causation Ladder
+                                    </h3>
+                                    {(commandCenterData.causationChains || []).slice(0, 3).map((chain, idx) => (
+                                        <div key={`chain-${idx}`} className="run-item" style={{ marginBottom: '0.5rem' }}>
+                                            <div><strong>{chain?.body_region || 'general'}</strong> | integrity {chain?.chain_integrity_score ?? 0}</div>
+                                            <div className="text-xs text-muted">Missing: {(chain?.missing_rungs || []).join(', ') || 'none'}</div>
+                                        </div>
+                                    ))}
+                                    {commandCenterData.causationChains.length === 0 && <div className="text-xs text-muted">No causation chains detected.</div>}
+                                </div>
+
+                                <div>
+                                    <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <ShieldAlert size={16} /> Case Collapse
+                                    </h3>
+                                    {(commandCenterData.collapseCandidates || []).slice(0, 3).map((cand, idx) => (
+                                        <div key={`collapse-${idx}`} className="run-item" style={{ marginBottom: '0.5rem' }}>
+                                            <div><strong>{cand?.fragility_type || 'unknown'}</strong> | score {cand?.fragility_score ?? 0}</div>
+                                            <div className="text-xs text-muted">{cand?.why || ''}</div>
+                                        </div>
+                                    ))}
+                                    {commandCenterData.collapseCandidates.length === 0 && <div className="text-xs text-muted">No collapse candidates for this run.</div>}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-8">
+                                <div>
+                                    <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <ListChecks size={16} /> Contradiction Matrix
+                                    </h3>
+                                    {(commandCenterData.contradictionMatrix || []).slice(0, 4).map((row, idx) => (
+                                        <div key={`cx-${idx}`} className="run-item" style={{ marginBottom: '0.5rem' }}>
+                                            <div><strong>{row?.category || 'unknown'}</strong> | delta {row?.strength_delta ?? 0}</div>
+                                            <div className="text-xs text-muted">
+                                                {row?.supporting?.value || 'n/a'} vs {row?.contradicting?.value || 'n/a'}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {commandCenterData.contradictionMatrix.length === 0 && <div className="text-xs text-muted">No contradictions detected.</div>}
+                                </div>
+
+                                <div>
+                                    <h3 style={{ marginBottom: '0.5rem' }}>Narrative Duality</h3>
+                                    <div className="run-item">
+                                        <div className="text-sm"><strong>Plaintiff:</strong> {commandCenterData.narrativeDuality?.plaintiff_narrative?.summary || 'n/a'}</div>
+                                        <div className="text-sm" style={{ marginTop: '0.4rem' }}><strong>Defense:</strong> {commandCenterData.narrativeDuality?.defense_narrative?.summary || 'n/a'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </section>
         </div>
     );
 }
