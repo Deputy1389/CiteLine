@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import {
     getMatter, getMatterDocuments, getMatterRuns, getLatestExports,
     uploadDocument, createRun, getArtifactByNameUrl, getArtifactUrl, getDocumentDownloadUrl,
@@ -32,6 +32,7 @@ type CitationLink = {
 
 export default function MatterDetail() {
     const { matterId } = useParams<{ matterId: string }>();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [matter, setMatter] = useState<Matter | null>(null);
     const [docs, setDocs] = useState<Document[]>([]);
     const [runs, setRuns] = useState<Run[]>([]);
@@ -42,6 +43,8 @@ export default function MatterDetail() {
     const [commandCenterData, setCommandCenterData] = useState<CommandCenterData | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const commandCenterRef = useRef<HTMLElement | null>(null);
+    const view = searchParams.get('view') === 'audit' ? 'audit' : 'intake';
 
     useEffect(() => {
         if (matterId) {
@@ -133,6 +136,12 @@ export default function MatterDetail() {
         void loadCommandCenter(runs);
     }, [matterId, runs]);
 
+    useEffect(() => {
+        if (view === 'audit' && commandCenterRef.current) {
+            commandCenterRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, [view, commandCenterData, commandCenterLoading]);
+
     const citationLinks = useMemo((): CitationLink[] => {
         if (!commandCenterData) return [];
         const out: CitationLink[] = [];
@@ -178,7 +187,9 @@ export default function MatterDetail() {
         setUploading(true);
         try {
             await uploadDocument(matterId!, e.target.files[0]);
+            await createRun(matterId!, { max_pages: 500 });
             await loadData();
+            setSearchParams({ view: 'audit' });
         } catch (err) {
             alert('Upload failed');
             console.error(err);
@@ -225,6 +236,29 @@ export default function MatterDetail() {
                     <Play size={20} fill="currentColor" /> Start Analysis
                 </button>
             </header>
+
+            <div className="flex gap-2" style={{ marginBottom: '1rem' }}>
+                <button
+                    onClick={() => setSearchParams({ view: 'intake' })}
+                    className="btn"
+                    style={{
+                        background: view === 'intake' ? 'var(--primary)' : 'transparent',
+                        border: '1px solid var(--border)',
+                    }}
+                >
+                    Intake
+                </button>
+                <button
+                    onClick={() => setSearchParams({ view: 'audit' })}
+                    className="btn"
+                    style={{
+                        background: view === 'audit' ? 'var(--success)' : 'transparent',
+                        border: '1px solid var(--border)',
+                    }}
+                >
+                    Audit Mode (Verification UI)
+                </button>
+            </div>
 
             <div className="grid grid-cols-main gap-8">
 
@@ -396,10 +430,10 @@ export default function MatterDetail() {
                 </section>
             </div>
 
-            <section className="card" style={{ marginTop: '2rem', padding: 0, overflow: 'hidden' }}>
+            <section ref={commandCenterRef} className="card" style={{ marginTop: '2rem', padding: 0, overflow: 'hidden', border: view === 'audit' ? '1px solid var(--success)' : undefined }}>
                 <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h2 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Scale style={{ color: 'var(--primary)' }} /> Case Command Center
+                        <Scale style={{ color: 'var(--primary)' }} /> Audit Mode (Verification UI)
                     </h2>
                     <button
                         onClick={() => void loadCommandCenter(runs)}

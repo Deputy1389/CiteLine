@@ -127,6 +127,7 @@ def render_exports(
         narrative_synthesis=narrative_synthesis,
         appendix_entries=appendix_projection.entries,
         raw_events=events,
+        all_citations=all_citations,
         page_map=page_map,
         care_window=care_window,
         missing_records_payload=missing_records_payload,

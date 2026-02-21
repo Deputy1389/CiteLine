@@ -42,7 +42,7 @@ from apps.worker.steps.export_render.appendices_pdf import (
 )
 
 if TYPE_CHECKING:
-    from packages.shared.models import Event, Gap, Provider, CaseInfo
+    from packages.shared.models import Event, Gap, Provider, CaseInfo, Citation
     from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
 
 
@@ -140,6 +140,7 @@ def generate_pdf_from_projection(
     narrative_synthesis: str | None = None,
     appendix_entries: list[ChronologyProjectionEntry] | None = None,
     raw_events: list[Event] | None = None,
+    all_citations: list[Citation] | None = None,
     page_map: dict[int, tuple[str, int]] | None = None,
     care_window: tuple[date, date] | None = None,
     missing_records_payload: dict | None = None,
@@ -163,6 +164,11 @@ def generate_pdf_from_projection(
                 flowables.append(Paragraph(p_text.strip().replace("\n", "<br/>"), normal_style))
                 flowables.append(Spacer(1, 0.1 * inch))
         flowables.append(Spacer(1, 0.1 * inch))
+    flowables.append(Paragraph("What to Review First", h1_style))
+    flowables.append(Paragraph("1) Top events panel: fast triage of the strongest record-backed facts.", normal_style))
+    flowables.append(Paragraph("2) Chronological Medical Timeline: full encounter sequence with citations.", normal_style))
+    flowables.append(Paragraph("3) Appendix G: Record Packet Citation Index for direct page-level source review.", normal_style))
+    flowables.append(Spacer(1, 0.1 * inch))
 
     # ORDER MATTERS: tests split on timeline header then top10 header.
     flowables.append(Paragraph("Chronological Medical Timeline", h1_style))
@@ -233,6 +239,7 @@ def generate_pdf_from_projection(
         page_map,
         styles,
         raw_events=raw_events,
+        all_citations=all_citations,
         missing_records_payload=missing_records_payload,
     ))
 
