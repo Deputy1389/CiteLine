@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import re
+import os
 
 import fitz  # PyMuPDF
 
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 _MIN_TEXT_LENGTH = 50
 _TESSERACT_AVAILABLE: bool | None = None
+_OCR_TIMEOUT_SECONDS = int(os.getenv("OCR_TIMEOUT_SECONDS", "30"))
 
 
 def _check_tesseract() -> bool:
@@ -53,20 +55,25 @@ def _ocr_page(pdf_path: str, page_index: int) -> str:
         import io
 
         doc = fitz.open(pdf_path)
-        page = doc[page_index]
-        # Render at 300 DPI for good OCR quality
         try:
-            pix = page.get_pixmap(dpi=300)
-        except Exception as exc:
-            logger.error(f"Could not render page {page_index} for OCR: {exc}")
+            page = doc[page_index]
+            # Render at 300 DPI for good OCR quality
+            try:
+                pix = page.get_pixmap(dpi=300)
+            except Exception as exc:
+                logger.error(f"Could not render page {page_index} for OCR: {exc}")
+                return ""
+            img_data = pix.tobytes("png")
+        finally:
             doc.close()
-            return ""
-        img_data = pix.tobytes("png")
-        doc.close()
 
         img = Image.open(io.BytesIO(img_data))
-        text = pytesseract.image_to_string(img, lang="eng")
+        text = pytesseract.image_to_string(img, lang="eng", timeout=_OCR_TIMEOUT_SECONDS)
         return text.strip()
+    except RuntimeError as exc:
+        # pytesseract raises RuntimeError on timeout
+        logger.error(f"OCR timeout for page {page_index}: {exc}")
+        return ""
     except Exception as exc:
         logger.error(f"OCR failed for page {page_index}: {exc}")
         return ""
@@ -84,6 +91,8 @@ def acquire_text(
     ocr_count = 0
 
     for i, page in enumerate(pages):
+        if i % 25 == 0:
+            logger.info(f"OCR progress: page {i+1}/{len(pages)} (source={page.source_document_id})")
         if _is_meaningful(page.text):
             continue  # embedded text is fine
 
