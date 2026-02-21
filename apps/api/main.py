@@ -20,8 +20,9 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from apps.api.authz import hipaa_enforcement_enabled
-from packages.db.database import DATABASE_URL, init_db
+from packages.db.database import DATABASE_URL, init_db, engine
 from packages.shared.storage import DATA_DIR
+from sqlalchemy import text
 
 
 def _parse_csv_env(name: str, default: list[str]) -> list[str]:
@@ -254,6 +255,25 @@ def health():
 def health_worker():
     alive = bool(_worker_thread and _worker_thread.is_alive())
     return {"status": "ok", "worker_running": alive}
+
+
+@app.get("/health/schema")
+def health_schema():
+    if DATABASE_URL.startswith("sqlite"):
+        return {"status": "ok", "backend": "sqlite"}
+    with engine.begin() as conn:
+        row = conn.execute(
+            text(
+                "SELECT character_maximum_length "
+                "FROM information_schema.columns "
+                "WHERE table_name='artifacts' AND column_name='artifact_type'"
+            )
+        ).fetchone()
+    return {
+        "status": "ok",
+        "backend": "postgres",
+        "artifacts_artifact_type_maxlen": row[0] if row else None,
+    }
 
 
 if __name__ == "__main__":
