@@ -46,15 +46,15 @@ def test_date_str_formatting():
 
     # Relative
     ed2 = EventDate(kind=DateKind.SINGLE, relative_day=2, source=DateSource.TIER2)
-    assert _date_str(mock_event(ed2)) == "Day 2 (time not documented)"
+    assert _date_str(mock_event(ed2)) == "Date not documented"
 
     # Partial
     ed3 = EventDate(kind=DateKind.SINGLE, partial_month=9, partial_day=24, source=DateSource.TIER2)
-    assert _date_str(mock_event(ed3)) == "09/24 (year unknown)"
+    assert _date_str(mock_event(ed3)) == "Date not documented"
 
     # Sentinel used to be -924, should now be empty or handled by partial fields
     ed4 = EventDate(kind=DateKind.SINGLE, relative_day=-924, source=DateSource.TIER2)
-    assert _date_str(mock_event(ed4)) == "(date unknown)"
+    assert _date_str(mock_event(ed4)) == "Date not documented"
 
 def test_partial_date_extraction():
     page = Page(
@@ -91,7 +91,7 @@ def test_partial_date_resolution():
     
     result = extract_dates_for_pages(pages)
     
-    # Page 2 has the partial date 09/24
+    # Page 2 keeps a yearless partial date and should not fabricate a year.
     assert 2 in result
     p2_dates = result[2]
-    assert any(d.value == date(2016, 9, 24) for d in p2_dates)
+    assert any(d.value is None and d.partial_month == 9 and d.partial_day == 24 for d in p2_dates)

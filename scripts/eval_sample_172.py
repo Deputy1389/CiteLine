@@ -64,7 +64,7 @@ from apps.worker.steps.step12_export import (
 )
 from apps.worker.steps.step15_missing_records import detect_missing_records
 from apps.worker.lib.provider_normalize import normalize_provider_entities
-from apps.worker.lib.claim_ledger_lite import build_claim_ledger_lite, select_top_claim_rows
+from apps.worker.lib.claim_ledger_lite import build_claim_edges, select_top_claim_rows
 from apps.worker.lib.causation_ladder import build_causation_ladders
 from apps.worker.steps.case_collapse import (
     build_case_collapse_candidates,
@@ -82,7 +82,7 @@ from apps.worker.lib.noise_filter import is_noise_span
 from apps.worker.steps.step12a_narrative_synthesis import synthesize_narrative
 from apps.worker.project.chronology import build_chronology_projection, infer_page_patient_labels
 from scripts.litigation_qa import build_litigation_checklist, write_litigation_checklist
-from packages.shared.models import CaseInfo, EvidenceGraph, Gap, LitigationExtensions, RunConfig, SourceDocument
+from packages.shared.models import CaseInfo, ClaimEdge, EvidenceGraph, Gap, LitigationExtensions, RunConfig, SourceDocument
 from packages.shared.storage import get_artifact_dir
 from apps.worker.lib.artifacts_writer import write_artifact_json
 from apps.worker.lib.artifacts_writer import safe_copy, validate_artifacts_exist
@@ -102,7 +102,7 @@ DATE_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
 UUID_PROVIDER_RE = UUID_RE
 
 
-def _build_litigation_extensions(claim_rows: list[dict]) -> dict:
+def _build_litigation_extensions(claim_rows: list[dict] | list[ClaimEdge]) -> dict:
     anchored_rows = [r for r in claim_rows if (r.get("citations") or [])]
     collapse_candidates = build_case_collapse_candidates(anchored_rows)
     attack_paths = build_defense_attack_paths(collapse_candidates, limit=6)
@@ -261,8 +261,8 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
     narrative = synthesize_narrative(chronology_events, providers, all_citations, case_info)
 
     graph = EvidenceGraph(pages=pages, documents=docs, providers=providers, events=chronology_events, citations=all_citations)
-    claim_rows = build_claim_ledger_lite([], raw_events=chronology_events)
-    graph.extensions.update(_build_litigation_extensions(claim_rows))
+    claim_edges = build_claim_edges([], raw_events=chronology_events)
+    graph.extensions.update(_build_litigation_extensions(claim_edges))
     provider_norm = normalize_provider_entities(graph)
     missing_payload = detect_missing_records(graph, provider_norm)
     artifact_dir = get_artifact_dir(run_id)

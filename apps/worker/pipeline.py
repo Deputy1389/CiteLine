@@ -15,6 +15,7 @@ from packages.db.models import (
 )
 from packages.shared.models import (
     CaseInfo,
+    ClaimEdge,
     ChronologyResult,
     EvidenceGraph,
     LitigationExtensions,
@@ -63,7 +64,7 @@ from apps.worker.steps.step12_export import render_exports, render_patient_chron
 from apps.worker.steps.step12b_litigation_review import run_litigation_review
 from apps.worker.steps.step13_receipt import create_run_record
 from apps.worker.lib.provider_normalize import normalize_provider_entities, compute_coverage_spans
-from apps.worker.lib.claim_ledger_lite import build_claim_ledger_lite, select_top_claim_rows
+from apps.worker.lib.claim_ledger_lite import build_claim_edges, select_top_claim_rows
 from apps.worker.lib.causation_ladder import build_causation_ladders
 from apps.worker.steps.case_collapse import (
     build_case_collapse_candidates,
@@ -96,7 +97,7 @@ from apps.worker.pipeline_persistence import persist_pipeline_state
 logger = logging.getLogger(__name__)
 
 
-def _build_litigation_extensions(claim_rows: list[dict]) -> dict:
+def _build_litigation_extensions(claim_rows: list[dict] | list[ClaimEdge]) -> dict:
     anchored_rows = [r for r in claim_rows if (r.get("citations") or [])]
     collapse_candidates = build_case_collapse_candidates(anchored_rows)
     attack_paths = build_defense_attack_paths(collapse_candidates, limit=6)
@@ -387,8 +388,8 @@ def run_pipeline(run_id: str) -> None:
         }
         evidence_graph.extensions["event_weighting"] = weight_summary
         logger.info(f"[{run_id}] Extraction metrics: {evidence_graph.extensions['extraction_metrics']}")
-        claim_rows = build_claim_ledger_lite([], raw_events=chronology_events)
-        evidence_graph.extensions.update(_build_litigation_extensions(claim_rows))
+        claim_edges = build_claim_edges([], raw_events=chronology_events)
+        evidence_graph.extensions.update(_build_litigation_extensions(claim_edges))
         # ── Step 14a: Provider normalization + coverage ────────────────
         logger.info(f"[{run_id}] Step 14a: Provider normalization")
         providers_normalized = normalize_provider_entities(evidence_graph)

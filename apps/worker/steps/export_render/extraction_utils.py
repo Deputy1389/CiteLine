@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from apps.worker.lib.noise_filter import is_noise_span
@@ -25,10 +26,6 @@ from apps.worker.steps.export_render.constants import (
     TOP10_LOW_VALUE_RE,
     MECHANISM_KEYWORD_RE,
 )
-
-if TYPE_CHECKING:
-    from datetime import date
-
 
 def _extract_diagnosis_items(entries: list) -> list[str]:
     dx: set[str] = set()

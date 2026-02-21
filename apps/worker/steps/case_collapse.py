@@ -1,25 +1,14 @@
 from __future__ import annotations
 
-import hashlib
 import re
 from datetime import date
-from typing import Iterable
+from typing import Any
 
+from packages.shared.models import ClaimEdge
+from packages.shared.utils.claim_utils import parse_iso as _parse_iso
+from packages.shared.utils.claim_utils import stable_id as _stable_id
 
-def _parse_iso(d: str | None) -> date | None:
-    if not d:
-        return None
-    m = re.search(r"\b(\d{4})-(\d{2})-(\d{2})\b", str(d))
-    if not m:
-        return None
-    try:
-        return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
-    except ValueError:
-        return None
-
-
-def _stable_id(parts: Iterable[str]) -> str:
-    return hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()[:16]
+ClaimRowLike = dict[str, Any] | ClaimEdge
 
 
 def quote_lock(text: str, *, max_len: int = 180) -> str:
@@ -34,7 +23,7 @@ def quote_lock(text: str, *, max_len: int = 180) -> str:
     return f"\"{fragment}\""
 
 
-def _collect_citations(rows: list[dict], limit: int = 3) -> list[str]:
+def _collect_citations(rows: list[ClaimRowLike], limit: int = 3) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
     for row in rows:
@@ -49,7 +38,7 @@ def _collect_citations(rows: list[dict], limit: int = 3) -> list[str]:
     return out
 
 
-def _incident_date(claim_rows: list[dict]) -> date | None:
+def _incident_date(claim_rows: list[ClaimRowLike]) -> date | None:
     ed_rows = []
     for r in claim_rows:
         text = str(r.get("assertion") or "").lower()
@@ -60,9 +49,9 @@ def _incident_date(claim_rows: list[dict]) -> date | None:
     return dates[0] if dates else None
 
 
-def build_case_collapse_candidates(claim_rows: list[dict]) -> list[dict]:
+def build_case_collapse_candidates(claim_rows: list[ClaimRowLike]) -> list[dict]:
     incident = _incident_date(claim_rows)
-    rows_by_type: dict[str, list[dict]] = {}
+    rows_by_type: dict[str, list[ClaimRowLike]] = {}
     for r in claim_rows:
         rows_by_type.setdefault(str(r.get("claim_type") or ""), []).append(r)
 
@@ -265,7 +254,7 @@ def build_upgrade_recommendations(candidates: list[dict], *, limit: int = 4) -> 
     return out
 
 
-def build_objection_profiles(claim_rows: list[dict], *, limit: int = 24) -> list[dict]:
+def build_objection_profiles(claim_rows: list[ClaimRowLike], *, limit: int = 24) -> list[dict]:
     """
     Deterministic evidentiary-objection anticipation for claim rows.
     Categories: foundation, relevance, hearsay, best evidence.

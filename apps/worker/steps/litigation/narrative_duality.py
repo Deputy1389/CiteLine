@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from typing import Any
+
 from apps.worker.lib.claim_ledger_lite import select_top_claim_rows
 from apps.worker.steps.case_collapse import build_case_collapse_candidates, build_defense_attack_paths
 from apps.worker.steps.litigation.contradiction_matrix import build_contradiction_matrix
+from packages.shared.models import ClaimEdge
 
 
-def build_narrative_duality(claim_rows: list[dict]) -> dict:
+ClaimRowLike = dict[str, Any] | ClaimEdge
+
+
+def build_narrative_duality(claim_rows: list[ClaimRowLike]) -> dict:
     top = select_top_claim_rows(claim_rows, limit=12)
     plaintiff_points: list[dict] = []
     for row in top:

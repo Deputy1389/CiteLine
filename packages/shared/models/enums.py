@@ -54,6 +54,18 @@ class ProviderType(str, Enum):
     UNKNOWN = "unknown"
 
 
+class ClaimType(str, Enum):
+    INJURY_DX = "INJURY_DX"
+    SYMPTOM = "SYMPTOM"
+    IMAGING_FINDING = "IMAGING_FINDING"
+    PROCEDURE = "PROCEDURE"
+    MEDICATION_CHANGE = "MEDICATION_CHANGE"
+    WORK_RESTRICTION = "WORK_RESTRICTION"
+    TREATMENT_VISIT = "TREATMENT_VISIT"
+    GAP_IN_CARE = "GAP_IN_CARE"
+    PRE_EXISTING_MENTION = "PRE_EXISTING_MENTION"
+
+
 class FactKind(str, Enum):
     CHIEF_COMPLAINT = "chief_complaint"
     ASSESSMENT = "assessment"
@@ -68,6 +80,10 @@ class FactKind(str, Enum):
     LAB = "lab"
     PROCEDURE = "procedure"
     PROVIDER = "provider"
+    ROM_VALUE = "rom_value"
+    STRENGTH_GRADE = "strength_grade"
+    PAIN_SCORE = "pain_score"
+    NEURO_SYMPTOM = "neuro_symptom"
     OTHER = "other"
 
 

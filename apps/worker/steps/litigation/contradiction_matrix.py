@@ -2,18 +2,12 @@ from __future__ import annotations
 
 import re
 from datetime import date
+from typing import Any
 
+from packages.shared.models import ClaimEdge
+from packages.shared.utils.claim_utils import parse_iso as _parse_date
 
-def _parse_date(value: str | None) -> date | None:
-    if not value:
-        return None
-    m = re.search(r"\b(\d{4})-(\d{2})-(\d{2})\b", str(value))
-    if not m:
-        return None
-    try:
-        return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
-    except ValueError:
-        return None
+ClaimRowLike = dict[str, Any] | ClaimEdge
 
 
 def _days_apart(a: date | None, b: date | None) -> int | None:
@@ -30,7 +24,7 @@ def _support_strength_bucket(score: int) -> str:
     return "Weak"
 
 
-def _pain_mentions(row: dict) -> list[dict]:
+def _pain_mentions(row: ClaimRowLike) -> list[dict]:
     txt = str(row.get("assertion") or "")
     out: list[dict] = []
     for m in re.finditer(r"\b([0-9]{1,2})\s*/\s*10\b", txt):
@@ -40,7 +34,7 @@ def _pain_mentions(row: dict) -> list[dict]:
     return out
 
 
-def _laterality_mentions(row: dict) -> list[dict]:
+def _laterality_mentions(row: ClaimRowLike) -> list[dict]:
     txt = str(row.get("assertion") or "").lower()
     vals: list[str] = []
     if re.search(r"\bleft\b", txt):
@@ -50,7 +44,7 @@ def _laterality_mentions(row: dict) -> list[dict]:
     return [{"kind": "laterality", "value": v, "row": row} for v in vals]
 
 
-def _functional_mentions(row: dict) -> list[dict]:
+def _functional_mentions(row: ClaimRowLike) -> list[dict]:
     txt = str(row.get("assertion") or "").lower()
     out: list[dict] = []
     if re.search(r"\b(unable to work|off work|work restriction|modified duty)\b", txt):
@@ -60,7 +54,7 @@ def _functional_mentions(row: dict) -> list[dict]:
     return out
 
 
-def _mechanism_mentions(row: dict) -> list[dict]:
+def _mechanism_mentions(row: ClaimRowLike) -> list[dict]:
     txt = str(row.get("assertion") or "").lower()
     if re.search(r"\b(mva|mvc|motor vehicle|rear[- ]end|collision)\b", txt):
         return [{"kind": "mechanism", "value": "mva", "row": row}]
@@ -71,7 +65,7 @@ def _mechanism_mentions(row: dict) -> list[dict]:
     return []
 
 
-def _diagnosis_mentions(row: dict) -> list[dict]:
+def _diagnosis_mentions(row: ClaimRowLike) -> list[dict]:
     if str(row.get("claim_type") or "") != "INJURY_DX":
         return []
     txt = str(row.get("assertion") or "").lower()
@@ -88,7 +82,7 @@ def _diagnosis_mentions(row: dict) -> list[dict]:
     return []
 
 
-def _collect_mentions(row: dict) -> list[dict]:
+def _collect_mentions(row: ClaimRowLike) -> list[dict]:
     out: list[dict] = []
     out.extend(_pain_mentions(row))
     out.extend(_laterality_mentions(row))
@@ -118,7 +112,7 @@ def _is_contradiction(kind: str, a_val: str, b_val: str) -> bool:
     return False
 
 
-def build_contradiction_matrix(claim_rows: list[dict], *, window_days: int = 45) -> list[dict]:
+def build_contradiction_matrix(claim_rows: list[ClaimRowLike], *, window_days: int = 45) -> list[dict]:
     mentions: list[dict] = []
     for row in claim_rows:
         citations = [str(c).strip() for c in (row.get("citations") or []) if str(c).strip()]
@@ -184,4 +178,3 @@ def build_contradiction_matrix(claim_rows: list[dict], *, window_days: int = 45)
         )
     )
     return matrix[:24]
-
