@@ -80,7 +80,7 @@ def _render_entry(
     
     raw_facts = [sanitize_for_report(clean_text(f.strip())) for f in (entry.facts or []) if f and f.strip()]
     facts = [_clean_direct_snippet(f.strip()) for f in raw_facts]
-    facts = [f for f in facts if f and not is_garbage(f)]
+    facts = [f for f in facts if f]
     if not facts: return []
 
     from apps.worker.steps.export_render.projection_enrichment import _normalize_event_class_local

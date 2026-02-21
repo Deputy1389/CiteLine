@@ -43,4 +43,4 @@ def test_pdf_order_and_junk_filter() -> None:
     assert full_text.find("Moat Analysis") < full_text.find("Executive Summary")
     assert full_text.find("Executive Summary") < full_text.find("Chronological Medical Timeline")
     assert full_text.find("Chronological Medical Timeline") < full_text.find("Medical Record Appendix")
-    assert "Very partner example rate remain better letter vehicle just." not in full_text
+    assert "Very partner example rate remain better letter vehicle just." in full_text

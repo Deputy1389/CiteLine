@@ -101,11 +101,13 @@ def is_garbage(text: str) -> bool:
     cleaned = clean_text(text)
     if not cleaned:
         return True
-    tokens = _tokenize(cleaned)
-    med_density = _medical_density(tokens)
-    stopword_ratio = sum(1 for t in tokens if t.lower() in _STOPWORDS) / max(1, len(tokens))
-    if med_density < 0.05 and stopword_ratio > 0.35:
+    if _FAX_ARTIFACT_RE.search(cleaned):
         return True
-    if quality_score(cleaned) < 0.28:
+    tokens = _tokenize(cleaned)
+    if len(tokens) < 3:
+        return True
+    med_density = _medical_density(tokens)
+    diversity = _diversity_score(cleaned)
+    if len(cleaned) < 30 and med_density < 0.02 and diversity < 0.1:
         return True
     return False

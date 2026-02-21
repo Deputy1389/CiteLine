@@ -185,14 +185,11 @@ def generate_pdf_from_projection(
     flowables.append(PageBreak())
     flowables.append(Paragraph("Executive Summary", h1_style))
     if narrative_synthesis:
-        from apps.worker.quality.text_quality import clean_text, is_garbage
+        from apps.worker.quality.text_quality import clean_text
         clean_narrative = _clean_narrative_text(clean_text(narrative_synthesis))
         for p_text in clean_narrative.split("\n\n"):
             if p_text.strip():
-                if is_garbage(p_text):
-                    flowables.append(Paragraph("Content present but low-quality/duplicative; see cited source.", normal_style))
-                else:
-                    flowables.append(Paragraph(p_text.strip().replace("\n", "<br/>"), normal_style))
+                flowables.append(Paragraph(p_text.strip().replace("\n", "<br/>"), normal_style))
                 flowables.append(Spacer(1, 0.1 * inch))
     else:
         flowables.append(Paragraph("No executive summary available.", normal_style))

@@ -38,7 +38,7 @@ def _render_section_block(
     for row in rows[:12]:
         line = _sanitize_render_sentence(clean_text(row))
         line = re.sub(r"\s+", " ", line).strip()
-        if not line or is_garbage(line):
+        if not line:
             if stats is not None:
                 stats["top10_items_dropped_due_to_quality"] = stats.get("top10_items_dropped_due_to_quality", 0) + 1
             if allow_fallback:
@@ -202,7 +202,7 @@ def _top10_rows(projection_entries: list, score_func: Any) -> list[str]:
         facts_blob = re.sub(r"\.\.+", ".", facts_blob)
         facts_blob = re.sub(r"\s{2,}", " ", facts_blob).strip()
         facts_blob = re.sub(r"\b(?:and|or|with|to)\.?\s*$", "", facts_blob, flags=re.IGNORECASE).strip()
-        if not facts_blob or is_garbage(facts_blob):
+        if not facts_blob:
             continue
         if not entry.citation_display:
             continue

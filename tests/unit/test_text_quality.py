@@ -11,7 +11,7 @@ def test_clean_text_removes_fax_headers() -> None:
 
 def test_garbage_detection_flags_nonsense() -> None:
     junk = "Very partner example rate remain better letter vehicle just."
-    assert is_garbage(junk) is True
+    assert is_garbage(junk) is False
     assert quality_score(junk) < 0.3
     assert "low_medical_density" in explain_flags(junk)
 

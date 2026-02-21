@@ -348,8 +348,7 @@ def run_pipeline(run_id: str) -> None:
                     quality_stats["num_snippets_cleaned"] += 1
                 if is_garbage(cleaned):
                     quality_stats["num_snippets_filtered"] += 1
-                    quality_stats["num_fallback_rewrites"] += 1
-                    cleaned = "Content present but low-quality/duplicative; see cited source."
+                    # Keep cleaned text; allow attorney to decide.
                 fact.text = cleaned
                 cleaned_facts.append(fact)
             evt.facts = cleaned_facts
