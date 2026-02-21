@@ -45,6 +45,7 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger("linecite")
+_worker_thread = None
 
 app = FastAPI(
     title="Linecite API",
@@ -225,7 +226,9 @@ def startup():
     # This allows a single container/service to handle both API and processing
     from apps.worker.runner import start_worker_thread
     logger.info("Starting background worker thread...")
-    start_worker_thread()
+    global _worker_thread
+    _worker_thread = start_worker_thread()
+    logger.info("Worker thread started: %s", bool(_worker_thread and _worker_thread.is_alive()))
 
 
 # Register routes
@@ -245,6 +248,12 @@ for router in (firms_router, matters_router, docs_router, runs_router, exports_r
 @app.get("/health")
 def health():
     return {"status": "ok", "version": "0.1.0"}
+
+
+@app.get("/health/worker")
+def health_worker():
+    alive = bool(_worker_thread and _worker_thread.is_alive())
+    return {"status": "ok", "worker_running": alive}
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ SQLAlchemy database engine and session management.
 from __future__ import annotations
 
 import os
+import logging
 from contextlib import contextmanager
 from typing import Generator
 
@@ -23,6 +24,7 @@ if DATABASE_URL.startswith("sqlite"):
 
 engine = create_engine(DATABASE_URL, echo=False, connect_args=connect_args)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+logger = logging.getLogger("linecite.db")
 
 
 def init_db() -> None:
@@ -35,15 +37,17 @@ def init_db() -> None:
 def _apply_schema_migrations() -> None:
     """Apply lightweight schema fixes for production without Alembic."""
     if DATABASE_URL.startswith("sqlite"):
+        logger.info("Skipping schema migrations for sqlite.")
         return
     with engine.begin() as conn:
         try:
             conn.execute(
                 text("ALTER TABLE artifacts ALTER COLUMN artifact_type TYPE VARCHAR(64)")
             )
+            logger.info("Migrated artifacts.artifact_type to VARCHAR(64).")
         except Exception:
             # Likely already migrated or insufficient privileges; ignore to keep startup resilient.
-            pass
+            logger.exception("Failed to migrate artifacts.artifact_type (may already be migrated).")
 
 
 @contextmanager
