@@ -7,7 +7,7 @@ import os
 from contextlib import contextmanager
 from typing import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///C:/Citeline/data/citeline.db")
@@ -29,6 +29,21 @@ def init_db() -> None:
     """Create all tables (idempotent)."""
     from packages.db.models import Base  # noqa: F811
     Base.metadata.create_all(bind=engine)
+    _apply_schema_migrations()
+
+
+def _apply_schema_migrations() -> None:
+    """Apply lightweight schema fixes for production without Alembic."""
+    if DATABASE_URL.startswith("sqlite"):
+        return
+    with engine.begin() as conn:
+        try:
+            conn.execute(
+                text("ALTER TABLE artifacts ALTER COLUMN artifact_type TYPE VARCHAR(64)")
+            )
+        except Exception:
+            # Likely already migrated or insufficient privileges; ignore to keep startup resilient.
+            pass
 
 
 @contextmanager

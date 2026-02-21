@@ -95,7 +95,7 @@ class Artifact(Base):
 
     id = Column(String(120), primary_key=True, default=_uuid)
     run_id = Column(String(120), ForeignKey("runs.id"), nullable=False)
-    artifact_type = Column(String(20), nullable=False)  # pdf | csv | json
+    artifact_type = Column(String(64), nullable=False)  # pdf | csv | json | extended types
     storage_uri = Column(String(500), nullable=False)
     sha256 = Column(String(64), nullable=False)
     bytes = Column(Integer, nullable=False)
