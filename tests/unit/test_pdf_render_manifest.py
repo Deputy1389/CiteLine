@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from apps.worker.project.models import ChronologyProjection, ChronologyProjectionEntry
 from apps.worker.steps.export_render.render_manifest import RenderManifest, chron_anchor, appendix_anchor
 from apps.worker.steps.export_render.timeline_pdf import _build_projection_flowables
@@ -27,7 +29,7 @@ def test_render_manifest_links_from_citations() -> None:
             citation_display="records.pdf p. 2",
         ),
     ]
-    projection = ChronologyProjection(entries=entries)
+    projection = ChronologyProjection(entries=entries, generated_at=datetime.now(timezone.utc))
     manifest = RenderManifest()
     all_citations = [_citation("records.pdf", 2)]
 
