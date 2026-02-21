@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 _MIN_TEXT_LENGTH = 50
 _TESSERACT_AVAILABLE: bool | None = None
 _OCR_TIMEOUT_SECONDS = int(os.getenv("OCR_TIMEOUT_SECONDS", "30"))
+_OCR_DISABLED = os.getenv("DISABLE_OCR", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _check_tesseract() -> bool:
@@ -97,6 +98,14 @@ def acquire_text(
             continue  # embedded text is fine
 
         # Need OCR fallback
+        if _OCR_DISABLED:
+            warnings.append(Warning(
+                code="OCR_DISABLED",
+                message=f"OCR disabled; page {page.page_number} has insufficient embedded text",
+                page=page.page_number,
+                document_id=page.source_document_id,
+            ))
+            continue
         if not _check_tesseract():
             warnings.append(Warning(
                 code="OCR_UNAVAILABLE",
