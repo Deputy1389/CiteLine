@@ -15,6 +15,7 @@ from apps.worker.steps.export_render.common import (
     _is_sdoh_noise,
     parse_date_string,
 )
+from apps.worker.quality.text_quality import clean_text, is_garbage
 
 
 def _render_section_block(
@@ -25,18 +26,25 @@ def _render_section_block(
     normal_style: Any,
     *,
     empty_text: str = "No findings for this category.",
+    stats: dict | None = None,
 ) -> None:
     flowables.append(Paragraph(title, h2_style))
     if not rows:
         flowables.append(Paragraph(empty_text, normal_style))
         flowables.append(Spacer(1, 0.08 * inch))
         return
+    rendered = 0
     for row in rows[:12]:
-        line = _sanitize_render_sentence(row)
+        line = _sanitize_render_sentence(clean_text(row))
         line = re.sub(r"\s+", " ", line).strip()
-        if not line:
+        if not line or is_garbage(line):
+            if stats is not None:
+                stats["top10_items_dropped_due_to_quality"] = stats.get("top10_items_dropped_due_to_quality", 0) + 1
             continue
         flowables.append(Paragraph(f"- {line}", normal_style))
+        rendered += 1
+    if rendered == 0:
+        flowables.append(Paragraph(empty_text, normal_style))
     flowables.append(Spacer(1, 0.08 * inch))
 
 
@@ -190,7 +198,7 @@ def _top10_rows(projection_entries: list, score_func: Any) -> list[str]:
         facts_blob = re.sub(r"\.\.+", ".", facts_blob)
         facts_blob = re.sub(r"\s{2,}", " ", facts_blob).strip()
         facts_blob = re.sub(r"\b(?:and|or|with|to)\.?\s*$", "", facts_blob, flags=re.IGNORECASE).strip()
-        if not facts_blob:
+        if not facts_blob or is_garbage(facts_blob):
             continue
         if not entry.citation_display:
             continue
@@ -207,7 +215,7 @@ def build_moat_section_flowables(
     evidence_graph_payload: dict | None,
     missing_records_payload: dict | None,
     styles: Any,
-) -> list:
+) -> tuple[list, dict]:
     ext = {}
     if evidence_graph_payload and isinstance(evidence_graph_payload, dict):
         ext = evidence_graph_payload.get("extensions", {}) or {}
@@ -215,22 +223,34 @@ def build_moat_section_flowables(
     h2_style = styles["Heading2"]
     normal_style = styles["Normal"]
     flowables: list = []
+    stats: dict = {}
 
-    _render_section_block(flowables, "Case Collapse Candidates", _case_collapse_rows(ext), h2_style, normal_style)
-    _render_section_block(flowables, "Causation Ladder", _causation_ladder_rows(ext), h2_style, normal_style)
-    _render_section_block(flowables, "Contradiction Matrix", _contradiction_rows(ext), h2_style, normal_style)
-    _render_section_block(flowables, "Narrative Duality", _narrative_duality_rows(ext), h2_style, normal_style)
+    sections = [
+        ("Case Collapse Candidates", _case_collapse_rows(ext)),
+        ("Causation Ladder", _causation_ladder_rows(ext)),
+        ("Contradiction Matrix", _contradiction_rows(ext)),
+        ("Narrative Duality", _narrative_duality_rows(ext)),
+    ]
 
     from apps.worker.steps.export_render.common import _projection_entry_substance_score
     top10_rows = _top10_rows(projection_entries, _projection_entry_substance_score)
-    _render_section_block(flowables, "Top 10 Case-Driving Events", top10_rows, h2_style, normal_style)
+    sections.append(("Top 10 Case-Driving Events", top10_rows))
 
-    _render_section_block(
-        flowables,
-        "Missing Record Detection",
-        _missing_record_rows(ext, missing_records_payload),
-        h2_style,
-        normal_style,
-    )
+    sections.append(("Missing Record Detection", _missing_record_rows(ext, missing_records_payload)))
 
-    return flowables
+    populated = 0
+    for title, rows in sections:
+        if rows and any(r.strip() for r in rows):
+            populated += 1
+    if populated == 0:
+        flowables.append(Paragraph("Strategic Scan Result", h2_style))
+        flowables.append(Paragraph("No strategic flags detected in this record set.", normal_style))
+        flowables.append(Spacer(1, 0.12 * inch))
+        return flowables, stats
+
+    for title, rows in sections:
+        if not rows or not any(r.strip() for r in rows):
+            continue
+        _render_section_block(flowables, title, rows, h2_style, normal_style, stats=stats)
+
+    return flowables, stats

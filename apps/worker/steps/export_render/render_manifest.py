@@ -12,7 +12,13 @@ def chron_anchor(event_id: str) -> str:
 
 
 def appendix_anchor(doc_id: str, page: int) -> str:
-    return f"app_{doc_id}_p_{page}"
+    return f"app_{doc_id}_p_{page}_{_stable_suffix(doc_id, page)}"
+
+
+def _stable_suffix(doc_id: str, page: int) -> str:
+    import hashlib
+    key = f"{doc_id}|{page}"
+    return hashlib.sha1(key.encode("utf-8")).hexdigest()[:8]
 
 
 def parse_chron_anchor(anchor: str) -> str | None:
@@ -29,8 +35,9 @@ def parse_appendix_anchor(anchor: str) -> tuple[str, int] | None:
     if len(parts) != 2:
         return None
     doc_id = parts[0]
+    suffix_parts = parts[1].split("_", 1)
     try:
-        page = int(parts[1])
+        page = int(suffix_parts[0])
     except ValueError:
         return None
     return doc_id, page

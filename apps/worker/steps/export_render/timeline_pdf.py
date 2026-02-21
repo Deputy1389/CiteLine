@@ -173,23 +173,26 @@ def generate_pdf_from_projection(
 
     # Moat section (top of document)
     flowables.append(Paragraph("Moat Analysis", h1_style))
-    flowables.extend(
-        build_moat_section_flowables(
-            projection_entries=projection.entries,
-            evidence_graph_payload=evidence_graph_payload,
-            missing_records_payload=missing_records_payload,
-            styles=styles,
-        )
+    moat_flowables, moat_stats = build_moat_section_flowables(
+        projection_entries=projection.entries,
+        evidence_graph_payload=evidence_graph_payload,
+        missing_records_payload=missing_records_payload,
+        styles=styles,
     )
+    flowables.extend(moat_flowables)
 
     # Executive Summary (after moat)
     flowables.append(PageBreak())
     flowables.append(Paragraph("Executive Summary", h1_style))
     if narrative_synthesis:
-        clean_narrative = _clean_narrative_text(narrative_synthesis)
+        from apps.worker.quality.text_quality import clean_text, is_garbage
+        clean_narrative = _clean_narrative_text(clean_text(narrative_synthesis))
         for p_text in clean_narrative.split("\n\n"):
             if p_text.strip():
-                flowables.append(Paragraph(p_text.strip().replace("\n", "<br/>"), normal_style))
+                if is_garbage(p_text):
+                    flowables.append(Paragraph("Content present but low-quality/duplicative; see cited source.", normal_style))
+                else:
+                    flowables.append(Paragraph(p_text.strip().replace("\n", "<br/>"), normal_style))
                 flowables.append(Spacer(1, 0.1 * inch))
     else:
         flowables.append(Paragraph("No executive summary available.", normal_style))
@@ -240,7 +243,14 @@ def generate_pdf_from_projection(
         from dataclasses import asdict
         from packages.shared.storage import save_artifact
         import json
-        manifest_bytes = json.dumps(asdict(manifest), indent=2).encode("utf-8")
+        manifest_payload = asdict(manifest)
+        if evidence_graph_payload and isinstance(evidence_graph_payload, dict):
+            ext = evidence_graph_payload.get("extensions", {}) or {}
+            if "quality_gate" in ext:
+                manifest_payload["quality_gate"] = ext.get("quality_gate")
+        if moat_stats:
+            manifest_payload["moat_quality_stats"] = moat_stats
+        manifest_bytes = json.dumps(manifest_payload, indent=2).encode("utf-8")
         save_artifact(run_id, "render_manifest.json", manifest_bytes)
     pdf_bytes = buffer.getvalue()
     try:

@@ -288,6 +288,11 @@ def run_pipeline(run_id: str) -> None:
         all_events = []
         all_citations = []
         all_skipped = []
+        quality_stats = {
+            "num_snippets_filtered": 0,
+            "num_snippets_cleaned": 0,
+            "num_fallback_rewrites": 0,
+        }
 
         clin_events, clin_cits, clin_warns, clin_skipped = extract_clinical_events(all_pages, dates, providers, page_provider_map)
         all_events.extend(clin_events)
@@ -331,6 +336,25 @@ def run_pipeline(run_id: str) -> None:
         all_warnings.extend(op_warns)
         all_skipped.extend(op_skipped)
         logger.info(f"[{run_id}] Extraction complete: {len(all_events)} events")
+
+        # Quality gate: clean/flag garbage text in event facts without dropping citations.
+        from apps.worker.quality.text_quality import clean_text, is_garbage
+        for evt in all_events:
+            cleaned_facts = []
+            for fact in evt.facts or []:
+                text = str(getattr(fact, "text", "") or "")
+                cleaned = clean_text(text)
+                if cleaned and cleaned != text:
+                    quality_stats["num_snippets_cleaned"] += 1
+                if is_garbage(cleaned):
+                    quality_stats["num_snippets_filtered"] += 1
+                    quality_stats["num_fallback_rewrites"] += 1
+                    cleaned = "Content present but low-quality/duplicative; see cited source."
+                fact.text = cleaned
+                cleaned_facts.append(fact)
+            evt.facts = cleaned_facts
+        logger.info(f"[{run_id}] Quality gate stats: {quality_stats}")
+
         assign_patient_scope_to_events(all_events, page_to_patient_scope)
         enforce_event_patient_scope(all_events, all_citations, page_to_patient_scope)
 
@@ -425,6 +449,7 @@ def run_pipeline(run_id: str) -> None:
             "facts_total": sum(len(e.facts) for e in all_events),
             "citations_total": len(all_citations),
         }
+        evidence_graph.extensions["quality_gate"] = quality_stats
         evidence_graph.extensions["event_weighting"] = weight_summary
         logger.info(f"[{run_id}] Extraction metrics: {evidence_graph.extensions['extraction_metrics']}")
         claim_edges = build_claim_edges([], raw_events=chronology_events)

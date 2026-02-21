@@ -24,6 +24,7 @@ from apps.worker.steps.export_render.common import (
     _extract_disposition,
     _is_sdoh_noise,
 )
+from apps.worker.quality.text_quality import clean_text, is_garbage
 
 if TYPE_CHECKING:
     from apps.worker.project.models import ChronologyProjectionEntry
@@ -77,9 +78,9 @@ def _render_entry(
     display_date = m_display.group(1) if m_display else ("Undated" if not raw_date_display else raw_date_display)
     if "date not documented" in display_date.lower(): display_date = "Undated"
     
-    raw_facts = [sanitize_for_report(f.strip()) for f in (entry.facts or []) if f and f.strip()]
+    raw_facts = [sanitize_for_report(clean_text(f.strip())) for f in (entry.facts or []) if f and f.strip()]
     facts = [_clean_direct_snippet(f.strip()) for f in raw_facts]
-    facts = [f for f in facts if f]
+    facts = [f for f in facts if f and not is_garbage(f)]
     if not facts: return []
 
     from apps.worker.steps.export_render.projection_enrichment import _normalize_event_class_local
