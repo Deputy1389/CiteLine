@@ -235,11 +235,11 @@ from apps.api.routes.firms import router as firms_router  # noqa: E402
 from apps.api.routes.matters import router as matters_router  # noqa: E402
 from apps.api.routes.runs import router as runs_router  # noqa: E402
 
-app.include_router(firms_router)
-app.include_router(matters_router)
-app.include_router(docs_router)
-app.include_router(runs_router)
-app.include_router(exports_router)
+for router in (firms_router, matters_router, docs_router, runs_router, exports_router):
+    # Backward-compatible legacy paths (e.g. /firms/{firm_id}/matters)
+    app.include_router(router)
+    # Canonical prefixed paths expected by frontend/proxy (e.g. /api/citeline/...)
+    app.include_router(router, prefix="/api/citeline")
 
 
 @app.get("/health")
