@@ -4,6 +4,7 @@ Timeline rendering logic for PDF export.
 from __future__ import annotations
 
 import re
+import logging
 from datetime import date
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
@@ -20,6 +21,7 @@ from reportlab.platypus import (
     PageBreak,
     Spacer,
 )
+logger = logging.getLogger(__name__)
 
 from apps.worker.steps.export_render.common import (
     _date_str,
@@ -240,7 +242,14 @@ def generate_pdf_from_projection(
         import json
         manifest_bytes = json.dumps(asdict(manifest), indent=2).encode("utf-8")
         save_artifact(run_id, "render_manifest.json", manifest_bytes)
-    return buffer.getvalue()
+    pdf_bytes = buffer.getvalue()
+    try:
+        from apps.worker.steps.export_render.pdf_linker import add_internal_links
+        if manifest.forward_links:
+            pdf_bytes = add_internal_links(pdf_bytes, json.loads(manifest_bytes.decode("utf-8")))
+    except Exception as exc:
+        logger.warning(f"PDF link post-process failed: {exc}")
+    return pdf_bytes
 
 
 def _normalize_filename(name: str) -> str:
