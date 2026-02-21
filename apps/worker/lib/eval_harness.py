@@ -72,7 +72,7 @@ def run_extraction(pdf_path: Path) -> dict:
         return {"error": str(e), "file": pdf_path.name}
 
     # Step 2: Text acquisition
-    pages, _, _ = acquire_text(pages, str(pdf_path))
+    pages, _, _ = acquire_text(pages, str(pdf_path), run_id=None)
 
     # Step 3: Classification
     pages, _ = classify_pages(pages)

@@ -190,6 +190,22 @@ class Citation(Base):
     source_document = relationship("SourceDocument")
 
 
+class OCRCache(Base):
+    __tablename__ = "ocr_cache"
+
+    id = Column(String(120), primary_key=True, default=_uuid)
+    source_document_id = Column(String(120), ForeignKey("source_documents.id"), nullable=False)
+    document_sha256 = Column(String(64), nullable=False)
+    page_number = Column(Integer, nullable=False)
+    text = Column(Text, nullable=True)
+    text_hash = Column(String(64), nullable=True)
+    ocr_engine = Column(String(50), nullable=True)
+    dpi = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    source_document = relationship("SourceDocument")
+
+
 class Gap(Base):
     __tablename__ = "gaps"
 

@@ -55,6 +55,27 @@ def _apply_schema_migrations() -> None:
             logger.info("Ensured runs.retry_count column exists.")
         except Exception:
             logger.exception("Failed to add runs.retry_count (may already exist).")
+        try:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS ocr_cache (
+                        id VARCHAR(120) PRIMARY KEY,
+                        source_document_id VARCHAR(120) NOT NULL,
+                        document_sha256 VARCHAR(64) NOT NULL,
+                        page_number INTEGER NOT NULL,
+                        text TEXT,
+                        text_hash VARCHAR(64),
+                        ocr_engine VARCHAR(50),
+                        dpi INTEGER,
+                        created_at TIMESTAMP
+                    )
+                    """
+                )
+            )
+            logger.info("Ensured ocr_cache table exists.")
+        except Exception:
+            logger.exception("Failed to create ocr_cache table (may already exist).")
 
 
 @contextmanager

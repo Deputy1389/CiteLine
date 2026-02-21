@@ -236,7 +236,7 @@ def run_pipeline(run_id: str) -> None:
             all_warnings.extend(step_warnings)
 
             logger.info(f"[{run_id}] Step 2: Text acquisition for {doc.document_id}")
-            pages, ocr_count, step_warnings = acquire_text(pages, pdf_path)
+            pages, ocr_count, step_warnings = acquire_text(pages, pdf_path, run_id=run_id)
             all_warnings.extend(step_warnings)
             total_ocr += ocr_count
 
