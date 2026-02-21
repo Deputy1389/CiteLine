@@ -20,8 +20,8 @@ def test_unanchored_high_risk_claim_suppressed():
     }
     cleaned, report = apply_claim_guard_to_narrative(narrative, page_text)
     assert cleaned is not None
-    assert "Primary Injuries: Not stated in records" in cleaned
-    assert "Major Complications: Not stated in records" in cleaned
+    assert "Primary Injuries: Insufficiently anchored in record text" in cleaned
+    assert "Major Complications: Insufficiently anchored in record text" in cleaned
     assert "Wound infection" not in cleaned
     rejected = report.get("rejected_claims", [])
     assert rejected
