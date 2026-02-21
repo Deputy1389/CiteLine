@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -131,3 +132,31 @@ def list_documents(
         )
         for d in docs
     ]
+
+
+@router.get("/documents/{document_id}/download")
+def download_document(
+    document_id: str,
+    db: Session = Depends(get_db),
+    identity: RequestIdentity | None = Depends(get_request_identity),
+):
+    """Download original uploaded source PDF."""
+    doc = db.query(SourceDocument).filter_by(id=document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    matter = db.query(Matter).filter_by(id=doc.matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+    assert_firm_access(identity, matter.firm_id)
+
+    if not doc.storage_uri:
+        raise HTTPException(status_code=404, detail="Document file missing")
+    if not os.path.exists(doc.storage_uri):
+        raise HTTPException(status_code=404, detail="Document file missing")
+
+    return FileResponse(
+        path=doc.storage_uri,
+        filename=doc.filename or f"{document_id}.pdf",
+        media_type="application/pdf",
+    )

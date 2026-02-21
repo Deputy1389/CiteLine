@@ -1,14 +1,14 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
     getMatter, getMatterDocuments, getMatterRuns, getLatestExports,
-    uploadDocument, createRun, getArtifactUrl,
+    uploadDocument, createRun, getArtifactByNameUrl, getArtifactUrl, getDocumentDownloadUrl,
     type Matter, type Document, type Run
 } from '../api';
 import { ARTIFACT_TYPES } from '../artifacts';
 import {
     FileText, Upload, Play, Clock, CheckCircle, AlertTriangle,
-    FileSpreadsheet, ArrowLeft, RefreshCw, Loader2, Scale, GitBranch, ShieldAlert, ListChecks
+    FileSpreadsheet, ArrowLeft, RefreshCw, Loader2, Scale, GitBranch, ShieldAlert, ListChecks, ExternalLink
 } from 'lucide-react';
 
 type CommandCenterData = {
@@ -22,6 +22,13 @@ type CommandCenterData = {
 };
 
 const completedStatuses = new Set(['success', 'partial']);
+
+type CitationLink = {
+    label: string;
+    filename: string | null;
+    page: number | null;
+    href: string | null;
+};
 
 export default function MatterDetail() {
     const { matterId } = useParams<{ matterId: string }>();
@@ -94,10 +101,12 @@ export default function MatterDetail() {
                 // best-effort only
             }
 
-            const res = await fetch(getArtifactUrl(latest.id, ARTIFACT_TYPES.JSON));
+            let res = await fetch(getArtifactByNameUrl(latest.id, 'evidence_graph.json'));
             if (!res.ok) {
-                throw new Error(`Artifact fetch failed (${res.status})`);
+                // Fallback for older runs where only generic json artifact type is available.
+                res = await fetch(getArtifactUrl(latest.id, ARTIFACT_TYPES.JSON));
             }
+            if (!res.ok) throw new Error(`Artifact fetch failed (${res.status})`);
 
             const payload = await res.json();
             const graph = payload?.evidence_graph ?? payload;
@@ -123,6 +132,46 @@ export default function MatterDetail() {
     useEffect(() => {
         void loadCommandCenter(runs);
     }, [matterId, runs]);
+
+    const citationLinks = useMemo((): CitationLink[] => {
+        if (!commandCenterData) return [];
+        const out: CitationLink[] = [];
+        const seen = new Set<string>();
+        const docByName = new Map<string, Document>();
+        for (const d of docs) docByName.set((d.filename || '').toLowerCase(), d);
+
+        const rawCitations: string[] = [];
+        for (const row of commandCenterData.claimRows || []) {
+            for (const c of (row?.citations || [])) {
+                const s = String(c || '').trim();
+                if (s) rawCitations.push(s);
+            }
+        }
+        for (const c of rawCitations) {
+            // Supports patterns like "packet.pdf p. 3" and "p. 3"
+            const m = c.match(/^(?:(.+?)\s+)?p\.\s*(\d+)$/i);
+            let filename: string | null = null;
+            let page: number | null = null;
+            if (m) {
+                filename = m[1] ? m[1].trim() : null;
+                page = Number.parseInt(m[2], 10);
+            }
+            let targetDoc: Document | undefined;
+            if (filename) {
+                const key = filename.toLowerCase();
+                targetDoc = docByName.get(key) || docs.find((d) => d.filename.toLowerCase().endsWith(key));
+            } else if (docs.length === 1) {
+                targetDoc = docs[0];
+            }
+            const href = targetDoc ? getDocumentDownloadUrl(targetDoc.id, page || undefined) : null;
+            const key = `${c}|${href || ''}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push({ label: c, filename: filename || targetDoc?.filename || null, page, href });
+            if (out.length >= 24) break;
+        }
+        return out;
+    }, [commandCenterData, docs]);
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files?.length) return;
@@ -443,6 +492,37 @@ export default function MatterDetail() {
                                         <div className="text-sm" style={{ marginTop: '0.4rem' }}><strong>Defense:</strong> {commandCenterData.narrativeDuality?.defense_narrative?.summary || 'n/a'}</div>
                                     </div>
                                 </div>
+                            </div>
+
+                            <div>
+                                <h3 style={{ marginBottom: '0.5rem' }}>Record Packet</h3>
+                                <div className="text-xs text-muted" style={{ marginBottom: '0.5rem' }}>
+                                    Click any citation to open the original packet at the referenced page.
+                                </div>
+                                {citationLinks.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {citationLinks.map((c, idx) => (
+                                            c.href ? (
+                                                <a
+                                                    key={`cite-${idx}`}
+                                                    href={c.href}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="artifact-link"
+                                                    title={c.filename || c.label}
+                                                >
+                                                    <ExternalLink size={12} /> {c.label}
+                                                </a>
+                                            ) : (
+                                                <span key={`cite-${idx}`} className="artifact-link" style={{ opacity: 0.7 }}>
+                                                    {c.label}
+                                                </span>
+                                            )
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-xs text-muted">No citation links available for this run yet.</div>
+                                )}
                             </div>
                         </div>
                     )}

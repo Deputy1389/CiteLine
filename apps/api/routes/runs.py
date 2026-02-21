@@ -200,3 +200,45 @@ def download_artifact(
         filename=f"run_{run_id}_{artifact_type}.{ext}",
         media_type="application/octet-stream",
     )
+
+
+@router.get("/runs/{run_id}/artifacts/by-name/{filename}")
+def download_artifact_by_name(
+    run_id: str,
+    filename: str,
+    db: Session = Depends(get_db),
+    identity: RequestIdentity | None = Depends(get_request_identity),
+):
+    """Download a run artifact by exact filename (e.g., evidence_graph.json)."""
+    run = db.query(Run).filter_by(id=run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    matter = db.query(Matter).filter_by(id=run.matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+    assert_firm_access(identity, matter.firm_id)
+
+    from pathlib import Path
+
+    from packages.shared.storage import DATA_DIR, get_artifact_dir
+
+    safe_name = Path(filename).name
+    if safe_name != filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    data_dir = DATA_DIR.resolve()
+    file_path = (get_artifact_dir(run_id) / safe_name).resolve()
+    try:
+        file_path.relative_to(data_dir)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    return FileResponse(
+        path=str(file_path),
+        filename=safe_name,
+        media_type="application/octet-stream",
+    )

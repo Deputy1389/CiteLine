@@ -115,6 +115,16 @@ export const getArtifactUrl = (runId: string, type: string) => {
   return `${API_BASE_URL}/runs/${runId}/artifacts/${type}`;
 };
 
+export const getArtifactByNameUrl = (runId: string, filename: string) => {
+  return `${API_BASE_URL}/runs/${runId}/artifacts/by-name/${encodeURIComponent(filename)}`;
+};
+
+export const getDocumentDownloadUrl = (documentId: string, page?: number) => {
+  const base = `${API_BASE_URL}/documents/${documentId}/download`;
+  if (!page || page < 1) return base;
+  return `${base}#page=${page}`;
+};
+
 export const getLatestExports = async (matterId: string) => {
   const response = await api.get<LatestExports>(`/matters/${matterId}/exports/latest`);
   return response.data;
