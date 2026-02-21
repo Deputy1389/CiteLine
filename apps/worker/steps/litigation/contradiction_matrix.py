@@ -116,8 +116,6 @@ def build_contradiction_matrix(claim_rows: list[ClaimRowLike], *, window_days: i
     mentions: list[dict] = []
     for row in claim_rows:
         citations = [str(c).strip() for c in (row.get("citations") or []) if str(c).strip()]
-        if not citations:
-            continue
         for m in _collect_mentions(row):
             m["date_obj"] = _parse_date(str(row.get("date") or ""))
             m["date"] = str(row.get("date") or "unknown")

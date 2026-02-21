@@ -72,7 +72,7 @@ def build_case_collapse_candidates(claim_rows: list[ClaimRowLike]) -> list[dict]
                 pre_rows = dated_pre
                 pre_score = min(20, pre_score + 4)
         cits = _collect_citations(pre_rows)
-        if len(cits) >= 2 and pre_score >= 8:
+        if len(cits) >= 1 and pre_score >= 6:
             candidates.append(
                 {
                     "id": _stable_id(["PRE_EXISTING_OVERLAP", *cits]),
@@ -90,7 +90,7 @@ def build_case_collapse_candidates(claim_rows: list[ClaimRowLike]) -> list[dict]
     if deg_rows:
         deg_score = min(15, 4 + 2 * len(deg_rows))
         cits = _collect_citations(deg_rows)
-        if len(cits) >= 2 and deg_score >= 8:
+        if len(cits) >= 1 and deg_score >= 6:
             candidates.append(
                 {
                     "id": _stable_id(["DEGENERATIVE_COMPETING_EXPLANATION", *cits]),
@@ -111,7 +111,7 @@ def build_case_collapse_candidates(claim_rows: list[ClaimRowLike]) -> list[dict]
         )
         gap_score = min(20, max(0, int(max_gap / 6)))
         cits = _collect_citations(gap_rows)
-        if len(cits) >= 2 and max_gap >= 60 and gap_score >= 10:
+        if len(cits) >= 1 and max_gap >= 45 and gap_score >= 6:
             candidates.append(
                 {
                     "id": _stable_id(["GAP_BEFORE_ESCALATION", str(max_gap), *cits]),
@@ -130,7 +130,7 @@ def build_case_collapse_candidates(claim_rows: list[ClaimRowLike]) -> list[dict]
         deficit = max(0, len(symptom_rows) - len(objective_rows))
         objective_deficit = min(20, 2 * deficit)
         cits = _collect_citations(symptom_rows)
-        if len(cits) >= 2 and objective_deficit >= 10:
+        if len(cits) >= 1 and objective_deficit >= 6:
             candidates.append(
                 {
                     "id": _stable_id(["LOW_OBJECTIVE_CORROBORATION", *cits]),
@@ -147,7 +147,7 @@ def build_case_collapse_candidates(claim_rows: list[ClaimRowLike]) -> list[dict]
     if incons_rows:
         incons_score = min(15, 6 + 3 * len(incons_rows))
         cits = _collect_citations(incons_rows)
-        if len(cits) >= 2 and incons_score >= 9:
+        if len(cits) >= 1 and incons_score >= 6:
             candidates.append(
                 {
                     "id": _stable_id(["SYMPTOM_INCONSISTENCY", *cits]),
@@ -195,13 +195,13 @@ def build_case_collapse_candidates(claim_rows: list[ClaimRowLike]) -> list[dict]
 
     candidates.sort(key=lambda c: (-int(c.get("fragility_score") or 0), str(c.get("fragility_type") or ""), str(c.get("id") or "")))
     # Conservative suppression to keep false positives low.
-    return [c for c in candidates if int(c.get("fragility_score") or 0) >= 8]
+    return [c for c in candidates if int(c.get("fragility_score") or 0) >= 5]
 
 
 def build_defense_attack_paths(candidates: list[dict], *, limit: int = 3) -> list[dict]:
     out: list[dict] = []
     for c in candidates:
-        if int(c.get("fragility_score") or 0) < 10:
+        if int(c.get("fragility_score") or 0) < 6:
             continue
         if len(out) >= limit:
             break

@@ -98,11 +98,19 @@ logger = logging.getLogger(__name__)
 
 
 def _build_litigation_extensions(claim_rows: list[dict] | list[ClaimEdge]) -> dict:
-    anchored_rows = [r for r in claim_rows if (r.get("citations") or [])]
+    all_rows = list(claim_rows)
+    anchored_rows = [r for r in all_rows if (r.get("citations") or [])]
+    logger.info(
+        f"Litigation extensions: {len(all_rows)} claim rows ({len(anchored_rows)} with citations)"
+    )
     collapse_candidates = build_case_collapse_candidates(anchored_rows)
+    logger.info(f"Litigation extensions: {len(collapse_candidates)} case collapse candidates")
     attack_paths = build_defense_attack_paths(collapse_candidates, limit=6)
-    objection_profiles = build_objection_profiles(anchored_rows, limit=24)
+    logger.info(f"Litigation extensions: {len(attack_paths)} defense attack paths")
+    objection_profiles = build_objection_profiles(all_rows, limit=24)
+    logger.info(f"Litigation extensions: {len(objection_profiles)} objection profiles")
     upgrade_recs = build_upgrade_recommendations(collapse_candidates, limit=8)
+    logger.info(f"Litigation extensions: {len(upgrade_recs)} upgrade recommendations")
     locked_quotes: list[dict] = []
     for row in select_top_claim_rows(anchored_rows, limit=12):
         q = quote_lock(str(row.get("assertion") or ""))
@@ -118,22 +126,33 @@ def _build_litigation_extensions(claim_rows: list[dict] | list[ClaimEdge]) -> di
                 "event_id": str(row.get("event_id") or ""),
             }
         )
+    logger.info(f"Litigation extensions: {len(locked_quotes)} quote lock rows")
+    causation_chains = build_causation_ladders(all_rows)
+    logger.info(f"Litigation extensions: {len(causation_chains)} causation chains")
+    contradiction_matrix = build_contradiction_matrix(all_rows)
+    logger.info(f"Litigation extensions: {len(contradiction_matrix)} contradiction rows")
+    narrative_duality = build_narrative_duality(all_rows)
+    logger.info(
+        f"Litigation extensions: narrative duality payload {'present' if narrative_duality else 'missing'}"
+    )
+    comparative_snapshot = build_comparative_pattern_snapshot(all_rows)
+    logger.info(f"Litigation extensions: comparative snapshot keys {len(comparative_snapshot or {})}")
     payload = {
-        "claim_rows": anchored_rows,
-        "causation_chains": build_causation_ladders(anchored_rows),
+        "claim_rows": all_rows,
+        "causation_chains": causation_chains,
         "citation_fidelity": {
-            "claim_rows_total": len(claim_rows),
+            "claim_rows_total": len(all_rows),
             "claim_rows_anchored": len(anchored_rows),
-            "claim_row_anchor_ratio": round((len(anchored_rows) / len(claim_rows)), 4) if claim_rows else 1.0,
+            "claim_row_anchor_ratio": round((len(anchored_rows) / len(all_rows)), 4) if all_rows else 1.0,
         },
         "case_collapse_candidates": collapse_candidates,
         "defense_attack_paths": attack_paths,
         "objection_profiles": objection_profiles,
         "evidence_upgrade_recommendations": upgrade_recs,
         "quote_lock_rows": locked_quotes,
-        "contradiction_matrix": build_contradiction_matrix(anchored_rows),
-        "narrative_duality": build_narrative_duality(anchored_rows),
-        "comparative_pattern_engine": build_comparative_pattern_snapshot(anchored_rows),
+        "contradiction_matrix": contradiction_matrix,
+        "narrative_duality": narrative_duality,
+        "comparative_pattern_engine": comparative_snapshot,
     }
     return LitigationExtensions.model_validate(payload).model_dump(mode="json")
 
@@ -389,6 +408,10 @@ def run_pipeline(run_id: str) -> None:
         evidence_graph.extensions["event_weighting"] = weight_summary
         logger.info(f"[{run_id}] Extraction metrics: {evidence_graph.extensions['extraction_metrics']}")
         claim_edges = build_claim_edges([], raw_events=chronology_events)
+        citations_with = sum(1 for e in claim_edges if (e.citations or []))
+        logger.info(
+            f"[{run_id}] Claim edges built: {len(claim_edges)} total, {citations_with} with citations"
+        )
         evidence_graph.extensions.update(_build_litigation_extensions(claim_edges))
         # ── Step 14a: Provider normalization + coverage ────────────────
         logger.info(f"[{run_id}] Step 14a: Provider normalization")
