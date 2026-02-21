@@ -2,15 +2,15 @@
 FROM python:3.11-slim-bookworm
 
 # Install Tesseract OCR, Poppler (for PDF), and other system dependencies
-RUN apt-get update && apt-get install -y 
-    tesseract-ocr 
-    libtesseract-dev 
-    tesseract-ocr-eng 
-    libmupdf-dev 
-    mupdf-tools 
-    python3-dev 
-    build-essential 
-    libpq-dev 
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
+    libtesseract-dev \
+    tesseract-ocr-eng \
+    libmupdf-dev \
+    mupdf-tools \
+    python3-dev \
+    build-essential \
+    libpq-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
