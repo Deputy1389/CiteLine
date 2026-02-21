@@ -146,5 +146,11 @@ def main():
             logger.exception(f"Unexpected error in worker loop: {exc}")
             time.sleep(5)
 
+def start_worker_thread():
+    """Start the worker loop in a background daemon thread."""
+    thread = threading.Thread(target=main, daemon=True)
+    thread.start()
+    return thread
+
 if __name__ == "__main__":
     main()

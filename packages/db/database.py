@@ -12,6 +12,10 @@ from sqlalchemy.orm import Session, sessionmaker
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///C:/Citeline/data/citeline.db")
 
+# Render (and Heroku) provide postgres:// but SQLAlchemy 2.0 requires postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 # Connection arguments for SQLite (not needed for Postgres)
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):

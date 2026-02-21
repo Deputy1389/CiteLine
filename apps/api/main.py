@@ -215,11 +215,17 @@ async def request_security_and_audit_middleware(request: Request, call_next):
 
 @app.on_event("startup")
 def startup():
-    """Initialize database tables on startup."""
+    """Initialize database tables and start worker on startup."""
     _validate_hipaa_runtime()
     logger.info("Initializing database...")
     init_db()
     logger.info("Database initialized")
+
+    # Start background worker runner
+    # This allows a single container/service to handle both API and processing
+    from apps.worker.runner import start_worker_thread
+    logger.info("Starting background worker thread...")
+    start_worker_thread()
 
 
 # Register routes

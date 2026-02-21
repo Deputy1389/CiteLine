@@ -1,0 +1,49 @@
+# Render Blueprint – deploy with "New > Blueprint" at dashboard.render.com
+# Docs: https://docs.render.com/blueprint-spec
+
+services:
+  - type: web
+    name: linecite-api
+    runtime: docker
+    repo: https://github.com/Deputy1389/CiteLine.git
+    branch: main
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: linecite-db
+          property: connectionString
+      - key: DATA_DIR
+        value: /app/data
+      - key: PORT
+        value: "8000"
+      - key: CORS_ALLOW_ORIGINS
+        value: https://linecite.com,https://www.linecite.com
+      - key: CORS_ALLOW_CREDENTIALS
+        value: "true"
+      - key: ALLOWED_HOSTS
+        value: api.linecite.com,linecite-api.onrender.com
+      - key: SECURITY_HEADERS_ENABLED
+        value: "true"
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: RATE_LIMIT_RPM
+        value: "180"
+      - key: HIPAA_ENFORCEMENT
+        value: "false"
+      - key: HIPAA_AUDIT_LOGGING
+        value: "true"
+      - key: API_INTERNAL_AUTH_MODE
+        value: jwt
+      - key: API_INTERNAL_JWT_SECRET
+        generateValue: true
+      - key: PYTHONPATH
+        value: /app
+    healthCheckPath: /health
+
+databases:
+  - name: linecite-db
+    plan: free
+    databaseName: linecite
+    user: linecite
