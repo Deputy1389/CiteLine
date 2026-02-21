@@ -39,12 +39,16 @@ def prepare_projection_bundle(
     """
     page_patient_labels = infer_page_patient_labels(page_text_by_number)
     
+    selection_meta: dict[str, Any] = {}
+    projection_debug_sink: list[dict[str, Any]] = []
     projection = build_chronology_projection(
         events=events,
         providers=providers,
         page_map=page_map,
         page_patient_labels=page_patient_labels,
         page_text_by_number=page_text_by_number,
+        debug_sink=projection_debug_sink,
+        selection_meta=selection_meta,
     )
     appendix_projection = projection.model_copy()
     
@@ -95,8 +99,8 @@ def prepare_projection_bundle(
         "care_window": care_window,
         "narrative_synthesis": narrative_synthesis,
         "claim_guard_report": claim_guard_report,
-        "projection_debug": getattr(projection, "debug", {}),
-        "selection_meta": getattr(projection, "selection_meta", {}),
+        "projection_debug": projection_debug_sink,
+        "selection_meta": selection_meta,
     }
 
 
@@ -105,9 +109,11 @@ def build_selection_debug_payload(
     events: list[Event],
     projection_debug: dict,
 ) -> dict:
+    stopping_reason = str(selection_meta.get("stopping_reason") or "unknown")
     payload = {
         "version": "1.1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "stopping_reason": stopping_reason,
         "selection_criteria": selection_meta,
         "total_events_in": len(events),
         "projection_debug": projection_debug,

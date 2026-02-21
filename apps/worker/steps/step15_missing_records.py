@@ -348,6 +348,11 @@ def detect_missing_records(
         e for e in evidence_graph.events
         if _is_care_event(e) and getattr(e, "date", None) and e.date.sort_date().year > 1900
     ]
+    # Align ruleset window with the latest substantive dated event used downstream by QA.
+    if substantive_events:
+        substantive_max = max(e.date.sort_date() for e in substantive_events)
+        if care_end is None or substantive_max > care_end:
+            care_end = substantive_max
     care_window_days = (care_end - care_start).days if (care_start and care_end) else 0
     reeval_gap_logic = bool(care_window_days > 60 and len(substantive_events) < 10)
 

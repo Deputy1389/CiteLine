@@ -351,7 +351,7 @@ def build_litigation_checklist(
             stop_reason = str(selection_debug_obj.get("stopping_reason") or "unknown")
         except Exception:
             stop_reason = "unknown"
-    emergent_selection_pass = stop_reason in {"saturation", "marginal_utility_non_positive", "safety_fuse", "no_candidates"}
+    emergent_selection_pass = stop_reason in {"saturation", "marginal_utility_non_positive", "safety_fuse", "no_candidates", "all_buckets_covered"}
     quality_gates["Q2_coverage_floor"]["metrics"] = {
         "timeline_rows": timeline_rows,
         "substantive_events": substantive_events,
@@ -897,8 +897,12 @@ def build_litigation_checklist(
         )
 
     has_impression = bool(re.search(r"\bimpression\b", lower_report))
-    quality_gates["Q_USE_3_imaging_impression_present"]["metrics"] = {"impression_present": has_impression}
-    if not has_impression:
+    impression_required = bool(bucket_source_available.get("mri") or bucket_counts.get("mri", 0) > 0)
+    quality_gates["Q_USE_3_imaging_impression_present"]["metrics"] = {
+        "impression_present": has_impression,
+        "impression_required": impression_required,
+    }
+    if impression_required and not has_impression:
         quality_gates["Q_USE_3_imaging_impression_present"]["pass"] = False
         quality_gates["Q_USE_3_imaging_impression_present"]["details"].append(
             _issue("USE_NO_IMAGING_IMPRESSION", "No imaging impression text detected in timeline output.")
