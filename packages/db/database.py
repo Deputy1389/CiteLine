@@ -22,6 +22,19 @@ def get_database_url() -> str:
     # Render (and Heroku) provide postgres:// but SQLAlchemy 2.0 requires postgresql://
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
+        
+    # AUTO-FIX: Force Supabase IPv4 Pooler for Render
+    # Render doesn't support IPv6, and Supabase Direct is IPv6-only.
+    # We rewrite the host to the transaction pooler on port 6543.
+    if "db.oqvemwshlhikhodlrjjk.supabase.co" in url:
+        logger.info("Detected Supabase Direct URL. Switching to IPv4 Pooler for Render compatibility.")
+        # Replace host and port
+        url = url.replace("db.oqvemwshlhikhodlrjjk.supabase.co", "aws-0-us-west-1.pooler.supabase.com")
+        url = url.replace(":5432", ":6543")
+        # Ensure SSL is required
+        if "?sslmode=require" not in url:
+            url += "?sslmode=require"
+            
     return url
 
 # Lazy-loaded engine and session
