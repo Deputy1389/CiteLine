@@ -223,13 +223,18 @@ def startup():
     init_db()
     logger.info("Database initialized")
 
-    # Start background worker runner
-    # This allows a single container/service to handle both API and processing
-    from apps.worker.runner import start_worker_thread
-    logger.info("Starting background worker thread...")
-    global _worker_thread
-    _worker_thread = start_worker_thread()
-    logger.info("Worker thread started: %s", bool(_worker_thread and _worker_thread.is_alive()))
+    # Start background worker runner ONLY if explicitly enabled
+    # Set ENABLE_API_WORKER=true to run worker in API container
+    # For production, use dedicated worker service (Oracle) instead
+    enable_worker = os.getenv("ENABLE_API_WORKER", "false").lower() == "true"
+    if enable_worker:
+        from apps.worker.runner import start_worker_thread
+        logger.info("Starting background worker thread...")
+        global _worker_thread
+        _worker_thread = start_worker_thread()
+        logger.info("Worker thread started: %s", bool(_worker_thread and _worker_thread.is_alive()))
+    else:
+        logger.info("Background worker disabled (ENABLE_API_WORKER != true)")
 
 
 # Register routes
