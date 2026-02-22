@@ -10,13 +10,17 @@ from typing import Generator
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
+from dotenv import load_dotenv
 
 logger = logging.getLogger("linecite.db")
 
 def get_database_url() -> str:
+    load_dotenv() # Force load from .env
     url = os.environ.get("DATABASE_URL")
     if url:
         url = url.strip()
+    
+    print(f"DEBUG: Raw DATABASE_URL from env: {url}") # Immediate debug output
     
     if not url:
         # Fallback only for local development
