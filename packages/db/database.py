@@ -33,11 +33,15 @@ def get_database_url() -> str:
     # AUTO-FIX: Force Supabase IPv4 Pooler for Render
     # Render doesn't support IPv6, and Supabase Direct is IPv6-only.
     # We rewrite the host to the transaction pooler on port 6543.
+    # Note: Pooler requires username format: postgres.[PROJECT_REF]
     if "db.oqvemwshlhikhodlrjjk.supabase.co" in url:
         logger.info("Detected Supabase Direct URL. Switching to IPv4 Pooler for Render compatibility.")
         # Replace host and port
         url = url.replace("db.oqvemwshlhikhodlrjjk.supabase.co", "aws-0-us-west-1.pooler.supabase.com")
         url = url.replace(":5432", ":6543")
+        # Fix username to include project ref
+        url = url.replace("postgres:", "postgres.oqvemwshlhikhodlrjjk:", 1)
+        
         # Ensure SSL is required
         if "?sslmode=require" not in url:
             url += "?sslmode=require"
