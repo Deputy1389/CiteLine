@@ -151,12 +151,15 @@ def download_document(
     assert_firm_access(identity, matter.firm_id)
 
     if not doc.storage_uri:
-        raise HTTPException(status_code=404, detail="Document file missing")
-    if not os.path.exists(doc.storage_uri):
-        raise HTTPException(status_code=404, detail="Document file missing")
+        raise HTTPException(status_code=404, detail="Document file missing: no storage_uri")
+
+    # Normalize path (handle Windows forward/backslash issues)
+    file_path = os.path.normpath(doc.storage_uri)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail=f"Document file missing: {file_path} not found on disk")
 
     return FileResponse(
-        path=doc.storage_uri,
+        path=file_path,
         filename=doc.filename or f"{document_id}.pdf",
         media_type="application/pdf",
     )

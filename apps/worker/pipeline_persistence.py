@@ -4,6 +4,7 @@ Persistence helpers for pipeline run outputs.
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -20,6 +21,8 @@ from packages.db.models import (
 )
 from packages.shared.models import ArtifactRef, EvidenceGraph, RunRecord, Warning
 
+logger = logging.getLogger(__name__)
+
 
 def persist_pipeline_state(
     run_id: str,
@@ -30,27 +33,28 @@ def persist_pipeline_state(
     evidence_graph: EvidenceGraph,
     artifact_entries: list[tuple[str, Optional[ArtifactRef]]],
 ) -> None:
-    with get_session() as session:
-        run_row = session.query(RunORM).filter_by(id=run_id).first()
-        if not run_row:
-            return
+    try:
+        with get_session() as session:
+            run_row = session.query(RunORM).filter_by(id=run_id).first()
+            if not run_row:
+                return
 
-        run_row.status = status
-        run_row.finished_at = datetime.now(timezone.utc)
-        run_row.processing_seconds = processing_seconds
-        run_row.metrics_json = run_record.metrics.model_dump_json()
-        run_row.warnings_json = json.dumps([w.model_dump() for w in all_warnings])
-        run_row.provenance_json = run_record.provenance.model_dump_json()
+            run_row.status = status
+            run_row.finished_at = datetime.now(timezone.utc)
+            run_row.processing_seconds = processing_seconds
+            run_row.metrics_json = run_record.metrics.model_dump_json()
+            run_row.warnings_json = json.dumps([w.model_dump() for w in all_warnings])
+            run_row.provenance_json = run_record.provenance.model_dump_json()
 
-        # Idempotency: clear prior rows for this run.
-        session.query(PageORM).filter_by(run_id=run_id).delete()
-        session.query(DocumentSegmentORM).filter_by(run_id=run_id).delete()
-        session.query(ProviderORM).filter_by(run_id=run_id).delete()
-        session.query(EventORM).filter_by(run_id=run_id).delete()
-        session.query(CitationORM).filter_by(run_id=run_id).delete()
-        session.query(GapORM).filter_by(run_id=run_id).delete()
-        session.query(ArtifactORM).filter_by(run_id=run_id).delete()
-        session.flush()
+            # Idempotency: clear prior rows for this run.
+            session.query(PageORM).filter_by(run_id=run_id).delete()
+            session.query(DocumentSegmentORM).filter_by(run_id=run_id).delete()
+            session.query(ProviderORM).filter_by(run_id=run_id).delete()
+            session.query(EventORM).filter_by(run_id=run_id).delete()
+            session.query(CitationORM).filter_by(run_id=run_id).delete()
+            session.query(GapORM).filter_by(run_id=run_id).delete()
+            session.query(ArtifactORM).filter_by(run_id=run_id).delete()
+            session.flush()
 
         for page in evidence_graph.pages:
             session.add(PageORM(
@@ -131,12 +135,31 @@ def persist_pipeline_state(
                 related_event_ids_json=gap.related_event_ids,
             ))
 
-        for atype, aref in artifact_entries:
-            if aref:
-                session.add(ArtifactORM(
-                    run_id=run_id,
-                    artifact_type=atype,
-                    storage_uri=aref.uri,
-                    sha256=aref.sha256,
-                    bytes=aref.bytes,
-                ))
+            for atype, aref in artifact_entries:
+                if aref:
+                    session.add(ArtifactORM(
+                        run_id=run_id,
+                        artifact_type=atype,
+                        storage_uri=aref.uri,
+                        sha256=aref.sha256,
+                        bytes=aref.bytes,
+                    ))
+    except Exception as exc:
+        # CRITICAL: If any row fails (constraint violation, data overflow),
+        # the transaction rolls back. We MUST catch this and mark the run
+        # as "failed" in a separate transaction, otherwise it stays "running" forever.
+        logger.exception(f"[{run_id}] Persist failed: {exc}")
+        _fail_run_persisted(run_id, f"Persist failed: {exc}")
+
+
+def _fail_run_persisted(run_id: str, error: str) -> None:
+    """Mark a run as failed in a separate transaction (for persist failures)."""
+    try:
+        with get_session() as session:
+            run_row = session.query(RunORM).filter_by(id=run_id).first()
+            if run_row:
+                run_row.status = "failed"
+                run_row.error_message = error
+                run_row.finished_at = datetime.now(timezone.utc)
+    except Exception as exc2:
+        logger.exception(f"[{run_id}] Failed to mark run as failed: {exc2}")

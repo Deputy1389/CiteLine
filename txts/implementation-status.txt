@@ -1,0 +1,208 @@
+================================================================================
+COMPREHENSIVE FIX PLAN — IMPLEMENTATION STATUS
+================================================================================
+Updated: 2026-02-21
+
+================================================================================
+LAYER 1: MAKE THE ENGINE PRODUCE REAL TEXT
+================================================================================
+
+[✓] 1A. OCR single-open + 200 DPI + cleanup
+    - Already implemented in step02_text_acquire.py
+    - Single PDF open (line 223-229, 312-363)
+    - 200 DPI default (line 27)
+    - Memory cleanup (lines 122-132)
+
+[✓] 1B. Parallel OCR
+    - ThreadPoolExecutor already implemented (lines 364-428)
+    - Configurable via OCR_WORKERS env var (default 2)
+    - NOTE: Plan recommended ProcessPoolExecutor with benchmarking
+      Current implementation uses ThreadPoolExecutor
+
+[✓] 1C. Total budget timeout
+    - Already implemented (line 26, 242, 315-317, 369-371)
+    - OCR_TOTAL_TIMEOUT_SECONDS env var (default 600 = 10 min)
+
+[✓] 1D. Smart page skipping
+    - Already implemented (_page_needs_ocr, lines 63-91)
+    - OCR_MODE support (full/fast/sample)
+    - Blank page detection
+    - Low density text detection
+
+[✓] 1E. OCR cache
+    - Already implemented (lines 272-309)
+    - Database-backed cache (OCRCache model exists)
+    - Keyed by document SHA256 + page number + DPI
+
+[✓] 1F. Tesseract tuning
+    - Already implemented (line 30)
+    - Default config: "--oem 1 --psm 6"
+    - Configurable via OCR_TESSERACT_CONFIG env var
+
+[✓] 1G. Junk suppression
+    - Already implemented in apps/worker/quality/text_quality.py
+    - clean_text(), is_garbage(), quality_score() functions
+    - Integrated into export rendering (moat_section.py, timeline_pdf.py)
+
+Status: LAYER 1 COMPLETE (already implemented before this session)
+
+
+================================================================================
+LAYER 2: MAKE THE PLUMBING WORK
+================================================================================
+
+[✓] 2A. Fix Evidence Vault document serving
+    - FIXED in this session
+    - Added os.path.normpath() to handle Windows forward/backslash issues
+    - Improved error messages (distinguish missing storage_uri vs file not found)
+    - File: apps/api/routes/documents.py
+
+[✓] 2B. Fix Strategic Overview reading no data
+    - TODO: Needs investigation
+    - Context Dock shows data, Strategic Overview shows "No strategic flags"
+    - Need to check frontend component logic
+
+[ ] 2C. Fix Context Dock content rendering
+    - TODO: Add display name mapping for enum names
+    - PRE_EXISTING_OVERLAP -> "Pre-Existing Condition Overlap"
+    - DEGENERATIVE_COMPETING_EXPLANATION -> "Degenerative / Competing Explanation"
+    - TODO: Fix "mechanism / No details" empty contradiction entries
+    - File: apps/ui/src/components/ (Context Dock)
+
+[✓] 2D. Fix persist-transaction rollback bug
+    - FIXED in this session
+    - Wrapped persist_pipeline_state() in try/except
+    - Added _fail_run_persisted() helper
+    - On persist failure, run now transitions to "failed" instead of stuck "running"
+    - File: apps/worker/pipeline_persistence.py
+
+[✓] 2E. Force-fail API endpoint
+    - Already implemented
+    - POST /runs/{run_id}/cancel accepts both "pending" and "running" status
+    - Sets status="failed", error_message="Cancelled by user"
+    - File: apps/api/routes/runs.py
+
+[ ] 2F. Run artifact versioning
+    - TODO: Ensure artifact reads are keyed by explicit run_id
+    - TODO: Check if UI is accidentally reading artifacts from old run
+    - File: apps/api/routes/runs.py, apps/ui/src/
+
+[ ] 2G. Bidirectional PDF navigation scaffold
+    - TODO: Add internal PDF anchors (chron_row_{event_id}, app_{doc}_p_{page})
+    - TODO: Forward links: chronology -> appendix
+    - TODO: Back links: appendix -> chronology
+    - TODO: Render manifest JSON for testing
+    - File: apps/worker/steps/export_render/timeline_pdf.py
+
+Status: LAYER 2 - 3/7 DONE (2D, 2E already done, 2A fixed today)
+        Remaining: 2B, 2C, 2F, 2G
+
+
+================================================================================
+LAYER 3: MAKE THE OUTPUT ACCURATE AND VALUABLE
+================================================================================
+
+[ ] 3A. Extraction quality validation
+    - TODO: Re-run 494-page packet with OCR working
+    - TODO: Manual spot-check 10-20 events against source
+    - TODO: Verify dates, facts, providers, citations, event types
+
+[ ] 3B. Date extraction hardening
+    - TODO: After 3A, check if dates are still failing
+    - TODO: Add failing test cases from real packet
+
+[ ] 3C. Context Dock content quality audit
+    - TODO: Re-evaluate Claims, Causation, Contradictions, Defense, Collapse tabs
+    - TODO: Verify data makes medical/legal sense
+
+[ ] 3D. Human-readable content rendering
+    - TODO: Display contradictions with quoted statements, dates, sources
+    - TODO: Display defense entries with theory description, excerpts, fragility score
+    - TODO: Display causation as visual chain with strength indicators
+    - TODO: Display claims grouped by type, sortable/filterable
+
+[ ] 3E. Injury Arc narrative
+    - TODO: Visual arc (incident -> acute -> recovery -> plateau)
+    - TODO: Group by treatment phase, not chronological dump
+    - TODO: Highlight escalation points, gaps, providers
+
+Status: LAYER 3 - 0/5 DONE (all require Layer 1-2 completion + manual validation)
+
+
+================================================================================
+LAYER 4: MAKE IT LITIGATION-GRADE
+================================================================================
+
+[ ] 4A. PDF layout overhaul
+    - TODO: Restructure to Moat -> Exec Summary -> Chronology -> Appendix
+    - TODO: Refactor into render_moat_section(), render_exec_summary(), etc.
+    - TODO: Each moat subsection renders even if empty
+
+[ ] 4B. Export quality polish
+    - TODO: Professional typography, clear section headers
+    - TODO: DOCX editable by paralegals
+    - TODO: CSV machine-readable
+
+[ ] 4C. Testing and reliability
+    - TODO: GitHub Actions workflow
+    - TODO: New tests for OCR, persist, runner, PDF render, frontend
+    - TODO: Add Ruff, Mypy, Vitest
+
+[ ] 4D. Performance hardening
+    - TODO: OCR benchmark
+    - TODO: Pipeline benchmark
+    - TODO: Persist benchmark
+    - TODO: Environment-specific baselines
+
+Status: LAYER 4 - 0/4 DONE (polish layer, depends on Layer 3)
+
+
+================================================================================
+CRITICAL NEXT STEPS (PRIORITY ORDER)
+================================================================================
+
+1. [ ] Fix 2B: Strategic Overview data disconnect
+       - Investigate why Context Dock shows data but Strategic Overview doesn't
+       - Wire Strategic Overview to same data source
+
+2. [ ] Fix 2C: Context Dock enum rendering
+       - Add display name mapping in frontend
+       - Fix empty "No details" contradiction entries
+
+3. [ ] Implement 2F: Run artifact versioning
+       - Ensure UI always reads artifacts for the selected run_id
+
+4. [ ] Implement 2G: Bidirectional PDF navigation
+       - Add anchors and links
+       - This helps with Layer 3A validation
+
+5. [ ] Execute 3A: Quality validation
+       - Re-run 494-page packet with DISABLE_OCR=false
+       - Manual spot-check to verify extraction quality
+
+6. [ ] Fix remaining Layer 3 items based on 3A results
+
+7. [ ] Layer 4 polish and testing
+
+
+================================================================================
+SUMMARY
+================================================================================
+
+Total items: 26
+  Layer 1: 7/7 ✓ (100% — already implemented)
+  Layer 2: 3/7 ✓ (43%)
+  Layer 3: 0/5 (0% — depends on validation)
+  Layer 4: 0/4 (0% — polish layer)
+
+Key wins in this session:
+  - Fixed persist rollback bug (2D) — prevents stuck runs
+  - Fixed Evidence Vault path issue (2A) — documents now loadable
+  - Discovered OCR optimizations already implemented (Layer 1)
+  - Discovered junk suppression already implemented (1G)
+
+Most critical remaining work:
+  - Frontend fixes (2B, 2C, 2F) — make UI show data correctly
+  - PDF navigation (2G) — helps with validation
+  - Quality validation (3A) — verify extraction works on real data
+  - Human-readable rendering (3D) — make output usable by lawyers

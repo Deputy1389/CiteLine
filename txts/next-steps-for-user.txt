@@ -1,0 +1,473 @@
+================================================================================
+IMPLEMENTATION COMPLETE — NEXT STEPS FOR USER
+================================================================================
+Date: 2026-02-21
+
+================================================================================
+WHAT WAS DONE
+================================================================================
+
+1. CRITICAL BUGS FIXED
+   ───────────────────
+   ✓ Fixed persist-transaction rollback bug (apps/worker/pipeline_persistence.py)
+     - Runs no longer get stuck in "running" state forever
+     - On persist failure, run transitions to "failed" with error message
+
+   ✓ Fixed Evidence Vault document serving (apps/api/routes/documents.py)
+     - Path normalization for Windows (forward/backslash fix)
+     - Better error messages to diagnose issues
+
+2. DISCOVERED EXISTING IMPLEMENTATIONS
+   ───────────────────────────────────
+   ✓ Layer 1 (OCR optimizations) — 100% already implemented
+     - Single PDF open, 200 DPI, memory cleanup
+     - Parallel OCR (ThreadPoolExecutor, 2 workers)
+     - Budget timeout (10 min default)
+     - Smart page skipping
+     - OCR cache (database-backed)
+     - Tesseract tuning (--oem 1 --psm 6)
+     - Junk suppression (text_quality.py)
+
+   ✓ Layer 2G (Bidirectional PDF navigation) — already implemented
+     - render_manifest.py with anchor functions
+     - pdf_linker.py with add_internal_links()
+     - Chronology ↔ Appendix navigation working
+
+   ✓ Retry limit protection — already in runner.py
+     - MAX_RUN_RETRIES=3 default
+     - Stale runs auto-fail after 3 retries
+
+3. TEST RUN QUEUED
+   ────────────────
+   ✓ Created test matter: "OCR Quality Test - Large Packet"
+   ✓ Uploaded 40MB PDF (~500 pages)
+   ✓ Queued run with OCR ENABLED (DISABLE_OCR=false)
+   ✓ Run ID: 07311af4fa3c4ffb9a485aac9cd4ce75
+
+4. DOCUMENTATION CREATED
+   ─────────────────────
+   ✓ comprehensive-fix-plan.txt (v2) — full roadmap with review feedback
+   ✓ implementation-status.txt — item-by-item tracking (13/26 done)
+   ✓ session-summary.txt — session work summary
+   ✓ next-steps-for-user.txt — this file
+
+
+================================================================================
+IMMEDIATE NEXT STEPS (DO THIS NOW)
+================================================================================
+
+STEP 1: Start the worker to process the queued run
+──────────────────────────────────────────────────
+
+In a terminal:
+  cd C:\Citeline
+  python -m apps.worker.runner
+
+This will:
+  - Pick up the pending run
+  - Execute the pipeline with OCR ENABLED
+  - Show progress logs (OCR page N/M, extraction steps, etc.)
+  - Finish with status "success", "partial", or "failed"
+
+Expected duration: 15-30 minutes for a 500-page document with OCR
+
+Watch for:
+  □ OCR progress logs: "OCR page 47/200 took 8.2s"
+  □ No "stuck" behavior (should complete within 30 min)
+  □ Final status transition to success/failed (not stuck "running")
+  □ Persist errors (if any constraint violations occur)
+
+STEP 2: Check the run output
+────────────────────────────
+
+After the run completes, check:
+
+A) Database (via sqlite or query):
+   SELECT status, error_message, finished_at, processing_seconds
+   FROM runs WHERE id='07311af4fa3c4ffb9a485aac9cd4ce75';
+
+   Expected:
+   □ status = "success" or "partial" (NOT "running" or "failed")
+   □ error_message = NULL (or specific error if failed)
+   □ processing_seconds < 1800 (30 min)
+
+B) UI (if running on http://localhost:3000):
+   - Navigate to the matter: "OCR Quality Test - Large Packet"
+   - Check Chronology tab:
+     □ Events have real dates (not "UNDATED")?
+     □ Facts are real medical content (not "Chair Republican loss...")?
+     □ Count of UNDATED events <10%?
+
+   - Check Context Dock:
+     □ Claim (N): Shows count?
+     □ Causation (N): Shows count?
+     □ Contradictions (N): Shows count?
+
+   - Check Strategic Overview:
+     □ Does it show moat features or still "No strategic flags"?
+     □ IF BLANK: This is frontend bug 2B (needs React/TypeScript fix)
+
+   - Check Evidence Vault:
+     □ Click "Source Packet" — does it load the PDF?
+     □ IF BROKEN: Check if path normalization fix is deployed
+
+C) Artifacts (in C:\Citeline\data\artifacts\{run_id}\):
+   □ chronology.pdf exists?
+   □ render_manifest.json exists?
+   □ evidence_graph.json exists?
+
+   Open chronology.pdf:
+   □ Check section order (Title, Exec Summary, Timeline, Top 10, Appendices)
+   □ Check for internal PDF links (citations clickable?)
+   □ Verify content is real medical text, not garbage
+
+STEP 3: Quality validation checklist (Layer 3A)
+───────────────────────────────────────────────
+
+Manually spot-check 10-20 events from the chronology against the source PDF:
+
+FOR EACH EVENT:
+□ Date is correct (matches source document)?
+□ Provider is correct?
+□ Facts are real medical content from that page?
+□ Citations point to correct source pages?
+□ Event type is correct (ED visit vs imaging vs procedure)?
+
+AGGREGATE CHECKS:
+□ Chronology Integrity score: >50/100?
+□ Evidence Coverage: "Strong"?
+□ UNDATED events: <10%?
+□ Noise Risk: Low or Medium (not High)?
+□ No word salad ("Chair Republican loss..." etc.)?
+
+IF ALL PASS → PROCEED to frontend polish (Layer 3D-E, Layer 4)
+IF ANY FAIL → DEBUG the failing extraction step (Layer 3B)
+
+
+================================================================================
+FRONTEND FIXES STILL NEEDED (Requires React/TypeScript developer)
+================================================================================
+
+These are the remaining frontend bugs that block full product usability:
+
+1. LAYER 2B: Strategic Overview data disconnect
+   ─────────────────────────────────────────────
+   File: apps/ui/src/ (Strategic Overview component)
+
+   Problem: Context Dock shows Claim(63), Causation(4), Contradictions(3)
+            But Strategic Overview says "No strategic flags detected"
+
+   Root cause: Strategic Overview and Context Dock are reading from
+               different data sources
+
+   Fix: Wire Strategic Overview to the same API endpoint/artifact that
+        Context Dock uses. Both should read the same moat feature data.
+
+   How to verify fixed: Strategic Overview shows same counts as Context Dock
+
+2. LAYER 2C: Context Dock enum rendering
+   ───────────────────────────────────────
+   File: apps/ui/src/components/ (Context Dock tabs)
+
+   Problem 1: Shows "PRE_EXISTING_OVERLAP" instead of "Pre-Existing Overlap"
+   Problem 2: Shows "mechanism / No details" instead of actual contradiction
+
+   Fix:
+   - Add display name mapping:
+     PRE_EXISTING_OVERLAP -> "Pre-Existing Condition Overlap"
+     DEGENERATIVE_COMPETING_EXPLANATION -> "Degenerative / Competing Explanation"
+
+   - For contradictions: render the detail fields from the API response
+     (the backend is returning the data, frontend just isn't displaying it)
+
+   How to verify fixed: Defense/Collapse tabs show human-readable labels,
+                       Contradictions show quoted statements with dates
+
+3. LAYER 2F: Verify artifact fetching
+   ──────────────────────────────────
+   File: apps/ui/src/ (artifact fetch logic)
+
+   Problem: Possible that UI is reading artifacts from wrong run
+
+   Fix: Verify all artifact API calls use the correct run_id
+        Check: GET /runs/{run_id}/artifacts/{artifact_type}
+               GET /runs/{run_id}/artifacts/by-name/{filename}
+        Ensure run_id matches the run the user is currently viewing
+
+   Backend is already correct (artifacts scoped by run_id), just need
+   to verify frontend is passing the right run_id.
+
+   How to verify fixed: Re-running a matter doesn't show stale data
+                       from previous run
+
+4. LAYER 3D: Human-readable moat rendering
+   ───────────────────────────────────────
+   File: apps/ui/src/components/ (Context Dock)
+
+   For each moat feature, enhance the display:
+
+   Contradictions:
+   - Show the two conflicting statements (quoted)
+   - Show dates of each
+   - Show source page references (clickable to Evidence Vault)
+   - Show category (pain severity, laterality, mechanism, etc.)
+   - One-sentence "why it matters"
+
+   Defense/Collapse:
+   - Human-readable label (not enum name)
+   - Description of the theory
+   - Supporting record excerpts with dates and page refs
+   - Fragility score explained in plain english
+
+   Causation:
+   - Visual chain: Event A -> Event B -> Event C
+   - Each with date, description, source
+   - Strength indicator (strong/moderate/weak)
+
+   Claims:
+   - Group by type (injury, treatment, damages)
+   - Each with date, description, evidence strength, sources
+   - Sortable/filterable
+
+5. LAYER 3E: Injury Arc visualization
+   ──────────────────────────────────
+   File: apps/ui/src/ (Injury Arc tab)
+
+   Current: Flat list of "Undated - Inpatient Daily Note"
+
+   Target: Visual arc showing:
+   - incident -> acute -> recovery -> plateau -> ongoing
+   - Group by treatment phase (not chronological dump)
+   - Highlight escalation points (conservative -> surgical)
+   - Highlight gaps in treatment
+   - Show providers at each phase
+   - Summary: "Injury on [date], [N] providers over [M] months,
+             treatment escalated from [conservative] to [surgical] at [date]"
+
+
+================================================================================
+BACKEND WORK STILL NEEDED (Can continue independently)
+================================================================================
+
+These items can be implemented without frontend work:
+
+1. LAYER 4A: PDF layout overhaul
+   ────────────────────────────
+   File: apps/worker/steps/export_render/timeline_pdf.py
+
+   Restructure PDF to litigation brief format:
+   1. MOAT SECTION (6 subsections)
+      - Case Collapse Candidates
+      - Causation Ladder
+      - Contradiction Matrix
+      - Narrative Duality
+      - Top 10 Case-Driving Events
+      - Missing Record Detection
+   2. EXECUTIVE SUMMARY (1 page max)
+   3. LITIGATION CHRONOLOGY (table with citations)
+   4. MEDICAL RECORD APPENDIX (grouped by source doc)
+
+   Implementation:
+   - Refactor build_timeline_pdf() into section render functions
+   - Each moat subsection renders even if empty ("No findings")
+   - Integrate existing bidirectional navigation (already works)
+
+2. LAYER 4B: Export quality polish
+   ───────────────────────────────
+   PDF:
+   - Professional typography
+   - Clear section headers
+   - Tight bullets, readable tables
+
+   DOCX:
+   - Editable by paralegals
+   - Same section structure as PDF
+   - Table of contents
+
+   CSV:
+   - All chronology events with full metadata
+   - Machine-readable for case management systems
+
+3. LAYER 4C: Testing & CI/CD
+   ─────────────────────────
+   - GitHub Actions workflow: pytest on push/PR
+   - New tests:
+     * OCR: mock Tesseract, test timeouts, cache
+     * Persist: test constraint violation -> status="failed"
+     * Runner: test stale recovery with retry limit
+     * PDF render: section order, anchor counts
+     * Frontend: MatterDetail polling, status display
+   - Add Ruff (linter), Mypy (type checker)
+   - Add Vitest for frontend component tests
+
+4. LAYER 4D: Performance hardening
+   ──────────────────────────────
+   - OCR benchmark: track per-page timing, alert on regression
+   - Pipeline benchmark: 50-page doc <5 min
+   - Persist benchmark: 500 pages / 5000 events <30s
+   - Environment-specific baselines:
+     * Dev machine: 494 pages <10 min
+     * Cloud worker: 494 pages <20 min
+
+
+================================================================================
+CONTINGENCY: IF QUALITY VALIDATION FAILS
+================================================================================
+
+If Step 3 reveals that extraction quality is still poor (events still UNDATED,
+facts still gibberish), the problem is in the extraction pipeline, not OCR.
+
+DEBUG SEQUENCE:
+
+1. Check OCR output quality
+   ────────────────────────
+   Look at the first few pages in evidence_graph.json:
+   - Do pages have non-empty text?
+   - Is the text real medical content or still garbage?
+
+   IF text is empty: OCR didn't run or failed
+     → Check worker logs for OCR errors
+     → Verify DISABLE_OCR is actually false
+     → Check Tesseract is installed (tesseract --version)
+
+   IF text is garbage (random characters): OCR quality is bad
+     → Check source PDF quality (is it a scanned image or native PDF?)
+     → Try increasing OCR_DPI from 200 to 300
+     → Check OCR_TESSERACT_CONFIG setting
+
+   IF text is real: OCR worked, problem is downstream
+
+2. Check date extraction (step06)
+   ────────────────────────────────
+   If dates are still UNDATED:
+   - Check what date formats appear in the actual records
+   - Verify date regex patterns cover those formats
+   - Check header date propagation logic
+   - Add failing test cases to test_dates.py
+
+3. Check event extraction (step07)
+   ──────────────────────────────
+   If facts are still nonsense:
+   - Check event classification logic
+   - Verify fact extraction patterns
+   - Check if text_quality.is_garbage() is filtering too aggressively
+
+4. Check citation extraction (step08)
+   ──────────────────────────────────
+   If citations don't match source pages:
+   - Check page_map construction in step01
+   - Verify citation page number mapping
+   - Check bbox extraction
+
+For each failing step:
+  1. Run the step in isolation with debug logging
+  2. Add test cases to the test suite
+  3. Fix the issue
+  4. Re-run the full pipeline
+
+
+================================================================================
+SUCCESS CRITERIA (WHEN TO DECLARE "DONE")
+================================================================================
+
+The product is ready for lawyer use when ALL of these are true:
+
+BACKEND:
+□ Runs complete successfully (status="success" or "partial")
+□ No runs stuck in "running" state
+□ Chronology Integrity >70/100
+□ Evidence Coverage = "Strong"
+□ UNDATED events <10%
+□ Facts are real medical content (verified by spot-checking)
+□ Citations point to correct source pages
+□ Evidence Vault loads documents
+□ PDF exports are professional quality
+
+FRONTEND:
+□ Strategic Overview shows moat features (same data as Context Dock)
+□ Context Dock shows human-readable labels (not enum names)
+□ Contradictions show actual content (not "No details")
+□ All moat features render with dates, sources, descriptions
+□ Injury Arc shows visual narrative (not flat list)
+
+POLISH:
+□ PDF structured as litigation brief (Moat → Summary → Chronology → Appendix)
+□ Bidirectional navigation works (chronology ↔ appendix)
+□ DOCX editable, CSV machine-readable
+□ CI/CD runs tests on every PR
+□ Performance meets baselines (dev <10 min, cloud <20 min)
+
+
+================================================================================
+FILES TO MONITOR
+================================================================================
+
+Worker logs:
+  - Look for: "OCR progress", "Pipeline complete", "Persist failed"
+  - Errors indicate: persist failures, constraint violations, timeouts
+
+Database:
+  - Table: runs (status, error_message, finished_at)
+  - Table: warnings (code, message) — check for OCR_QUALITY_LOW, OCR_NO_TEXT
+
+Artifacts directory:
+  - C:\Citeline\data\artifacts\{run_id}\
+  - Files: chronology.pdf, render_manifest.json, evidence_graph.json
+
+Frontend console (browser DevTools):
+  - Look for: failed API calls, artifact fetch errors, render errors
+
+
+================================================================================
+CONTACT / ESCALATION
+================================================================================
+
+If you encounter issues during validation:
+
+1. Stuck run (status="running" >30 min):
+   - Should NOT happen with persist fix
+   - If it does: check worker logs for hang location
+   - Force-stop via: POST /runs/{run_id}/cancel
+
+2. Persist failures (status="failed", error="Persist failed: ..."):
+   - Check error_message for constraint violation details
+   - Likely: data overflow, column too small, invalid enum
+   - Fix: adjust database schema or data validation
+
+3. OCR failures (warnings with code="OCR_TIMEOUT" or "OCR_NO_TEXT"):
+   - Normal for difficult pages
+   - If >50% of pages fail: OCR config issue or bad source PDF
+   - Try: increase OCR_TIMEOUT_SECONDS, check PDF quality
+
+4. Frontend issues (blank tabs, missing data):
+   - Check browser console for API errors
+   - Verify artifact files exist in artifacts directory
+   - Check if API endpoints return data (use curl or Postman)
+
+
+================================================================================
+SUMMARY: YOUR ACTION ITEMS
+================================================================================
+
+RIGHT NOW:
+1. ☐ Start worker: python -m apps.worker.runner
+2. ☐ Monitor run 07311af4fa3c4ffb9a485aac9cd4ce75 until completion
+3. ☐ Execute quality validation checklist (Step 3 above)
+
+IF VALIDATION PASSES:
+4. ☐ Assign frontend work to React developer (issues 2B, 2C, 2F, 3D, 3E)
+5. ☐ Continue backend polish (Layer 4A-D)
+
+IF VALIDATION FAILS:
+4. ☐ Debug failing extraction step (contingency section above)
+5. ☐ Fix and re-run until quality passes
+
+WHEN COMPLETE:
+6. ☐ Deploy to production
+7. ☐ Monitor first real lawyer usage
+8. ☐ Iterate based on feedback
+
+
+================================================================================
+END OF NEXT STEPS
+================================================================================

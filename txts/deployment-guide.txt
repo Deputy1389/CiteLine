@@ -1,0 +1,399 @@
+================================================================================
+DEPLOYMENT GUIDE — ADD WORKER SERVICE TO RENDER
+================================================================================
+Date: 2026-02-21
+
+PROBLEM: Your current Render deployment only runs the API server, but NO
+         background worker to process extraction jobs. This is why runs
+         get stuck in "pending" status forever.
+
+SOLUTION: Deploy a second Render service (worker) that runs the extraction
+          pipeline in the background.
+
+================================================================================
+CURRENT ARCHITECTURE (BROKEN)
+================================================================================
+
+┌─────────────────┐      ┌─────────────────┐
+│  Vercel         │      │  Render API     │
+│  (Frontend)     │─────>│  (FastAPI)      │      ❌ NO WORKER!
+│  Next.js/React  │      │  Port 8000      │
+└─────────────────┘      └────────┬────────┘
+                                  │
+                          ┌───────▼────────┐
+                          │  PostgreSQL    │
+                          │  (Database)    │
+                          └────────────────┘
+
+Result:
+  - API accepts uploads and queues runs (status="pending")
+  - But nothing picks them up and processes them
+  - Runs stay "pending" forever
+  - Frontend shows "Extraction run is active" indefinitely
+
+
+================================================================================
+TARGET ARCHITECTURE (FIXED)
+================================================================================
+
+┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│  Vercel         │      │  Render API     │      │  Render Worker  │
+│  (Frontend)     │─────>│  (FastAPI)      │      │  (Background)   │
+│  Next.js/React  │      │  Port 8000      │      │  Pulls from DB  │
+└─────────────────┘      └────────┬────────┘      └────────┬────────┘
+                                  │                         │
+                                  └────────┬────────────────┘
+                                           │
+                                   ┌───────▼────────┐
+                                   │  PostgreSQL    │
+                                   │  (Database)    │
+                                   └────────────────┘
+
+How it works:
+  1. API accepts uploads, queues runs (status="pending")
+  2. Worker polls database, finds pending runs
+  3. Worker processes extraction (OCR, events, citations, PDF generation)
+  4. Worker updates run status (status="success" or "failed")
+  5. Frontend polls API, sees completed status, displays results
+
+
+================================================================================
+STEP-BY-STEP DEPLOYMENT
+================================================================================
+
+STEP 1: Commit and push the updated render.yaml
+───────────────────────────────────────────────
+
+The render.yaml file has been updated to include the worker service.
+
+Commands:
+  cd C:\Citeline
+  git add render.yaml
+  git commit -m "Add worker service for background extraction processing"
+  git push origin main
+
+STEP 2: Deploy to Render
+─────────────────────────
+
+Option A: Automatic (if Render auto-deploys on push)
+  - Render will detect the updated blueprint
+  - It will create a new "linecite-worker" service alongside "linecite-api"
+  - Both will deploy automatically
+
+Option B: Manual (if auto-deploy is disabled)
+  1. Go to https://dashboard.render.com
+  2. Find your "linecite-api" service
+  3. Click "Manual Deploy" → "Deploy latest commit"
+  4. Render will detect the new worker service in render.yaml
+  5. It will prompt you to create the worker service
+
+STEP 3: Verify deployment
+──────────────────────────
+
+After deployment completes (5-10 minutes):
+
+1. Check Render Dashboard:
+   □ You should see TWO services:
+     - linecite-api (Web Service) — Running
+     - linecite-worker (Background Worker) — Running
+
+2. Check worker logs:
+   - Go to linecite-worker service
+   - Click "Logs"
+   - You should see:
+     "Worker runner started. Polling for pending runs..."
+     (and repeating every ~5 seconds)
+
+3. Test a run:
+   - Upload a document via the UI (https://www.linecite.com)
+   - Create a new extraction run
+   - Worker logs should show:
+     "Found pending run {run_id}. Starting pipeline..."
+     "OCR progress: page 1/100..."
+     "Pipeline complete. Status: success"
+
+STEP 4: Monitor first production run
+─────────────────────────────────────
+
+Upload a small test document (5-10 pages):
+
+□ Check run transitions: pending → running → success
+□ Check run completes in <5 minutes for small doc
+□ Check Evidence Vault loads the PDF
+□ Check chronology has real dates and facts
+□ Check no "UNDATED" or word salad
+
+If all pass → production is ready for real documents
+
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+ISSUE: Worker service fails to start
+─────────────────────────────────────
+
+Symptoms:
+  - Worker shows "Deploy failed" in Render dashboard
+  - Logs show import errors or missing dependencies
+
+Solution:
+  1. Check Dockerfile installs all dependencies (Tesseract, MuPDF, etc.)
+  2. Check pyproject.toml lists all Python packages
+  3. Rebuild: "Manual Deploy" → "Clear build cache & deploy"
+
+ISSUE: Worker starts but doesn't process runs
+──────────────────────────────────────────────
+
+Symptoms:
+  - Worker logs show "Polling for pending runs..." (no errors)
+  - But runs stay "pending" in the UI
+
+Solution:
+  1. Check DATABASE_URL env var is set correctly in worker service
+  2. Verify database connection: worker should connect to same DB as API
+  3. Check run table: SELECT * FROM runs WHERE status='pending';
+  4. If no pending runs exist, queue a new one via UI
+
+ISSUE: Worker picks up runs but they fail immediately
+──────────────────────────────────────────────────────
+
+Symptoms:
+  - Worker logs show "Starting pipeline for run {id}..."
+  - Then "Pipeline failed: {error}"
+  - Run status="failed" with error_message
+
+Solution:
+  1. Read error_message in database or UI
+  2. Common errors:
+     - "Document file missing": DATA_DIR mismatch between API and worker
+     - "Tesseract not available": Tesseract not installed in Docker image
+     - "Persist failed": Database constraint violation (check schema)
+  3. Fix the underlying issue and re-queue run
+
+ISSUE: Runs timeout after 30 minutes
+─────────────────────────────────────
+
+Symptoms:
+  - Large documents (500+ pages) get stuck "running"
+  - Worker logs show OCR progress then silence
+  - Run transitions to "failed" after 30 min
+
+Solution:
+  1. Increase RUN_TIMEOUT_SECONDS (default 1800 = 30 min)
+     Set to 3600 (60 min) for large documents
+  2. Or upgrade worker to paid plan (more CPU/RAM = faster OCR)
+  3. Or reduce OCR_TOTAL_TIMEOUT_SECONDS to fail faster
+
+ISSUE: Worker consumes too much memory
+───────────────────────────────────────
+
+Symptoms:
+  - Worker crashes with "Out of memory" error
+  - Render shows "Service crashed"
+
+Solution:
+  1. Reduce OCR_WORKERS from 2 to 1 (sequential OCR uses less memory)
+  2. Reduce OCR_DPI from 200 to 150 (smaller images)
+  3. Upgrade worker to paid plan (more RAM)
+
+
+================================================================================
+COST IMPLICATIONS
+================================================================================
+
+Render Free Plan:
+  - Web service (API): Free (750 hours/month)
+  - Worker service: Free (750 hours/month)
+  - PostgreSQL: Free (90 days, then $7/month)
+
+Both services on free plan = $0/month for 90 days, then $7/month for DB.
+
+If you exceed free tier hours or need better performance:
+  - Starter plan: $7/month per service
+  - Standard plan: $25/month per service (more CPU/RAM for faster OCR)
+
+Recommendation:
+  - Start with both on free plan
+  - If worker is slow (>10 min for 100-page docs), upgrade worker to Starter
+  - API can stay on free plan (it's not CPU-intensive)
+
+
+================================================================================
+SCALING CONSIDERATIONS
+================================================================================
+
+Current setup (1 worker):
+  - Processes 1 run at a time
+  - Concurrent runs queue up and wait
+  - Sufficient for <10 users
+
+If you need to handle more concurrent runs:
+  - Add more worker instances (Render supports horizontal scaling)
+  - Each worker polls for pending runs independently
+  - Database ensures atomic run claiming (no duplicate processing)
+
+How to scale:
+  1. Render Dashboard → linecite-worker → Settings → Instance Count
+  2. Increase from 1 to 2 or 3
+  3. Cost: Each instance is billed separately
+
+Alternative: Task queue (future improvement)
+  - Replace polling with Celery + Redis
+  - More efficient for high-volume workloads
+  - Not needed unless you have 100+ runs/day
+
+
+================================================================================
+ENVIRONMENT VARIABLES REFERENCE
+================================================================================
+
+REQUIRED (already set in render.yaml):
+  - DATABASE_URL: PostgreSQL connection string (from Render DB)
+  - DATA_DIR: /app/data (where uploads and artifacts are stored)
+  - PYTHONPATH: /app
+
+OPTIONAL (you can tune these):
+  - DISABLE_OCR: false (enable OCR)
+  - OCR_MODE: full | fast | sample | off
+  - OCR_DPI: 200 (lower=faster but lower quality, higher=slower but better)
+  - OCR_WORKERS: 2 (1=slower but less memory, 4=faster but more memory)
+  - OCR_TIMEOUT_SECONDS: 30 (per-page timeout)
+  - OCR_TOTAL_TIMEOUT_SECONDS: 600 (total OCR budget, 10 min)
+  - MAX_RUN_RETRIES: 3 (how many times to retry stale runs)
+  - RUN_TIMEOUT_SECONDS: 1800 (30 min total pipeline timeout)
+
+
+================================================================================
+TESTING IN PRODUCTION
+================================================================================
+
+After worker is deployed, test with these documents:
+
+Test 1: Small document (5-10 pages)
+  - Expected: completes in <2 minutes
+  - Verifies: basic pipeline works
+
+Test 2: Medium document (50-100 pages)
+  - Expected: completes in 5-10 minutes
+  - Verifies: OCR caching, memory handling
+
+Test 3: Large document (500 pages)
+  - Expected: completes in 20-30 minutes
+  - Verifies: budget timeout, persist handling
+
+For each test:
+  □ Check run completes (status="success")
+  □ Check chronology has real dates/facts
+  □ Check Evidence Vault works
+  □ Check PDF export is readable
+
+
+================================================================================
+MONITORING & ALERTS
+================================================================================
+
+Set up Render alerts (optional but recommended):
+
+1. Service Health:
+   - Render Dashboard → Service → Alerts
+   - Alert if service is down for >5 minutes
+
+2. Log Monitoring:
+   - Watch for "Persist failed" errors
+   - Watch for repeated OCR timeouts
+   - Watch for memory warnings
+
+3. Database:
+   - Monitor runs table for stuck "running" status
+   - Alert if runs stay "running" for >1 hour
+   - Monitor disk usage (PostgreSQL free tier has 1GB limit)
+
+
+================================================================================
+ROLLBACK PLAN (IF SOMETHING GOES WRONG)
+================================================================================
+
+If the worker deployment breaks production:
+
+1. Immediate fix: Disable worker service
+   - Render Dashboard → linecite-worker → Settings → Suspend Service
+   - This stops processing but doesn't delete the service
+
+2. API will continue to accept uploads and queue runs
+   - They'll stay "pending" until worker is re-enabled
+
+3. Fix the issue:
+   - Check worker logs for errors
+   - Fix code/config
+   - Commit and push fix
+   - Render will auto-deploy the fix
+
+4. Re-enable worker:
+   - Render Dashboard → linecite-worker → Resume Service
+   - Queued runs will start processing
+
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+You'll know the deployment is successful when:
+
+□ Render dashboard shows TWO running services (api + worker)
+□ Worker logs show "Polling for pending runs..."
+□ Uploading a document and starting a run transitions: pending → running → success
+□ Run completes in reasonable time (<10 min for 100-page doc)
+□ Chronology has real medical content (not "UNDATED" or word salad)
+□ Evidence Vault loads documents
+□ No runs stuck in "running" status
+□ No "Persist failed" errors in worker logs
+
+
+================================================================================
+NEXT STEPS AFTER DEPLOYMENT
+================================================================================
+
+Once the worker is running in production:
+
+1. Frontend fixes (requires React developer):
+   - Fix Strategic Overview data disconnect
+   - Fix Context Dock enum rendering
+   - Implement human-readable moat feature display
+
+2. Backend polish (can continue independently):
+   - PDF layout overhaul (moat section, litigation brief format)
+   - Export quality (professional typography, DOCX, CSV)
+   - Testing & CI/CD (GitHub Actions, unit tests)
+   - Performance hardening (benchmarks, monitoring)
+
+3. User feedback loop:
+   - Get a lawyer to test a real case
+   - Collect feedback on output quality
+   - Iterate on moat features, chronology format, PDF layout
+
+
+================================================================================
+SUMMARY: YOUR ACTION ITEMS
+================================================================================
+
+RIGHT NOW:
+1. ☐ Commit render.yaml: git add render.yaml && git commit -m "Add worker service"
+2. ☐ Push to GitHub: git push origin main
+3. ☐ Monitor Render deployment (5-10 min)
+4. ☐ Verify worker service is running
+5. ☐ Test with a small document upload
+
+THEN:
+6. ☐ Monitor first production run (check logs, verify output)
+7. ☐ If successful: test with larger documents
+8. ☐ If issues: debug using troubleshooting section above
+
+FINALLY:
+9. ☐ Assign frontend fixes to React developer
+10. ☐ Continue backend polish work
+
+
+================================================================================
+END OF DEPLOYMENT GUIDE
+================================================================================

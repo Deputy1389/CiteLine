@@ -2,6 +2,7 @@
 # Docs: https://docs.render.com/blueprint-spec
 
 services:
+  # API Web Service (handles HTTP requests)
   - type: web
     name: linecite-api
     runtime: docker
@@ -41,6 +42,43 @@ services:
       - key: PYTHONPATH
         value: /app
     healthCheckPath: /health
+
+  # Background Worker Service (processes extraction jobs)
+  - type: worker
+    name: linecite-worker
+    runtime: docker
+    repo: https://github.com/Deputy1389/CiteLine.git
+    branch: main
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerCommand: python -m apps.worker.runner
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: linecite-db
+          property: connectionString
+      - key: DATA_DIR
+        value: /app/data
+      - key: PYTHONPATH
+        value: /app
+      # OCR settings
+      - key: DISABLE_OCR
+        value: "false"
+      - key: OCR_MODE
+        value: "full"
+      - key: OCR_DPI
+        value: "200"
+      - key: OCR_WORKERS
+        value: "2"
+      - key: OCR_TIMEOUT_SECONDS
+        value: "30"
+      - key: OCR_TOTAL_TIMEOUT_SECONDS
+        value: "600"
+      # Worker settings
+      - key: MAX_RUN_RETRIES
+        value: "3"
+      - key: RUN_TIMEOUT_SECONDS
+        value: "1800"
 
 databases:
   - name: linecite-db

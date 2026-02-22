@@ -1,0 +1,811 @@
+================================================================================
+CITELINE COMPREHENSIVE FIX PLAN (v2 — revised with review feedback)
+================================================================================
+Date: 2026-02-21
+Revised: 2026-02-21
+Status: The product is non-functional on real documents. Every downstream
+        feature renders garbage because the core text extraction is broken.
+
+This plan is ordered by dependency. Each layer requires the one before it.
+Skipping ahead to polish/PDF work is wasted effort.
+
+Revision notes (v2):
+  - Added 1G: surface-layer junk suppression (parallel to OCR fixes)
+  - Changed parallel OCR from assumed-ThreadPool to measure-first approach
+  - Made performance targets environment-specific (dev vs cloud worker)
+  - Added 2F: run artifact versioning (prevent stale artifact display)
+  - Moved bidirectional PDF navigation earlier (end of Layer 2)
+  - Tightened exit criteria with quantitative go/no-go gates
+  - Corrected root cause analysis: garbage is not OCR-only, also denoising
+
+
+================================================================================
+CURRENT STATE (What a Lawyer Actually Sees)
+================================================================================
+
+Tested against: 494-page medical record packet (packet.pdf, test45)
+
+  - Chronology Integrity: 0/100
+  - Every event labeled "UNDATED"
+  - Facts are word salad: "Chair Republican loss Mrs ready detail"
+  - Evidence Vault: {"detail":"Document file missing"} (broken)
+  - Strategic Overview: "No strategic flags detected" (blank)
+  - Context Dock has data (63 claims, 4 causation, 3 contradictions)
+    but the Strategic Overview can't read it
+  - Contradictions show "mechanism / No details" (empty content)
+  - Defense/Collapse tabs show raw enum names: PRE_EXISTING_OVERLAP,
+    DEGENERATIVE_COMPETING_EXPLANATION (programmer internals, not english)
+  - Injury Arc: all entries undated with gibberish facts
+  - Noise Risk: High
+  - A second run attempt: "No extracted event graph found for completed runs"
+
+Root cause chain (REVISED — not OCR alone):
+  Primary: OCR disabled/failing
+    -> Scanned pages have no text
+      -> Event extraction runs on empty/garbage input
+        -> Facts are random words, dates can't be found
+
+  Secondary: Denoising gap (even when SOME text gets through)
+    -> Pipeline found 63 claims, so partial text exists
+    -> But junk strings leak through to rendered output
+    -> No quality gate between extraction and display
+    -> Fax headers, repetitive lines, low-coherence fragments surface
+       as "facts" in the chronology
+
+  Both must be fixed. OCR is the foundation. Junk suppression is the safety net.
+
+
+================================================================================
+LAYER 1: MAKE THE ENGINE PRODUCE REAL TEXT
+================================================================================
+
+Priority: CRITICAL — nothing else matters until this works
+Estimated effort: 2-3 days
+Files: apps/worker/steps/step02_text_acquire.py, apps/worker/runner.py
+
+Current state:
+  - OCR is disabled via DISABLE_OCR=true env flag (emergency workaround)
+  - With OCR off, scanned pages have empty text, pipeline processes nothing
+  - With OCR on, it hangs: sequential processing, 300 DPI images, no memory
+    cleanup, 30s timeout per page x 100+ pages = exceeds 30min run timeout
+  - No OCR caching, so every re-run re-OCRs from scratch
+
+--------
+1A. OCR that finishes without hanging
+--------
+
+File: apps/worker/steps/step02_text_acquire.py
+
+Problem: PDF is opened/closed for every single page. 300 DPI produces ~25MB
+         images. No memory cleanup. Appears "stuck" due to swap thrashing.
+
+Fix:
+  - Open the PDF once at the start of acquire_text(), close once at the end
+    (currently: fitz.open() called N times in _ocr_page())
+  - Drop DPI from 300 to 200 via OCR_DPI env var (default 200)
+    Medical record text is 12pt+, 200 DPI is sufficient
+    Produces 56% fewer pixels per page = 40% faster rendering + OCR
+  - After each page OCR: explicitly delete img, img_data, pix objects
+    Prevents memory accumulation across 100+ pages
+  - Log every page that enters OCR, not every 25th iteration:
+    "OCR page 47/200 (source=intake.pdf): 8.2s"
+    Makes it immediately obvious if Tesseract is slow vs hung
+
+Impact: ~40-50% faster, eliminates memory-related hangs
+
+--------
+1B. Parallel OCR (MEASURE-FIRST approach)
+--------
+
+File: apps/worker/steps/step02_text_acquire.py
+
+Problem: Sequential page-by-page processing. 100 pages x 15s = 25 minutes.
+
+REVISED approach (per review feedback):
+
+  The original plan assumed ThreadPoolExecutor would work because "Tesseract
+  releases the GIL." This is risky because:
+    - Image conversion (Pillow, PyMuPDF pixmap) holds the GIL
+    - Multiple Tesseract instances can thrash CPU/memory on small workers
+    - Thread contention may negate parallelism gains
+
+  Safer approach:
+    1. Start with ProcessPoolExecutor at 2 workers (true parallelism, no GIL)
+    2. Configurable: OCR_WORKERS env var, default 2, hard cap at CPU count
+    3. Add memory guard: if worker process memory exceeds threshold
+       (e.g., 500MB), fall back to sequential for remaining pages
+    4. BENCHMARK BEFORE COMMITTING: run 494-page packet with 1, 2, and 4
+       workers on both dev machine and target cloud worker. Compare:
+       - Wall-clock time
+       - Peak memory usage
+       - CPU utilization
+       Choose default worker count based on measured results, not assumptions.
+
+Impact: Expected 2 workers = ~50% faster, but MUST verify empirically.
+
+--------
+1C. Total OCR budget timeout
+--------
+
+File: apps/worker/steps/step02_text_acquire.py
+
+Problem: Per-page timeout is 30s but no total budget. 100 pages at timeout =
+         50 min, exceeds the 30min run timeout. Run appears stuck forever.
+
+Fix:
+  - Add OCR_TOTAL_TIMEOUT_SECONDS env var (default 600 = 10 min)
+  - Track elapsed OCR time across all pages
+  - When budget exceeded: stop OCR for remaining pages, log warning,
+    continue pipeline with pages processed so far
+  - Remaining pages flagged with OCR_BUDGET_EXCEEDED warning code
+  - Guarantees the pipeline always finishes
+
+--------
+1D. Smart page skipping
+--------
+
+File: apps/worker/steps/step02_text_acquire.py
+
+Problem: Current threshold is just ">=50 chars". Blank separator pages,
+         letterhead pages, and pages with corrupted text layers all waste
+         30s of OCR time.
+
+Fix:
+  - Blank page detection: if page has no images and no text, skip entirely
+  - Whitespace ratio check: if >80% whitespace, likely corrupted text layer
+  - Character density check: compare text length vs expected for page size
+  - Post-OCR garbage detection: if output has high non-word-character ratio,
+    flag it rather than feeding it downstream as real text
+  - Replace binary DISABLE_OCR with graduated OCR_MODE:
+    full  = OCR all pages that need it (default when Tesseract available)
+    fast  = OCR up to N pages, prioritize by likely content
+    off   = current DISABLE_OCR behavior (emergency only)
+
+--------
+1E. OCR cache
+--------
+
+Files: packages/db/models.py, apps/worker/steps/step02_text_acquire.py
+
+Problem: Every run re-OCRs all pages from scratch. A 10-minute OCR job
+         repeated on every retry/re-run is brutal during development.
+
+Fix:
+  - New DB table or column: ocr_cache
+    Key: sha256(document_sha256 + page_number)
+    Value: text, ocr_engine, dpi, created_at
+  - Before OCR: check cache. Hit = use cached text, skip OCR.
+  - After OCR: store result in cache.
+  - Cache invalidation: different document sha256 = automatic miss
+  - Manual clear: CLEAR_OCR_CACHE=true env var
+
+Impact: Second+ runs on same documents = near-instant (0s OCR)
+
+--------
+1F. Tesseract tuning
+--------
+
+File: apps/worker/steps/step02_text_acquire.py
+
+Problem: Default Tesseract config (auto OEM, auto PSM) wastes time on
+         layout analysis. No optimization for document text.
+
+Fix:
+  - Force LSTM-only engine: --oem 1 (faster + more accurate for docs)
+  - Set page segmentation mode: --psm 6 (assume single text block)
+  - Both passed as config string to pytesseract.image_to_string()
+
+Impact: ~20-30% faster per page with no quality loss on medical records
+
+--------
+1G. Surface-layer junk suppression (NEW — runs parallel to OCR fixes)
+--------
+
+Files: apps/worker/steps/export_render/timeline_pdf.py,
+       apps/worker/project/ (chronology projection),
+       apps/worker/steps/step12_export.py
+
+Problem: Even when SOME text gets through (the pipeline found 63 claims),
+         junk strings like "Chair Republican loss Mrs ready detail" appear
+         in the rendered chronology. This is not purely an OCR problem —
+         it's a missing quality gate between extraction and display.
+
+Fix (low-risk, can ship alongside OCR work):
+  - Fax header/footer stripping: detect and remove repeated header/footer
+    lines that appear on every page (date stamps, fax banners, page numbers)
+  - Repetition collapse: if the same line appears on 3+ consecutive pages,
+    it's a template artifact — strip it
+  - Low-coherence detection: if a "fact" string has no medical/legal tokens
+    (no body parts, no medications, no procedures, no dates), suppress it
+    at render time with a warning rather than displaying it as content
+  - Apply to: Top 10 events, executive summary, chronology fact fields,
+    injury arc entries
+  - This is a SAFETY NET: even if upstream text is messy, garbage never
+    reaches the lawyer's screen or the exported PDF
+
+Impact: Immediate quality improvement even before OCR is fully fixed.
+        Prevents embarrassing junk in output during the transition period.
+
+--------
+LAYER 1 EXIT CRITERIA (REVISED — quantitative gates):
+--------
+
+  Go/no-go gate (must pass ALL to proceed to Layer 2):
+
+  [ ] DISABLE_OCR can be set to false without hanging
+  [ ] Random sample 20 pages from the 494-page packet: at least 18 have
+      non-empty text containing medical tokens (not just headers/footers)
+  [ ] Junk-rate metric: <15% of extracted sentences flagged as incoherent
+      by the 1G suppression filter, OR junk never surfaces in rendered
+      output due to suppression
+  [ ] No memory-related hangs or swap thrashing
+  [ ] Second run on same document uses cache, finishes in <1 minute
+
+  Performance targets (environment-specific):
+  [ ] Dev machine (8+ cores, 16+ GB RAM):
+      494-page packet OCR completes in under 10 minutes
+  [ ] Small cloud worker (2 vCPU, 4-8 GB RAM, e.g., Render):
+      494-page packet OCR completes in under 20 minutes
+
+
+================================================================================
+LAYER 2: MAKE THE PLUMBING WORK
+================================================================================
+
+Priority: HIGH — broken infrastructure independent of data quality
+Estimated effort: 2-3 days
+These are bugs, not features. Each is likely a small fix with high visibility.
+
+--------
+2A. Fix document file serving (Evidence Vault)
+--------
+
+Files: apps/api/routes/documents.py, apps/worker/pipeline_persistence.py
+
+Problem: Evidence Vault shows {"detail":"Document file missing"} when user
+         clicks to view a source document. The uploaded PDF exists somewhere
+         but the download endpoint returns 404.
+
+Investigate:
+  - Where does the upload step save the file? (likely data/uploads/{doc_id}.pdf)
+  - Where does the download endpoint look for it?
+  - Is there a path mismatch (forward slash vs backslash on Windows)?
+  - Is the document_id in the URL matching the stored filename?
+  - Is the file actually written during upload or is the write failing silently?
+
+This is probably a 1-line path fix but it completely breaks a lawyer's ability
+to verify any citation in the output.
+
+--------
+2B. Fix Strategic Overview reading no data
+--------
+
+Files: apps/ui/src/pages/MatterDetail.tsx (or equivalent Strategic Overview
+       component), apps/api/routes/runs.py
+
+Problem: Context Dock shows Claim(63), Causation(4), Contradictions(3),
+         Defense(2), Collapse(2). But Strategic Overview says "No strategic
+         flags detected in this record set."
+
+Investigate:
+  - What data source does Strategic Overview read from?
+  - What data source does Context Dock read from?
+  - Are they reading different artifact files? Different API endpoints?
+  - Is Strategic Overview looking for a specific artifact that wasn't generated?
+  - Is it a conditional rendering bug (checking wrong field for emptiness)?
+
+Fix: Wire Strategic Overview to the same data the Context Dock reads.
+
+--------
+2C. Fix Context Dock content rendering
+--------
+
+Files: apps/ui/src/components/ (Context Dock components)
+
+Problem 1 — Raw enum names displayed to users:
+  "PRE_EXISTING_OVERLAP" should display as "Pre-Existing Overlap"
+  "DEGENERATIVE_COMPETING_EXPLANATION" should display as
+  "Degenerative Competing Explanation"
+
+Fix: Add a display name mapping in the frontend. Something like:
+  PRE_EXISTING_OVERLAP -> "Pre-Existing Condition Overlap"
+  DEGENERATIVE_COMPETING_EXPLANATION -> "Degenerative / Competing Explanation"
+  Apply to Defense tab and Collapse tab.
+
+Problem 2 — Contradiction entries are empty:
+  Three entries all show "mechanism / No details."
+  The contradiction detection step found 3 contradictions but either:
+    a) The detail text wasn't populated during extraction, or
+    b) The frontend isn't reading the detail field from the API response
+
+Investigate:
+  - Check the contradiction_matrix artifact JSON for this run
+  - Does it contain detail text? Specific quotes? Page references?
+  - If yes: frontend isn't rendering the fields
+  - If no: the contradiction detection step needs to populate details
+    (it may only be storing the category, not the supporting evidence)
+
+--------
+2D. Fix the persist-transaction rollback bug (stuck "running" state)
+--------
+
+Files: apps/worker/pipeline_persistence.py, apps/worker/pipeline.py
+
+Problem: persist_pipeline_state() runs one giant transaction: delete all old
+         data, insert all new data, update run status to "success". If ANY
+         row fails (constraint violation, data overflow), the ENTIRE
+         transaction rolls back including the status update. Run stays
+         "running" forever. Frontend shows "Extraction run is active"
+         indefinitely.
+
+Fix:
+  - Wrap persist_pipeline_state() in try/except
+  - On exception: catch it, log the error, call _fail_run() to set
+    status="failed" with the error message
+  - The run transitions to "failed" instead of staying stuck in "running"
+  - User sees failure message and can retry
+
+Also fix:
+  - Add retry_count to Run model
+  - Stale recovery (runner.py) increments retry_count when reclaiming
+  - After 3 retries: auto-fail the run instead of retrying forever
+  - Prevents infinite retry loop on runs that will never succeed
+
+--------
+2E. Force-fail API endpoint for stuck runs
+--------
+
+Files: apps/api/routes/runs.py
+
+Problem: If a run IS stuck in "running" state, the user has no escape.
+         Can't delete the matter (409: active runs), can't retry, can't
+         do anything except wait 10 minutes for stale recovery (which
+         just restarts the same failing pipeline).
+
+Fix:
+  - Add POST /runs/{run_id}/force-fail endpoint
+  - Sets status="failed", error_message="Manually terminated by user"
+  - Frontend adds a "Force Stop" button visible when a run has been
+    "running" for >5 minutes
+  - Gives users an immediate escape hatch
+
+--------
+2F. Run artifact versioning (NEW — prevents stale artifact display)
+--------
+
+Files: apps/api/routes/runs.py, apps/ui/src/ (artifact fetching components)
+
+Problem: When the UI reads "latest completed run" artifacts, it may
+         accidentally display artifacts from an older run. This could
+         explain: one run shows data in Context Dock, a re-run shows
+         "No extracted event graph found for completed runs" — the UI
+         may be pointing at the wrong run's artifacts.
+
+Fix:
+  - Ensure all artifact reads are keyed by explicit run_id, not by
+    "newest file in storage directory" or "latest run" heuristic
+  - Add artifact_version or created_at timestamp to artifact metadata
+  - UI must explicitly select artifacts by the run_id the user is viewing
+  - When a new run completes, old run artifacts remain accessible
+    (don't delete on new run)
+  - Frontend run selector must clearly indicate which run's data is shown
+
+--------
+2G. Bidirectional PDF navigation scaffold (MOVED from Layer 4)
+--------
+
+Files: apps/worker/steps/export_render/timeline_pdf.py,
+       new file: apps/worker/steps/export_render/render_manifest.py
+
+RATIONALE FOR MOVING EARLIER (per review feedback):
+  Bidirectional links are not just polish — they're a verification tool.
+  Being able to click from a chronology entry straight to the source
+  evidence helps YOU validate extraction quality during Layer 3.
+  Having this in place before manual quality validation (3A) accelerates
+  the spot-checking process significantly.
+
+Implementation:
+  - Define anchor ID functions (deterministic):
+    chron_anchor(event_id) -> "chron_row_{event_id}"
+    appendix_anchor(doc_id, page) -> "app_{doc_id}_p_{page}"
+  - Add ReportLab internal anchors to chronology rows and appendix entries
+  - Forward links: chronology "Sources" column links to appendix anchors
+  - Back links: appendix "Referenced by:" links to chronology anchors
+  - Render manifest JSON saved alongside PDF for testing/debugging
+  - "Back to Chronology" link at top of each appendix section
+
+  This is the navigation SCAFFOLD only — the full PDF layout overhaul
+  (section reordering, moat rendering) stays in Layer 4.
+
+--------
+LAYER 2 EXIT CRITERIA (REVISED — quantitative gates):
+--------
+
+  Go/no-go gate (must pass ALL to proceed to Layer 3):
+
+  [ ] Evidence Vault loads the source PDF and shows pages for at least
+      10 randomly selected citations
+  [ ] Zero runs stuck in "running" forever — every run ends in
+      success/partial/failed with a message within the timeout period
+  [ ] Strategic Overview shows the same data as Context Dock
+  [ ] Context Dock shows human-readable labels, not enum names
+  [ ] Contradiction entries show actual content, not "No details"
+  [ ] Users can force-stop a stuck run from the UI
+  [ ] Artifact display always matches the selected run (no stale data)
+  [ ] PDF contains at least 1 working forward link (chron -> appendix)
+      and 1 working back link (appendix -> chron) verified via manifest
+
+
+================================================================================
+LAYER 3: MAKE THE OUTPUT ACCURATE AND VALUABLE
+================================================================================
+
+Priority: HIGH — this is where the product becomes worth paying for
+Estimated effort: 3-5 days
+Depends on: Layer 1 (real text) and Layer 2 (plumbing works)
+
+--------
+3A. Extraction quality validation
+--------
+
+After Layers 1-2 are done, re-run the 494-page packet with OCR working.
+Manually validate:
+
+  Spot-check 10-20 events against source documents:
+  [ ] Are dates correct? (not "UNDATED")
+  [ ] Are facts real medical content? (not word salad)
+  [ ] Are providers attributed to the right events?
+  [ ] Do citations point to the correct source pages?
+  [ ] Are event types correct? (ED visit vs imaging vs procedure)
+
+  Use the bidirectional PDF links (2G) to speed up verification:
+  click chronology entry -> jump to appendix source -> confirm match.
+
+  Check aggregate metrics:
+  [ ] Chronology Integrity: should be >50/100 minimum
+  [ ] Evidence Coverage: should be "Strong" for a 494-page packet
+  [ ] How many events are still UNDATED? (<10% is acceptable)
+  [ ] Noise Risk: should drop from "High"
+
+If events are STILL garbage after real text flows through, the problem
+is in the extraction steps themselves (step06 dates, step07 events,
+step08 citations) and those need individual debugging.
+
+--------
+3B. Date extraction hardening
+--------
+
+Files: apps/worker/steps/step06_dates.py, apps/worker/lib/dates/
+
+Problem: 31 of 31 events were UNDATED. Even if OCR was the root cause,
+         date extraction is the most critical single step. If dates fail,
+         the chronology is worthless.
+
+After re-running with real text, if dates are still failing:
+  - Check what date formats appear in the actual medical records
+  - Verify the date regex patterns cover those formats
+  - Check header date propagation (many records have date only in header)
+  - Check clinical block date assignment logic
+  - The existing test suite (test_dates.py, 349 lines) is strong —
+    add failing test cases from the real packet
+
+--------
+3C. Context Dock content quality (with real data)
+--------
+
+Re-evaluate each Context Dock tab with real extraction data:
+
+Claims (63):
+  - Are these real medical claims with dates and descriptions?
+  - Do they have supporting evidence and citation references?
+  - Are claim types correctly categorized?
+
+Causation (4):
+  - Does the causal chain make medical/legal sense?
+  - Is it: injury -> diagnosis -> treatment -> outcome?
+  - Are the links between steps supported by record evidence?
+
+Contradictions (3):
+  - With real text, do the contradictions have substance?
+  - Do they show the two conflicting statements with dates and sources?
+  - Would a lawyer find these useful for cross-examination?
+
+Defense (2):
+  - Are pre-existing conditions correctly identified?
+  - Is the degenerative finding supported by imaging reports?
+  - Would defense counsel actually use these?
+
+Collapse (2):
+  - Are case collapse candidates genuine vulnerability points?
+  - Do they identify the weakest links in the plaintiff's case?
+
+--------
+3D. Human-readable content rendering
+--------
+
+Files: Frontend components for each Context Dock tab
+
+For each moat feature, the display should include:
+
+Contradictions:
+  - The two conflicting statements (quoted from records)
+  - Dates of each statement
+  - Source page references (clickable to Evidence Vault)
+  - Category label (pain severity, laterality, mechanism, etc.)
+  - Why it matters (one sentence)
+
+Defense entries:
+  - Human-readable label (not PRE_EXISTING_OVERLAP)
+  - Description of the defense theory
+  - Supporting record excerpts with dates and page references
+  - Fragility score explained in plain english
+
+Collapse entries:
+  - Same as defense but framed as plaintiff vulnerabilities
+  - What the defense will argue
+  - What records support their argument
+
+Causation entries:
+  - Visual chain: Event A -> Event B -> Event C
+  - Each link with date, description, source
+  - Strength of causal connection (strong/moderate/weak)
+
+Claims:
+  - Grouped by claim type (injury, treatment, damages)
+  - Each with date, description, evidence strength, sources
+  - Sortable/filterable
+
+--------
+3E. Injury Arc that tells a story
+--------
+
+Files: Frontend Injury Arc tab/component
+
+Current state: flat list of "Undated - Inpatient Daily Note" entries.
+
+Target state:
+  - Visual arc from incident -> acute -> recovery -> plateau -> ongoing
+  - Group by treatment phase, not just chronological dump
+  - Highlight escalation points (conservative -> surgical)
+  - Highlight gaps in treatment (important for defense arguments)
+  - Show providers involved at each phase
+  - Summary line: "Injury on [date], [N] providers over [M] months,
+    treatment escalated from [conservative] to [surgical] at [date]"
+
+--------
+LAYER 3 EXIT CRITERIA (REVISED — quantitative gates):
+--------
+
+  Go/no-go gate (must pass ALL to proceed to Layer 4):
+
+  [ ] UNDATED events: <10% of total events
+  [ ] Word salad in chronology: effectively zero (spot-check 20 entries,
+      all contain real medical content)
+  [ ] Chronology Integrity: >70/100
+  [ ] A paralegal can look at the chronology and say "yes, this matches
+      what I'd find if I read these 494 pages myself"
+  [ ] Events have real dates, real medical facts, correct providers
+  [ ] Context Dock tabs show substantive, verifiable content
+  [ ] Moat features are displayed in plain english with source references
+  [ ] Injury Arc tells a coherent medical narrative
+  [ ] Bidirectional PDF links work: click 5 random chronology entries,
+      each jumps to the correct appendix source
+
+
+================================================================================
+LAYER 4: MAKE IT LITIGATION-GRADE
+================================================================================
+
+Priority: MEDIUM — polish layer, only after Layers 1-3 deliver real value
+Estimated effort: 5-7 days
+Depends on: Layers 1-3 producing accurate, verifiable output
+
+--------
+4A. PDF layout overhaul
+--------
+
+Files: apps/worker/steps/export_render/timeline_pdf.py,
+       apps/worker/steps/export_render/orchestrator.py
+
+Restructure PDF to litigation intelligence brief format:
+
+Section order (non-negotiable):
+  1. MOAT SECTION (strategic surface layer)
+     1) Case Collapse Candidates
+     2) Causation Ladder
+     3) Contradiction Matrix
+     4) Narrative Duality
+     5) Top 10 Case-Driving Events
+     6) Missing Record Detection
+  2. EXECUTIVE CASE SUMMARY (1 page max)
+  3. LITIGATION CHRONOLOGY (primary body, table with citations)
+  4. MEDICAL RECORD APPENDIX (evidence vault, grouped by source doc)
+
+Implementation:
+  - Refactor build_timeline_pdf() into section render functions:
+    render_moat_section(), render_exec_summary(),
+    render_chronology(), render_appendix()
+  - Single orchestrator enforces section order
+  - Clear page breaks between major sections
+  - Each moat subsection renders even if empty ("No findings")
+  - Remove the current "What to Review First" guidance section
+
+NOTE: Bidirectional navigation (anchors + links) already scaffolded in 2G.
+Layer 4A integrates it into the new section layout.
+
+--------
+4B. Export quality polish
+--------
+
+PDF:
+  - Professional typography (consistent fonts, spacing, colors)
+  - Section headers clearly distinguished
+  - No walls of text (tight bullets, readable table rows)
+  - Page numbers and matter title in footer (already exists)
+  - Preserve citation integrity (never drop citations during rendering)
+
+DOCX:
+  - Editable by paralegals
+  - Same section structure as PDF
+  - Table of contents
+  - Styles that match firm formatting preferences
+
+CSV:
+  - All chronology events with full metadata
+  - Machine-readable for import into case management systems
+
+--------
+4C. Testing and reliability
+--------
+
+CI/CD:
+  - GitHub Actions workflow: pytest on push/PR
+  - Backend tests (unit + integration)
+  - Frontend lint + build check
+  - Frontend tests (once they exist)
+
+New tests needed:
+  - OCR: mock Tesseract, test timeout handling, cache hits/misses,
+    parallel processing, budget timeout
+  - Persist: test constraint violation -> status="failed" (not stuck),
+    test large batch insert, test idempotency
+  - Runner: test stale recovery with retry limit, test concurrent claim
+  - PDF render: section order assertion, anchor/link count assertion,
+    manifest validation
+  - Frontend: MatterDetail polling, status display for all 5 states,
+    Context Dock rendering, Evidence Vault loading
+
+Code quality:
+  - Add Ruff (Python linter + formatter)
+  - Add Mypy on critical paths (domain models, API routes)
+  - Add Vitest for frontend components
+
+--------
+4D. Performance hardening
+--------
+
+  - OCR benchmark: track per-page and total timing, alert on regression
+  - Pipeline benchmark: full run on 50-page synthetic doc, assert <5 min
+  - Persist benchmark: 500 pages / 5000 events, assert <30s
+  - Memory profiling: ensure no accumulation across large documents
+  - Environment-specific baselines:
+    Dev machine (8+ cores, 16GB+): pipeline <10 min on 494-page packet
+    Cloud worker (2 vCPU, 4-8GB): pipeline <20 min on 494-page packet
+
+--------
+LAYER 4 EXIT CRITERIA:
+--------
+  - PDF reads like a litigation intelligence brief
+  - A partner can navigate from chronology to source evidence and back
+  - All exports (PDF, DOCX, CSV) are professional quality
+  - CI/CD runs on every PR, tests pass
+  - No regressions when deploying updates
+  - Performance baselines met for both dev and cloud environments
+
+
+================================================================================
+EXECUTION SEQUENCE (REVISED)
+================================================================================
+
+Layer 1: "There is real text"
+  1A. OCR single-open + 200 DPI + cleanup         <- START HERE
+  1F. Tesseract tuning (--oem 1 --psm 6)          <- quick win, do with 1A
+  1G. Junk suppression safety net                  <- parallel to OCR work
+  1C. Total budget timeout
+  1B. Parallel OCR (measure-first: benchmark 1/2/4 workers, then choose)
+  1D. Smart page skipping
+  1E. OCR cache
+  >> RE-RUN 494-page packet
+  >> GATE: 18/20 sampled pages have real medical text
+  >> GATE: <15% junk rate OR junk suppressed at render layer
+
+Layer 2: "I can see the output and verify sources"
+  2D. Fix persist rollback bug (stuck runs)        <- highest impact bug
+  2E. Force-fail API endpoint
+  2A. Fix Evidence Vault document serving
+  2F. Run artifact versioning (prevent stale data)
+  2B. Fix Strategic Overview data disconnect
+  2C. Fix Context Dock enum rendering
+  2G. Bidirectional PDF navigation scaffold
+  >> RE-RUN, verify all UI tabs show content
+  >> GATE: Evidence Vault loads 10/10 random citations
+  >> GATE: Zero stuck runs, all end success/partial/failed
+
+Layer 3: "This matches the actual medical records"
+  3A. Extraction quality validation (manual, use 2G links to verify)
+  3B. Date extraction hardening (if needed after 3A)
+  3C. Context Dock content quality audit
+  3D. Human-readable content rendering
+  3E. Injury Arc narrative
+  >> DEMO to someone who reads medical records
+  >> GATE: UNDATED <10%, word salad = zero, integrity >70/100
+
+Layer 4: "I'd hand this to opposing counsel"
+  4A. PDF layout overhaul (integrates 2G scaffold)
+  4B. Export quality polish
+  4C. Testing and reliability
+  4D. Performance hardening
+
+
+================================================================================
+KEY FILES REFERENCE
+================================================================================
+
+OCR/Text:
+  apps/worker/steps/step02_text_acquire.py     <- OCR entry point
+  apps/worker/steps/step01_page_split.py       <- Page splitting, text extract
+
+Pipeline:
+  apps/worker/runner.py                        <- Worker loop, stale recovery
+  apps/worker/pipeline.py                      <- Pipeline orchestration
+  apps/worker/pipeline_persistence.py          <- Result persistence (bug here)
+
+API:
+  apps/api/routes/runs.py                      <- Run CRUD, cancel endpoint
+  apps/api/routes/matters.py                   <- Matter CRUD
+  apps/api/routes/documents.py                 <- Document upload/download
+
+Export:
+  apps/worker/steps/step12_export.py           <- Export entry point
+  apps/worker/steps/export_render/orchestrator.py  <- Export orchestration
+  apps/worker/steps/export_render/timeline_pdf.py  <- PDF generation (ReportLab)
+
+Litigation features:
+  apps/worker/steps/case_collapse.py           <- Case collapse detection
+  apps/worker/steps/litigation/contradiction_matrix.py
+  apps/worker/steps/litigation/narrative_duality.py
+  apps/worker/lib/claim_ledger_lite.py         <- Claim ledger
+
+Database:
+  packages/db/models.py                        <- All ORM models
+  packages/db/database.py                      <- Session management
+
+Frontend:
+  apps/ui/src/pages/MatterDetail.tsx           <- Main case detail page
+  apps/ui/src/                                 <- React app root
+
+Domain models:
+  packages/shared/models/domain.py             <- Event, Citation, Page, etc.
+
+
+================================================================================
+REVISION LOG
+================================================================================
+
+v1 (2026-02-21): Initial plan. Four layers, dependency-ordered.
+v2 (2026-02-21): Incorporated external review feedback:
+  - Added 1G (junk suppression) as parallel safety net to OCR fixes
+  - Changed 1B from assumed-ThreadPool to measure-first ProcessPool approach
+  - Made performance targets environment-specific (dev machine vs cloud worker)
+  - Added 2F (run artifact versioning) to prevent stale artifact display
+  - Moved bidirectional PDF navigation (was 4B) to 2G (end of Layer 2)
+    because it's a verification tool, not just polish
+  - Added quantitative go/no-go gates to all layer exit criteria
+  - Corrected root cause analysis: problem is OCR + denoising, not OCR alone
+  - Reordered Layer 1 execution: 1F (Tesseract tuning) moved earlier as
+    quick win; 1G (junk suppression) runs parallel from day 1
+
+
+================================================================================
+END OF PLAN
+================================================================================
