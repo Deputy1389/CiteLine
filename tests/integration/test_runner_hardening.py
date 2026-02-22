@@ -1,13 +1,14 @@
 import pytest
 import time
 from datetime import datetime, timedelta, timezone
-from packages.db.database import get_session, init_db
-from packages.db.models import Run, Matter, Firm
+from packages.db.database import get_session, init_db, engine
+from packages.db.models import Base, Run, Matter, Firm
 from apps.worker.runner import claim_run, STALE_THRESHOLD_MINUTES
 
 @pytest.fixture(scope="session", autouse=True)
 def init_database():
-    init_db()
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
 
 @pytest.fixture
 def db_session():
@@ -81,3 +82,25 @@ def test_stale_recovery(db_session, setup_data):
     # Allow for naive/aware mismatch by normalizing
     r_hb = r.heartbeat_at.replace(tzinfo=timezone.utc) if r.heartbeat_at.tzinfo is None else r.heartbeat_at
     assert r_hb > stale_time
+
+
+def test_stale_retry_limit(db_session, setup_data, monkeypatch):
+    from apps.worker import runner
+    matter_id = setup_data
+    monkeypatch.setattr(runner, "MAX_RUN_RETRIES", 1)
+    stale_time = datetime.now(timezone.utc) - timedelta(minutes=STALE_THRESHOLD_MINUTES + 5)
+    run_stale = Run(
+        matter_id=matter_id,
+        status="running",
+        config_json="{}",
+        worker_id="old_worker",
+        heartbeat_at=stale_time,
+        retry_count=1,
+    )
+    db_session.add(run_stale)
+    db_session.commit()
+
+    cid = claim_run()
+    assert cid is None
+    r = db_session.query(Run).get(run_stale.id)
+    assert r.status == "failed"
