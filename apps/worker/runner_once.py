@@ -1,53 +1,36 @@
 """
-Worker runner (one-shot mode for cron jobs).
-Processes ONE pending run and exits.
-For use with Render Cron Jobs (free tier).
+One-shot worker runner for Cron jobs.
+Claims one pending run, processes it, and exits.
 """
 import logging
 import sys
 import os
-import time
 
 # Add project root to path
 sys.path.append(os.getcwd())
 
-from apps.worker.runner import claim_run, HeartbeatThread
+from packages.db.database import init_db
+from apps.worker.runner import claim_run
 from apps.worker.pipeline import run_pipeline
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
-logger = logging.getLogger(__name__)
-
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+logger = logging.getLogger("linecite.worker.once")
 
 def main():
-    """Process one pending run and exit."""
-    logger.info("Worker (one-shot) started. Looking for pending run...")
-
+    logger.info("One-shot worker starting...")
+    init_db()
+    
     run_id = claim_run()
-
-    if not run_id:
-        logger.info("No pending runs found. Exiting.")
-        sys.exit(0)
-
-    logger.info(f"Claimed run {run_id}. Starting pipeline...")
-
-    # Start heartbeat thread
-    beater = HeartbeatThread(run_id)
-    beater.start()
-
-    try:
-        start = time.monotonic()
-        run_pipeline(run_id)
-        elapsed = time.monotonic() - start
-        logger.info(f"Run {run_id} completed in {elapsed:.1f}s")
-    finally:
-        beater.stop()
-        beater.join()
-
-    logger.info(f"Run {run_id} processing complete. Exiting.")
-
+    if run_id:
+        logger.info(f"Processing claimed run: {run_id}")
+        try:
+            run_pipeline(run_id)
+            logger.info(f"Successfully finished run {run_id}")
+        except Exception:
+            logger.exception(f"Failed to process run {run_id}")
+            sys.exit(1)
+    else:
+        logger.info("No pending runs found.")
 
 if __name__ == "__main__":
     main()

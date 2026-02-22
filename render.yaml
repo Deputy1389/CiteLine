@@ -2,7 +2,7 @@
 # Docs: https://docs.render.com/blueprint-spec
 
 services:
-  # API Web Service (handles HTTP requests)
+  # API Web Service
   - type: web
     name: linecite-api
     runtime: docker
@@ -11,38 +11,16 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     envVars:
-      - key: DATABASE_URL
-        sync: false
-      - key: DATA_DIR
-        value: /app/data
+      - fromGroup: linecite-shared-env
       - key: PORT
         value: "8000"
       - key: CORS_ALLOW_ORIGINS
-        value: https://linecite.com,https://www.linecite.com
-      - key: CORS_ALLOW_CREDENTIALS
-        value: "true"
+        value: https://linecite.com,https://linecite-website.vercel.app
       - key: ALLOWED_HOSTS
         value: api.linecite.com,linecite-api.onrender.com
-      - key: SECURITY_HEADERS_ENABLED
-        value: "true"
-      - key: RATE_LIMIT_ENABLED
-        value: "true"
-      - key: RATE_LIMIT_RPM
-        value: "180"
-      - key: HIPAA_ENFORCEMENT
-        value: "false"
-      - key: HIPAA_AUDIT_LOGGING
-        value: "true"
-      - key: API_INTERNAL_AUTH_MODE
-        value: jwt
-      - key: API_INTERNAL_JWT_SECRET
-        generateValue: true
-      - key: PYTHONPATH
-        value: /app
     healthCheckPath: /health
 
-  # Cron Job (FREE alternative to background worker)
-  # Runs every 5 minutes to process pending extraction jobs
+  # Cron Job (FREE worker alternative)
   - type: cron
     name: linecite-worker-cron
     runtime: docker
@@ -52,27 +30,20 @@ services:
     dockerCommand: python -m apps.worker.runner_once
     schedule: "*/5 * * * *"
     envVars:
-      - key: DATABASE_URL
-        sync: false
-      - key: DATA_DIR
-        value: /app/data
-      - key: PYTHONPATH
-        value: /app
-      # OCR settings
+      - fromGroup: linecite-shared-env
       - key: DISABLE_OCR
         value: "false"
       - key: OCR_MODE
         value: "full"
       - key: OCR_DPI
         value: "200"
-      - key: OCR_WORKERS
-        value: "2"
-      - key: OCR_TIMEOUT_SECONDS
-        value: "30"
-      - key: OCR_TOTAL_TIMEOUT_SECONDS
-        value: "600"
-      # Worker settings
-      - key: MAX_RUN_RETRIES
-        value: "3"
-      - key: RUN_TIMEOUT_SECONDS
-        value: "1800"
+
+envGroups:
+  - name: linecite-shared-env
+    envVars:
+      - key: DATABASE_URL
+        placeholder: "Paste your Supabase URL here"
+      - key: DATA_DIR
+        value: /tmp/citeline_data
+      - key: PYTHONPATH
+        value: /app
