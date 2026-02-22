@@ -43,15 +43,16 @@ services:
         value: /app
     healthCheckPath: /health
 
-  # Background Worker Service (processes extraction jobs)
-  - type: worker
-    name: linecite-worker
+  # Cron Job (FREE alternative to background worker)
+  # Runs every 5 minutes to process pending extraction jobs
+  - type: cron
+    name: linecite-worker-cron
     runtime: docker
     repo: https://github.com/Deputy1389/CiteLine.git
     branch: main
-    plan: free
     dockerfilePath: ./Dockerfile
-    dockerCommand: python -m apps.worker.runner
+    dockerCommand: python -m apps.worker.runner_once
+    schedule: "*/5 * * * *"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
