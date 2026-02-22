@@ -37,12 +37,12 @@ def get_database_url() -> str:
             project_ref = match.group(1)
             logger.info(f"Auto-patching Supabase URL for project {project_ref}...")
             
-            # 1. Use the global pooler address (works for all regions)
+            # 1. Use the session pooler address (IPv4 compatible)
             # We replace the host part entirely
-            url = re.sub(r"@db\.[a-z0-9]+\.supabase\.co", f"@aws-0-us-west-1.pooler.supabase.com", url)
-            
-            # 2. Update port to 6543 (Pooler)
-            url = url.replace(":5432", ":6543")
+            url = re.sub(r"@db\.[a-z0-9]+\.supabase\.co", f"@aws-0-us-west-2.pooler.supabase.com", url)
+
+            # 2. Session pooler uses port 5432 (keep as-is)
+            # Port 5432 = Session mode, Port 6543 = Transaction mode
             
             # 3. Correct username format: postgres.[PROJECT_REF]
             # Precise regex to avoid double-patching or corrupting the protocol
