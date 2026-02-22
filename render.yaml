@@ -12,9 +12,7 @@ services:
     dockerfilePath: ./Dockerfile
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: linecite-db
-          property: connectionString
+        sync: false
       - key: DATA_DIR
         value: /app/data
       - key: PORT
@@ -55,9 +53,7 @@ services:
     schedule: "*/5 * * * *"
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: linecite-db
-          property: connectionString
+        sync: false
       - key: DATA_DIR
         value: /app/data
       - key: PYTHONPATH
@@ -80,9 +76,3 @@ services:
         value: "3"
       - key: RUN_TIMEOUT_SECONDS
         value: "1800"
-
-databases:
-  - name: linecite-db
-    plan: free
-    databaseName: linecite
-    user: linecite
