@@ -29,22 +29,34 @@ def get_database_url() -> str:
         url = url.replace("postgres://", "postgresql://", 1)
         
     # AUTO-FIX: Force Supabase IPv4 Pooler for Render (IPv6 workaround)
-    # Target host: db.oqvemwshlhikhodlrjjk.supabase.co
-    if "oqvemwshlhikhodlrjjk" in url and "pooler.supabase.com" not in url:
-        logger.info("Auto-patching Supabase URL for IPv4 Pooler compatibility...")
-        
-        # 1. Switch host and port
-        url = url.replace("db.oqvemwshlhikhodlrjjk.supabase.co", "aws-0-us-west-1.pooler.supabase.com")
-        url = url.replace(":5432", ":6543")
-        
-        # 2. Fix username (must be postgres.[PROJECT_REF])
-        # We target the 'postgres' user specifically between '://' and the password separator ':' or '@'
-        url = re.sub(r"://postgres([:@])", r"://postgres.oqvemwshlhikhodlrjjk\1", url)
-        
-        # 3. Ensure SSL
-        if "sslmode=" not in url:
-            sep = "&" if "?" in url else "?"
-            url += f"{sep}sslmode=require"
+    # If we see the direct Supabase host (which is IPv6-only), rewrite it to the pooler.
+    if "supabase.co" in url and "pooler" not in url:
+        # Extract project ref (e.g., oqvemwshlhikhodlrjjk)
+        match = re.search(r"db\.([a-z0-9]+)\.supabase\.co", url)
+        if match:
+            project_ref = match.group(1)
+            logger.info(f"Auto-patching Supabase URL for project {project_ref}...")
+            
+            # 1. Use the global pooler address (works for all regions)
+            # We replace the host part entirely
+            url = re.sub(r"@db\.[a-z0-9]+\.supabase\.co", f"@aws-0-us-west-1.pooler.supabase.com", url)
+            
+            # 2. Update port to 6543 (Pooler)
+            url = url.replace(":5432", ":6543")
+            
+            # 3. Correct username format: postgres.[PROJECT_REF]
+            # Precise regex to avoid double-patching or corrupting the protocol
+            if f"postgres.{project_ref}" not in url:
+                url = re.sub(r"://postgres([:@])", f"://postgres.{project_ref}\\1", url)
+            
+            # 4. Force SSL
+            if "sslmode=" not in url:
+                sep = "&" if "?" in url else "?"
+                url += f"{sep}sslmode=require"
+                
+            # Log the patched host (hiding password)
+            safe_url = re.sub(r"://([^:]+):([^@]+)@", r"://\1:****@", url)
+            logger.info(f"Patched URL: {safe_url}")
             
     return url
 
@@ -55,8 +67,12 @@ def get_engine():
     global _engine
     if _engine is None:
         url = get_database_url()
+        # Ensure we use psycopg 3 driver for PostgreSQL
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+            
         connect_args = {}
-        if url.startswith("sqlite"):
+        if "sqlite" in url:
             connect_args = {"check_same_thread": False}
         _engine = create_engine(url, echo=False, connect_args=connect_args)
     return _engine
@@ -76,7 +92,7 @@ def init_db() -> None:
 def _apply_schema_migrations() -> None:
     """Apply lightweight schema fixes."""
     url = get_database_url()
-    if url.startswith("sqlite"):
+    if "sqlite" in url:
         return
     
     try:
