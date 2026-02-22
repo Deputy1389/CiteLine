@@ -11,83 +11,65 @@ from typing import Generator
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
-# Use environment variable, default to local SQLite only for local development
-DATABASE_URL = os.environ.get("DATABASE_URL")
-logging.info(f"DATABASE_URL detected: {DATABASE_URL}")
-if not DATABASE_URL:
-    # Fallback only for local development
-    DATABASE_URL = "sqlite:///C:/Citeline/data/citeline.db"
-    logging.warning(f"Using fallback SQLite database: {DATABASE_URL}")
-
-# Render (and Heroku) provide postgres:// but SQLAlchemy 2.0 requires postgresql://
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-# Connection arguments for SQLite (not needed for Postgres)
-connect_args = {}
-if DATABASE_URL.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
-
-engine = create_engine(DATABASE_URL, echo=False, connect_args=connect_args)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 logger = logging.getLogger("linecite.db")
 
+def get_database_url() -> str:
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        # Fallback only for local development
+        url = "sqlite:///C:/Citeline/data/citeline.db"
+    
+    # Render (and Heroku) provide postgres:// but SQLAlchemy 2.0 requires postgresql://
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    return url
+
+# Lazy-loaded engine and session
+_engine = None
+_SessionLocal = None
+
+def get_engine():
+    global _engine
+    if _engine is None:
+        url = get_database_url()
+        connect_args = {}
+        if url.startswith("sqlite"):
+            connect_args = {"check_same_thread": False}
+        _engine = create_engine(url, echo=False, connect_args=connect_args)
+    return _engine
+
+def get_session_factory():
+    global _SessionLocal
+    if _SessionLocal is None:
+        _SessionLocal = sessionmaker(bind=get_engine(), autoflush=False, autocommit=False)
+    return _SessionLocal
 
 def init_db() -> None:
     """Create all tables (idempotent)."""
-    from packages.db.models import Base  # noqa: F811
-    Base.metadata.create_all(bind=engine)
+    from packages.db.models import Base
+    Base.metadata.create_all(bind=get_engine())
     _apply_schema_migrations()
-
 
 def _apply_schema_migrations() -> None:
     """Apply lightweight schema fixes for production without Alembic."""
-    if DATABASE_URL.startswith("sqlite"):
-        logger.info("Skipping schema migrations for sqlite.")
+    url = get_database_url()
+    if url.startswith("sqlite"):
         return
+    
+    engine = get_engine()
     with engine.begin() as conn:
         try:
-            conn.execute(
-                text("ALTER TABLE artifacts ALTER COLUMN artifact_type TYPE VARCHAR(64)")
-            )
-            logger.info("Migrated artifacts.artifact_type to VARCHAR(64).")
-        except Exception:
-            # Likely already migrated or insufficient privileges; ignore to keep startup resilient.
-            logger.exception("Failed to migrate artifacts.artifact_type (may already be migrated).")
+            conn.execute(text("ALTER TABLE artifacts ALTER COLUMN artifact_type TYPE VARCHAR(64)"))
+        except Exception: pass
         try:
-            conn.execute(
-                text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS retry_count INTEGER DEFAULT 0")
-            )
-            logger.info("Ensured runs.retry_count column exists.")
-        except Exception:
-            logger.exception("Failed to add runs.retry_count (may already exist).")
-        try:
-            conn.execute(
-                text(
-                    """
-                    CREATE TABLE IF NOT EXISTS ocr_cache (
-                        id VARCHAR(120) PRIMARY KEY,
-                        source_document_id VARCHAR(120) NOT NULL,
-                        document_sha256 VARCHAR(64) NOT NULL,
-                        page_number INTEGER NOT NULL,
-                        text TEXT,
-                        text_hash VARCHAR(64),
-                        ocr_engine VARCHAR(50),
-                        dpi INTEGER,
-                        created_at TIMESTAMP
-                    )
-                    """
-                )
-            )
-            logger.info("Ensured ocr_cache table exists.")
-        except Exception:
-            logger.exception("Failed to create ocr_cache table (may already exist).")
-
+            conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS retry_count INTEGER DEFAULT 0"))
+        except Exception: pass
 
 @contextmanager
 def get_session() -> Generator[Session, None, None]:
-    """Context manager that yields a DB session and handles commit/rollback."""
-    session = SessionLocal()
+    """Context manager that yields a DB session."""
+    factory = get_session_factory()
+    session = factory()
     try:
         yield session
         session.commit()
@@ -97,10 +79,10 @@ def get_session() -> Generator[Session, None, None]:
     finally:
         session.close()
 
-
 def get_db() -> Generator[Session, None, None]:
     """FastAPI dependency that yields a DB session."""
-    session = SessionLocal()
+    factory = get_session_factory()
+    session = factory()
     try:
         yield session
         session.commit()

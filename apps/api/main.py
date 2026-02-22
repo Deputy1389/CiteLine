@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from apps.api.authz import hipaa_enforcement_enabled
-from packages.db.database import DATABASE_URL, init_db, engine
+from packages.db.database import get_database_url, init_db, get_engine
 from packages.shared.storage import DATA_DIR
 from sqlalchemy import text
 
@@ -259,9 +259,10 @@ def health_worker():
 
 @app.get("/health/worker/details")
 def health_worker_details():
-    if DATABASE_URL.startswith("sqlite"):
+    db_url = get_database_url()
+    if db_url.startswith("sqlite"):
         return {"status": "ok", "backend": "sqlite"}
-    with engine.begin() as conn:
+    with get_engine().begin() as conn:
         stale = conn.execute(
             text(
                 "SELECT count(*) FROM runs WHERE status='running' "
@@ -285,9 +286,10 @@ def health_worker_details():
 
 @app.get("/health/schema")
 def health_schema():
-    if DATABASE_URL.startswith("sqlite"):
+    db_url = get_database_url()
+    if db_url.startswith("sqlite"):
         return {"status": "ok", "backend": "sqlite"}
-    with engine.begin() as conn:
+    with get_engine().begin() as conn:
         row = conn.execute(
             text(
                 "SELECT character_maximum_length "
