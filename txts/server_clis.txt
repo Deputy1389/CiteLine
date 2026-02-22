@@ -1,0 +1,56 @@
+# LineCite Cloud Infrastructure & CLI Access Guide
+
+This document contains instructions for AI agents and developers to access and manage the LineCite infrastructure.
+
+## 1. Oracle Cloud (OCI) CLI
+**Purpose:** Manages the Oracle ARM/Micro Worker instances.
+- **Config Location:** `C:\Users\paddy\.oci\config`
+- **Installation:**
+  ```powershell
+  Invoke-WebRequest -Uri https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.ps1 -OutFile install.ps1; .\install.ps1 -AcceptAllDefaults
+  ```
+- **Configuration Details:**
+  - User: `ocid1.user.oc1..aaaaaaaar62hvgnsqgfgz6wx4zq52ywrkaneu3gkxuxmb3dzd23hpp7oaora`
+  - Tenancy: `ocid1.tenancy.oc1..aaaaaaaa5od5ri7irim5c6zhcgrc2ofqfdpyumjvs3if6vohgbphkv32v4ga`
+  - Region: `us-sanjose-1`
+  - Key File: `C:\Users\paddy\.oci\oci_api_key.pem`
+  - Fingerprint: `31:cd:50:cc:94:46:1a:f9:04:dc:ed:04:81:7a:27:4e`
+
+## 2. Vercel CLI (Frontend)
+**Purpose:** Deploys the Next.js website (Eventis).
+- **Directory:** `C:\Eventis\Website`
+- **Commands:**
+  - `vercel login` (OAuth)
+  - `vercel link --yes --project linecite-website`
+  - `vercel --prod` (Deploy to Production)
+- **Env Vars:**
+  - `NEXT_PUBLIC_API_URL`: `https://linecite-api.onrender.com`
+
+## 3. Render (Backend API)
+**Purpose:** Hosts the FastAPI engine.
+- **Project:** `linecite-api` (on Render Dashboard)
+- **Deployment:** Automatically triggered by GitHub pushes to `Deputy1389/CiteLine`.
+- **Primary Config:**
+  - `DATABASE_URL`: Set to the Supabase PostgreSQL string.
+  - `DATA_DIR`: `/tmp/citeline_data`
+
+## 4. Supabase (Shared Database)
+**Purpose:** The "Shared Brain" for the API and Worker.
+- **Connection String:** `postgresql://postgres:[WhatsAButtfor1!]@db.oqvemwshlhikhodlrjjk.supabase.co:5432/postgres`
+- **Dashboard:** https://supabase.com (Project: CiteLine)
+
+## 5. Oracle Worker Server (Direct Access)
+**Purpose:** Heavy-lifting processing (OCR/Extraction).
+- **IP Address:** `192.9.156.165` (Micro Instance)
+- **Access Command:**
+  ```powershell
+  ssh -i "C:\Users\paddy\.ssh\oracle-worker" ubuntu@192.9.156.165
+  ```
+- **Structure:**
+  - Code: `~/citeline`
+  - Logs: `~/citeline/worker.log`
+  - Process: Managed via background `nohup` python process.
+
+## 6. Infrastructure Logic
+- **Upload Flow:** Website (Vercel) -> API (Render) -> Database (Supabase) -> Worker (Oracle).
+- **Backend Parity:** The API code in `apps/api/main.py` is unified; it starts a worker thread automatically if hosted on a single service.
