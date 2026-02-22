@@ -15,6 +15,9 @@ logger = logging.getLogger("linecite.db")
 
 def get_database_url() -> str:
     url = os.environ.get("DATABASE_URL")
+    if url:
+        url = url.strip()
+    
     if not url:
         # Fallback only for local development
         url = "sqlite:///C:/Citeline/data/citeline.db"
