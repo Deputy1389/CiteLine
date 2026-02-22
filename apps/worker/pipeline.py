@@ -7,6 +7,8 @@ import json
 import logging
 import time
 import os
+import requests
+from pathlib import Path
 from datetime import datetime, timezone
 
 from packages.db.database import get_session
@@ -27,7 +29,7 @@ from packages.shared.models import (
     Warning
 )
 from packages.shared.schema_validator import validate_output
-from packages.shared.storage import get_upload_path
+from packages.shared.storage import get_upload_path, UPLOADS_DIR, ensure_dirs
 
 from apps.worker.steps.step00_validate import validate_inputs
 from apps.worker.steps.step01_page_split import split_pages
@@ -97,6 +99,31 @@ from apps.worker.pipeline_persistence import persist_pipeline_state
 
 logger = logging.getLogger(__name__)
 RUN_TIMEOUT_SECONDS = int(os.getenv("RUN_TIMEOUT_SECONDS", "1800"))
+API_BASE_URL = os.getenv("API_BASE_URL", "https://linecite-api.onrender.com")
+
+
+def _download_document_from_api(document_id: str) -> Path:
+    """Download a document from the Render API and save it locally."""
+    ensure_dirs()
+    local_path = UPLOADS_DIR / f"{document_id}.pdf"
+
+    # If already downloaded, return the path
+    if local_path.exists():
+        return local_path
+
+    # Download from API
+    url = f"{API_BASE_URL}/documents/{document_id}/download"
+    logger.info(f"Downloading document {document_id} from {url}")
+
+    try:
+        response = requests.get(url, timeout=60)
+        response.raise_for_status()
+        local_path.write_bytes(response.content)
+        logger.info(f"Downloaded {len(response.content)} bytes to {local_path}")
+        return local_path
+    except Exception as e:
+        logger.error(f"Failed to download document {document_id}: {e}")
+        raise RuntimeError(f"Failed to download document from API: {e}")
 
 
 def _check_deadline(start_time: float, run_id: str, label: str) -> None:
@@ -228,7 +255,8 @@ def run_pipeline(run_id: str) -> None:
 
         for doc in valid_docs:
             _check_deadline(start_time, run_id, "step1-2")
-            pdf_path = str(get_upload_path(doc.document_id))
+            # Download PDF from API if not already local
+            pdf_path = str(_download_document_from_api(doc.document_id))
             logger.info(f"[{run_id}] Step 1: Splitting pages for {doc.document_id}")
             pages, step_warnings = split_pages(
                 pdf_path, doc.document_id, page_offset, config.max_pages - page_offset
