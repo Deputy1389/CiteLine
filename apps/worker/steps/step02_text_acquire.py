@@ -252,22 +252,22 @@ def acquire_text(
         "workers": _OCR_WORKERS,
     })
 
-def _mark_budget_exceeded(from_index: int) -> None:
-    for idx in candidates[from_index:]:
-        p = pages[idx]
-        warnings.append(Warning(
-            code="OCR_BUDGET_EXCEEDED",
-            message=f"OCR budget exceeded; skipped page {p.page_number}",
-            page=p.page_number,
-            document_id=p.source_document_id,
-        ))
-    _update_ocr_metrics(run_id, {
-        "pages_done": processed,
-        "pages_total": len(candidates),
-        "elapsed_seconds": int(time.monotonic() - start_time),
-        "cached_hits": cached_hits,
-        "budget_exceeded": True,
-    })
+    def _mark_budget_exceeded(from_index: int) -> None:
+        for idx in candidates[from_index:]:
+            p = pages[idx]
+            warnings.append(Warning(
+                code="OCR_BUDGET_EXCEEDED",
+                message=f"OCR budget exceeded; skipped page {p.page_number}",
+                page=p.page_number,
+                document_id=p.source_document_id,
+            ))
+        _update_ocr_metrics(run_id, {
+            "pages_done": processed,
+            "pages_total": len(candidates),
+            "elapsed_seconds": int(time.monotonic() - start_time),
+            "cached_hits": cached_hits,
+            "budget_exceeded": True,
+        })
 
     def _lookup_cache(idx: int) -> str | None:
         page = pages[idx]
