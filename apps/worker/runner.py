@@ -130,6 +130,10 @@ def main():
     )
     logger.info(f"Worker runner started. ID: {WORKER_ID}")
     
+    # Ensure DB is initialized
+    from packages.db.database import init_db
+    init_db()
+    
     while True:
         try:
             run_id = claim_run()
