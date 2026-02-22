@@ -11,10 +11,13 @@ from typing import Generator
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
+# Use environment variable, default to local SQLite only for local development
 DATABASE_URL = os.environ.get("DATABASE_URL")
+logging.info(f"DATABASE_URL detected: {DATABASE_URL}")
 if not DATABASE_URL:
     # Fallback only for local development
     DATABASE_URL = "sqlite:///C:/Citeline/data/citeline.db"
+    logging.warning(f"Using fallback SQLite database: {DATABASE_URL}")
 
 # Render (and Heroku) provide postgres:// but SQLAlchemy 2.0 requires postgresql://
 if DATABASE_URL.startswith("postgres://"):
