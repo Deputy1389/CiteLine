@@ -67,8 +67,11 @@ def _clean_narrative_text(text: str | None) -> str:
     if not text:
         return ""
     cleaned = text
-    # Strip markdown headers (# ## ### etc.)
+    # Strip markdown headers — both line-start AND inline (clean_text may flatten to one line)
     cleaned = re.sub(r"(?im)^[ \t]*#{1,6}\s*", "", cleaned)
+    cleaned = re.sub(r"\s#{1,6}\s+", " ", cleaned)  # inline ### after clean_text joins lines
+    # Strip numbered section headers like "1) CASE SUMMARY" or "### 2) INJURY SUMMARY"
+    cleaned = re.sub(r"(?:^|\s)\d+\)\s*", " ", cleaned)
     # Strip bold/italic markers
     cleaned = re.sub(r"\*{1,3}([^*]+)\*{1,3}", r"\1", cleaned)
     cleaned = re.sub(r"_{1,3}([^_]+)_{1,3}", r"\1", cleaned)
@@ -87,9 +90,13 @@ def _clean_narrative_text(text: str | None) -> str:
     # Truncate before chronology sections (leftover content)
     cleaned = re.split(r"(?im)^[ \t]*#{0,3}\s*5\)\s*chronological medical timeline\s*$", cleaned)[0]
     cleaned = re.split(r"(?im)^[ \t]*chronology\s*$", cleaned)[0]
+    # Also truncate inline chronology refs after clean_text flattening
+    cleaned = re.split(r"\s*#{0,3}\s*5\)\s*chronological medical timeline", cleaned, flags=re.IGNORECASE)[0]
     # Strip provider lines and filler
     cleaned = re.sub(r"(?im)^[ \t]*provider:.*$", "", cleaned)
     cleaned = cleaned.replace("Encounter documented; details available in cited records.", "")
+    # Clean up multiple spaces from all the stripping
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
     cleaned = cleaned.strip()
     return cleaned
 
@@ -212,7 +219,14 @@ def _sanitize_top10_sentence(text: str) -> str:
         return ""
     from apps.worker.steps.export_render.constants import WORD_SALAD_TOKEN_RE, MEDICAL_ANCHOR_RE
     low = cleaned.lower()
-    if WORD_SALAD_TOKEN_RE.search(low) and not MEDICAL_ANCHOR_RE.search(low):
+    # Ratio-based garbage detection: count word salad vs medical matches
+    salad_hits = len(WORD_SALAD_TOKEN_RE.findall(low))
+    medical_hits = len(MEDICAL_ANCHOR_RE.findall(low))
+    # If word salad tokens outnumber medical anchors, it's garbage
+    if salad_hits >= 2 and salad_hits > medical_hits:
+        return ""
+    # Even 1 salad hit with no real medical content is garbage
+    if salad_hits >= 1 and medical_hits == 0:
         return ""
     if re.search(r"^\s*(?:informed consent|consent|authorization)\b", cleaned, re.IGNORECASE):
         return ""
