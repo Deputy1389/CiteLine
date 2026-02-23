@@ -672,6 +672,7 @@ def run_pipeline(run_id: str) -> None:
             run_row = session.query(RunORM).filter_by(id=run_id).first()
             if run_row:
                 run_row.status = "persisting"
+                session.commit()
         try:
             persist_pipeline_state(
                 run_id=run_id,

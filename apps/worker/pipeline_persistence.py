@@ -56,7 +56,7 @@ def persist_pipeline_state(
             session.query(ArtifactORM).filter_by(run_id=run_id).delete()
             session.flush()
 
-        for page in evidence_graph.pages:
+            for page in evidence_graph.pages:
             session.add(PageORM(
                 id=page.page_id,
                 run_id=run_id,
@@ -80,7 +80,7 @@ def persist_pipeline_state(
                 confidence=doc.confidence,
             ))
 
-        for prov in evidence_graph.providers:
+            for prov in evidence_graph.providers:
             session.add(ProviderORM(
                 id=prov.provider_id,
                 run_id=run_id,
@@ -91,7 +91,7 @@ def persist_pipeline_state(
                 evidence_json=[e.model_dump(mode="json") for e in prov.evidence],
             ))
 
-        for cit in evidence_graph.citations:
+            for cit in evidence_graph.citations:
             session.add(CitationORM(
                 id=cit.citation_id,
                 run_id=run_id,
@@ -102,7 +102,7 @@ def persist_pipeline_state(
                 text_hash=cit.text_hash,
             ))
 
-        for evt in evidence_graph.events:
+            for evt in evidence_graph.events:
             pid_fk = evt.provider_id if evt.provider_id and evt.provider_id != "unknown" else None
             session.add(EventORM(
                 id=evt.event_id,
@@ -123,7 +123,7 @@ def persist_pipeline_state(
                 extensions_json=evt.extensions,
             ))
 
-        for gap in evidence_graph.gaps:
+            for gap in evidence_graph.gaps:
             session.add(GapORM(
                 id=gap.gap_id,
                 run_id=run_id,
