@@ -108,6 +108,23 @@ def is_garbage(text: str) -> bool:
         return True
     med_density = _medical_density(tokens)
     diversity = _diversity_score(cleaned)
+    # Original short-text check
     if len(cleaned) < 30 and med_density < 0.02 and diversity < 0.1:
+        return True
+    # NEW: Check for consecutive non-medical word runs (hallmark of OCR garbage/word salad)
+    consecutive_nonmed = 0
+    max_consecutive = 0
+    for t in tokens:
+        low = t.lower()
+        if low in _MEDICAL_TERMS or low in _STOPWORDS or re.search(r"\d", t):
+            consecutive_nonmed = 0
+        else:
+            consecutive_nonmed += 1
+            max_consecutive = max(max_consecutive, consecutive_nonmed)
+    # 5+ consecutive non-medical words = almost certainly garbage
+    if max_consecutive >= 5:
+        return True
+    # NEW: For longer texts, require minimum medical density
+    if len(cleaned) > 50 and med_density < 0.08:
         return True
     return False
