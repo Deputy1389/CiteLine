@@ -139,12 +139,16 @@ def get_artifact_dir(run_id: str) -> Path:
     """Return the artifact directory for a given run."""
     return ARTIFACTS_DIR / run_id
 
-def get_artifact_path(run_id: str, filename: str) -> Path:
-    """Return the full path to a specific artifact, fetching from remote if missing."""
+def get_artifact_path(run_id: str, filename: str) -> Path | None:
+    """Return the full path to a specific artifact, fetching from remote if missing. Returns None if not found."""
     path = ARTIFACTS_DIR / run_id / filename
-    
+
     if not path.exists() and USE_SUPABASE_STORAGE:
         logger.info(f"Artifact {run_id}/{filename} not found locally. Fetching from Supabase...")
-        _supabase_download("artifacts", f"{run_id}/{filename}", path)
-        
+        success = _supabase_download("artifacts", f"{run_id}/{filename}", path)
+        if not success or not path.exists():
+            return None
+    elif not path.exists():
+        return None
+
     return path
