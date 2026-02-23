@@ -1,5 +1,5 @@
-from __future__ import annotations
 import re
+import textwrap
 import uuid
 from datetime import timedelta
 from packages.shared.models import (
@@ -68,9 +68,9 @@ def extract_pt_events(
         # Look for progress/goals
         progress = _find_section(page.text, "Progress") or _find_section(page.text, "Goals") or _find_section(page.text, "Subjective")
         if progress:
-            snippet = progress[:200].strip()
+            snippet = textwrap.shorten(progress.strip(), width=200, placeholder="...")
         else:
-            snippet = page.text[:200].strip()
+            snippet = textwrap.shorten(page.text.strip(), width=200, placeholder="...")
 
         cit = _make_citation(page, snippet)
         citations.append(cit)
@@ -185,7 +185,7 @@ def extract_pt_events(
             ]:
                 section_text = _find_section(page.text, section_name)
                 if section_text:
-                    snippet = section_text[:350].strip()
+                    snippet = textwrap.shorten(section_text.strip(), width=350, placeholder="...")
                     cit = _make_citation(page, snippet)
                     citations.append(cit)
                     facts.append(_make_fact(snippet, fact_kind, cit.citation_id))
@@ -197,7 +197,7 @@ def extract_pt_events(
                 page.text, _re.IGNORECASE
             )
             if rom_match and not any("rom" in f.text.lower() for f in facts):
-                snippet = rom_match.group(1).strip()[:200]
+                snippet = textwrap.shorten(rom_match.group(1).strip(), width=200, placeholder="...")
                 cit = _make_citation(page, snippet)
                 citations.append(cit)
                 facts.append(_make_fact(snippet, FactKind.OTHER, cit.citation_id))
@@ -208,14 +208,14 @@ def extract_pt_events(
                 page.text, _re.IGNORECASE
             )
             if pain_match and not any("pain" in f.text.lower() and "/10" in f.text for f in facts):
-                snippet = pain_match.group(1).strip()[:200]
+                snippet = textwrap.shorten(pain_match.group(1).strip(), width=200, placeholder="...")
                 cit = _make_citation(page, snippet)
                 citations.append(cit)
                 facts.append(_make_fact(snippet, FactKind.OTHER, cit.citation_id))
 
             # Fallback to page text if nothing extracted
             if not facts:
-                snippet = page.text[:250].strip()
+                snippet = textwrap.shorten(page.text.strip(), width=250, placeholder="...")
                 cit = _make_citation(page, snippet)
                 citations.append(cit)
                 facts.append(_make_fact(snippet, FactKind.OTHER, cit.citation_id))
