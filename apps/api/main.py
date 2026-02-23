@@ -253,7 +253,15 @@ for router in (firms_router, matters_router, docs_router, runs_router, exports_r
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "0.1.0"}
+    import os
+    from packages.shared import storage
+    return {
+        "status": "ok",
+        "version": "0.1.0",
+        "supabase_configured": storage.USE_SUPABASE_STORAGE,
+        "has_rest_url": bool(storage.SUPABASE_REST_URL),
+        "has_service_key": bool(storage.SUPABASE_SERVICE_KEY),
+    }
 
 
 @app.get("/health/worker")
