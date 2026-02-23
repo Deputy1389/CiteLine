@@ -63,10 +63,15 @@ def extract_imaging_events(
         event_flags: list[str] = []
         page_dates = dates.get(page.page_number, [])
 
-        # Check for impression or findings
-        impression = _find_section(page.text, "Impression")
-        findings = _find_section(page.text, "Findings")
-        if not impression and not findings:
+        # Check for impression, findings, or other common report sections
+        content_section = None
+        for header in ["Impression", "Findings", "Conclusion", "Summary", "Results", "Interpretation", "Report"]:
+            section = _find_section(page.text, header)
+            if section:
+                content_section = section
+                break
+
+        if not content_section:
             skipped.append(SkippedEvent(
                 page_numbers=[page.page_number],
                 reason_code="NO_TRIGGER_MATCH",
@@ -96,7 +101,7 @@ def extract_imaging_events(
         citation_ids: list[str] = []
         impression_facts: list[Fact] = []
 
-        content = impression or findings or ""
+        content = content_section or ""
         lines = [l.strip() for l in content.split("\n") if l.strip()][:3]
         for line in lines:
             cit = _make_citation(page, line)

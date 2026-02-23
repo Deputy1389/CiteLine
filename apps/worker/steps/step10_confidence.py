@@ -26,7 +26,7 @@ def score_event(event: Event) -> int:
         elif event.date.value:
             score += 35
         elif event.date.source == DateSource.TIER2:
-            score += 20
+            score += 25  # Increased from 20 — TIER2 is still a real date
         elif event.date.source in (DateSource.PROPAGATED, DateSource.ANCHOR):
             score += 15
 
@@ -43,18 +43,25 @@ def score_event(event: Event) -> int:
     if event.event_type in strong_types:
         score += 15
 
-    # Content anchors — +5 each, max 15
+    # Content anchors — +7 each, max 21 (increased from 5/15)
     anchor_kinds = {FactKind.CHIEF_COMPLAINT, FactKind.ASSESSMENT, FactKind.PLAN, FactKind.IMPRESSION}
     anchor_count = sum(1 for f in event.facts if f.kind in anchor_kinds)
-    score += min(anchor_count * 5, 15)
+    score += min(anchor_count * 7, 21)
 
-    # Fact richness — reward events with ≥3 facts
+    # Clinical content density — bonus for diagnosis, procedure, medication facts
+    clinical_kinds = {FactKind.DIAGNOSIS, FactKind.PROCEDURE, FactKind.MEDICATION}
+    clinical_count = sum(1 for f in event.facts if f.kind in clinical_kinds)
+    score += min(clinical_count * 4, 12)  # Up to +12 for clinical density
+
+    # Fact richness — reward events with ≥3 facts (increased from 5 to 8)
     if len(event.facts) >= 3:
-        score += 5
+        score += 8
 
-    # Citation coverage — reward events with multiple citations
+    # Citation coverage — reward events with multiple citations (increased from 5 to 10)
     if len(event.citation_ids) >= 2:
-        score += 5
+        score += 10
+    elif len(event.citation_ids) >= 4:
+        score += 5  # Extra bonus for heavily cited events
 
     # multi-page events are stronger
     if len(event.source_page_numbers) > 1:

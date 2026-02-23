@@ -30,7 +30,7 @@ class RunConfig(BaseModel):
     pt_mode: object = "aggregate"  # aggregate or per_visit (Enum ideally)
     pt_aggregate_window_days: int = 7
     gap_threshold_days: int = 60
-    event_confidence_min_export: int = 50
+    event_confidence_min_export: int = 40  # Lowered from 50 to better capture clinical content
     low_confidence_event_behavior: object = "exclude_from_export"  # exclude_from_export or include_with_flag
 
 

@@ -20,16 +20,21 @@ from .common import _make_citation, _make_fact
 def _extract_amount(text: str) -> float | None:
     """Extract a dollar amount from text."""
     patterns = [
-        r"\$\s*([\d,]+\.?\d*)",
-        r"total\s*(?:due|amount|charges)?\s*:?\s*\$?\s*([\d,]+\.?\d*)",
-        r"balance\s*(?:due)?\s*:?\s*\$?\s*([\d,]+\.?\d*)",
-        r"amount\s*(?:due)?\s*:?\s*\$?\s*([\d,]+\.?\d*)",
+        r"total\s*(?:due|amount|charges|billed|balance)?\s*:?\s*\$?\s*([\d,]+\.?\d*)",
+        r"balance\s*(?:due|owed|remaining)?\s*:?\s*\$?\s*([\d,]+\.?\d*)",
+        r"amount\s*(?:due|owed|billed)?\s*:?\s*\$?\s*([\d,]+\.?\d*)",
+        r"charges?\s*:?\s*\$?\s*([\d,]+\.?\d*)",
+        r"billed\s*:?\s*\$?\s*([\d,]+\.?\d*)",
+        r"\$\s*([\d,]+\.?\d*)",  # Generic dollar amount (last resort)
     ]
     for pattern in patterns:
         m = re.search(pattern, text, re.IGNORECASE)
         if m:
             try:
-                return float(m.group(1).replace(",", ""))
+                amount = float(m.group(1).replace(",", ""))
+                # Sanity check: billing amounts usually > $1 and < $1M
+                if 1.0 <= amount <= 1000000.0:
+                    return amount
             except ValueError:
                 continue
     return None
@@ -51,9 +56,21 @@ def extract_billing_events(
     for page in billing_pages:
         event_flags: list[str] = []
         page_dates = dates.get(page.page_number, [])
+        text_lower = page.text.lower()
 
         amount = _extract_amount(page.text)
-        if amount is None:
+
+        # Expanded triggers: Even if no amount, check for billing indicators
+        billing_indicators = [
+            "statement", "invoice", "bill", "charges", "payment", "balance",
+            "insurance", "cpt", "icd", "procedure code", "diagnosis code",
+            "patient account", "account number", "date of service", "claim"
+        ]
+
+        indicator_count = sum(1 for indicator in billing_indicators if indicator in text_lower)
+
+        if amount is None and indicator_count < 2:
+            # No amount and not enough billing indicators
             skipped.append(SkippedEvent(
                 page_numbers=[page.page_number],
                 reason_code="NO_TRIGGER_MATCH",
@@ -75,9 +92,13 @@ def extract_billing_events(
         if not provider_id and providers:
             provider_id = providers[0].provider_id
         provider_id = provider_id or "unknown"
-        text_lower = page.text.lower()
 
-        snippet = f"Total amount: ${amount:.2f}"
+        if amount is not None:
+            snippet = f"Total amount: ${amount:.2f}"
+        else:
+            snippet = "Billing record detected (amount not specified)"
+            event_flags.append("NO_AMOUNT")
+
         cit = _make_citation(page, snippet)
         citations.append(cit)
 
@@ -90,7 +111,7 @@ def extract_billing_events(
         if event_date:
             billing = BillingDetails(
                 statement_date=event_date.sort_date(),
-                total_amount=amount,
+                total_amount=amount if amount is not None else 0.0,
                 currency="USD",
                 line_item_count=max(line_items, 0),
                 has_cpt_codes=has_cpt,

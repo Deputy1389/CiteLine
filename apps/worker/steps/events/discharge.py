@@ -58,9 +58,14 @@ def extract_discharge_events(
         provider_id = page_provider_map.get(page.page_number, "unknown")
         
         facts: list[Fact] = []
-        
-        # Extract Diagnosis
-        for header in ["Discharge Diagnosis", "Final Diagnosis", "Admitting Diagnosis"]:
+
+        # Extract Diagnosis - Expanded headers
+        diagnosis_headers = [
+            "Discharge Diagnosis", "Discharge Diagnoses", "Final Diagnosis",
+            "Admitting Diagnosis", "Principal Diagnosis", "Primary Diagnosis",
+            "Diagnoses", "Diagnosis"
+        ]
+        for header in diagnosis_headers:
             section = _find_section(page.text, header)
             if section:
                 cit = _make_citation(page, section)
@@ -68,23 +73,45 @@ def extract_discharge_events(
                 facts.append(_make_fact(section, FactKind.DIAGNOSIS, cit.citation_id))
                 break # Only one diagnosis section needed usually
 
-        # Extract Hospital Course
-        course = _find_section(page.text, "Hospital Course")
-        if course:
-            # Summarize if too long
-            summary = course[:400].strip()
-            cit = _make_citation(page, summary)
-            citations.append(cit)
-            facts.append(_make_fact(summary, FactKind.OTHER, cit.citation_id))
-            
-        # Extract Discharge Instructions / Medications
-        for header in ["Discharge Instructions", "Discharge Medications"]:
+        # Extract Hospital Course - Expanded headers
+        course_headers = [
+            "Hospital Course", "Clinical Course", "Course in Hospital",
+            "Brief Hospital Course", "Summary", "History of Present Illness"
+        ]
+        for header in course_headers:
+            course = _find_section(page.text, header)
+            if course:
+                # Summarize if too long
+                summary = course[:400].strip()
+                cit = _make_citation(page, summary)
+                citations.append(cit)
+                facts.append(_make_fact(summary, FactKind.OTHER, cit.citation_id))
+                break
+
+        # Extract Discharge Instructions / Medications - Expanded headers
+        instruction_headers = [
+            "Discharge Instructions", "Discharge Medications", "Medications on Discharge",
+            "Discharge Plan", "Follow-up", "Discharge Condition", "Condition on Discharge",
+            "Discharge Disposition", "Instructions"
+        ]
+        for header in instruction_headers:
             section = _find_section(page.text, header)
             if section:
                 summary = section[:400].strip()
                 cit = _make_citation(page, summary)
                 citations.append(cit)
                 facts.append(_make_fact(summary, FactKind.PLAN, cit.citation_id))
+                break
+
+        # If still no facts, extract generic discharge content
+        if not facts:
+            # Look for any discharge-related content
+            text_lower = page.text.lower()
+            if any(kw in text_lower for kw in ["discharge", "discharged", "disposition"]):
+                snippet = page.text[:300].strip()
+                cit = _make_citation(page, snippet)
+                citations.append(cit)
+                facts.append(_make_fact(snippet, FactKind.OTHER, cit.citation_id))
 
         if not facts and not event_date:
             skipped.append(SkippedEvent(

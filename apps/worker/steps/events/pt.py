@@ -50,9 +50,19 @@ def extract_pt_events(
 
     # Emit flagged events for dateless PT pages
     for page in pt_visits_no_dates:
-        snippet = page.text[:200].strip()
+        # Extract more meaningful content for PT notes
+        facts = []
+
+        # Look for progress/goals
+        progress = _find_section(page.text, "Progress") or _find_section(page.text, "Goals") or _find_section(page.text, "Subjective")
+        if progress:
+            snippet = progress[:200].strip()
+        else:
+            snippet = page.text[:200].strip()
+
         cit = _make_citation(page, snippet)
         citations.append(cit)
+        facts.append(_make_fact(snippet, FactKind.OTHER, cit.citation_id))
 
         provider_id = page_provider_map.get(page.page_number)
         if not provider_id and providers:
@@ -70,7 +80,7 @@ def extract_pt_events(
             provider_id=provider_id,
             event_type=EventType.PT_VISIT,
             date=None,
-            facts=[_make_fact(snippet, FactKind.OTHER, cit.citation_id)],
+            facts=facts,
             confidence=0,
             flags=["MISSING_DATE"],
             citation_ids=[cit.citation_id],
@@ -150,9 +160,31 @@ def extract_pt_events(
     else:
         # Per-visit mode
         for page, event_date in pt_visits_with_dates:
-            snippet = page.text[:200].strip()
-            cit = _make_citation(page, snippet)
-            citations.append(cit)
+            # Extract more meaningful content for PT notes
+            facts = []
+
+            # Look for progress/goals/assessment
+            progress = _find_section(page.text, "Progress") or _find_section(page.text, "Goals") or _find_section(page.text, "Subjective")
+            if progress:
+                snippet = progress[:300].strip()
+                cit = _make_citation(page, snippet)
+                citations.append(cit)
+                facts.append(_make_fact(snippet, FactKind.OTHER, cit.citation_id))
+
+            # Look for assessment/objective
+            assessment = _find_section(page.text, "Assessment") or _find_section(page.text, "Objective")
+            if assessment:
+                snippet = assessment[:300].strip()
+                cit = _make_citation(page, snippet)
+                citations.append(cit)
+                facts.append(_make_fact(snippet, FactKind.ASSESSMENT, cit.citation_id))
+
+            # Fallback to page text if nothing found
+            if not facts:
+                snippet = page.text[:200].strip()
+                cit = _make_citation(page, snippet)
+                citations.append(cit)
+                facts.append(_make_fact(snippet, FactKind.OTHER, cit.citation_id))
 
             # Determine provider
             provider_id = page_provider_map.get(page.page_number)
@@ -165,9 +197,9 @@ def extract_pt_events(
                 provider_id=provider_id,
                 event_type=EventType.PT_VISIT,
                 date=event_date,
-                facts=[_make_fact(snippet, FactKind.OTHER, cit.citation_id)],
+                facts=facts,
                 confidence=0,
-                citation_ids=[cit.citation_id],
+                citation_ids=[f.citation_id for f in facts],
                 source_page_numbers=[page.page_number],
             ))
 

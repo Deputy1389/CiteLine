@@ -42,6 +42,15 @@ _CLINICAL_INDICATORS = [
     (r"(?i)\b(discharge home|discharged to home)\b", "Disposition"),
     (r"(?i)\bwt\s*:\s*(\d{2,3})\b", "Weight"),
     (r"(?i)history\s*of\s*([^.\n]+)", "Medical History"),
+    # PT / Mobility
+    (r"(?i)\b(ambulated|ambulation|gait|walking|mobility)\b", "Mobility"),
+    (r"(?i)\b(balance|fall risk|fall prevention)\b", "Fall Risk"),
+    (r"(?i)\b(range of motion|rom|flexibility)\b", "Range of Motion"),
+    (r"(?i)\b(transfer|transferring|bed mobility)\b", "Transfer"),
+    (r"(?i)\b(walker|cane|assistive device|wheelchair)\b", "Assistive Device"),
+    # ER / Triage
+    (r"(?i)\b(triage level|triage category|chief complaint|presenting complaint)\b", "ER Triage"),
+    (r"(?i)\b(vital signs|bp|blood pressure|heart rate|temp|temperature|o2 sat)\b", "Vital Signs"),
 ]
 
 def _append_to_event(event: Event, text: str, page: Page, citations: list[Citation], author_name=None, author_role=None):
@@ -74,36 +83,76 @@ def _append_to_event(event: Event, text: str, page: Page, citations: list[Citati
 def _detect_encounter_type(text: str) -> EventType:
     """Detect encounter type from clinical note text with deterministic rules."""
     n = text.lower()
-    
+
     # 0. Historical Reference Detection
     # If text contains "on MM/DD" or "prior to" but it's not a header/row, it's a reference
     # "discharged home on 9/22", "history of adenocarcinoma of the lung"
     if re.search(r"\b(discharged home on|admitted on|prior to|reported on|history of)\s+\d{1,2}/\d{1,2}\b", n):
         return EventType.REFERENCED_PRIOR_EVENT
-    
+
     # History of ... (without date) is often just a daily note mention
     if "history of" in n and len(n) < 100:
         return EventType.REFERENCED_PRIOR_EVENT
 
-    # 1. Discharge
-    if any(kw in n for kw in ["discharge summary", "discharged", "discharge teaching", "orders received for discharge", "discharged to home", "discharge order", "patient discharged"]):
+    # 1. Discharge - Expanded patterns
+    discharge_patterns = [
+        "discharge summary", "discharged", "discharge teaching", "discharge instructions",
+        "orders received for discharge", "discharged to home", "discharge order",
+        "patient discharged", "discharge disposition", "discharge plan",
+        "discharge medications", "discharged from hospital", "discharge condition",
+        "discharge to", "upon discharge", "at time of discharge"
+    ]
+    if any(kw in n for kw in discharge_patterns):
         return EventType.HOSPITAL_DISCHARGE
 
-    # 1.5 Explicit ED/ER visit cues that may not include admission wording.
-    if re.search(r"\b(seen in er|seen in ed|er visit|ed visit|emergency room|emergency department)\b", n):
+    # 1.5 Explicit ED/ER visit cues - Expanded patterns
+    er_patterns = [
+        "seen in er", "seen in ed", "er visit", "ed visit", "emergency room",
+        "emergency department", "er triage", "ed triage", "er presentation",
+        "ed presentation", "emergency visit", "er evaluation", "ed evaluation",
+        "arrived to er", "arrived to ed", "brought to er", "brought to ed"
+    ]
+    if any(kw in n for kw in er_patterns):
         return EventType.ER_VISIT
-        
-    # 2. Admission (Avoid labels like "Date Admitted:")
-    if re.search(r"\b(admitted|admission|admit to oncology|triage|er admission|inpatient admission|admit to oncology floor)\b", n):
+
+    # 2. Admission - Expanded patterns (Avoid labels like "Date Admitted:")
+    admission_patterns = [
+        "admitted", "admission", "admit to oncology", "triage", "er admission",
+        "inpatient admission", "admit to oncology floor", "hospital admission",
+        "admitted to hospital", "admitted for", "direct admission", "admit orders"
+    ]
+    if any(kw in n for kw in admission_patterns):
         if not re.search(r"date\s+admitted\s*:", n): # Skip labels
-            if any(kw in n for kw in ["emergency department", "ed provider", "triage", "er visit"]):
+            if any(kw in n for kw in er_patterns):
                 return EventType.ER_VISIT
             return EventType.HOSPITAL_ADMISSION
-        
-    # 3. Procedure
-    if any(kw in n for kw in ["operative report", "procedure", "surgery"]):
+
+    # 3. Procedure - Expanded patterns
+    procedure_patterns = [
+        "operative report", "procedure", "surgery", "surgical", "operation",
+        "pre-op", "post-op", "intraoperative", "anesthesia", "incision",
+        "excision", "biopsy", "resection"
+    ]
+    if any(kw in n for kw in procedure_patterns):
         return EventType.PROCEDURE
-        
+
+    # 4. PT / Physical Therapy - NEW
+    pt_patterns = [
+        "physical therapy", "pt eval", "pt note", "pt assessment", "therapist",
+        "ambulation", "gait", "balance", "mobility", "range of motion", "rom",
+        "therapeutic exercise", "transfer", "walker", "cane", "assistive device"
+    ]
+    if any(kw in n for kw in pt_patterns):
+        return EventType.OFFICE_VISIT  # Or could create PT_SESSION type
+
+    # 5. Office Visit / Outpatient - Expanded
+    office_patterns = [
+        "office visit", "clinic visit", "outpatient", "follow-up", "follow up",
+        "consultation", "consult", "evaluation"
+    ]
+    if any(kw in n for kw in office_patterns):
+        return EventType.OFFICE_VISIT
+
     # Default for inpatient records
     return EventType.INPATIENT_DAILY_NOTE
 
@@ -323,13 +372,23 @@ def _is_eventworthy(text: str) -> bool:
     """Check if line contains clinical signal words."""
     n = text.lower()
     keywords = (
-        "pain", "c/o", "complained", "vomit", "emesis", "nause", 
+        "pain", "c/o", "complained", "vomit", "emesis", "nause",
         "cough", "ambulat", "discharg", "admit", "admission",
         "orders received", "repositioned", "medicated", "ate", "denies",
         "evaluated", "seen by", "stable", "distress", "noted",
         "oxycodone", "phenergan", "ibuprofen", "dentures", "sores",
         "edema", "kyphosis", "weight", "wt:", "fall risk", "assistance",
-        "summary", "teaching", "bath", "urinated"
+        "summary", "teaching", "bath", "urinated",
+        # PT / Therapy
+        "gait", "balance", "transfer", "mobility", "walker", "cane",
+        "range of motion", "rom", "therapeutic", "exercise", "therapy",
+        # ER / Triage
+        "triage", "chief complaint", "presenting", "vital signs", "bp",
+        "blood pressure", "heart rate", "temp", "temperature", "o2 sat",
+        "saturation", "arrived", "brought in",
+        # Discharge
+        "discharge instructions", "discharge plan", "discharge medications",
+        "follow-up", "follow up"
     )
     return any(k in n for k in keywords)
 
