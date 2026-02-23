@@ -40,8 +40,18 @@ _RULES: list[tuple[PageType, tuple[str, ...]]] = [
     )),
     (PageType.PT_NOTE, (
         "physical therapy", "pt daily note", "exercise", "plan of care",
-        "visit #", "rehabilitation", "rom ", "therapeutic exercise",
+        "visit #", "rehabilitation", "therapeutic exercise",
         "gait training", "mobility", "ambulation", "therapist",
+        # Expanded PT note keywords
+        "range of motion", "rom:", "rom ", "treat dx", "treatment dx",
+        "medical dx", "hep", "home exercise program",
+        "functional activity", "manual therapy", "therapeutic activities",
+        "patient tolerated", "modalities", "ultrasound therapy",
+        "electrical stimulation", "neuromuscular", "strengthening",
+        "flexion", "extension", "kinesio", "taping", "set(s) of",
+        "repetitions", "pt note", "discharge plan", "treatment session",
+        "initial evaluation", "re-evaluation", "pt progress",
+        "treatment note", "soap note", "functional outcomes",
     )),
     (PageType.ADMINISTRATIVE, (
         "fax cover", "authorization", "release of information", " roi ",
@@ -112,11 +122,11 @@ def classify_page(page: Page) -> tuple[PageType, int]:
     # Step 2: If still classified as OTHER, check for medical terminology
     if best_type == PageType.OTHER:
         medical_matches = _MEDICAL_PATTERN.findall(page.text)
-        if len(medical_matches) >= 3:
-            # Page has significant medical terminology but no specific type match
-            # Default to CLINICAL_NOTE so it gets processed by clinical extractor
+        if len(medical_matches) >= 1:  # Lowered from 3 — any medical term = clinical
+            # Page has medical terminology but no specific type match.
+            # Default to CLINICAL_NOTE so clinical extractor processes it.
             best_type = PageType.CLINICAL_NOTE
-            best_conf = 45  # Low confidence, but enough to process
+            best_conf = 40  # Low confidence but enough to process
 
     return best_type, best_conf
 

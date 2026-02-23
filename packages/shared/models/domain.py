@@ -27,7 +27,7 @@ class RunConfig(BaseModel):
     ocr_enabled: bool = True
     ocr_language: str = "eng"
     max_pages: int = 1000
-    pt_mode: object = "aggregate"  # aggregate or per_visit (Enum ideally)
+    pt_mode: object = "per_visit"  # per_visit (one event/page) or aggregate (bucket by window)
     pt_aggregate_window_days: int = 7
     gap_threshold_days: int = 60
     event_confidence_min_export: int = 40  # Lowered from 50 to better capture clinical content
