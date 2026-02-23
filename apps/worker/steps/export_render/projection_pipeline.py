@@ -49,6 +49,7 @@ def prepare_projection_bundle(
         page_text_by_number=page_text_by_number,
         debug_sink=projection_debug_sink,
         selection_meta=selection_meta,
+        select_timeline=False,
     )
     appendix_projection = projection.model_copy()
     
