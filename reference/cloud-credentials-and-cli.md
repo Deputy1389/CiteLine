@@ -2,7 +2,7 @@
 
 **Last Updated**: 2026-02-22
 **Project**: LineCite Medical Records Extraction Platform
-
+**Frontend Folder**: C:\Eventis\Website
 ---
 
 ## 🔑 API Keys & Credentials
@@ -13,6 +13,7 @@
 - **Service Name**: linecite-api
 - **URL**: https://linecite-api.onrender.com
 - **Dashboard**: https://dashboard.render.com/web/srv-d6cv6dngi27c73893aog
+
 
 ### Vercel (Frontend)
 - **Project Name**: eventis-website
@@ -30,7 +31,7 @@
 - **Compute**: 2 OCPU + 12GB RAM (ARM Ampere A1)
 - **Plan**: Always Free (permanent)
 
-### Supabase (Database)
+### Supabase (Database & Storage)
 - **Project ID**: oqvemwshlhikhodlrjjk
 - **Region**: US West 2
 - **Host**: aws-0-us-west-2.pooler.supabase.com
@@ -42,6 +43,9 @@
   ```
   postgresql://postgres.oqvemwshlhikhodlrjjk:WhatsAButtfor1!@aws-0-us-west-2.pooler.supabase.com:5432/postgres
   ```
+- **REST URL (`SUPABASE_REST_URL`)**: `https://oqvemwshlhikhodlrjjk.supabase.co`
+- **Service Role Key (`SUPABASE_SERVICE_KEY`)**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xdmVtd3NobGhpa2hvZGxyamprIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTc0NDU3NiwiZXhwIjoyMDg3MzIwNTc2fQ.NDhEx6xVP2XNttUDvrESiDgpz7VB-BBYccSxyEaLkkY`
+- **Anon Key**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xdmVtd3NobGhpa2hvZGxyamprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3NDQ1NzYsImV4cCI6MjA4NzMyMDU3Nn0.0RA3J2iEAGbQxuxtGvfaDLReGVygIRQaHVVvu4ljL1o`
 - **Dashboard**: https://supabase.com/dashboard/project/oqvemwshlhikhodlrjjk
 
 ---
