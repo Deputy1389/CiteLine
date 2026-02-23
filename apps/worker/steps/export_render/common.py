@@ -67,10 +67,28 @@ def _clean_narrative_text(text: str | None) -> str:
     if not text:
         return ""
     cleaned = text
-    cleaned = re.sub(r"(?im)^\s*#{1,6}\s*", "", cleaned)
-    cleaned = re.split(r"(?im)^\s*###\s*5\)\s*chronological medical timeline\s*$", cleaned)[0]
-    cleaned = re.split(r"(?im)^\s*chronology\s*$", cleaned)[0]
-    cleaned = re.sub(r"(?im)^\s*provider:.*$", "", cleaned)
+    # Strip markdown headers (# ## ### etc.)
+    cleaned = re.sub(r"(?im)^[ \t]*#{1,6}\s*", "", cleaned)
+    # Strip bold/italic markers
+    cleaned = re.sub(r"\*{1,3}([^*]+)\*{1,3}", r"\1", cleaned)
+    cleaned = re.sub(r"_{1,3}([^_]+)_{1,3}", r"\1", cleaned)
+    # Strip markdown bullet points (- or *)
+    cleaned = re.sub(r"(?im)^[ \t]*[-*]\s+", "", cleaned)
+    # Strip numbered list markers (1. 2. etc.)
+    cleaned = re.sub(r"(?im)^[ \t]*\d+\.\s+", "", cleaned)
+    # Strip blockquotes
+    cleaned = re.sub(r"(?im)^[ \t]*>\s*", "", cleaned)
+    # Strip horizontal rules
+    cleaned = re.sub(r"(?im)^[ \t]*[-*_]{3,}\s*$", "", cleaned)
+    # Strip inline code backticks
+    cleaned = re.sub(r"`([^`]+)`", r"\1", cleaned)
+    # Strip link syntax [text](url) -> text
+    cleaned = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", cleaned)
+    # Truncate before chronology sections (leftover content)
+    cleaned = re.split(r"(?im)^[ \t]*#{0,3}\s*5\)\s*chronological medical timeline\s*$", cleaned)[0]
+    cleaned = re.split(r"(?im)^[ \t]*chronology\s*$", cleaned)[0]
+    # Strip provider lines and filler
+    cleaned = re.sub(r"(?im)^[ \t]*provider:.*$", "", cleaned)
     cleaned = cleaned.replace("Encounter documented; details available in cited records.", "")
     cleaned = cleaned.strip()
     return cleaned

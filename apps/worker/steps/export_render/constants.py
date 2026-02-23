@@ -46,7 +46,17 @@ APPENDIX_DX_EXCLUDE_RE = re.compile(
 )
 
 WORD_SALAD_TOKEN_RE = re.compile(
-    r"\b(career|business|debate|marketing|finance|celebrity|fashion|politics|social media|mission|hotel|magazine|government board|professional eye|peace around)\b",
+    r"\b("
+    r"career|business|debate|marketing|finance|celebrity|fashion|politics|social media|"
+    r"mission|hotel|magazine|government board|professional eye|peace around|"
+    r"process first|spend message|candidate house|theory friend|group common|"
+    r"general parent|focus simple|couple design|difficult mission|late kind|"
+    r"product main|policy power|measure|campaign|election|stock market|"
+    r"real estate investment|travel destination|recipe|cooking|restaurant review|"
+    r"movie review|book summary|technology trend|startup|venture capital|"
+    r"seem machine|everything theory|statement seem|million|billion|"
+    r"congress|senate|legislation|shareholder|quarterly earnings"
+    r")\b",
     re.IGNORECASE,
 )
 MEDICAL_ANCHOR_RE = re.compile(
