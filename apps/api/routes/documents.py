@@ -153,10 +153,11 @@ def download_document(
     if not doc.storage_uri:
         raise HTTPException(status_code=404, detail="Document file missing: no storage_uri")
 
-    # Normalize path (handle Windows forward/backslash issues)
-    file_path = os.path.normpath(doc.storage_uri)
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail=f"Document file missing: {file_path} not found on disk")
+    # Use get_upload_path which downloads from Supabase if file not local
+    from packages.shared.storage import get_upload_path
+    file_path = get_upload_path(document_id)
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail=f"Document file missing")
 
     return FileResponse(
         path=file_path,

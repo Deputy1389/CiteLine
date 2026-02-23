@@ -263,19 +263,16 @@ def download_artifact(
 
     from pathlib import Path
 
-    from packages.shared.storage import DATA_DIR
+    from packages.shared.storage import get_artifact_path
 
-    data_dir = DATA_DIR.resolve()
-    file_path = Path(artifact.storage_uri).resolve()
-    ext = artifact_extension(artifact_type)
-
-    try:
-        file_path.relative_to(data_dir)
-    except ValueError:
-        raise HTTPException(status_code=404, detail="Artifact not found")
-
-    if not file_path.exists():
+    # Extract filename from storage_uri and use get_artifact_path which downloads from Supabase
+    filename = Path(artifact.storage_uri).name
+    file_path_str = get_artifact_path(run_id, filename)
+    if not file_path_str or not Path(file_path_str).exists():
         raise HTTPException(status_code=404, detail="Artifact file missing")
+
+    file_path = Path(file_path_str)
+    ext = artifact_extension(artifact_type)
 
     return FileResponse(
         path=str(file_path),
@@ -303,20 +300,15 @@ def download_artifact_by_name(
 
     from pathlib import Path
 
-    from packages.shared.storage import DATA_DIR, get_artifact_dir
+    from packages.shared.storage import get_artifact_path
 
     safe_name = Path(filename).name
     if safe_name != filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
-    data_dir = DATA_DIR.resolve()
-    file_path = (get_artifact_dir(run_id) / safe_name).resolve()
-    try:
-        file_path.relative_to(data_dir)
-    except ValueError:
-        raise HTTPException(status_code=404, detail="Artifact not found")
-
-    if not file_path.exists() or not file_path.is_file():
+    # Use get_artifact_path which downloads from Supabase if file not local
+    file_path = get_artifact_path(run_id, safe_name)
+    if not file_path or not Path(file_path).exists():
         raise HTTPException(status_code=404, detail="Artifact not found")
 
     return FileResponse(
