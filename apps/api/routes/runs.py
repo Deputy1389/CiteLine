@@ -24,7 +24,7 @@ class CreateRunRequest(BaseModel):
     include_billing_events_in_timeline: bool = False
     pt_mode: str = "aggregate"
     gap_threshold_days: int = 45
-    event_confidence_min_export: int = 60
+    event_confidence_min_export: int = 40
     low_confidence_event_behavior: str = "exclude_from_export"
 
 
