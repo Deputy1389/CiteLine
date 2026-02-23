@@ -71,16 +71,34 @@ def _case_collapse_rows(ext: dict) -> list[str]:
 def _causation_ladder_rows(ext: dict) -> list[str]:
     rows = []
     for item in (ext.get("causation_chains") or []):
-        if isinstance(item, dict):
-            summary = item.get("summary") or item.get("narrative") or ""
-            if summary:
-                rows.append(str(summary))
-                continue
-            steps = item.get("steps") or []
-            if steps:
-                rows.append(" > ".join(str(s) for s in steps if s))
-        elif item:
-            rows.append(str(item))
+        if not isinstance(item, dict):
+            if item:
+                rows.append(str(item))
+            continue
+        # Try legacy keys first
+        summary = item.get("summary") or item.get("narrative") or ""
+        if summary:
+            rows.append(str(summary))
+            continue
+        # Build from actual causation ladder data shape
+        region = str(item.get("body_region") or "general").title()
+        score = item.get("chain_integrity_score")
+        missing = item.get("missing_rungs") or []
+        rungs = item.get("rungs") or []
+        # Build a readable summary from the rungs
+        rung_labels = []
+        for r in rungs[:6]:
+            if isinstance(r, dict):
+                rtype = str(r.get("rung_type") or "").replace("_", " ").title()
+                rdate = str(r.get("date") or "")
+                if rtype:
+                    rung_labels.append(f"{rtype} ({rdate})" if rdate and rdate != "unknown" else rtype)
+        score_txt = f" | Integrity: {score}/100" if score is not None else ""
+        missing_txt = f" | Missing: {', '.join(m.replace('_', ' ').title() for m in missing)}" if missing else ""
+        if rung_labels:
+            rows.append(f"{region}: {' → '.join(rung_labels)}{score_txt}{missing_txt}")
+        elif score is not None:
+            rows.append(f"{region}: Chain integrity {score}/100{missing_txt}")
     return rows
 
 
@@ -196,8 +214,7 @@ def _top10_rows(projection_entries: list, score_func: Any) -> list[str]:
     same_day_label_counts: dict[tuple[str, str], int] = {}
     for entry in top10_entries:
         evt_date = parse_date_string(entry.date_display)
-        if not evt_date:
-            continue
+        date_label = evt_date.isoformat() if evt_date else (entry.date_display or "Undated")
         facts_blob = _sanitize_render_sentence(" ".join(entry.facts or []))
         facts_blob = re.sub(r"\.\.+", ".", facts_blob)
         facts_blob = re.sub(r"\s{2,}", " ", facts_blob).strip()
@@ -206,11 +223,11 @@ def _top10_rows(projection_entries: list, score_func: Any) -> list[str]:
             continue
         if not entry.citation_display:
             continue
-        same_day_label = (evt_date.isoformat(), str(entry.event_type_display or "").strip().lower())
+        same_day_label = (date_label, str(entry.event_type_display or "").strip().lower())
         if same_day_label_counts.get(same_day_label, 0) >= 2:
             continue
         same_day_label_counts[same_day_label] = same_day_label_counts.get(same_day_label, 0) + 1
-        rows.append(f"{evt_date.isoformat()} | {entry.event_type_display} | {facts_blob}")
+        rows.append(f"{date_label} | {entry.event_type_display} | {facts_blob}")
     return rows
 
 

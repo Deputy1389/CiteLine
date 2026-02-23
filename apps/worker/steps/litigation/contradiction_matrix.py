@@ -82,6 +82,28 @@ def _diagnosis_mentions(row: ClaimRowLike) -> list[dict]:
     return []
 
 
+def _symptom_trajectory_mentions(row: ClaimRowLike) -> list[dict]:
+    """Detect improving vs worsening symptom trajectory language."""
+    txt = str(row.get("assertion") or "").lower()
+    out: list[dict] = []
+    if re.search(r"\b(improved|improving|better|resolved|decreased pain|pain free|asymptomatic|good progress|tolerating well)\b", txt):
+        out.append({"kind": "symptom_trajectory", "value": "improving", "row": row})
+    if re.search(r"\b(worsening|worse|exacerbated|increased pain|aggravated|deteriorat|declined|no improvement|persistent|not improving)\b", txt):
+        out.append({"kind": "symptom_trajectory", "value": "worsening", "row": row})
+    return out
+
+
+def _treatment_direction_mentions(row: ClaimRowLike) -> list[dict]:
+    """Detect conservative vs aggressive/escalated treatment approaches."""
+    txt = str(row.get("assertion") or "").lower()
+    out: list[dict] = []
+    if re.search(r"\b(conservative|pt|physical therapy|nsaid|ibuprofen|naproxen|heat|ice|rest|home exercise|otc|over.the.counter|stretching)\b", txt):
+        out.append({"kind": "treatment_direction", "value": "conservative", "row": row})
+    if re.search(r"\b(surgery|surgical|injection|epidural|nerve block|mri|referral to specialist|opioid|narcotic|fusion|discectomy|laminectomy|arthroplasty)\b", txt):
+        out.append({"kind": "treatment_direction", "value": "escalated", "row": row})
+    return out
+
+
 def _collect_mentions(row: ClaimRowLike) -> list[dict]:
     out: list[dict] = []
     out.extend(_pain_mentions(row))
@@ -89,11 +111,13 @@ def _collect_mentions(row: ClaimRowLike) -> list[dict]:
     out.extend(_functional_mentions(row))
     out.extend(_mechanism_mentions(row))
     out.extend(_diagnosis_mentions(row))
+    out.extend(_symptom_trajectory_mentions(row))
+    out.extend(_treatment_direction_mentions(row))
     return out
 
 
 def _is_contradiction(kind: str, a_val: str, b_val: str) -> bool:
-    if kind in {"laterality", "mechanism", "functional_status"}:
+    if kind in {"laterality", "mechanism", "functional_status", "symptom_trajectory", "treatment_direction"}:
         return a_val != b_val
     if kind == "pain_severity":
         try:
