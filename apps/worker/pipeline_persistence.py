@@ -57,19 +57,19 @@ def persist_pipeline_state(
             session.flush()
 
             for page in evidence_graph.pages:
-            session.add(PageORM(
-                id=page.page_id,
-                run_id=run_id,
-                source_document_id=page.source_document_id,
-                page_number=page.page_number,
-                text=page.text,
-                text_source=page.text_source,
-                page_type=page.page_type.value if page.page_type else None,
-                layout_json=page.layout.model_dump(mode="json") if page.layout else None,
-            ))
+                session.add(PageORM(
+                    id=page.page_id,
+                    run_id=run_id,
+                    source_document_id=page.source_document_id,
+                    page_number=page.page_number,
+                    text=page.text,
+                    text_source=page.text_source,
+                    page_type=page.page_type.value if page.page_type else None,
+                    layout_json=page.layout.model_dump(mode="json") if page.layout else None,
+                ))
 
-        for doc in evidence_graph.documents:
-            session.add(DocumentSegmentORM(
+            for doc in evidence_graph.documents:
+                session.add(DocumentSegmentORM(
                 id=doc.document_id,
                 run_id=run_id,
                 source_document_id=doc.source_document_id,
@@ -78,10 +78,10 @@ def persist_pipeline_state(
                 page_types_json=[pt.model_dump(mode="json") for pt in doc.page_types],
                 declared_document_type=doc.declared_document_type.value if doc.declared_document_type else None,
                 confidence=doc.confidence,
-            ))
+                ))
 
             for prov in evidence_graph.providers:
-            session.add(ProviderORM(
+                session.add(ProviderORM(
                 id=prov.provider_id,
                 run_id=run_id,
                 detected_name_raw=prov.detected_name_raw,
@@ -89,10 +89,10 @@ def persist_pipeline_state(
                 provider_type=prov.provider_type.value,
                 confidence=prov.confidence,
                 evidence_json=[e.model_dump(mode="json") for e in prov.evidence],
-            ))
+                ))
 
             for cit in evidence_graph.citations:
-            session.add(CitationORM(
+                session.add(CitationORM(
                 id=cit.citation_id,
                 run_id=run_id,
                 source_document_id=cit.source_document_id,
@@ -100,11 +100,11 @@ def persist_pipeline_state(
                 snippet=cit.snippet,
                 bbox_json=cit.bbox.model_dump(mode="json"),
                 text_hash=cit.text_hash,
-            ))
+                ))
 
             for evt in evidence_graph.events:
-            pid_fk = evt.provider_id if evt.provider_id and evt.provider_id != "unknown" else None
-            session.add(EventORM(
+                pid_fk = evt.provider_id if evt.provider_id and evt.provider_id != "unknown" else None
+                session.add(EventORM(
                 id=evt.event_id,
                 run_id=run_id,
                 provider_id=pid_fk,
@@ -121,10 +121,10 @@ def persist_pipeline_state(
                 citation_ids_json=evt.citation_ids,
                 source_page_numbers_json=evt.source_page_numbers,
                 extensions_json=evt.extensions,
-            ))
+                ))
 
             for gap in evidence_graph.gaps:
-            session.add(GapORM(
+                session.add(GapORM(
                 id=gap.gap_id,
                 run_id=run_id,
                 start_date=gap.start_date.isoformat(),
