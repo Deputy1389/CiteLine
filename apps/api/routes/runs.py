@@ -308,7 +308,7 @@ def download_artifact_by_name(
 
     # Use get_artifact_path which downloads from Supabase if file not local
     file_path = get_artifact_path(run_id, safe_name)
-    if not file_path or not Path(file_path).exists():
+    if not file_path.exists():
         raise HTTPException(status_code=404, detail="Artifact not found")
 
     return FileResponse(
