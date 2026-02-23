@@ -25,6 +25,12 @@ _FAX_ARTIFACT_RE = re.compile(
     r"^(from|to|fax|page|date|time)\s*[:#]|^\s*\d{3}[-\s]?\d{3}[-\s]?\d{4}\s*$",
     re.IGNORECASE,
 )
+# Inline fax footer: timestamps, phone numbers, and page markers that appear mid-text after line joining
+_FAX_INLINE_RE = re.compile(
+    r"\s*\d{1,2}/\d{1,2}/\d{2,4}\s+\d{1,2}:\d{2}\s+\(?\d{3}\)?[-\s]\d{3}[-\s]\d{4}\s+P\.\d+\.?"
+    r"|\s*\(?\d{3}\)?[-\s]\d{3}[-\s]\d{4}\s+P\.\d+\.?",  # standalone phone+page
+    re.IGNORECASE,
+)
 _REPEATED_LABEL_RE = re.compile(r"(pain assessment:?\s*){2,}", re.IGNORECASE)
 _NON_WORD_RE = re.compile(r"[^A-Za-z0-9]+")
 
@@ -65,7 +71,10 @@ def clean_text(text: str) -> str:
             continue
         seen.add(key)
         cleaned_lines.append(line)
-    return " ".join(cleaned_lines).strip()
+    result = " ".join(cleaned_lines).strip()
+    # Strip inline fax artifacts (phone+page stamps that survived line joining)
+    result = _FAX_INLINE_RE.sub("", result).strip()
+    return result
 
 
 def quality_score(text: str) -> float:
