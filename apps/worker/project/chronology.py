@@ -4,6 +4,7 @@ from datetime import date, datetime, timezone, timedelta
 from dataclasses import dataclass, asdict
 import re
 import hashlib
+import textwrap
 from collections import defaultdict
 from typing import Any
 
@@ -875,7 +876,7 @@ def _aggregate_pt_weekly_rows(rows: list[ChronologyProjectionEntry], total_pages
                 for m in re.finditer(r"\b([0-5](?:\.\d+)?\s*/\s*5)\b", fact, re.IGNORECASE):
                     strength_vals.append(m.group(1).replace(" ", ""))
                 if re.search(r"\b(plan|continue|follow-?up|home exercise|therapy)\b", low):
-                    plan_snips.append(sanitize_for_report(fact)[:100])
+                    plan_snips.append(textwrap.shorten(sanitize_for_report(fact), width=250, placeholder="..."))
 
         session_count = len(items)
         if not (pain_vals or rom_vals or strength_vals):
