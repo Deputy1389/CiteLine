@@ -142,13 +142,22 @@ def get_artifact_dir(run_id: str) -> Path:
 def get_artifact_path(run_id: str, filename: str) -> Path | None:
     """Return the full path to a specific artifact, fetching from remote if missing. Returns None if not found."""
     path = ARTIFACTS_DIR / run_id / filename
+    logger.info(f"[STORAGE] get_artifact_path: {run_id}/{filename}")
+    logger.info(f"[STORAGE] Local path: {path}")
+    logger.info(f"[STORAGE] Path exists: {path.exists()}")
+    logger.info(f"[STORAGE] USE_SUPABASE_STORAGE: {USE_SUPABASE_STORAGE}")
 
     if not path.exists() and USE_SUPABASE_STORAGE:
-        logger.info(f"Artifact {run_id}/{filename} not found locally. Fetching from Supabase...")
+        logger.info(f"[STORAGE] Artifact {run_id}/{filename} not found locally. Fetching from Supabase...")
         success = _supabase_download("artifacts", f"{run_id}/{filename}", path)
+        logger.info(f"[STORAGE] Download success: {success}")
+        logger.info(f"[STORAGE] Path exists after download: {path.exists()}")
         if not success or not path.exists():
+            logger.error(f"[STORAGE] Failed to download or file still missing")
             return None
     elif not path.exists():
+        logger.error(f"[STORAGE] File not found and Supabase Storage disabled")
         return None
 
+    logger.info(f"[STORAGE] Returning path: {path}")
     return path
