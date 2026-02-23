@@ -307,8 +307,15 @@ def download_artifact_by_name(
         raise HTTPException(status_code=400, detail="Invalid filename")
 
     # Use get_artifact_path which downloads from Supabase if file not local
+    import logging
+    logger = logging.getLogger("linecite")
+    logger.info(f"[ARTIFACT] Requesting {run_id}/{safe_name}")
     file_path = get_artifact_path(run_id, safe_name)
+    logger.info(f"[ARTIFACT] get_artifact_path returned: {file_path}")
+    if file_path:
+        logger.info(f"[ARTIFACT] File exists check: {file_path.exists()}")
     if not file_path or not Path(file_path).exists():
+        logger.error(f"[ARTIFACT] File not found: {run_id}/{safe_name}")
         raise HTTPException(status_code=404, detail="Artifact not found")
 
     return FileResponse(
