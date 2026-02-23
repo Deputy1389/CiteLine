@@ -1,0 +1,10 @@
+[
+  {
+    "key": "SUPABASE_REST_URL",
+    "value": "https://oqvemwshlhikhodlrjjk.supabase.co"
+  },
+  {
+    "key": "SUPABASE_SERVICE_KEY",
+    "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xdmVtd3NobGhpa2hvZGxyamprIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTc0NDU3NiwiZXhwIjoyMDg3MzIwNTc2fQ.NDhEx6xVP2XNttUDvrESiDgpz7VB-BBYccSxyEaLkkY"
+  }
+]
