@@ -8,6 +8,10 @@ import os
 import logging
 from pathlib import Path
 import requests
+from dotenv import load_dotenv
+
+# Load .env file BEFORE reading any environment variables
+load_dotenv()
 
 logger = logging.getLogger("linecite.storage")
 
@@ -25,7 +29,7 @@ if not SUPABASE_URL:
             domain = matches[0].split(":")[0].split(".")[1]
             if domain:
                 # E.g. pooler.supabase.com or db.oqvemwshlhikhodlrjjk.supabase.co
-                # We can't perfectly derive the REST URL from the pooler URL because 
+                # We can't perfectly derive the REST URL from the pooler URL because
                 # pooler URLs don't contain the project ref (like aws-0-us-west-2.pooler.supabase.com)
                 pass
 
