@@ -40,7 +40,7 @@ def is_noise_span(text: str) -> bool:
     low = t.lower()
     if re.search(r"\b(lorem ipsum|qwerty|asdf|difficult mission late kind|product main couple design)\b", low):
         return True
-    if re.search(r"\b(much fish work|arm enter rather|season sit response|authority plant threat|cultural point test|beyond improve field|statement seem machine|score hundred figure|benefit development language|sea even stay later|single itself evening|painting season|easy spend back|along effect real|fear between try|clearly happy strategy|chair republican|wrong sing material|easy lead particular|blue cost expert|usually report scientist|politics share later)\b", low):
+    if re.search(r"\b(much fish work|arm enter rather|season sit response|authority plant threat|cultural point test|beyond improve field|statement seem machine|score hundred figure|benefit development language|sea even stay later|single itself evening|painting season|easy spend back|along effect real|fear between try|clearly happy strategy|chair republican|wrong sing material|easy lead particular|blue cost expert|usually report scientist|politics share later|where easy though)\b", low):
         return True
     med_density = medical_token_density(t)
     structured = has_structured_signals(t)
