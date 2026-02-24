@@ -171,7 +171,8 @@ def _is_header_noise_fact(text: str) -> bool:
     if not low:
         return True
     # Drop header/index lines that carry patient identity/date but no clinical content.
-    if re.search(r"\bpatient\s*:\s*.+\bmrn\b", low) and re.search(r"\bdate\s*:\s*\d{4}-\d{2}-\d{2}\b", low):
+    # \bmrn\d*\b handles "MRN836477" (no word boundary between "mrn" and digits with plain \bmrn\b)
+    if re.search(r"\bpatient\s*:\s*.+\bmrn\d*\b", low) and re.search(r"\bdate\s*:\s*\d{4}-\d{2}-\d{2}\b", low):
         if not re.search(
             r"\b(chief complaint|hpi|history of present illness|assessment|diagnosis|impression|plan|pain|rom|range of motion|strength|procedure|injection|medication|work status|work restriction)\b",
             low,
@@ -1473,6 +1474,8 @@ def build_chronology_projection(
                     continue
                 if fact.text:
                     cleaned = sanitize_for_report(fact.text)
+                    if _is_header_noise_fact(cleaned):
+                        continue
                     if is_noise_span(cleaned) and not re.search(
                         r"\b(diagnosis|impression|fracture|tear|infection|rom|strength|procedure|injection|mri|x-?ray|follow-?up|therapy|medication|treatment)\b",
                         cleaned.lower(),

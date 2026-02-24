@@ -129,12 +129,20 @@ def explain_flags(text: str) -> list[str]:
     return flags
 
 
+_TIMESTAMP_PREFIX_RE = re.compile(
+    r"^\s*\d{1,2}/\d{1,2}(?:/\d{2,4})?\s+\d{3,4}\s+"  # "10/11 1820 " or "10/11/2024 1820 "
+    r"|^\s*\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}(?::\d{2})?\s+"  # "2024-10-11 18:20 "
+    r"|^\s*\d{1,2}/\d{1,2}(?:/\d{2,4})?\s+\d{1,2}:\d{2}\s+",  # "10/11 18:20 "
+)
+
+
 def should_quarantine_fact(text: str) -> bool:
     """
     Clause VI — OCR Quarantine gate for individual Fact text.
 
     A fact is quarantined if it contains ZERO medical signal (no medical terms,
-    no digits) in its body text after stripping EMR label prefixes.
+    no digits) in its body text after stripping EMR label prefixes and any
+    leading flowsheet timestamp (e.g. "10/11 1820 ").
 
     Only applied to facts under 80 characters — longer facts have enough context
     that a false positive would do more harm than good.
@@ -146,8 +154,10 @@ def should_quarantine_fact(text: str) -> bool:
     if not text or len(text.strip()) < 4:
         return False
 
-    body = _EMR_LABEL_PREFIX_RE.sub("", text).strip()
-    analyze = body if body else text
+    # Strip leading EMR flowsheet timestamp before label/body analysis
+    stripped = _TIMESTAMP_PREFIX_RE.sub("", text).strip()
+    body = _EMR_LABEL_PREFIX_RE.sub("", stripped).strip()
+    analyze = body if body else stripped
 
     # Only quarantine short facts — long facts have inherent context complexity
     if len(analyze) >= 80:
