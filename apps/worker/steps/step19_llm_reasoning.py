@@ -32,7 +32,12 @@ def _build_event_payload(events: list[Event], providers: list[Provider]) -> list
     provider_map = {p.provider_id: p.normalized_name for p in providers}
     rows = []
     for evt in events[:_MAX_EVENTS_FOR_LLM]:
-        date_str = evt.date.value.isoformat() if (evt.date and evt.date.value) else "unknown"
+        date_str = "unknown"
+        if evt.date and evt.date.value:
+            if hasattr(evt.date.value, 'isoformat'):
+                date_str = evt.date.value.isoformat()
+            elif hasattr(evt.date.value, 'start'):
+                date_str = f"{evt.date.value.start.isoformat()} to {evt.date.value.end.isoformat()}" if evt.date.value.end else evt.date.value.start.isoformat()
         provider_name = provider_map.get(evt.provider_id or "", evt.provider_id or "unknown")
         facts_text = "; ".join(f.text for f in evt.facts[:_MAX_FACTS_PER_EVENT] if f.text)
         rows.append({
