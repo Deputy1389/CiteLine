@@ -180,6 +180,12 @@ def _top10_rows(projection_entries: list, score_func: Any) -> list[str]:
             continue
         if _is_sdoh_noise(blob):
             continue
+        # Referenced Prior Events are historical references, not discrete clinical events.
+        if "referenced" in (entry.event_type_display or "").lower():
+            continue
+        # Patient intake questionnaires are administrative intake forms, not clinical events.
+        if "intake questionnaire" in blob:
+            continue
 
         # Evidence fence — hard integrity requirements for Case Driving Events.
         # These checks are NON-NEGOTIABLE: if any fail the entry is excluded entirely.
