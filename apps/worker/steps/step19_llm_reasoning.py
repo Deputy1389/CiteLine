@@ -42,7 +42,23 @@ def _gemini_call(api_key: str, model: str, prompt: str) -> dict:
     resp.raise_for_status()
     data = resp.json()
     text = data["candidates"][0]["content"]["parts"][0]["text"]
-    return json.loads(text)
+    
+    # Try to parse JSON, fix common issues
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        # Try to fix unclosed strings by finding the last complete object
+        import re
+        # Remove markdown code blocks if present
+        text = re.sub(r'^```json\s*', '', text)
+        text = re.sub(r'^```\s*', '', text)
+        text = re.sub(r'\s*```$', '', text)
+        
+        try:
+            return json.loads(text)
+        except:
+            # Return minimal valid structure
+            return {"error": "parse_failed", "raw": text[:500]}
 
 
 def _build_event_payload(events: list[Event], providers: list[Provider]) -> list[dict]:
