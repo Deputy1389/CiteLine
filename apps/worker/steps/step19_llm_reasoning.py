@@ -69,77 +69,51 @@ def _build_event_payload(events: list[Event], providers: list[Provider]) -> list
 
 
 def _prompt_causation(event_rows: list[dict]) -> str:
-    events_json = json.dumps(event_rows, indent=2)
-    return f"""You are a medical-legal analyst reviewing a personal injury (PI) case.
+    events_json = json.dumps(event_rows)
+    return f"""You are a medical-legal analyst. Output ONLY valid JSON, no other text.
 
-Analyze the following medical events and assess causal relationships to the initial accident/incident.
+Analyze medical events and assess causal relationships to the accident.
 
-Events (JSON):
+Events:
 {events_json}
 
-For each event, assess:
-1. causal_nexus_score (0-100):
-   - 90-100: Direct causation (injury from accident, acute treatment)
-   - 70-89: Strongly related (follow-up care, documented sequelae)
-   - 50-69: Probably related (could be related, uncertain)
-   - 30-49: Possibly related (pre-existing, coincidental timing)
-   - 0-29: Unrelated or unclear
-
-2. causal_chain: Brief description of the causal pathway (max 100 chars)
-
-Also provide:
-- case_summary: 2-3 sentence overall case summary
-- risk_score: 0-100 overall case strength for plaintiff
-
-IMPORTANT: Only reference event_ids that appear in the input above. Do not invent event_ids.
-
-Respond with valid JSON only:
+Output JSON format:
 {{
   "causation_assessments": [
-    {{
-      "event_id": "<existing event_id>",
-      "causal_nexus_score": <0-100>,
-      "causal_chain": "<brief description>"
-    }}
+    {{"event_id": "<event_id from input>", "causal_nexus_score": <0-100>, "causal_chain": "<max 100 chars>"}}
   ],
-  "case_summary": "<2-3 sentence case summary>",
+  "case_summary": "<2-3 sentences>",
   "risk_score": <0-100>
-}}"""
+}}
+
+Rules:
+- Use ONLY event_ids from the input above
+- causal_nexus_score: 90-100=direct causation, 70-89=strongly related, 50-69=probably related, 30-49=possibly related, 0-29=unrelated
+- Output valid JSON only - no markdown, no explanation"""
 
 
 def _prompt_contradictions(event_rows: list[dict]) -> str:
-    events_json = json.dumps(event_rows, indent=2)
-    return f"""You are a medical-legal analyst reviewing a personal injury (PI) case for potential defense challenges.
+    events_json = json.dumps(event_rows)
+    return f"""You are a medical-legal analyst. Output ONLY valid JSON, no other text.
 
-Analyze the following medical events and identify:
-1. Contradictions between events (inconsistent symptoms, conflicting diagnoses)
-2. Suspicious temporal patterns (unexplained gaps, retroactive diagnoses)
-3. Documentation issues (missing records, provider inconsistencies)
+Identify contradictions and defense vulnerabilities in this medical case.
 
-Events (JSON):
+Events:
 {events_json}
 
-IMPORTANT: Only reference event_ids from the input above. Do not invent event_ids. If a flag applies to a single event, use null for event_id_b.
-
-Respond with valid JSON only:
+Output JSON format:
 {{
   "contradiction_flags": [
-    {{
-      "event_id_a": "<existing event_id or null>",
-      "event_id_b": "<existing event_id or null>",
-      "contradiction_type": "<TEMPORAL_GAP|SYMPTOM_CONFLICT|DIAGNOSIS_CONFLICT|DOCUMENTATION_GAP|OTHER>",
-      "severity": "<HIGH|MEDIUM|LOW>",
-      "description": "<brief description max 200 chars>"
-    }}
+    {{"event_id": "<event_id>", "event_id_b": null, "contradiction_type": "<type>", "description": "<max 100 chars>"}}
   ],
   "defense_vulnerabilities": [
-    {{
-      "vulnerability_type": "<GAP_IN_CARE|PRE_EXISTING|INCONSISTENT_HISTORY|DELAYED_TREATMENT|OTHER>",
-      "description": "<brief description max 200 chars>",
-      "related_event_ids": ["<existing event_id>"]
-    }}
+    {{"event_id": "<event_id>", "vulnerability": "<max 100 chars>", "risk_level": "<low/medium/high>"}}
   ]
-}}"""
+}}
+
+Rules:
+- Use ONLY event_ids from input above
+- Output valid JSON only - no markdown, no explanation"""
 
 
 def _validate_event_ids(data: Any, valid_ids: set[str]) -> Any:
