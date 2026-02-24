@@ -21,6 +21,13 @@ _MEDICAL_TERMS = {
     "tenderness","concussion","laceration","contusion","abrasion",
     # Transport/mechanism-of-injury terms (almost always medical in records context)
     "accident","vehicle","collision","pedestrian","occupant","transport",
+    # PT / Rehab / Physical Exam terms
+    "stable","tolerated","tolerating","palpation","movement","rom","strength","gait",
+    "musculature","paraspinal","tenderness","extension","flexion","sensation","intact",
+    "reflexes","motor","sensory","vertebral","alignment","lordosis","scoliosis",
+    "spasm","trigger","points","manipulation","adjustment","exercise","activities",
+    "functional","ambulation","mobility","balance","transfer","weight","bearing",
+    "extremity","bilateral","distal","proximal","superior","inferior","lateral","medial",
 }
 _STOPWORDS = {
     "the","and","or","of","to","in","for","with","on","at","by","from","as","an","a","is","was","were","be","been","are",

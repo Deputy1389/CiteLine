@@ -34,6 +34,8 @@ STRONG_SIGNAL_REGEX = [
     r"\b(?:bp|temp|hr|rr|o2|wt|weight)\b.*\d+",
 ]
 
+from apps.worker.quality.text_quality import is_garbage
+
 def clean_and_validate_facts(facts: list[Fact]) -> list[Fact]:
     """
     Cleans facts, merges wrapped lines, and drops junk/truncations.
@@ -61,6 +63,10 @@ def clean_and_validate_facts(facts: list[Fact]) -> list[Fact]:
                  # if it ends in NG it is valid vomiting
                  is_junk = True
             
+            # Use production garbage filter
+            if is_garbage(t):
+                is_junk = True
+                
             if is_junk: continue
 
             # Check for author signature IN THE MIDDLE of a line and split it
