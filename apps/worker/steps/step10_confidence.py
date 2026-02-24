@@ -73,7 +73,7 @@ def score_event(event: Event) -> int:
     if event.date and event.date.extensions and event.date.extensions.get("time"):
         score += 25
 
-    return min(score, 100)
+    return max(0, min(score, 100))
 
 
 def apply_confidence_scoring(

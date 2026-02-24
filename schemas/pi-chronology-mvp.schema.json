@@ -184,6 +184,14 @@
         "no_training_on_customer_data": {
           "type": "boolean",
           "default": true
+        },
+        "enable_llm_reasoning": {
+          "type": "boolean",
+          "default": true
+        },
+        "gemini_model": {
+          "type": "string",
+          "default": "gemini-2.0-flash"
         }
       }
     },
@@ -1106,22 +1114,18 @@
           "format": "date"
         },
         "service_date_range": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "start",
-            "end"
-          ],
-          "properties": {
-            "start": {
-              "type": "string",
-              "format": "date"
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["start", "end"],
+              "properties": {
+                "start": { "type": "string", "format": "date" },
+                "end":   { "type": "string", "format": "date" }
+              }
             },
-            "end": {
-              "type": "string",
-              "format": "date"
-            }
-          }
+            { "type": "null" }
+          ]
         },
         "total_amount": {
           "type": "number",
