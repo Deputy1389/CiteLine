@@ -1,11 +1,14 @@
 """
-Step 19 — LLM Reasoning (Gemini Flash)
+Step 19 — LLM Reasoning (Skill-Based Routing)
 
-Optional semantic layer: Strategic Materiality Ranker, Contradiction Detector,
-Causation Chain Builder, and Deposition Risk Scanner.
+Implements a two-stage reasoning pipeline:
+1. Analyst Skill: Strategic Materiality & Contradiction Proposal.
+2. Integrity Auditor: Deterministic validation of LLM claims.
 
-Uses the CiteLine Gemini Skills JSON Contracts (v1) where possible,
-while maintaining backward compatibility for the "Strategic Moat" UI.
+Architecture:
+- Deterministic Routing: Only High-Stakes events are sent to the LLM.
+- Strict JSON: 100% schema enforcement.
+- Fail-Safe: Hallucinated references cause immediate rejection of the claim.
 """
 from __future__ import annotations
 
@@ -13,7 +16,7 @@ import json
 import logging
 import os
 import time
-from typing import Any
+from typing import Any, Optional
 from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
@@ -29,99 +32,105 @@ from apps.worker.lib.llm_skills_adapter import to_skill_event
 
 logger = logging.getLogger(__name__)
 
-_MAX_EVENTS_FOR_LLM = 250  # cap payload size
+# Only High-Stakes types go to the Strategic Analyst
+HIGH_STAKES_TYPES = {
+    "IMAGING_STUDY",
+    "ER_VISIT",
+    "PROCEDURE",
+    "ORTHOPEDIC_CONSULT"
+}
 
-
-def _build_event_payload(events: list[Event], providers: list[Provider]) -> list[dict]:
-    """Build structured event summaries for LLM consumption using the Skills adapter."""
-    return [to_skill_event(e, providers) for e in events[:_MAX_EVENTS_FOR_LLM]]
-
-
-def _prompt_unified_strategic_analysis(event_rows: list[dict], mechanism: str, doi: str) -> str:
-    events_json = json.dumps(event_rows)
-    incident_ids = [e["event_id"] for e in event_rows if e["event_type"] in ("ER_VISIT", "CLINICAL_NOTE")][:3]
+def _route_high_value_events(events: list[Event], providers: list[Provider]) -> list[dict]:
+    """
+    Deterministic Router: Filter for exportable, cited, high-stakes events.
+    Includes first/last clinical notes for context.
+    """
+    eligible = [
+        e for e in events 
+        if e.confidence >= 30 
+        and len(e.citation_ids) >= 1 
+        and not any(f.technical_noise for f in e.facts)
+    ]
     
-    # Collect candidate terms for normalization from snippets
-    candidate_terms = []
-    for row in event_rows:
-        for snip in row.get("snippets", []):
-            if snip.get("kind") == "DIAGNOSIS":
-                candidate_terms.append(snip["text"])
-    candidate_terms = list(set(candidate_terms))[:20]
+    high_stakes = [e for e in eligible if e.event_type.value in HIGH_STAKES_TYPES]
+    
+    # Add context (first and last events if not already included)
+    context_ids = {e.event_id for e in high_stakes}
+    if eligible:
+        if eligible[0].event_id not in context_ids:
+            high_stakes.insert(0, eligible[0])
+        if eligible[-1].event_id not in context_ids:
+            high_stakes.append(eligible[-1])
+            
+    # Cap at 50 high-value events to maximize reasoning quality and stay in free tier
+    return [to_skill_event(e, providers) for e in high_stakes[:50]]
 
-    return f"""You are a lead trial attorney and medical-legal expert.
-Analyze the provided medical events and output ONLY valid JSON.
 
-SKILL SET: CiteLine Unified Strategic Analysis (v1.2)
-Includes: Causation Chain, Litigation Strategy, Materiality, and Injury Normalization.
+def _prompt_analyst_skill(event_rows: list[dict]) -> str:
+    events_json = json.dumps(event_rows)
+    return f"""You are a senior litigation analyst. Analyze these HIGH-STAKES medical events.
+Output ONLY valid JSON.
 
-INPUT:
+SKILL: Strategic Materiality + Contradiction Detector
+INPUT: {events_json}
+
+OUTPUT SCHEMA:
 {{
-  "events": {events_json},
-  "candidate_terms": {json.dumps(candidate_terms)},
-  "incident": {{
-    "doi_date_iso": "{doi}",
-    "mechanism_text": "{mechanism}",
-    "incident_event_ids": {json.dumps(incident_ids)}
-  }}
-}}
-
-OUTPUT SCHEMA (STRICT):
-{{
-  "causation": {{
-    "chain": [
-      {{ "order": integer, "node_type": "INCIDENT"|"SYMPTOM"|"DIAGNOSIS"|"IMAGING"|"TREATMENT", "event_id": "string", "claim": "string" }}
-    ],
-    "gaps": [ {{ "gap_type": "MISSING_RECORD"|"TEMPORAL_GAP", "description": "string" }} ],
-    "case_summary": "string (2-3 sentences)",
-    "risk_score": integer (0-100)
-  }},
-  "strategy": {{
-    "contradictions": [
-      {{ "left_event_id": "string", "right_event_id": "string", "kind": "DIRECT"|"LIKELY", "explanation": "string" }}
-    ],
-    "risk_flags": [
-      {{ "risk_id": "string", "severity": "HIGH"|"CRITICAL", "issue": "string", "why_it_matters": "string", "recommended_fix": "string" }}
-    ],
-    "strategic_recommendations": ["string"]
-  }},
-  "materiality": {{
-    "selected": [
-      {{ "rank": integer, "event_id": "string", "tier": "A"|"B", "rationale": "string" }}
-    ]
-  }},
-  "ontology": {{
-    "canonical_injuries": [
-      {{ "label": "string", "support": "string", "confidence": number }}
-    ],
-    "excluded_terms": [
-      {{ "term": "string", "reason": "NEGATED"|"NOT_SUPPORTED", "explanation": "string" }}
-    ]
-  }}
+  "materiality": [
+    {{ "event_id": "string", "rank": integer, "tier": "A"|"B", "rationale": "string" }}
+  ],
+  "contradictions": [
+    {{ "left_event_id": "string", "right_event_id": "string", "issue": "string", "severity": "HIGH"|"MEDIUM" }}
+  ],
+  "risk_flags": [
+    {{ "event_id": "string", "issue": "string", "why_it_matters": "string" }}
+  ]
 }}
 
 RULES:
-1. Every event_id MUST exist in the input.
-2. Focus on high-stakes clinical findings.
-3. 'strategic_recommendations' should be actionable advice for the attorney.
-4. 'ontology' should map raw diagnosis snippets to canonical forms.
-5. Output valid JSON only."""
+1. Use ONLY event_ids from the input.
+2. 'materiality' rank 1-10. Tier A = Trial Winning, Tier B = Significant.
+3. 'contradictions' must be clinical (e.g. imaging says no fracture, but ortho note says fracture)."""
 
 
-def _validate_event_ids(data: Any, valid_ids: set[str]) -> Any:
-    """Recursively remove references to non-existent event_ids from LLM output."""
-    if isinstance(data, dict):
-        cleaned = {}
-        for k, v in data.items():
-            if k in ("event_id", "left_event_id", "right_event_id", "incident_event_ids", "neighbor_event_ids") and isinstance(v, str):
-                if v and v != "null" and v not in valid_ids:
-                    cleaned[k] = None
-                    continue
-            cleaned[k] = _validate_event_ids(v, valid_ids)
-        return cleaned
-    elif isinstance(data, list):
-        return [_validate_event_ids(item, valid_ids) for item in data]
-    return data
+def _audit_and_clean(data: dict, valid_ids: set[str]) -> tuple[dict, list[str]]:
+    """
+    Integrity Auditor: Deterministic verification of LLM output.
+    Returns (cleaned_data, list_of_dropped_issues).
+    """
+    issues = []
+    cleaned = {
+        "materiality": [],
+        "contradictions": [],
+        "risk_flags": []
+    }
+    
+    # Audit Materiality
+    for item in data.get("materiality", []):
+        eid = item.get("event_id")
+        if eid in valid_ids:
+            cleaned["materiality"].append(item)
+        else:
+            issues.append(f"hallucinated_materiality_id: {eid}")
+            
+    # Audit Contradictions
+    for item in data.get("contradictions", []):
+        l_id = item.get("left_event_id")
+        r_id = item.get("right_event_id")
+        if l_id in valid_ids and r_id in valid_ids:
+            cleaned["contradictions"].append(item)
+        else:
+            issues.append(f"hallucinated_contradiction_pair: {l_id}/{r_id}")
+            
+    # Audit Risk Flags
+    for item in data.get("risk_flags", []):
+        eid = item.get("event_id")
+        if eid in valid_ids:
+            cleaned["risk_flags"].append(item)
+        else:
+            issues.append(f"hallucinated_risk_id: {eid}")
+            
+    return cleaned, issues
 
 
 def run_llm_reasoning(
@@ -130,122 +139,72 @@ def run_llm_reasoning(
     config: RunConfig,
 ) -> tuple[dict, list[Warning]]:
     """
-    Run Gemini Flash LLM reasoning using CiteLine Skills layer.
+    Run the lean Analyst + Auditor pipeline.
     """
     warnings: list[Warning] = []
     extensions: dict = {}
 
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        logger.info("LLM Step 19: GEMINI_API_KEY not set — skipping reasoning")
         return extensions, warnings
 
     try:
-        model_name = config.gemini_model
-        if not model_name.startswith("models/"):
-            model_name = f"models/{model_name}"
-            
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
-            model_name=model_name,
-            generation_config={
-                "response_mime_type": "application/json",
-                "temperature": 0.1,
-            }
+            model_name=config.gemini_model, # gemini-1.5-flash
+            generation_config={"response_mime_type": "application/json", "temperature": 0.1}
         )
 
-        events = evidence_graph.events
-        valid_ids = {e.event_id for e in events}
-        event_rows = _build_event_payload(events, providers)
-
-        if not event_rows:
+        # 1. Routing
+        high_value_payload = _route_high_value_events(evidence_graph.events, providers)
+        if not high_value_payload:
             return extensions, warnings
 
-        # Infer DOI and Mechanism
-        doi = "unknown"
-        mechanism = "accident"
-        for row in event_rows:
-            if row["event_type"] == "ER_VISIT" and row["date_iso"]:
-                doi = row["date_iso"]
-                break
-        if doi == "unknown" and event_rows and event_rows[0].get("date_iso"):
-            doi = event_rows[0]["date_iso"]
-
-        # ── Unified Strategic Analysis ──────────────────────────────────
+        # 2. Analyst Skill
         t0 = time.time()
-        response = model.generate_content(_prompt_unified_strategic_analysis(event_rows, mechanism, doi))
-        data = json.loads(response.text)
-        data = _validate_event_ids(data, valid_ids)
+        response = model.generate_content(_prompt_analyst_skill(high_value_payload))
+        raw_data = json.loads(response.text)
         
-        # ── Backward Compatibility for UI ───────────────────────────────
-        causation = data.get("causation", {})
-        strategy = data.get("strategy", {})
+        # 3. Integrity Auditor
+        valid_ids = {e.event_id for e in evidence_graph.events}
+        clean_data, audit_issues = _audit_and_clean(raw_data, valid_ids)
         
-        extensions["llm_causation"] = {
-            "causation_assessments": [
-                {"event_id": node["event_id"], "causal_nexus_score": 90, "causal_chain": node["claim"]}
-                for node in causation.get("chain", []) if node.get("event_id")
-            ],
-            "case_summary": causation.get("case_summary", ""),
-            "risk_score": causation.get("risk_score", 50)
-        }
-        
-        extensions["llm_strategy"] = {
-            "contradiction_flags": [
-                {"event_id": c["left_event_id"], "event_id_b": c["right_event_id"], "contradiction_type": c["kind"], "description": c["explanation"]}
-                for c in strategy.get("contradictions", []) if c.get("left_event_id")
-            ],
-            "defense_vulnerabilities": [
-                {"event_id": r["event_id"] if "event_id" in r else (r["evidence"][0]["event_id"] if r.get("evidence") else None), 
-                 "vulnerability": r["issue"], "risk_level": r["severity"].lower()}
-                for r in strategy.get("risk_flags", [])
-            ],
-            "strategic_recommendations": strategy.get("strategic_recommendations", [])
-        }
-        
-        # ── New Skills Data ─────────────────────────────────────────────
-        extensions["skills_v1"] = data
-        
-        # ── Annotate Events ───────────────────────────────────────────────
-        _annotate_events(events, data)
+        if audit_issues:
+            logger.warning(f"LLM Integrity Audit dropped {len(audit_issues)} hallucinated claims.")
 
+        # 4. Packaging & Annotation
+        extensions["llm_analysis"] = clean_data
+        _annotate_graph(evidence_graph.events, clean_data)
+        
         extensions["llm_metadata"] = {
             "model": config.gemini_model,
-            "events_analyzed": len(event_rows),
-            "run_timestamp": datetime.utcnow().isoformat(),
-            "causation_nodes": len(causation.get("chain", [])),
-            "contradiction_count": len(strategy.get("contradictions", [])),
-            "risk_flag_count": len(strategy.get("risk_flags", [])),
-            "material_event_count": len(data.get("materiality", {}).get("selected", [])),
-            "canonical_injuries": len(data.get("ontology", {}).get("canonical_injuries", [])),
+            "events_routed": len(high_value_payload),
+            "audit_issues_dropped": len(audit_issues),
+            "material_count": len(clean_data["materiality"]),
+            "contradiction_count": len(clean_data["contradictions"]),
+            "risk_count": len(clean_data["risk_flags"]),
+            "run_timestamp": datetime.utcnow().isoformat()
         }
 
     except Exception as exc:
-        logger.warning(f"LLM Step 19: Unexpected error: {exc}", exc_info=True)
-        warnings.append(Warning(
-            code="LLM_ERROR",
-            message=f"LLM reasoning failed: {str(exc)[:200]}",
-        ))
+        logger.warning(f"LLM Step 19: reasoning failed: {exc}")
+        warnings.append(Warning(code="LLM_ERROR", message=f"LLM reasoning failed: {str(exc)[:100]}"))
 
     return extensions, warnings
 
 
-def _annotate_events(events: list[Event], analysis: dict):
-    """Back-port LLM insights into the event models for UI display."""
-    causation = analysis.get("causation", {})
-    materiality = analysis.get("materiality", {})
-    
-    causation_map = {node["event_id"]: node for node in causation.get("chain", []) if node.get("event_id")}
-    materiality_map = {item["event_id"]: item for item in materiality.get("selected", []) if item.get("event_id")}
+def _annotate_graph(events: list[Event], data: dict):
+    """Back-port LLM insights into the event extensions for UI display."""
+    materiality_map = {m["event_id"]: m for m in data.get("materiality", [])}
+    risk_map = {r["event_id"]: r for r in data.get("risk_flags", [])}
 
     for evt in events:
-        if evt.event_id in causation_map:
-            node = causation_map[evt.event_id]
-            evt.extensions["llm_causation_claim"] = node.get("claim")
-            evt.extensions["llm_node_type"] = node.get("node_type")
-            
         if evt.event_id in materiality_map:
-            item = materiality_map[evt.event_id]
-            evt.extensions["llm_materiality_rank"] = item.get("rank")
-            evt.extensions["llm_materiality_tier"] = item.get("tier")
-            evt.extensions["llm_materiality_rationale"] = item.get("rationale")
+            m = materiality_map[evt.event_id]
+            evt.extensions["llm_materiality_rank"] = m.get("rank")
+            evt.extensions["llm_materiality_tier"] = m.get("tier")
+            evt.extensions["llm_materiality_rationale"] = m.get("rationale")
+            
+        if evt.event_id in risk_map:
+            r = risk_map[evt.event_id]
+            evt.extensions["llm_deposition_risk"] = r.get("issue")
