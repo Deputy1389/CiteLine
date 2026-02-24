@@ -157,7 +157,15 @@ def should_quarantine_fact(text: str) -> bool:
 
     # Strip leading EMR flowsheet timestamp before label/body analysis
     stripped = _TIMESTAMP_PREFIX_RE.sub("", text).strip()
-    body = _EMR_LABEL_PREFIX_RE.sub("", stripped).strip()
+    
+    # Recursive multi-label strip
+    body = stripped
+    while True:
+        next_body = _EMR_LABEL_PREFIX_RE.sub("", body).strip()
+        if next_body == body:
+            break
+        body = next_body
+        
     analyze = body if body else stripped
 
     # Only quarantine short facts — long facts have inherent context complexity
@@ -203,16 +211,21 @@ def _is_line_garbage(line: str) -> bool:
     if _FAX_ARTIFACT_RE.search(line):
         return True
 
-    # Strip EMR label prefix for body analysis.
-    # "Pain Assessment: Blue cost expert" → analyze "Blue cost expert" only.
-    body = _EMR_LABEL_PREFIX_RE.sub("", line).strip()
-    analyze = body if body else line
+    # Multi-label strip: recursively remove all EMR prefixes anywhere in the line
+    # to find the TRUE clinical body.
+    analyze = line
+    while True:
+        stripped = _EMR_LABEL_PREFIX_RE.sub("", analyze).strip()
+        if stripped == analyze:
+            break
+        analyze = stripped
+    
+    # Also strip common medical labels that appear mid-line
+    mid_label_pattern = r"(?i)\b(?:pain|vitals|pt|meds|orders|rounding)\s*(?:assessment|level|scale|check|signs|request|given|received)?\s*:?\s*"
+    analyze = re.sub(mid_label_pattern, " ", analyze).strip()
 
     tokens = _tokenize(analyze)
     if len(tokens) < 3:
-        # Short body after label strip: only garbage if it has no medical signal.
-        # "Pain 8/10" → body "8/10" has a digit → NOT garbage.
-        # "Pain Assessment: " → empty body → garbage.
         if not tokens:
             return True
         has_digits = any(re.search(r"\d", t) for t in tokens)
@@ -224,12 +237,11 @@ def _is_line_garbage(line: str) -> bool:
     med_density = _medical_density(tokens)
     diversity = _diversity_score(analyze)
 
-    # Short-text check (use original line length)
-    if len(line) < 30 and med_density < 0.02 and diversity < 0.1:
+    # Aggressive rejection for short noisy strings (e.g. "Late its part cost")
+    if len(analyze) < 40 and med_density < 0.05 and diversity < 0.15:
         return True
 
     # Consecutive non-medical word runs (hallmark of word salad).
-    # Adaptive threshold: short texts need fewer consecutive non-medical words to fail.
     consecutive_nonmed = 0
     max_consecutive = 0
     for t in tokens:
@@ -240,9 +252,9 @@ def _is_line_garbage(line: str) -> bool:
             consecutive_nonmed += 1
             max_consecutive = max(max_consecutive, consecutive_nonmed)
 
-    # ≤5 tokens (short body after label strip): 2+ consecutive non-medical = garbage
-    # 6+ tokens: 5+ consecutive = garbage (allows natural sentences like "Patient presents via private vehicle")
-    max_allowed = 2 if len(tokens) <= 5 else 5
+    # Tighten max allowed: 3+ non-medical tokens in a row is highly suspicious
+    # for small strings.
+    max_allowed = 2 if len(tokens) <= 6 else 4
     if max_consecutive > max_allowed:
         return True
 
