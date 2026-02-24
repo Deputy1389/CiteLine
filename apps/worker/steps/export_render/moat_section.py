@@ -192,8 +192,10 @@ def _top10_rows(projection_entries: list, score_func: Any) -> list[str]:
         if not entry.citation_display:
             continue
         # 3. Undated events have no established temporal foothold — exclude.
-        date_disp = (entry.date_display or "").lower()
-        if any(kw in date_disp for kw in ("not documented", "undated", "unknown")):
+        # Check "date not documented" specifically — not just "not documented" which would
+        # also match "(time not documented)" present in every dated entry.
+        date_disp = (entry.date_display or "").lower().strip()
+        if date_disp.startswith("date not documented") or date_disp in ("undated", "unknown", "date unknown"):
             continue
         # 4. Aggregate PT summary rows are derived statistics, not discrete events.
         if "pt sessions documented" in blob or (

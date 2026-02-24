@@ -133,44 +133,36 @@ def should_quarantine_fact(text: str) -> bool:
     """
     Clause VI — OCR Quarantine gate for individual Fact text.
 
-    Criteria (all deterministic, no model calls):
-    - dictionary hit ratio  < 0.40  (fewer than 40% tokens are real English/medical words)
-    - medical lexicon density < 0.05  (almost no medical signal)
-    - alphabetic token ratio  < 0.50  (majority tokens non-alphabetic → OCR noise)
+    A fact is quarantined if it contains ZERO medical signal (no medical terms,
+    no digits) in its body text after stripping EMR label prefixes.
+
+    Only applied to facts under 80 characters — longer facts have enough context
+    that a false positive would do more harm than good.
 
     Returns True if the fact should be marked technical_noise=True.
     Facts are never deleted; callers must set fact.technical_noise = True and
     suppress from attorney-facing output while retaining for audit.
     """
     if not text or len(text.strip()) < 4:
-        return False  # Too short to score — let is_garbage handle blanks
+        return False
 
     body = _EMR_LABEL_PREFIX_RE.sub("", text).strip()
     analyze = body if body else text
+
+    # Only quarantine short facts — long facts have inherent context complexity
+    if len(analyze) >= 80:
+        return False
+
     tokens = _tokenize(analyze)
     if not tokens:
         return False
 
-    # Alphabetic token ratio: exclude tokens that are purely digits / punctuation
-    alpha_tokens = [t for t in tokens if re.search(r"[A-Za-z]", t)]
-    alpha_ratio = len(alpha_tokens) / len(tokens)
-
-    # Medical lexicon density (existing helper, counts digits too)
-    med_density = _medical_density(tokens)
-
-    # Dictionary hit ratio: any token that is a medical term, stopword, or contains digits
-    dict_hits = sum(
-        1 for t in tokens
-        if t.lower().rstrip(".,;:!?()[]") in _MEDICAL_TERMS
-        or t.lower().rstrip(".,;:!?()[]") in _STOPWORDS
-        or re.search(r"\d", t)
+    # Require at least one medical-domain token (term or digit-containing value)
+    has_medical_signal = any(
+        t.lower().rstrip(".,;:!?()[]") in _MEDICAL_TERMS or re.search(r"\d", t)
+        for t in tokens
     )
-    dict_ratio = dict_hits / len(tokens)
-
-    # Quarantine if all three metrics fail threshold
-    if dict_ratio < 0.40 and med_density < 0.05 and alpha_ratio < 0.50:
-        return True
-    return False
+    return not has_medical_signal
 
 
 def is_garbage(text: str) -> bool:

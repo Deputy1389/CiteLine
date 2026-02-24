@@ -107,15 +107,8 @@ def extract_imaging_events(
                 content_section = "\n".join(filtered_lines) if filtered_lines else None
 
             if not content_section:
-                # No impression/findings header found — emit a placeholder fact so the
-                # imaging event is present in the timeline but the absence is explicit.
-                cit = _make_citation(page, page.text[:200])
-                citations.append(cit)
-                citation_ids.append(cit.citation_id)
-                placeholder = "Imaging record present; Impression section not detected on cited page."
-                fact = _make_fact(placeholder, FactKind.IMPRESSION, cit.citation_id, verbatim=False)
-                facts.append(fact)
-                impression_facts.append(fact)
+                # No impression/findings header on this page — continue to next page in group.
+                # A placeholder is emitted below if NO page in the group yields content.
                 continue
 
             lines = [l.strip() for l in content_section.split("\n") if l.strip()][:3]
@@ -128,6 +121,18 @@ def extract_imaging_events(
                 fact = _make_fact(line, FactKind.IMPRESSION, cit.citation_id, verbatim=True)
                 facts.append(fact)
                 impression_facts.append(fact)
+
+        # If no page in the group yielded any impression content, emit ONE placeholder
+        # so the imaging event is still represented in the timeline with an explicit note.
+        if not facts:
+            anchor_page = page_group[0]
+            cit = _make_citation(anchor_page, anchor_page.text[:200])
+            citations.append(cit)
+            citation_ids.append(cit.citation_id)
+            placeholder = "Imaging record present; Impression section not detected on cited page."
+            fact = _make_fact(placeholder, FactKind.IMPRESSION, cit.citation_id, verbatim=False)
+            facts.append(fact)
+            impression_facts.append(fact)
 
         if not facts:
             skipped.append(SkippedEvent(

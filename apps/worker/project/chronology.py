@@ -1503,7 +1503,10 @@ def build_chronology_projection(
 
         event_type_display = (
             "Emergency Visit"
-            if re.search(r"\b(emergency department|emergency room|ed visit|er visit|chief complaint)\b", low_joined_raw)
+            if (
+                re.search(r"\b(emergency department|emergency room|ed visit|er visit|chief complaint)\b", low_joined_raw)
+                and not re.search(r"\b(intake questionnaire|patient intake|intake form|new patient)\b", low_joined_raw)
+            )
             else (
                 "Procedure/Surgery"
                 if re.search(r"\b(epidural|esi|injection|procedure|fluoroscopy|depo-?medrol|lidocaine|interlaminar|transforaminal)\b", low_joined_raw)
