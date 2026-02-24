@@ -41,14 +41,24 @@ def _prompt_unified_strategic_analysis(event_rows: list[dict], mechanism: str, d
     events_json = json.dumps(event_rows)
     incident_ids = [e["event_id"] for e in event_rows if e["event_type"] in ("ER_VISIT", "CLINICAL_NOTE")][:3]
     
+    # Collect candidate terms for normalization from snippets
+    candidate_terms = []
+    for row in event_rows:
+        for snip in row.get("snippets", []):
+            if snip.get("kind") == "DIAGNOSIS":
+                candidate_terms.append(snip["text"])
+    candidate_terms = list(set(candidate_terms))[:20]
+
     return f"""You are a lead trial attorney and medical-legal expert.
 Analyze the provided medical events and output ONLY valid JSON.
 
-SKILL SET: CiteLine Unified Strategic Analysis (v1.1)
+SKILL SET: CiteLine Unified Strategic Analysis (v1.2)
+Includes: Causation Chain, Litigation Strategy, Materiality, and Injury Normalization.
 
 INPUT:
 {{
   "events": {events_json},
+  "candidate_terms": {json.dumps(candidate_terms)},
   "incident": {{
     "doi_date_iso": "{doi}",
     "mechanism_text": "{mechanism}",
@@ -79,6 +89,14 @@ OUTPUT SCHEMA (STRICT):
     "selected": [
       {{ "rank": integer, "event_id": "string", "tier": "A"|"B", "rationale": "string" }}
     ]
+  }},
+  "ontology": {{
+    "canonical_injuries": [
+      {{ "label": "string", "support": "string", "confidence": number }}
+    ],
+    "excluded_terms": [
+      {{ "term": "string", "reason": "NEGATED"|"NOT_SUPPORTED", "explanation": "string" }}
+    ]
   }}
 }}
 
@@ -86,7 +104,8 @@ RULES:
 1. Every event_id MUST exist in the input.
 2. Focus on high-stakes clinical findings.
 3. 'strategic_recommendations' should be actionable advice for the attorney.
-4. Output valid JSON only."""
+4. 'ontology' should map raw diagnosis snippets to canonical forms.
+5. Output valid JSON only."""
 
 
 def _validate_event_ids(data: Any, valid_ids: set[str]) -> Any:
@@ -198,6 +217,7 @@ def run_llm_reasoning(
             "contradiction_count": len(strategy.get("contradictions", [])),
             "risk_flag_count": len(strategy.get("risk_flags", [])),
             "material_event_count": len(data.get("materiality", {}).get("selected", [])),
+            "canonical_injuries": len(data.get("ontology", {}).get("canonical_injuries", [])),
         }
 
     except Exception as exc:
