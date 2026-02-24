@@ -51,6 +51,7 @@ def extract_imaging_events(
     dates: dict[int, list[EventDate]],
     providers: list[Provider],
     page_provider_map: dict[int, str] = {},
+    page_text_by_number: dict[int, str] | None = None,
 ) -> tuple[list[Event], list[Citation], list[Warning], list[SkippedEvent]]:
     """Extract imaging events from imaging report pages."""
     events: list[Event] = []
@@ -105,6 +106,36 @@ def extract_imaging_events(
                     if l.strip() and not re.match(r"(?i)^\s*exam\s*:", l)
                 ]
                 content_section = "\n".join(filtered_lines) if filtered_lines else None
+
+            if not content_section and page_text_by_number:
+                # No impression section on this page — scan the next 1-2 adjacent pages
+                # (which may be classified as non-imaging but contain the actual findings).
+                for adj_offset in (1, 2):
+                    adj_text = page_text_by_number.get(page.page_number + adj_offset, "")
+                    if not adj_text:
+                        continue
+                    # Try impression/findings headers first
+                    for header in ["Impression", "Findings", "Conclusion", "Results"]:
+                        adj_section = _find_section(adj_text, header)
+                        if adj_section:
+                            # Strip EXAM: lines from adjacent section too
+                            filt = [
+                                l for l in adj_section.splitlines()
+                                if l.strip() and not re.match(r"(?i)^\s*exam\s*:", l)
+                            ]
+                            if filt:
+                                content_section = "\n".join(filt)
+                                break
+                    if content_section:
+                        break
+                    # Fall back to bullet lines on the adjacent page
+                    bullet_lines = [
+                        l.strip() for l in adj_text.splitlines()
+                        if re.match(r"^\s*[•\-–]\s+\w", l)
+                    ]
+                    if bullet_lines:
+                        content_section = "\n".join(bullet_lines[:4])
+                        break
 
             if not content_section:
                 # No impression/findings header on this page — continue to next page in group.

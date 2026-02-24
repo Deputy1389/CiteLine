@@ -355,7 +355,10 @@ def run_pipeline(run_id: str) -> None:
         all_warnings.extend(clin_warns)
         all_skipped.extend(clin_skipped)
 
-        img_events, img_cits, img_warns, img_skipped = extract_imaging_events(all_pages, dates, providers, page_provider_map)
+        img_events, img_cits, img_warns, img_skipped = extract_imaging_events(
+            all_pages, dates, providers, page_provider_map,
+            page_text_by_number={p.page_number: (p.text or "") for p in all_pages},
+        )
         all_events.extend(img_events)
         all_citations.extend(img_cits)
         all_warnings.extend(img_warns)

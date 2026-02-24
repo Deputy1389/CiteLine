@@ -179,6 +179,18 @@ def _is_header_noise_fact(text: str) -> bool:
             return True
     if re.fullmatch(r"\s*(patient|name|mrn|date)\s*[:\-].*", low):
         return True
+    # EMR UI artifacts — "See Patient Header" template text
+    if re.search(r"\bsee patient header\b", low):
+        return True
+    # PHI / HIPAA banners
+    if re.search(r"\b(confidential medical record|protected health information|confidential.*hipaa)\b", low):
+        return True
+    # Fax transmission metadata that survived inline stripping
+    if re.search(r"\bfax\s*(id|#)\s*:", low):
+        return True
+    # "Type of Case / Personal Injury" label blocks — no clinical value
+    if re.search(r"^type of case\s*$", low) or re.search(r"^personal injury\s*/\s*mva\s*$", low):
+        return True
     return False
 
 
