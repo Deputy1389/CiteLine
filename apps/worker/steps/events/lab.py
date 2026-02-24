@@ -100,13 +100,18 @@ def extract_lab_events(
             if test == "PT" and is_pt_context:
                 continue
             # "PT" alone is ambiguous (Physical Therapy vs Prothrombin Time).
-            # Require explicit coagulation context to count it as a lab test.
+            # Require word boundary and coagulation context OR numeric results to count it as a lab test.
             if test == "PT":
+                # Look for "PT" as a whole word
+                if not re.search(r"\bPT\b", page.text):
+                    continue
                 coag_context = any(
                     kw in text_lower
                     for kw in ("ptt", "inr", "prothrombin", "coagul", "fibrin", "anticoagul")
                 )
-                if not coag_context:
+                # Also check for "PT" followed by numeric result e.g. "PT 12.5"
+                numeric_result = re.search(r"\bPT\b\s*[:\-\s]?\s*\d+\.\d+", page.text)
+                if not (coag_context or numeric_result):
                     continue
             if test.lower() in text_lower:
                 found_tests.append(test)

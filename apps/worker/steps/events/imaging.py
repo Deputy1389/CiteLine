@@ -239,9 +239,13 @@ def extract_imaging_events(
                 from packages.shared.models.common import EventDate, DateKind, DateSource
                 evt.date = EventDate(
                     kind=DateKind.SINGLE,
-                    value=best.date.value if best.date else None,
+                    value=best.date.value,
+                    partial_month=best.date.partial_month,
+                    partial_day=best.date.partial_day,
+                    relative_day=best.date.relative_day,
                     source=DateSource.PROPAGATED,
                 )
-                evt.flags = [f for f in evt.flags if f != "MISSING_DATE"]
+                if evt.date.value or (evt.date.partial_month and evt.date.partial_day):
+                    evt.flags = [f for f in evt.flags if f != "MISSING_DATE"]
 
     return events, citations, warnings, skipped

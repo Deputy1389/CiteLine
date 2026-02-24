@@ -89,7 +89,11 @@ def _detect_encounter_type(text: str) -> EventType:
     # 0a. Intake questionnaires / patient intake forms are never ER visits.
     # They exist in all specialties (ortho, PT, chiro) and should not be
     # misclassified as Emergency Visits just because they contain triage-adjacent words.
-    _INTAKE_MARKERS = ("intake questionnaire", "patient intake", "new patient intake", "intake form")
+    _INTAKE_MARKERS = (
+        "intake questionnaire", "patient intake", "new patient intake", "intake form",
+        "registration form", "patient registration", "medical history form",
+        "assignment of benefits", "authorization for treatment"
+    )
     if any(m in n for m in _INTAKE_MARKERS):
         return EventType.OFFICE_VISIT
 
@@ -115,14 +119,27 @@ def _detect_encounter_type(text: str) -> EventType:
         return EventType.HOSPITAL_DISCHARGE
 
     # 1.5 Explicit ED/ER visit cues - Expanded patterns
-    er_patterns = [
+    # Require stronger context for ER (either explicit name or ER-specific clinical process)
+    er_anchors = [
         "seen in er", "seen in ed", "er visit", "ed visit", "emergency room",
-        "emergency department", "er triage", "ed triage", "er presentation",
-        "ed presentation", "emergency visit", "er evaluation", "ed evaluation",
-        "arrived to er", "arrived to ed", "brought to er", "brought to ed"
+        "emergency department", "emergency visit", "er evaluation", "ed evaluation",
+        "arrived to er", "arrived to ed", "brought to er", "brought to ed", "triage note"
     ]
-    if any(kw in n for kw in er_patterns):
+    er_process = ["triage level", "triage category", "emergency physician", "er intake", "ed intake"]
+    
+    if any(kw in n for kw in er_anchors):
+        # Even with an anchor, if it's on an intake form or questionnaire, it might just be 
+        # asking about prior ER visits.
+        if any(kw in n for kw in ["prior", "history of", "previous"]):
+             return EventType.OFFICE_VISIT
         return EventType.ER_VISIT
+    
+    # If we have process words, verify it's not on an intake form (already handled above)
+    # but also check for ER-specific clinical indicators
+    if any(kw in n for kw in er_process):
+        # Additional check to prevent "triage" in a PCP office from triggering ER
+        if any(kw in n for kw in ["emergency", "room 4", "ambulance", "ems", "trauma", "interim lsu"]):
+            return EventType.ER_VISIT
 
     # 2. Admission — requires explicit lexical anchors.
     # "triage" alone is NOT an admission anchor (triage vitals appear in ER/PT/office notes).
@@ -405,10 +422,18 @@ def _is_eventworthy(text: str) -> bool:
     expert') don't trigger event creation purely because the label matches 'pain'.
     """
     # Strip known EMR label prefixes; if nothing is left, the line has no body
-    body = _EMR_LABEL_PREFIX_RE.sub("", text.strip())
-    check = body.lower() if body.strip() else ""
-    if not check:
+    # Use the same regex as text_quality.py for consistency
+    body = _EMR_LABEL_PREFIX_RE.sub("", text.strip()).strip()
+    if not body:
         return False
+    
+    # Also strip flowsheet timestamps "10/11 1820" if they survived
+    from apps.worker.quality.text_quality import _TIMESTAMP_PREFIX_RE
+    body = _TIMESTAMP_PREFIX_RE.sub("", body).strip()
+    if not body:
+        return False
+        
+    check = body.lower()
     keywords = (
         "pain", "c/o", "complained", "vomit", "emesis", "nause",
         "cough", "ambulat", "discharg", "admit", "admission",
@@ -416,7 +441,8 @@ def _is_eventworthy(text: str) -> bool:
         "evaluated", "seen by", "stable", "distress", "noted",
         "oxycodone", "phenergan", "ibuprofen", "dentures", "sores",
         "edema", "kyphosis", "weight", "wt:", "fall risk", "assistance",
-        "summary", "teaching", "bath", "urinated",
+        "summary", "teaching", "bath", "urinated", "incision", "dehiscence",
+        "drainage", "erythema", "warmth", "tenderness", "swelling",
         # PT / Therapy
         "gait", "balance", "transfer", "mobility", "walker", "cane",
         "range of motion", "rom", "therapeutic", "exercise", "therapy",

@@ -32,12 +32,13 @@ _FAX_ARTIFACT_RE = re.compile(
     r"|^fax\s*id\s*[:#]"
     r"|^\s*\d{3}[-\s]?\d{3}[-\s]?\d{4}\s*$"
     r"|\bto\s*:\s*records?\s*(?:dept|department)\b"
-    r"|\bpage\s*:\s*0*\d+\s*$",
+    r"|\bpage\s*:\s*0*\d+\s*$"
+    r"|\brecords\s*dept\b",
     re.IGNORECASE,
 )
 # Date-prefixed fax routing lines: "10/11/2024 12:01 FROM: ..."
 _FAX_DATE_FROM_RE = re.compile(
-    r"^\d{1,2}/\d{1,2}/\d{2,4}\s+\d{1,2}:\d{2}\s+FROM\s*:",
+    r"^\d{1,2}/\d{1,2}/\d{2,4}\s+\d{1,2}:\d{2}\s+(?:FROM|TO)\s*:",
     re.IGNORECASE,
 )
 # Inline fax footer: timestamps, phone numbers, and page markers that appear mid-text after line joining
@@ -178,16 +179,34 @@ def should_quarantine_fact(text: str) -> bool:
 def is_garbage(text: str) -> bool:
     if not text:
         return True
+    
+    # If it's a multi-line block, check if a significant portion of it is garbage
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    if len(lines) > 2:
+        garbage_lines = 0
+        for line in lines:
+            if _is_line_garbage(line):
+                garbage_lines += 1
+        # If more than 40% of lines are garbage, the whole block is suspicious
+        if garbage_lines / len(lines) > 0.4:
+            return True
+
     cleaned = clean_text(text)
     if not cleaned:
         return True
-    if _FAX_ARTIFACT_RE.search(cleaned):
+    return _is_line_garbage(cleaned)
+
+
+def _is_line_garbage(line: str) -> bool:
+    if not line:
+        return True
+    if _FAX_ARTIFACT_RE.search(line):
         return True
 
     # Strip EMR label prefix for body analysis.
     # "Pain Assessment: Blue cost expert" → analyze "Blue cost expert" only.
-    body = _EMR_LABEL_PREFIX_RE.sub("", cleaned).strip()
-    analyze = body if body else cleaned
+    body = _EMR_LABEL_PREFIX_RE.sub("", line).strip()
+    analyze = body if body else line
 
     tokens = _tokenize(analyze)
     if len(tokens) < 3:
@@ -201,11 +220,12 @@ def is_garbage(text: str) -> bool:
         if has_digits or has_medical_word:
             return False
         return True
+    
     med_density = _medical_density(tokens)
     diversity = _diversity_score(analyze)
 
-    # Short-text check (use original cleaned length)
-    if len(cleaned) < 30 and med_density < 0.02 and diversity < 0.1:
+    # Short-text check (use original line length)
+    if len(line) < 30 and med_density < 0.02 and diversity < 0.1:
         return True
 
     # Consecutive non-medical word runs (hallmark of word salad).
@@ -220,13 +240,13 @@ def is_garbage(text: str) -> bool:
             consecutive_nonmed += 1
             max_consecutive = max(max_consecutive, consecutive_nonmed)
 
-    # ≤5 tokens (short body after label strip): 3+ consecutive non-medical = garbage
-    # 6+ tokens: 6+ consecutive = garbage (allows natural sentences like "Patient presents via private vehicle")
+    # ≤5 tokens (short body after label strip): 2+ consecutive non-medical = garbage
+    # 6+ tokens: 5+ consecutive = garbage (allows natural sentences like "Patient presents via private vehicle")
     max_allowed = 2 if len(tokens) <= 5 else 5
     if max_consecutive > max_allowed:
         return True
 
     # For longer texts, require minimum medical density
-    if len(cleaned) > 50 and med_density < 0.08:
+    if len(line) > 50 and med_density < 0.08:
         return True
     return False

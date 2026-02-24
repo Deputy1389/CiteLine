@@ -146,11 +146,11 @@ def classify_page(page: Page) -> tuple[PageType, int]:
     # Step 2: If still classified as OTHER, check for medical terminology
     if best_type == PageType.OTHER:
         medical_matches = _MEDICAL_PATTERN.findall(page.text)
-        if len(medical_matches) >= 1:  # Lowered from 3 — any medical term = clinical
+        if len(medical_matches) >= 1:
             # Page has medical terminology but no specific type match.
             # Default to CLINICAL_NOTE so clinical extractor processes it.
             best_type = PageType.CLINICAL_NOTE
-            best_conf = 40  # Low confidence but enough to process
+            best_conf = 45  # Low confidence but enough to process
 
     return best_type, best_conf
 
@@ -165,6 +165,8 @@ def classify_pages(pages: list[Page]) -> tuple[list[Page], list[Warning]]:
     for page in pages:
         page_type, confidence = classify_page(page)
         page.page_type = page_type
+        if not page.extensions: page.extensions = {}
+        page.extensions["page_type_confidence"] = confidence
 
         if confidence < 50:
             warnings.append(Warning(

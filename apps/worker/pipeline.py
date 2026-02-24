@@ -310,32 +310,7 @@ def run_pipeline(run_id: str) -> None:
         # ── Step 6: Date extraction ───────────────────────────────────────────
         _check_deadline(start_time, run_id, "step6")
         logger.info(f"[{run_id}] Step 6: Date extraction")
-        dates = extract_dates_for_pages(all_pages)
-
-        # Step 6b: Provider-session date propagation.
-        # Standard propagation is document-level only. Pages that belong to the same
-        # provider session (e.g. ortho consult spanning pages 100-114) should inherit
-        # the session date even if there's a page-type change mid-session.
-        from packages.shared.models.common import EventDate, DateKind, DateSource
-        _provider_session_dates: dict[str, EventDate | None] = {}
-        for page in sorted(all_pages, key=lambda p: p.page_number):
-            pid = page_provider_map.get(page.page_number)
-            if not pid:
-                continue
-            if page.page_number in dates:
-                # This page has a date — update the session anchor
-                candidates = [d for d in dates[page.page_number] if d.value is not None]
-                if candidates:
-                    _provider_session_dates[pid] = candidates[0]
-            elif pid in _provider_session_dates and _provider_session_dates[pid] is not None:
-                # No date on this page — inherit from the provider session anchor
-                anchor = _provider_session_dates[pid]
-                dates[page.page_number] = [EventDate(
-                    kind=DateKind.SINGLE,
-                    value=anchor.value,
-                    source=DateSource.PROPAGATED,
-                )]
-        logger.info(f"[{run_id}] Step 6b: Provider-session date propagation complete")
+        dates = extract_dates_for_pages(all_pages, page_provider_map=page_provider_map)
 
         # ── Step 7: Event extraction ──────────────────────────────────────────
         _check_deadline(start_time, run_id, "step7")
@@ -397,8 +372,8 @@ def run_pipeline(run_id: str) -> None:
 
         # ── Step 7b: Cross-extractor page exclusivity ──────────────────────────
         # Each specialist page type has a primary extractor that owns it.
-        # If all of an event's source pages belong to a specialist type but the
-        # event is from a different extractor, drop it.  This prevents the
+        # If any of an event's source pages belong to a specialist type but the
+        # event is from a different extractor, drop it. This prevents the
         # clinical extractor from creating duplicate OFFICE_VISIT events on top of
         # PT events, imaging events, etc.
         from packages.shared.models import PageType as _PT, EventType as _ET
@@ -419,19 +394,33 @@ def run_pipeline(run_id: str) -> None:
             _ET.PROCEDURE: "OPERATIVE",
         }
         _page_type_map = {p.page_number: p.page_type for p in all_pages}
+        _page_conf_map = {p.page_number: (p.extensions or {}).get("page_type_confidence", 0) for p in all_pages}
         _exclusive: list = []
         for evt in all_events:
             if not evt.source_page_numbers:
                 _exclusive.append(evt)
                 continue
-            owners = {_PAGE_OWNER.get(_page_type_map.get(pg)) for pg in evt.source_page_numbers}
-            owners.discard(None)
-            # Only apply rule when all source pages unanimously belong to one specialist type
-            if len(owners) == 1:
-                page_owner = next(iter(owners))
-                evt_owner = _EVT_OWNER.get(evt.event_type)
-                if evt_owner != page_owner:
-                    continue  # Drop — wrong extractor for these pages
+            
+            # Find all specialist owners for the pages in this event, 
+            # but ONLY if the classification was high confidence.
+            page_owners = set()
+            for pg in evt.source_page_numbers:
+                if _page_conf_map.get(pg, 0) >= 50:
+                    ptype = _page_type_map.get(pg)
+                    if ptype in _PAGE_OWNER:
+                        page_owners.add(_PAGE_OWNER[ptype])
+            
+            if not page_owners:
+                _exclusive.append(evt)
+                continue
+
+            # If the event's type doesn't match any of the owners of its source pages,
+            # and it's a "generic" type that likely came from the clinical extractor, drop it.
+            evt_owner = _EVT_OWNER.get(evt.event_type)
+            if evt_owner not in page_owners:
+                # If it's on a specialist page but isn't a specialist event, drop it
+                continue
+                
             _exclusive.append(evt)
         logger.info(f"[{run_id}] Step 7b: Exclusivity pass: {len(all_events)} → {len(_exclusive)} events")
         all_events = _exclusive

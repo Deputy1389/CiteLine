@@ -487,7 +487,10 @@ def _find_partial_dates_in_text_with_lines(text: str) -> list[tuple[int, int, in
 # ── Multi-page extraction with propagation ───────────────────────────────
 
 
-def extract_dates_for_pages(pages: list[Page]) -> dict[int, list[EventDate]]:
+def extract_dates_for_pages(
+    pages: list[Page], 
+    page_provider_map: dict[int, str] = {}
+) -> dict[int, list[EventDate]]:
     """
     Extract dates for all pages with multi-layer resolution.
     Returns {page_number: [EventDate, ...]}.
@@ -496,6 +499,7 @@ def extract_dates_for_pages(pages: list[Page]) -> dict[int, list[EventDate]]:
       1. Per-page regex extraction (tier 1 / tier 2)
       2. Relative date resolution (absolute if anchor found, else relative)
       3. Header propagation from the previous page in the same document
+      4. Provider-session propagation (New: Bug 3A)
     """
     result: dict[int, list[EventDate]] = {}
 
@@ -543,13 +547,6 @@ def extract_dates_for_pages(pages: list[Page]) -> dict[int, list[EventDate]]:
                 # 1. Resolve partials if possible
                 for ed in result[page.page_number]:
                     if ed.value is None and ed.partial_month is not None:
-                        # BUG FIX: Never fabricate a year for partial dates.
-                        # User invariant: year_missing=True implies value=None.
-                        # if anchor_year:
-                        #      try:
-                        #          ed.value = date(anchor_year, ed.partial_month, ed.partial_day)
-                        #      except ValueError:
-                        #          pass
                         pass
                 
                 # Update propagation source
@@ -581,5 +578,48 @@ def extract_dates_for_pages(pages: list[Page]) -> dict[int, list[EventDate]]:
                         status=DateStatus.PROPAGATED,
                     )
                 result[page.page_number] = [propagated]
+
+    # ── Pass 4: Provider-session propagation (Bug 3A) ─────────────────────
+    # If a provider has multiple pages in a cluster, they should likely share 
+    # the same date even if some pages in the middle are undated.
+    if page_provider_map:
+        provider_pages = defaultdict(list)
+        for page in pages:
+            pid = page_provider_map.get(page.page_number)
+            if pid:
+                provider_pages[pid].append(page)
+        
+        for pid, p_list in provider_pages.items():
+            # Sort by page number to find clusters
+            p_list.sort(key=lambda p: p.page_number)
+            
+            # Find the best date in this provider's pages
+            best_provider_date = None
+            for p in p_list:
+                p_dates = result.get(p.page_number, [])
+                for ed in p_dates:
+                    if ed.value and ed.status != DateStatus.UNDATED:
+                        best_provider_date = ed
+                        break
+                if best_provider_date:
+                    break
+            
+            if best_provider_date:
+                for p in p_list:
+                    # If page is undated or only has a partial/ambiguous date,
+                    # propagate the provider's session date.
+                    p_dates = result.get(p.page_number, [])
+                    is_undated = not p_dates or all(d.status == DateStatus.UNDATED for d in p_dates)
+                    
+                    if is_undated:
+                        propagated = EventDate(
+                            kind=DateKind.SINGLE,
+                            value=best_provider_date.value,
+                            relative_day=best_provider_date.relative_day,
+                            source=DateSource.PROPAGATED,
+                            status=DateStatus.PROPAGATED,
+                            extensions={"provider_session_prop": True}
+                        )
+                        result[page.page_number] = [propagated]
 
     return result

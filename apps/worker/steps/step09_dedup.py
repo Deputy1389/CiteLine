@@ -98,12 +98,20 @@ def deduplicate_events(events: list[Event]) -> tuple[list[Event], list[Warning]]
     merged.append(current_event)
 
     # 2b. Second pass: collapse events that share source pages.
-    # One physical page should produce at most one event per (date, provider, type).
-    # This handles cases where the same page spawns multiple events with different timestamps.
+    # One physical page should produce at most one event per (date, provider).
+    # This handles cases where the same page spawns multiple events with different timestamps
+    # or slightly different event type classifications (e.g. CLINICAL_NOTE vs PT_VISIT).
+    from packages.shared.models import EventType as _ET
+    
+    # Define "soft" types that can be merged if they appear on the same page
+    SOFT_TYPES = {_ET.PT_VISIT, _ET.OFFICE_VISIT, _ET.INPATIENT_DAILY_NOTE}
+
     page_groups: dict[tuple, list[Event]] = defaultdict(list)
     for evt in merged:
         sd = evt.date.sort_date() if evt.date else None
-        key = (sd, evt.provider_id, evt.event_type)
+        # Use a "type group" instead of strict event_type for soft types
+        type_key = "SOFT_CLINICAL" if evt.event_type in SOFT_TYPES else evt.event_type
+        key = (sd, evt.provider_id, type_key)
         page_groups[key].append(evt)
 
     collapsed: list[Event] = []

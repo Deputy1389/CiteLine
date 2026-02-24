@@ -261,6 +261,13 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
     narrative = synthesize_narrative(chronology_events, providers, all_citations, case_info)
 
     graph = EvidenceGraph(pages=pages, documents=docs, providers=providers, events=chronology_events, citations=all_citations)
+    
+    # ── Step 19: LLM Reasoning (optional) ────────────────────────────────
+    if config.enable_llm_reasoning:
+        from apps.worker.steps.step19_llm_reasoning import run_llm_reasoning
+        llm_extensions, llm_warnings = run_llm_reasoning(graph, providers, config)
+        graph.extensions.update(llm_extensions)
+
     claim_edges = build_claim_edges([], raw_events=chronology_events)
     graph.extensions.update(_build_litigation_extensions(claim_edges))
     provider_norm = normalize_provider_entities(graph)

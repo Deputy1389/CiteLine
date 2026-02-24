@@ -20,6 +20,17 @@ BOILERPLATE_PATTERNS = [
     r"(?i)^national league",
     r"^[_\s]+$",  # Lines containing only underscores or blanks
     r".*_{3,}.*",  # Lines with multiple underscores (placeholders)
+    
+    # Technical Noise / Fax / Banners
+    r"(?i)fax\s*id\s*[:#]",
+    r"(?i)fax\s*from\s*[:]",
+    r"(?i)\d{1,2}/\d{1,2}/\d{2,4}\s+\d{1,2}:\d{2}\s+FROM:",
+    r"(?i)TO:\s*RECORDS\s*DEPT",
+    r"(?i)PAGE:\s*\d+",
+    r"(?i)CONFIDENTIAL\s*MEDICAL\s*RECORD",
+    r"(?i)PRODUCED\s*BY",
+    r"(?i)Patient:\s*.*\|\s*Date:",
+    r"(?i)Page\s*\d+\s*of\s*\d+",
 ]
 
 LEGEND_PATTERNS = [
