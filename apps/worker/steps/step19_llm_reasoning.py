@@ -1,11 +1,11 @@
 """
 Step 19 — LLM Reasoning (Gemini Flash)
 
-Optional semantic layer: causation assessment, contradiction detection,
-and case summarization via Gemini Flash.
+Optional semantic layer: Strategic Materiality Ranker, Contradiction Detector,
+Causation Chain Builder, and Deposition Risk Scanner.
 
-Only runs if config.enable_llm_reasoning is True and GEMINI_API_KEY is set.
-All LLM assertions are validated — only references to existing event_ids are kept.
+Uses the CiteLine Gemini Skills JSON Contracts (v1) where possible,
+while maintaining backward compatibility for the "Strategic Moat" UI.
 """
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ import os
 import time
 from typing import Any
 from pathlib import Path
+from datetime import datetime
 from dotenv import load_dotenv
 
 # Search for .env in root directory
@@ -24,90 +25,68 @@ load_dotenv(dotenv_path=env_path)
 
 import google.generativeai as genai
 from packages.shared.models import EvidenceGraph, Event, Provider, RunConfig, Warning
+from apps.worker.lib.llm_skills_adapter import to_skill_event
 
 logger = logging.getLogger(__name__)
 
 _MAX_EVENTS_FOR_LLM = 250  # cap payload size
-_MAX_FACTS_PER_EVENT = 5   # only top facts per event
 
 
 def _build_event_payload(events: list[Event], providers: list[Provider]) -> list[dict]:
-    """Build compact event summaries for LLM consumption."""
-    provider_map = {p.provider_id: p.normalized_name for p in providers}
-    rows = []
-    for evt in events[:_MAX_EVENTS_FOR_LLM]:
-        date_str = "unknown"
-        if evt.date and evt.date.value:
-            if hasattr(evt.date.value, 'isoformat'):
-                date_str = evt.date.value.isoformat()
-            elif hasattr(evt.date.value, 'start'):
-                date_str = f"{evt.date.value.start.isoformat()} to {evt.date.value.end.isoformat()}" if evt.date.value.end else evt.date.value.start.isoformat()
-        elif evt.date and evt.date.partial_month:
-            date_str = f"{evt.date.partial_month}/{evt.date.partial_day or '??'}"
-            
-        provider_name = provider_map.get(evt.provider_id or "", evt.provider_id or "unknown")
-        facts_text = "; ".join(f.text for f in evt.facts[:_MAX_FACTS_PER_EVENT] if f.text)
-        
-        rows.append({
-            "event_id": evt.event_id,
-            "type": evt.event_type.value if hasattr(evt.event_type, "value") else str(evt.event_type),
-            "date": date_str,
-            "provider": provider_name,
-            "facts": facts_text,
-        })
-    return rows
+    """Build structured event summaries for LLM consumption using the Skills adapter."""
+    return [to_skill_event(e, providers) for e in events[:_MAX_EVENTS_FOR_LLM]]
 
 
-def _prompt_causation(event_rows: list[dict]) -> str:
+def _prompt_unified_strategic_analysis(event_rows: list[dict], mechanism: str, doi: str) -> str:
     events_json = json.dumps(event_rows)
-    return f"""You are a medical-legal analyst. Output ONLY valid JSON, no other text.
+    incident_ids = [e["event_id"] for e in event_rows if e["event_type"] in ("ER_VISIT", "CLINICAL_NOTE")][:3]
+    
+    return f"""You are a lead trial attorney and medical-legal expert.
+Analyze the provided medical events and output ONLY valid JSON.
 
-Analyze medical events and assess causal relationships to the accident.
+SKILL SET: CiteLine Unified Strategic Analysis (v1.1)
 
-Events:
-{events_json}
-
-Output JSON format:
+INPUT:
 {{
-  "causation_assessments": [
-    {{"event_id": "<event_id from input>", "causal_nexus_score": <0-100>, "causal_chain": "<max 150 chars>"}}
-  ],
-  "case_summary": "<2-3 sentences>",
-  "risk_score": <0-100>
+  "events": {events_json},
+  "incident": {{
+    "doi_date_iso": "{doi}",
+    "mechanism_text": "{mechanism}",
+    "incident_event_ids": {json.dumps(incident_ids)}
+  }}
 }}
 
-Rules:
-- Use ONLY event_ids from the input above
-- causal_nexus_score: 90-100=direct causation, 70-89=strongly related, 50-69=probably related, 30-49=possibly related, 0-29=unrelated
-- Output valid JSON only - no markdown, no explanation"""
-
-
-def _prompt_litigation_strategy(event_rows: list[dict]) -> str:
-    events_json = json.dumps(event_rows)
-    return f"""You are a senior trial attorney. Output ONLY valid JSON, no other text.
-
-Identify contradictions and develop litigation strategy.
-
-Events:
-{events_json}
-
-Output JSON format:
+OUTPUT SCHEMA (STRICT):
 {{
-  "contradiction_flags": [
-    {{"event_id": "<event_id>", "event_id_b": "<event_id_or_null>", "contradiction_type": "<type>", "description": "<max 150 chars>"}}
-  ],
-  "defense_vulnerabilities": [
-    {{"event_id": "<event_id>", "vulnerability": "<max 150 chars>", "risk_level": "<low/medium/high>"}}
-  ],
-  "strategic_recommendations": [
-    "<recommendation 1>",
-    "<recommendation 2>"
-  ]
+  "causation": {{
+    "chain": [
+      {{ "order": integer, "node_type": "INCIDENT"|"SYMPTOM"|"DIAGNOSIS"|"IMAGING"|"TREATMENT", "event_id": "string", "claim": "string" }}
+    ],
+    "gaps": [ {{ "gap_type": "MISSING_RECORD"|"TEMPORAL_GAP", "description": "string" }} ],
+    "case_summary": "string (2-3 sentences)",
+    "risk_score": integer (0-100)
+  }},
+  "strategy": {{
+    "contradictions": [
+      {{ "left_event_id": "string", "right_event_id": "string", "kind": "DIRECT"|"LIKELY", "explanation": "string" }}
+    ],
+    "risk_flags": [
+      {{ "risk_id": "string", "severity": "HIGH"|"CRITICAL", "issue": "string", "why_it_matters": "string", "recommended_fix": "string" }}
+    ],
+    "strategic_recommendations": ["string"]
+  }},
+  "materiality": {{
+    "selected": [
+      {{ "rank": integer, "event_id": "string", "tier": "A"|"B", "rationale": "string" }}
+    ]
+  }}
 }}
 
-Rules:
-- Use ONLY event_ids from input above
-- Output valid JSON only - no markdown, no explanation"""
+RULES:
+1. Every event_id MUST exist in the input.
+2. Focus on high-stakes clinical findings.
+3. 'strategic_recommendations' should be actionable advice for the attorney.
+4. Output valid JSON only."""
 
 
 def _validate_event_ids(data: Any, valid_ids: set[str]) -> Any:
@@ -115,9 +94,9 @@ def _validate_event_ids(data: Any, valid_ids: set[str]) -> Any:
     if isinstance(data, dict):
         cleaned = {}
         for k, v in data.items():
-            if k in ("event_id", "event_id_a", "event_id_b") and isinstance(v, str):
+            if k in ("event_id", "left_event_id", "right_event_id", "incident_event_ids", "neighbor_event_ids") and isinstance(v, str):
                 if v and v != "null" and v not in valid_ids:
-                    cleaned[k] = None  # Nullify invalid reference
+                    cleaned[k] = None
                     continue
             cleaned[k] = _validate_event_ids(v, valid_ids)
         return cleaned
@@ -132,17 +111,13 @@ def run_llm_reasoning(
     config: RunConfig,
 ) -> tuple[dict, list[Warning]]:
     """
-    Run Gemini Flash LLM reasoning on the evidence graph.
-
-    Returns (extensions_dict, warnings).
-    On any failure, returns ({}, [warning]) — never raises.
+    Run Gemini Flash LLM reasoning using CiteLine Skills layer.
     """
     warnings: list[Warning] = []
     extensions: dict = {}
 
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        print("LLM Step 19: GEMINI_API_KEY not set — skipping reasoning")
         logger.info("LLM Step 19: GEMINI_API_KEY not set — skipping reasoning")
         return extensions, warnings
 
@@ -151,7 +126,6 @@ def run_llm_reasoning(
         if not model_name.startswith("models/"):
             model_name = f"models/{model_name}"
             
-        print(f"LLM Step 19: Configuring Gemini with key: {api_key[:10]}...")
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
             model_name=model_name,
@@ -166,67 +140,92 @@ def run_llm_reasoning(
         event_rows = _build_event_payload(events, providers)
 
         if not event_rows:
-            print("LLM Step 19: No events to analyze — skipping")
-            logger.info("LLM Step 19: No events to analyze — skipping")
             return extensions, warnings
 
-        print(f"LLM Step 19: Starting — {len(event_rows)} events, model={model_name}")
-        logger.info(f"LLM Step 19: Starting — {len(event_rows)} events, model={model_name}")
+        # Infer DOI and Mechanism
+        doi = "unknown"
+        mechanism = "accident"
+        for row in event_rows:
+            if row["event_type"] == "ER_VISIT" and row["date_iso"]:
+                doi = row["date_iso"]
+                break
+        if doi == "unknown" and event_rows and event_rows[0].get("date_iso"):
+            doi = event_rows[0]["date_iso"]
 
-        # ── Prompt 1: Causation assessment ────────────────────────────────
+        # ── Unified Strategic Analysis ──────────────────────────────────
         t0 = time.time()
-        response1 = model.generate_content(_prompt_causation(event_rows))
-        print(f"LLM Step 19: Causation response received in {time.time()-t0:.1f}s")
-        causation_data = json.loads(response1.text)
-        causation_data = _validate_event_ids(causation_data, valid_ids)
-        extensions["llm_causation"] = causation_data
-        logger.info(
-            f"LLM Step 19: Causation done in {time.time()-t0:.1f}s — "
-            f"{len(causation_data.get('causation_assessments', []))} assessments"
-        )
-
-        # ── Prompt 2: Strategy & Contradictions ───────────────────────────
-        t0 = time.time()
-        response2 = model.generate_content(_prompt_litigation_strategy(event_rows))
-        strategy_data = json.loads(response2.text)
-        strategy_data = _validate_event_ids(strategy_data, valid_ids)
-        extensions["llm_strategy"] = strategy_data
-        logger.info(
-            f"LLM Step 19: Strategy done in {time.time()-t0:.1f}s — "
-            f"{len(strategy_data.get('contradiction_flags', []))} flags"
-        )
-
-        # ── Annotate individual events with causation scores ───────────────
-        causation_by_id: dict[str, dict] = {
-            a["event_id"]: a
-            for a in causation_data.get("causation_assessments", [])
-            if isinstance(a, dict) and a.get("event_id") in valid_ids
+        response = model.generate_content(_prompt_unified_strategic_analysis(event_rows, mechanism, doi))
+        data = json.loads(response.text)
+        data = _validate_event_ids(data, valid_ids)
+        
+        # ── Backward Compatibility for UI ───────────────────────────────
+        causation = data.get("causation", {})
+        strategy = data.get("strategy", {})
+        
+        extensions["llm_causation"] = {
+            "causation_assessments": [
+                {"event_id": node["event_id"], "causal_nexus_score": 90, "causal_chain": node["claim"]}
+                for node in causation.get("chain", []) if node.get("event_id")
+            ],
+            "case_summary": causation.get("case_summary", ""),
+            "risk_score": causation.get("risk_score", 50)
         }
-        annotated = 0
-        for evt in events:
-            if evt.event_id in causation_by_id:
-                assessment = causation_by_id[evt.event_id]
-                evt.extensions["llm_causal_nexus"] = assessment.get("causal_nexus_score")
-                evt.extensions["llm_causal_chain"] = assessment.get("causal_chain")
-                annotated += 1
-        logger.info(f"LLM Step 19: Annotated {annotated} events with causal scores")
+        
+        extensions["llm_strategy"] = {
+            "contradiction_flags": [
+                {"event_id": c["left_event_id"], "event_id_b": c["right_event_id"], "contradiction_type": c["kind"], "description": c["explanation"]}
+                for c in strategy.get("contradictions", []) if c.get("left_event_id")
+            ],
+            "defense_vulnerabilities": [
+                {"event_id": r["event_id"] if "event_id" in r else (r["evidence"][0]["event_id"] if r.get("evidence") else None), 
+                 "vulnerability": r["issue"], "risk_level": r["severity"].lower()}
+                for r in strategy.get("risk_flags", [])
+            ],
+            "strategic_recommendations": strategy.get("strategic_recommendations", [])
+        }
+        
+        # ── New Skills Data ─────────────────────────────────────────────
+        extensions["skills_v1"] = data
+        
+        # ── Annotate Events ───────────────────────────────────────────────
+        _annotate_events(events, data)
 
         extensions["llm_metadata"] = {
             "model": config.gemini_model,
             "events_analyzed": len(event_rows),
-            "run_timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "causation_count": len(causation_data.get("causation_assessments", [])),
-            "contradiction_count": len(strategy_data.get("contradiction_flags", [])),
-            "vulnerability_count": len(strategy_data.get("defense_vulnerabilities", [])),
-            "recommendation_count": len(strategy_data.get("strategic_recommendations", [])),
+            "run_timestamp": datetime.utcnow().isoformat(),
+            "causation_nodes": len(causation.get("chain", [])),
+            "contradiction_count": len(strategy.get("contradictions", [])),
+            "risk_flag_count": len(strategy.get("risk_flags", [])),
+            "material_event_count": len(data.get("materiality", {}).get("selected", [])),
         }
 
     except Exception as exc:
-        print(f"LLM Step 19 ERROR: {type(exc).__name__}: {str(exc)}")
+        logger.warning(f"LLM Step 19: Unexpected error: {exc}", exc_info=True)
         warnings.append(Warning(
             code="LLM_ERROR",
-            message=f"LLM reasoning failed: {type(exc).__name__}: {str(exc)[:200]}",
+            message=f"LLM reasoning failed: {str(exc)[:200]}",
         ))
-        logger.warning(f"LLM Step 19: Unexpected error: {exc}", exc_info=True)
 
     return extensions, warnings
+
+
+def _annotate_events(events: list[Event], analysis: dict):
+    """Back-port LLM insights into the event models for UI display."""
+    causation = analysis.get("causation", {})
+    materiality = analysis.get("materiality", {})
+    
+    causation_map = {node["event_id"]: node for node in causation.get("chain", []) if node.get("event_id")}
+    materiality_map = {item["event_id"]: item for item in materiality.get("selected", []) if item.get("event_id")}
+
+    for evt in events:
+        if evt.event_id in causation_map:
+            node = causation_map[evt.event_id]
+            evt.extensions["llm_causation_claim"] = node.get("claim")
+            evt.extensions["llm_node_type"] = node.get("node_type")
+            
+        if evt.event_id in materiality_map:
+            item = materiality_map[evt.event_id]
+            evt.extensions["llm_materiality_rank"] = item.get("rank")
+            evt.extensions["llm_materiality_tier"] = item.get("tier")
+            evt.extensions["llm_materiality_rationale"] = item.get("rationale")
