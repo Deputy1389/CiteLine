@@ -8,12 +8,20 @@ def get_total_surgeries(events: List[ClinicalEvent]) -> int:
     return len(surg_dates)
 
 def get_injury_summary(events: List[ClinicalEvent]) -> List[str]:
-    """Builds injury list from normalized concept sets, ensuring validity and canonical form."""
+    """Builds injury list from normalized concept sets, including diagnoses."""
     injuries = set()
     for e in events:
+        # Include explicit fractures/tears
         for i in e.fractures.union(e.tears).union(e.fragments).union(e.infections):
             if is_valid_injury(i):
                 norm = normalize_injury_concept(i)
+                if norm:
+                    injuries.add(norm.capitalize())
+        
+        # Include diagnoses (often contains ICD-10 clinical labels)
+        for dx in (e.diagnoses or []):
+            if is_valid_injury(dx):
+                norm = normalize_injury_concept(dx)
                 if norm:
                     injuries.add(norm.capitalize())
     
@@ -50,13 +58,16 @@ def get_case_summary_data(events: List[ClinicalEvent]) -> Dict[str, Any]:
             complications.add("Wound infection")
 
     mechanism = "Not established from records"
-    injury_terms = " ".join(i.lower() for i in get_injury_summary(events))
-    if "gunshot" in injury_terms or "gsw" in injury_terms:
+    all_text = " ".join(a.text.lower() for e in events for a in e.atoms)
+    
+    if "gunshot" in all_text or "gsw" in all_text:
         mechanism = "Gunshot wound"
-    elif "fall" in injury_terms:
-        mechanism = "Fall-related injury"
-    elif "mvc" in injury_terms or "motor vehicle" in injury_terms:
+    elif "motor vehicle" in all_text or " mvc " in all_text or " mva " in all_text or "collision" in all_text:
         mechanism = "Motor vehicle collision"
+    elif " fall" in all_text:
+        mechanism = "Fall-related injury"
+    elif "assault" in all_text:
+        mechanism = "Assault"
 
     return {
         "total_surgeries": get_total_surgeries(events),

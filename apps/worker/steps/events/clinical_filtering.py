@@ -15,7 +15,10 @@ NOISE_REGEXES = [
     r"(?i)^,?$",
     r"(?i)^\.$",
     r"(?i)\bs\s+\d+\b",
-    r"\b\d+-\d+\b"
+    r"\b\d+-\d+\b",
+    r"(?i)\bpage\s*:\s*\d{3}\b",
+    r"(?i)\bfax\s*id\s*:\s*\d+\b",
+    r"(?i)\bfrom\s*:\s*\(?\d{3}\)?\s*\d{3}-\d{4}\b"
 ]
 
 INJURY_KEYWORDS = {"fracture", "tear", "wound", "gsw", "gunshot", "infection", "osteomyelitis", "fragment", "defect", "stiffness", "laceration"}

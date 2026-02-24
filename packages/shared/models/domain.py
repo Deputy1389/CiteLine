@@ -190,6 +190,29 @@ class SkippedEvent(BaseModel):
     snippet: str = Field(max_length=300)
 
 
+class NarrativeEntry(BaseModel):
+    """A claim-anchored chronology row produced by the Composer LLM."""
+    row_id: str
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    label: str = Field(default="General", description="Short phase label e.g. 'Acute Care', 'Imaging'")
+    headline: str = Field(default="", max_length=300, description="One sentence summary of the claim unit")
+    bullets: list[str] = Field(default_factory=list, max_length=5, description="Short supporting points")
+    event_ids: list[str] = Field(default_factory=list, description="Strictly required source event IDs")
+    citation_ids: list[str] = Field(default_factory=list, description="Computed union of source citations")
+    tags: list[str] = Field(default_factory=list, description="e.g. 'imaging', 'surgery', 'gap', 'preexisting'")
+    risk_flags: list[str] = Field(default_factory=list, description="e.g. 'gap_in_care', 'contradiction'")
+    confidence: float = Field(default=0.8, ge=0.0, le=1.0)
+    exportable: bool = True 
+
+
+class NarrativeChronology(BaseModel):
+    """The collection of anchored narrative entries."""
+    generated_at: datetime
+    entries: list[NarrativeEntry] = Field(default_factory=list)
+    model_name: Optional[str] = None
+
+
 class Event(BaseModel):
     event_id: str
     provider_id: Optional[str] = None
@@ -225,6 +248,7 @@ class EvidenceGraph(BaseModel):
     citations: list[Citation] = Field(default_factory=list)
     gaps: list[Gap] = Field(default_factory=list)
     skipped_events: list[SkippedEvent] = Field(default_factory=list)
+    narrative_chronology: Optional[NarrativeChronology] = None
     extensions: dict = Field(default_factory=dict)
 
 

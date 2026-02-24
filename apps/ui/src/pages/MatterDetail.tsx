@@ -49,10 +49,18 @@ export default function MatterDetail() {
     useEffect(() => {
         if (matterId) {
             loadData();
-            const interval = setInterval(checkRuns, 5000);
+            const interval = setInterval(() => {
+                const hasActiveRuns = runs.some(r => r.status === 'pending' || r.status === 'running');
+                const latestCompleted = runs.find(r => completedStatuses.has(r.status));
+                const needsData = latestCompleted && !commandCenterData;
+                
+                if (hasActiveRuns || needsData) {
+                    checkRuns();
+                }
+            }, 5000);
             return () => clearInterval(interval);
         }
-    }, [matterId]);
+    }, [matterId, runs, commandCenterData]);
 
     const loadData = async () => {
         try {

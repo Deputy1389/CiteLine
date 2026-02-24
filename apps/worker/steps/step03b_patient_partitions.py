@@ -5,7 +5,7 @@ import json
 import re
 from collections import defaultdict
 
-from apps.worker.project.chronology import infer_page_patient_labels
+from packages.shared.utils.render_utils import infer_page_patient_labels
 from packages.shared.models import ArtifactRef, Citation, Event, Page
 from packages.shared.storage import save_artifact
 

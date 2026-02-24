@@ -26,6 +26,10 @@ def classify_event(atoms: List[ClinicalAtom]) -> str:
     imaging_anchors = ["x-ray", "xr", "ct", "cta", "mri", "impression", "radiology"]
     has_imaging_anchor = any(anchor in text_blob for anchor in imaging_anchors)
 
+    # Priority 2b: THERAPY
+    therapy_anchors = ["physical therapy", "rom", "range of motion", "therapeutic exercise", "pt session"]
+    has_therapy_anchor = any(anchor in text_blob for anchor in therapy_anchors)
+
     if has_surgery_anchor:
         # Guard: do not classify follow-up/status-post narratives as surgery unless
         # there is active OR/procedure context.
@@ -54,6 +58,9 @@ def classify_event(atoms: List[ClinicalAtom]) -> str:
     if has_imaging_anchor:
         return IMAGING
 
+    if has_therapy_anchor:
+        return THERAPY_REHAB
+
     # Priority 3: PREOPERATIVE_NOTE
     preop_anchors = ["pre-operative", "preoperative", "catheter", "consented", "anesthesia consultation"]
     if any(anchor in text_blob for anchor in preop_anchors):
@@ -77,6 +84,10 @@ def cluster_atoms_into_events(atoms: List[ClinicalAtom]) -> List[ClinicalEvent]:
             by_date[a.date].append(a)
         
     events = []
+    
+    # Track therapy sessions for compression
+    therapy_sessions_by_facility = defaultdict(list)
+
     for day in sorted(by_date.keys()):
         day_atoms = by_date[day]
         etype = classify_event(day_atoms)
@@ -84,7 +95,12 @@ def cluster_atoms_into_events(atoms: List[ClinicalAtom]) -> List[ClinicalEvent]:
         # Resolve provider
         providers = [a.provider for a in day_atoms if a.provider]
         provider = max(set(providers), key=providers.count) if providers else "Unknown Provider"
-        
+        facility = day_atoms[0].facility if day_atoms[0].facility else provider
+
+        if etype == THERAPY_REHAB:
+            therapy_sessions_by_facility[facility].append((day, day_atoms))
+            continue # Defer therapy events for compression
+
         # Merge citations
         all_cits = []
         seen = set()
@@ -100,6 +116,84 @@ def cluster_atoms_into_events(atoms: List[ClinicalAtom]) -> List[ClinicalEvent]:
             title=etype.replace("_", " ").title(),
             atoms=day_atoms, # Strictly uses filtered atoms
             citations=all_cits,
-            provider=provider
+            provider=provider,
+            facility=facility
         ))
-    return events
+
+    # STEP 2: Therapy Compression
+    # If >5 similar PT entries in 30-day window, summarize them.
+    for facility, sessions in therapy_sessions_by_facility.items():
+        if not sessions: continue
+        
+        sessions.sort(key=lambda x: x[0])
+        
+        # Group sessions into 30-day windows
+        current_batch = []
+        batch_start_date = None
+        
+        for day, day_atoms in sessions:
+            if not batch_start_date or (day - batch_start_date).days > 30:
+                if current_batch:
+                    events.append(_create_therapy_summary(current_batch, facility))
+                current_batch = [(day, day_atoms)]
+                batch_start_date = day
+            else:
+                current_batch.append((day, day_atoms))
+        
+        if current_batch:
+            events.append(_create_therapy_summary(current_batch, facility))
+
+    return sorted(events, key=lambda e: e.date)
+
+def _create_therapy_summary(batch: List[tuple], facility: str) -> ClinicalEvent:
+    """Creates a summarized block for a course of therapy."""
+    start_date = batch[0][0]
+    end_date = batch[-1][0]
+    all_atoms = []
+    all_cits = []
+    seen_cits = set()
+    
+    for _, atoms in batch:
+        all_atoms.extend(atoms)
+        for a in atoms:
+            for c in a.citations:
+                if (c.doc_id, c.page) not in seen_cits:
+                    all_cits.append(c)
+                    seen_cits.add((c.doc_id, c.page))
+    
+    visit_count = len(batch)
+    summary_text = f"Ongoing PT course ({visit_count} visits) at {facility}."
+    
+    # Try to extract trend
+    pain_scores = []
+    for a in all_atoms:
+        m = re.search(r"pain\s*(?:level|score)?\s*[:=]?\s*(\d+)/10", a.text.lower())
+        if m: pain_scores.append(int(m.group(1)))
+    
+    if pain_scores:
+        start_pain = pain_scores[0]
+        end_pain = pain_scores[-1]
+        if start_pain > end_pain:
+            summary_text += f" Documenting improvement in pain from {start_pain}/10 to {end_pain}/10."
+        elif start_pain < end_pain:
+            summary_text += f" Noted persistent/increased pain levels peaking at {max(pain_scores)}/10."
+        else:
+            summary_text += f" Documenting persistent pain at {start_pain}/10."
+
+    summary_atom = ClinicalAtom(
+        date=start_date,
+        text=summary_text,
+        kind="encounter",
+        citations=all_cits,
+        facility=facility
+    )
+
+    return ClinicalEvent(
+        date=start_date,
+        event_type=THERAPY_REHAB,
+        title="Therapy Course Summary",
+        atoms=[summary_atom],
+        citations=all_cits,
+        provider=facility,
+        facility=facility
+    )

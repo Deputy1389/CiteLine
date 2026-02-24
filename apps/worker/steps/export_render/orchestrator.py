@@ -14,7 +14,8 @@ from typing import TYPE_CHECKING
 
 from packages.shared.models import ArtifactRef, ChronologyExports, ChronologyOutput
 from packages.shared.storage import save_artifact
-from apps.worker.project.chronology import build_chronology_projection, infer_page_patient_labels
+from apps.worker.project.chronology import build_chronology_projection
+from packages.shared.utils.render_utils import infer_page_patient_labels
 from apps.worker.project.models import ChronologyProjection
 from apps.worker.lib.claim_guard import apply_claim_guard_to_narrative
 from apps.worker.lib.claim_ledger_lite import build_claim_ledger_lite

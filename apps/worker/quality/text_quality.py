@@ -35,12 +35,14 @@ _STOPWORDS = {
 }
 
 _FAX_ARTIFACT_RE = re.compile(
-    r"^(from|to|fax|page|date|time)\s*[:#]"
+    r"^(from|to|fax|page|date|time|sent)\s*[:#]"
     r"|^fax\s*id\s*[:#]"
     r"|^\s*\d{3}[-\s]?\d{3}[-\s]?\d{4}\s*$"
     r"|\bto\s*:\s*records?\s*(?:dept|department)\b"
     r"|\bpage\s*:\s*0*\d+\s*$"
-    r"|\brecords\s*dept\b",
+    r"|\brecords\s*dept\b"
+    r"|^\s*from\s*:\s*\(?\d{3}\)?\s*\d{3}-\d{4}\s*$"
+    r"|^\s*page\s*:\s*\d{3}\s*$",
     re.IGNORECASE,
 )
 # Date-prefixed fax routing lines: "10/11/2024 12:01 FROM: ..."
@@ -51,7 +53,9 @@ _FAX_DATE_FROM_RE = re.compile(
 # Inline fax footer: timestamps, phone numbers, and page markers that appear mid-text after line joining
 _FAX_INLINE_RE = re.compile(
     r"\s*\d{1,2}/\d{1,2}/\d{2,4}\s+\d{1,2}:\d{2}\s+\(?\d{3}\)?[-\s]\d{3}[-\s]\d{4}\s+P\.\d+\.?"
-    r"|\s*\(?\d{3}\)?[-\s]\d{3}[-\s]\d{4}\s+P\.\d+\.?",  # standalone phone+page
+    r"|\s*\(?\d{3}\)?[-\s]\d{3}[-\s]\d{4}\s+P\.\d+\.?"
+    r"|\s*Fax\s*ID\s*:\s*\d+\s*"
+    r"|\s*Page\s*:\s*\d+\s*",
     re.IGNORECASE,
 )
 _REPEATED_LABEL_RE = re.compile(r"(pain assessment:?\s*){2,}", re.IGNORECASE)

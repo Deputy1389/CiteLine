@@ -166,95 +166,168 @@ def _missing_record_rows(ext: dict, missing_records_payload: dict | None) -> lis
     return rows
 
 
+def _materiality_score(entry, cluster_rank: int, cluster_size: int) -> int:
+    """
+    Deterministic materiality score (0-100) per event.
+    Materiality = Objective medical signal + legal leverage – noise – repetition.
+    """
+    label = (entry.event_type_display or "").lower()
+    facts = getattr(entry, "facts", [])
+    blob = " ".join(facts).lower() if isinstance(facts, list) else str(facts).lower()
+
+    score = 0
+    
+    # A) Base by event_type (objective preference)
+    if "imaging" in label:
+        score += 18
+    elif "procedure" in label:
+        score += 22
+    elif "emergency" in label:
+        score += 16
+    elif "ortho" in label or "consult" in label:
+        score += 14
+    elif "clinical note" in label:
+        score += 8
+    elif "medication" in label:
+        score += 10
+    elif "physical therapy" in label or "therapy" in label or "pt" in label:
+        score += 4
+    else:
+        score += 5
+
+    # B) Objective findings bonus
+    has_imaging_anchor = bool(re.search(r"\b(impression|assessment|diagnosis|mri|ct|x-?ray)\b", blob))
+    has_pathology = bool(re.search(r"\b(fracture|tear|radiculopathy|protrusion|herniation|stenosis|dislocation|nerve root|impingement)\b", blob))
+    has_icd = bool(re.search(r"\b[A-TV-Z][0-9][0-9A-Z](?:\.[0-9A-Z]{1,4})?\b", blob))
+    has_performed_proc = bool(re.search(r"\b(performed|procedure note|operative report|injection performed)\b", blob))
+    has_planned_proc = bool(re.search(r"\b(planned|recommended|consider)\b", blob))
+    
+    if has_imaging_anchor:
+        score += 18
+        if has_pathology:
+            score += 7
+    if has_performed_proc:
+        score += 20
+    elif has_planned_proc:
+        score += 6
+    if has_icd:
+        score += 12
+    elif "diagnosis" in blob or "assessment" in blob:
+        score += 8
+
+    # C) Treatment escalation bonus
+    if "ordered" in blob and ("mri" in blob or "consult" in blob):
+        score += 8
+    if "referral" in blob or "refer to" in blob:
+        score += 6
+    if "surgery" in blob and ("recommend" in blob or "planned" in blob):
+        score += 8
+
+    # E) Citation strength bonus
+    # (Simplified for ProjectionEntry which doesn't expose raw citation count easily)
+    if entry.citation_display:
+        score += 4
+
+    # G) Repetition penalty (the PT spam killer)
+    is_pt = "therapy" in label or "pt" in label or "physical therapy" in label
+    if is_pt and cluster_size > 5:
+        score -= 12 * min(5, max(0, cluster_rank - 1))
+
+    # Ceilings
+    if is_pt:
+        score = min(score, 25)
+    elif "clinical note" in label and not (has_icd or has_pathology or has_performed_proc):
+        score = min(score, 30)
+
+    # Dictionary match ratio penalty (Simulated via word salad check)
+    from apps.worker.steps.export_render.common import _sanitize_top10_sentence
+    if not _sanitize_top10_sentence(blob):
+        score -= 40
+
+    return max(0, min(100, score))
+
+
 def _top10_rows(projection_entries: list, score_func: Any) -> list[str]:
-    candidates = []
+    eligible = []
     for entry in projection_entries:
         blob = " ".join(entry.facts or []).lower()
-        if "routine follow-up" in blob and "acetaminophen" in blob:
+        if _is_sdoh_noise(blob) or "routine follow-up" in blob or "preferred language" in blob:
             continue
-        if "routine continuity gap" in blob:
-            continue
-        if "difficult mission late kind" in blob:
-            continue
-        if "preferred language" in blob:
-            continue
-        if _is_sdoh_noise(blob):
-            continue
-        # Referenced Prior Events are historical references, not discrete clinical events.
-        if "referenced" in (entry.event_type_display or "").lower():
-            continue
-        # Patient intake questionnaires are administrative intake forms, not clinical events.
-        if "intake questionnaire" in blob:
-            continue
-
-        # Evidence fence — hard integrity requirements for Case Driving Events.
-        # These checks are NON-NEGOTIABLE: if any fail the entry is excluded entirely.
-        # 1. Synthetic bucket entries (mri_anchor_*, ortho_anchor_*, proc_anchor_*) are
-        #    enrichment placeholders, not real events — never allowed in Case Driving.
+        
+        # Hard eligibility fence
         event_id = entry.event_id or ""
         if any(event_id.startswith(pfx) for pfx in ("mri_anchor_", "ortho_anchor_", "proc_anchor_")):
             continue
-        # 2. Entries must have at least one citation traceable to source pages.
         if not entry.citation_display:
             continue
-        # 3. Undated events have no established temporal foothold — exclude.
-        # Check "date not documented" specifically — not just "not documented" which would
-        # also match "(time not documented)" present in every dated entry.
         date_disp = (entry.date_display or "").lower().strip()
         if date_disp.startswith("date not documented") or date_disp in ("undated", "unknown", "date unknown"):
             continue
-        # 4. Aggregate PT summary rows are derived statistics, not discrete events.
-        if "pt sessions documented" in blob or (
-            "physical therapy" in blob and "session" in blob and "documented" in blob
-        ):
-            continue
 
-        score = score_func(entry)
+        eligible.append(entry)
+
+    # Build clusters for repetition control
+    # Simplification: cluster by (normalized_type, provider)
+    from apps.worker.steps.export_render.common import _normalized_encounter_label
+    clusters = {}
+    for e in eligible:
+        etype = _normalized_encounter_label(e).lower()
+        provider = str(getattr(e, "provider_display", "unknown"))
+        key = (etype, provider)
+        if key not in clusters: clusters[key] = []
+        clusters[key].append(e)
+
+    candidates = []
+    for key, group in clusters.items():
+        # Sort group by date
+        group.sort(key=lambda x: (parse_date_string(x.date_display) or date.min, x.event_id))
+        for i, entry in enumerate(group, start=1):
+            score = _materiality_score(entry, cluster_rank=i, cluster_size=len(group))
+            if score >= 45: # Minimum threshold
+                candidates.append((score, entry))
+
+    # Selection with Buckets (Quotas)
+    # Imaging: 3, Procedure: 2, ER: 2, Ortho: 2, DX: 2, Other: 1
+    buckets = {
+        "imaging": {"quota": 3, "count": 0, "patterns": [r"imaging", r"mri", r"ct", r"x-ray"]},
+        "procedure": {"quota": 2, "count": 0, "patterns": [r"procedure", r"surgery", r"injection"]},
+        "er": {"quota": 2, "count": 0, "patterns": [r"emergency", r"er", r"ed"]},
+        "ortho": {"quota": 2, "count": 0, "patterns": [r"ortho", r"consult"]},
+        "dx": {"quota": 2, "count": 0, "patterns": [r"diagnosis", r"assessment", r"medication"]},
+    }
+    
+    selected_entries = []
+    scored_sorted = sorted(candidates, key=lambda x: x[0], reverse=True)
+    
+    for score, entry in scored_sorted:
         label = (entry.event_type_display or "").lower()
-        if "emergency" in label:
-            score += 10
-        if "imaging" in label:
-            score += 10
-        if "procedure" in label:
-            score += 15
-        candidates.append((score, entry))
-
-    scored = sorted(candidates, key=lambda x: x[0], reverse=True)
-    top10_entries = []
-    seen_blobs = set()
-    for _, entry in scored:
-        blob = " ".join(entry.facts or []).lower().strip()
-        clean_blob = re.sub(r"\W+", " ", blob)
-        if clean_blob in seen_blobs:
-            continue
-        seen_blobs.add(clean_blob)
-        top10_entries.append(entry)
-        if len(top10_entries) >= 10:
-            break
+        blob = " ".join(entry.facts or []).lower()
+        
+        placed = False
+        for bkey, bcfg in buckets.items():
+            if any(re.search(p, label) or re.search(p, blob) for p in bcfg["patterns"]):
+                if bcfg["count"] < bcfg["quota"]:
+                    selected_entries.append(entry)
+                    bcfg["count"] += 1
+                    placed = True
+                break
+        
+        if not placed and len(selected_entries) < 10:
+            # Roll-down for non-quota slots (but excluding repetitive PT singles)
+            if "therapy" not in label and "pt" not in label:
+                selected_entries.append(entry)
 
     top10_entries = sorted(
-        top10_entries,
+        selected_entries[:10],
         key=lambda e: (parse_date_string(e.date_display) or date.min, e.event_id),
     )
+    
     rows = []
-    same_day_label_counts: dict[tuple[str, str], int] = {}
     for entry in top10_entries:
         evt_date = parse_date_string(entry.date_display)
         date_label = evt_date.isoformat() if evt_date else (entry.date_display or "Undated")
         facts_blob = _sanitize_render_sentence(" ".join(entry.facts or []))
-        facts_blob = re.sub(r"\.\.+", ".", facts_blob)
-        facts_blob = re.sub(r"\s{2,}", " ", facts_blob).strip()
-        facts_blob = re.sub(r"\b(?:and|or|with|to)\.?\s*$", "", facts_blob, flags=re.IGNORECASE).strip()
-        if not facts_blob:
-            continue
-        if is_garbage(facts_blob):
-            continue
-        if not entry.citation_display:
-            continue
-        same_day_label = (date_label, str(entry.event_type_display or "").strip().lower())
-        if same_day_label_counts.get(same_day_label, 0) >= 2:
-            continue
-        same_day_label_counts[same_day_label] = same_day_label_counts.get(same_day_label, 0) + 1
+        if not facts_blob: continue
         rows.append(f"{date_label} | {entry.event_type_display} | {facts_blob}")
     return rows
 
