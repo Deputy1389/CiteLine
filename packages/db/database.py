@@ -127,3 +127,6 @@ def get_db() -> Generator[Session, None, None]:
         raise
     finally:
         session.close()
+
+# For backward compatibility with existing tests
+engine = get_engine()

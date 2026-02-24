@@ -85,6 +85,14 @@ def improve_legal_usability(events: list[Event]) -> list[Event]:
             
         # Update current event facts
         event.facts = clean_facts
+        
+        # Re-sync top-level event citation_ids from constituent facts
+        all_cids = []
+        for f in clean_facts:
+            all_cids.extend(f.citation_ids)
+            if f.citation_id: all_cids.append(f.citation_id)
+        event.citation_ids = list(set(all_cids))
+
         # Re-extract author from cleaned facts if not set or if new signature found
         _update_author_from_facts(event)
         

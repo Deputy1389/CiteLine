@@ -173,7 +173,7 @@ def generate_pdf_from_projection(
     flowables = [Paragraph(f"Medical Chronology: {matter_title}", title_style)]
 
     # Moat section (top of document)
-    flowables.append(Paragraph("Moat Analysis", h1_style))
+    flowables.append(Paragraph("Medical Chronology Analysis", h1_style))
     moat_flowables, moat_stats = build_moat_section_flowables(
         projection_entries=projection.entries,
         evidence_graph_payload=evidence_graph_payload,

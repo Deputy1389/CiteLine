@@ -56,38 +56,45 @@ export default function MatterList() {
                 <ArrowLeft size={16} /> Back to Firms
             </Link>
 
-            <header style={{ marginBottom: '2rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem' }}>
-                <h1 className="flex items-center gap-4">
-                    <Briefcase size={32} style={{ color: 'var(--primary)' }} />
+            <header style={{ marginBottom: '2.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem' }}>
+                <h1 className="flex items-center gap-4 font-serif text-4xl">
+                    <div style={{ background: 'rgba(56, 189, 248, 0.1)', padding: '10px', borderRadius: '12px' }}>
+                        <Briefcase size={28} style={{ color: 'var(--primary)' }} />
+                    </div>
                     {firm.name}
                 </h1>
-                <p className="text-muted" style={{ marginLeft: '48px' }}>Manage matters for this firm</p>
+                <p className="text-slate-400" style={{ marginLeft: '68px', fontSize: '1rem' }}>Active litigation matters and record analysis</p>
             </header>
 
-            <div className="grid gap-4" style={{ marginBottom: '2rem' }}>
+            <div className="grid gap-4" style={{ marginBottom: '3rem' }}>
                 {matters.map(matter => (
                     <Link
                         key={matter.id}
                         to={`/matters/${matter.id}`}
                         className="card"
-                        style={{ textDecoration: 'none', display: 'block' }}
+                        style={{ display: 'block', padding: '1.25rem 1.5rem' }}
                     >
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-center">
                             <div>
-                                <h2 style={{ marginBottom: '0.25rem' }}>{matter.title}</h2>
-                                <div className="flex gap-4 text-sm text-muted">
+                                <h2 style={{ marginBottom: '0.4rem', fontSize: '1.4rem' }} className="font-serif group-hover:text-primary transition-colors">{matter.title}</h2>
+                                <div className="flex gap-4 text-xs text-slate-500 uppercase tracking-wider font-bold">
                                     {matter.client_ref && (
-                                        <span className="badge">Ref: {matter.client_ref}</span>
+                                        <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.05)', color: 'var(--primary)', border: '1px solid rgba(56, 189, 248, 0.1)' }}>Ref: {matter.client_ref}</span>
                                     )}
-                                    <span className="flex items-center gap-1">
-                                        <Calendar size={14} />
-                                        {new Date(matter.created_at || '').toLocaleDateString()}
+                                    <span className="flex items-center gap-1.5">
+                                        <Calendar size={13} />
+                                        Created {new Date(matter.created_at || '').toLocaleDateString()}
                                     </span>
                                 </div>
                             </div>
-                            <code className="text-xs text-muted bg-input px-2 py-1 rounded">
-                                {matter.id.slice(0, 8)}...
-                            </code>
+                            <div className="flex items-center gap-4">
+                                <code className="text-[10px] text-slate-600 bg-slate-900/50 px-2 py-1 rounded border border-slate-800 font-mono">
+                                    {matter.id.slice(0, 8)}
+                                </code>
+                                <div className="text-slate-700">
+                                    <ArrowLeft size={18} style={{ transform: 'rotate(180deg)' }} />
+                                </div>
+                            </div>
                         </div>
                     </Link>
                 ))}

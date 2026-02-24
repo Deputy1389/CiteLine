@@ -36,11 +36,11 @@ def test_pdf_order_and_junk_filter() -> None:
     )
     reader = PdfReader(io.BytesIO(pdf_bytes))
     full_text = "\n".join([p.extract_text() or "" for p in reader.pages])
-    assert "Moat Analysis" in full_text
+    assert "Medical Chronology Analysis" in full_text
     assert "Executive Summary" in full_text
     assert "Chronological Medical Timeline" in full_text
     assert "Medical Record Appendix" in full_text
-    assert full_text.find("Moat Analysis") < full_text.find("Executive Summary")
+    assert full_text.find("Medical Chronology Analysis") < full_text.find("Executive Summary")
     assert full_text.find("Executive Summary") < full_text.find("Chronological Medical Timeline")
     assert full_text.find("Chronological Medical Timeline") < full_text.find("Medical Record Appendix")
     assert "Very partner example rate remain better letter vehicle just." in full_text

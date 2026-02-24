@@ -149,12 +149,17 @@ def clean_and_validate_facts(facts: list[Fact]) -> list[Fact]:
     return final
 
 def _derive_fact(original: Fact, new_text: str) -> Fact:
+    # Explicitly copy citation_ids list to avoid mutation side effects
+    cids = list(original.citation_ids)
+    if original.citation_id and original.citation_id not in cids:
+        cids.append(original.citation_id)
+        
     return Fact(
         text=new_text,
         kind=original.kind,
         verbatim=original.verbatim,
         citation_id=original.citation_id,
-        citation_ids=original.citation_ids,
+        citation_ids=cids,
         confidence=original.confidence
     )
 

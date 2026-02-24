@@ -220,7 +220,7 @@ def run_pipeline(run_id: str) -> None:
         evidence_graph.extensions["event_weighting"] = weight_summary
 
         # ── Step 14-17: Artifacts ──
-        claim_edges = build_claim_edges([], raw_events=chronology_events)
+        claim_edges = build_claim_edges([], raw_events=chronology_events, all_citations=all_citations)
         evidence_graph.extensions.update(_build_litigation_extensions(claim_edges))
         
         providers_normalized = normalize_provider_entities(evidence_graph)

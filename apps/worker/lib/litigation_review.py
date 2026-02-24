@@ -120,8 +120,12 @@ class LitigationReviewer:
         if event_count > 0:
             uncited_count = 0
             for e in self.data['events']:
-                cits = e.get('citations') if isinstance(e, dict) else e.citations
-                # Check source_files/source_page_numbers as well if needed
+                # Support both naming conventions
+                if isinstance(e, dict):
+                    cits = e.get('citations') or e.get('citation_ids')
+                else:
+                    cits = getattr(e, 'citations', None) or getattr(e, 'citation_ids', None)
+                
                 if not cits:
                     uncited_count += 1
             

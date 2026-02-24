@@ -81,10 +81,11 @@ def _render_entry(
     
     raw_facts = [sanitize_for_report(clean_text(f.strip())) for f in (entry.facts or []) if f and f.strip()]
     facts = [_clean_direct_snippet(f.strip()) for f in raw_facts]
-    facts = [f for f in facts if f]
+    facts = [f for f in facts if f and not _is_sdoh_noise(f)] # Filter SDOH noise early
     if not facts and select_timeline: return []
     # If no high-value facts but we want comprehensive, use whatever raw fragments we have
-    if not facts: facts = raw_facts[:5]
+    if not facts: 
+        facts = [f for f in raw_facts if not _is_sdoh_noise(f)][:5]
 
 
     from apps.worker.steps.export_render.projection_enrichment import _normalize_event_class_local

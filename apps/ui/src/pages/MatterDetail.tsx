@@ -8,12 +8,13 @@ import {
 import { ARTIFACT_TYPES } from '../artifacts';
 import {
     FileText, Upload, Play, Clock, CheckCircle, AlertTriangle,
-    FileSpreadsheet, ArrowLeft, RefreshCw, Loader2, Scale, GitBranch, ShieldAlert, ListChecks, ExternalLink
+    FileSpreadsheet, ArrowLeft, RefreshCw, Loader2, Scale, GitBranch, ShieldAlert, ListChecks, ExternalLink, Calendar
 } from 'lucide-react';
+import TimelineView, { type ClaimRow } from '../components/TimelineView';
 
 type CommandCenterData = {
     runId: string;
-    claimRows: Record<string, any>[];
+    claimRows: ClaimRow[];
     causationChains: Record<string, any>[];
     collapseCandidates: Record<string, any>[];
     contradictionMatrix: Record<string, any>[];
@@ -42,9 +43,37 @@ export default function MatterDetail() {
     const [commandCenterError, setCommandCenterError] = useState<string | null>(null);
     const [commandCenterData, setCommandCenterData] = useState<CommandCenterData | null>(null);
 
+    const [selectedCitation, setSelectedCitation] = useState<CitationLink | null>(null);
+    const [dockWidth, setDockWidth] = useState(window.innerWidth * 0.45);
+    const isResizing = useRef(false);
+
+    const startResizing = (e: React.MouseEvent) => {
+        isResizing.current = true;
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', stopResizing);
+        document.body.style.cursor = 'col-resize';
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+        if (!isResizing.current) return;
+        const newWidth = window.innerWidth - e.clientX;
+        if (newWidth > 300 && newWidth < window.innerWidth * 0.8) {
+            setDockWidth(newWidth);
+        }
+    };
+
+    const stopResizing = () => {
+        isResizing.current = false;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', stopResizing);
+        document.body.style.cursor = 'default';
+    };
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const commandCenterRef = useRef<HTMLElement | null>(null);
-    const view = searchParams.get('view') === 'audit' ? 'audit' : 'intake';
+    
+    const viewParam = searchParams.get('view');
+    const view = (viewParam === 'audit' || viewParam === 'timeline') ? viewParam : 'intake';
 
     useEffect(() => {
         if (matterId) {
@@ -125,7 +154,7 @@ export default function MatterDetail() {
 
             setCommandCenterData({
                 runId: latest.id,
-                claimRows: Array.isArray(ext?.claim_rows) ? ext.claim_rows : [],
+                claimRows: (Array.isArray(ext?.claim_rows) ? ext.claim_rows : []) as ClaimRow[],
                 causationChains: Array.isArray(ext?.causation_chains) ? ext.causation_chains : [],
                 collapseCandidates: Array.isArray(ext?.case_collapse_candidates) ? ext.case_collapse_candidates : [],
                 contradictionMatrix: Array.isArray(ext?.contradiction_matrix) ? ext.contradiction_matrix : [],
@@ -145,7 +174,7 @@ export default function MatterDetail() {
     }, [matterId, runs]);
 
     useEffect(() => {
-        if (view === 'audit' && commandCenterRef.current) {
+        if ((view === 'audit' || view === 'timeline') && commandCenterRef.current) {
             commandCenterRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     }, [view, commandCenterData, commandCenterLoading]);
@@ -257,6 +286,17 @@ export default function MatterDetail() {
                     Intake
                 </button>
                 <button
+                    onClick={() => setSearchParams({ view: 'timeline' })}
+                    className="btn"
+                    style={{
+                        background: view === 'timeline' ? 'var(--info)' : 'transparent',
+                        border: '1px solid var(--border)',
+                        color: view === 'timeline' ? 'white' : 'var(--text-muted)'
+                    }}
+                >
+                    Timeline
+                </button>
+                <button
                     onClick={() => setSearchParams({ view: 'audit' })}
                     className="btn"
                     style={{
@@ -268,40 +308,76 @@ export default function MatterDetail() {
                 </button>
             </div>
 
-            <div className="grid grid-cols-main gap-8">
+            {view === 'timeline' && commandCenterData ? (
+                 <div className="animate-fade">
+                    <section className="card" style={{ padding: '1.5rem', marginBottom: '2rem', borderLeft: '4px solid var(--warning)' }}>
+                        <h3 className="font-serif text-xl mb-3 flex items-center gap-2">
+                            <Scale className="text-warning" size={20} /> Case-Driving Claims
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            {commandCenterData.claimRows
+                                .filter(r => r.claim_type === 'PROCEDURE' || r.claim_type === 'IMAGING_FINDING')
+                                .slice(0, 4)
+                                .map(r => (
+                                    <div key={r.id} className="p-3 bg-slate-950/30 border border-slate-800 rounded-md">
+                                        <div className="text-[10px] uppercase font-bold text-sky-400 tracking-wider mb-1">{r.claim_type}</div>
+                                        <div className="text-sm line-clamp-2 text-slate-200 leading-snug">{r.assertion}</div>
+                                        <div className="mt-2 text-[10px] text-slate-500 font-mono">{r.date}</div>
+                                    </div>
+                                ))
+                            }
+                        </div>
+                    </section>
 
+                    <section className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                        <TimelineView 
+                            rows={commandCenterData.claimRows} 
+                            docs={docs} 
+                            onCitationClick={(link) => setSelectedCitation({ 
+                                href: link.href, 
+                                label: link.label, 
+                                filename: link.title,
+                                page: parseInt(link.label.replace('p.', ''), 10)
+                            })}
+                        />
+                    </section>
+                 </div>
+            ) : (
+                <div className="animate-fade">
+                <div className="grid grid-cols-main gap-8">
                 {/* Left Column: Documents */}
                 <section className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h2 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <FileText style={{ color: 'var(--primary)' }} /> Source Documents
+                    <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h2 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }} className="font-serif">
+                            <FileText style={{ color: 'var(--primary)' }} size={20} /> Source Documents
                         </h2>
-                        <div className="text-xs font-mono bg-input px-2 py-1 rounded text-muted">
+                        <div className="text-[10px] font-bold uppercase tracking-widest bg-slate-900 px-2 py-1 rounded text-slate-400 border border-slate-800">
                             {docs.length} Files
                         </div>
                     </div>
 
                     <div style={{ padding: '1rem', maxHeight: '500px', overflowY: 'auto' }}>
                         {docs.map(doc => (
-                            <div key={doc.id} className="file-item" style={{ marginBottom: '0.5rem' }}>
-                                <FileText size={20} className="text-muted flex-shrink-0" />
+                            <div key={doc.id} className="file-item" style={{ marginBottom: '0.5rem', background: 'rgba(15, 23, 42, 0.3)' }}>
+                                <FileText size={18} className="text-slate-500 flex-shrink-0" />
                                 <div style={{ minWidth: 0, flex: 1 }}>
-                                    <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={doc.filename}>{doc.filename}</div>
-                                    <div className="text-xs text-muted flex gap-3">
+                                    <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.9rem' }} title={doc.filename}>{doc.filename}</div>
+                                    <div className="text-[11px] text-slate-500 flex gap-3 mt-0.5">
                                         <span>{(doc.bytes / 1024 / 1024).toFixed(2)} MB</span>
+                                        <span className="opacity-50">•</span>
                                         <span>{new Date(doc.uploaded_at).toLocaleDateString()}</span>
                                     </div>
                                 </div>
                             </div>
                         ))}
                         {docs.length === 0 && (
-                            <div className="empty-state" style={{ padding: '2rem' }}>
-                                No documents uploaded yet.
+                            <div className="empty-state">
+                                No documents uploaded.
                             </div>
                         )}
                     </div>
 
-                    <div style={{ padding: '1rem', borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
+                    <div style={{ padding: '1.25rem', borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.01)' }}>
                         <input
                             type="file"
                             ref={fileInputRef}
@@ -314,15 +390,15 @@ export default function MatterDetail() {
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading}
                             className="btn"
-                            style={{ width: '100%', justifyContent: 'center', border: '2px dashed var(--border)', background: 'transparent' }}
+                            style={{ width: '100%', justifyContent: 'center', border: '1px dashed var(--border)', background: 'transparent' }}
                         >
                             {uploading ? (
                                 <>
-                                    <Loader2 className="animate-spin" /> Uploading...
+                                    <Loader2 className="animate-spin" size={18} /> Processing...
                                 </>
                             ) : (
                                 <>
-                                    <Upload size={20} /> Upload PDF
+                                    <Upload size={18} /> Add Medical Record (PDF)
                                 </>
                             )}
                         </button>
@@ -331,245 +407,231 @@ export default function MatterDetail() {
 
                 {/* Right Column: Runs */}
                 <section className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h2 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <RefreshCw style={{ color: 'var(--warning)' }} /> Run History
+                    <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h2 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }} className="font-serif">
+                            <RefreshCw style={{ color: 'var(--warning)' }} size={20} /> Analysis History
                         </h2>
-                        <button onClick={loadData} className="text-muted hover:text-white" title="Refresh" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                        <button onClick={loadData} className="text-slate-500 hover:text-white transition-colors" title="Refresh" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
                             <RefreshCw size={16} />
                         </button>
                     </div>
 
                     <div style={{ padding: '1rem', maxHeight: '600px', overflowY: 'auto' }}>
                         {runs.map(run => (
-                            <div key={run.id} className="run-item">
+                            <div key={run.id} className="run-item" style={{ background: 'rgba(15, 23, 42, 0.4)', borderColor: 'rgba(255,255,255,0.05)' }}>
                                 <div className="flex justify-between items-start" style={{ marginBottom: '0.75rem' }}>
                                     <div className="flex items-center gap-2">
-                                        {run.status === 'success' && <CheckCircle style={{ color: 'var(--success)' }} size={18} />}
-                                        {run.status === 'pending' && <Clock style={{ color: 'var(--warning)' }} size={18} />}
-                                        {run.status === 'running' && <Loader2 style={{ color: 'var(--primary)' }} className="animate-spin" size={18} />}
-                                        {run.status === 'failed' && <AlertTriangle style={{ color: 'var(--danger)' }} size={18} />}
-                                        <span className="font-semibold capitalize">{run.status}</span>
+                                        {run.status === 'success' && <CheckCircle style={{ color: 'var(--success)' }} size={16} />}
+                                        {run.status === 'pending' && <Clock style={{ color: 'var(--warning)' }} size={16} />}
+                                        {run.status === 'running' && <Loader2 style={{ color: 'var(--primary)' }} className="animate-spin" size={16} />}
+                                        {run.status === 'failed' && <AlertTriangle style={{ color: 'var(--danger)' }} size={16} />}
+                                        <span className="text-xs font-bold uppercase tracking-wider">{run.status}</span>
                                     </div>
-                                    <div className="text-xs text-muted font-mono">
-                                        {new Date(run.started_at || Date.now()).toLocaleString()}
+                                    <div className="text-[10px] text-slate-500 font-mono">
+                                        {new Date(run.started_at || Date.now()).toLocaleDateString()}
                                     </div>
                                 </div>
 
                                 {run.metrics && (
-                                    <div className="grid grid-cols-2 gap-2 text-xs text-muted mb-3" style={{ background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '4px' }}>
-                                        <div>Pages: <span className="text-main">{run.metrics.page_count}</span></div>
-                                        <div>Events: <span className="text-main">{run.metrics.event_count}</span></div>
-                                        <div>Providers: <span className="text-main">{run.metrics.provider_count}</span></div>
-                                        <div>Duration: <span className="text-main">{(run.processing_seconds || 0).toFixed(1)}s</span></div>
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-400 mb-3 border-t border-white/5 pt-2">
+                                        <div>Pages: <span className="text-slate-200">{run.metrics.page_count}</span></div>
+                                        <div>Events: <span className="text-slate-200">{run.metrics.event_count}</span></div>
+                                        <div>Duration: <span className="text-slate-200">{(run.processing_seconds || 0).toFixed(0)}s</span></div>
                                     </div>
                                 )}
 
                                 {run.status === 'success' && (
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        <a
-                                            href={getArtifactUrl(run.id, ARTIFACT_TYPES.DOCX)}
-                                            target="_blank"
-                                            className="artifact-link"
-                                            style={{ color: '#93c5fd', borderColor: 'rgba(147, 197, 253, 0.2)' }}
-                                            rel="noreferrer"
-                                        >
-                                            <FileText size={14} /> Docx
+                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                        <a href={getArtifactUrl(run.id, ARTIFACT_TYPES.PDF)} target="_blank" className="artifact-link" rel="noreferrer">
+                                            <FileText size={12} /> PDF
                                         </a>
-                                        <a
-                                            href={getArtifactUrl(run.id, ARTIFACT_TYPES.PDF)}
-                                            target="_blank"
-                                            className="artifact-link"
-                                            style={{ color: '#d8b4fe', borderColor: 'rgba(216, 180, 254, 0.2)' }}
-                                            rel="noreferrer"
-                                        >
-                                            <FileText size={14} /> Chronology (PDF)
+                                        <a href={getArtifactUrl(run.id, ARTIFACT_TYPES.DOCX)} target="_blank" className="artifact-link" rel="noreferrer">
+                                            <FileText size={12} /> Word
                                         </a>
-                                        <a
-                                            href={getArtifactUrl(run.id, ARTIFACT_TYPES.SPECIALS_SUMMARY_PDF)}
-                                            target="_blank"
-                                            className="artifact-link"
-                                            style={{ color: '#d8b4fe', opacity: 0.6, borderColor: 'rgba(216, 180, 254, 0.1)' }}
-                                            rel="noreferrer"
-                                        >
-                                            <FileText size={14} /> Bills
+                                        <a href={getArtifactUrl(run.id, ARTIFACT_TYPES.SPECIALS_SUMMARY_PDF)} target="_blank" className="artifact-link" rel="noreferrer" style={{ opacity: 0.8 }}>
+                                            <FileText size={12} /> Bills
                                         </a>
-                                        <a
-                                            href={getArtifactUrl(run.id, ARTIFACT_TYPES.CSV)}
-                                            target="_blank"
-                                            className="artifact-link"
-                                            rel="noreferrer"
-                                        >
-                                            <FileSpreadsheet size={14} /> CSV
+                                        <a href={getArtifactUrl(run.id, ARTIFACT_TYPES.MISSING_RECORDS_CSV)} target="_blank" className="artifact-link text-rose-400 border-rose-500/20" rel="noreferrer">
+                                            <AlertTriangle size={12} /> Gaps
                                         </a>
-                                        <a
-                                            href={getArtifactUrl(run.id, ARTIFACT_TYPES.MISSING_RECORDS_CSV)}
-                                            target="_blank"
-                                            className="artifact-link"
-                                            style={{ color: '#fca5a5', borderColor: 'rgba(252, 165, 165, 0.2)' }}
-                                            rel="noreferrer"
-                                        >
-                                            <AlertTriangle size={14} /> Gaps
-                                        </a>
-                                        <a
-                                            href={getArtifactUrl(run.id, ARTIFACT_TYPES.MISSING_RECORD_REQUESTS_MD)}
-                                            target="_blank"
-                                            className="artifact-link"
-                                            style={{ color: '#fdba74', borderColor: 'rgba(253, 186, 116, 0.2)' }}
-                                            rel="noreferrer"
-                                        >
-                                            <FileText size={14} /> Requests
-                                        </a>
-                                    </div>
-                                )}
-                                {run.error_message && (
-                                    <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.1)', padding: '0.5rem', borderRadius: '4px' }}>
-                                        Error: {run.error_message}
                                     </div>
                                 )}
                             </div>
                         ))}
-                        {runs.length === 0 && (
-                            <div className="empty-state" style={{ border: 'none', padding: '1rem' }}>
-                                No runs yet.
-                            </div>
-                        )}
                     </div>
                 </section>
-            </div>
+                </div>
 
-            <section ref={commandCenterRef} className="card" style={{ marginTop: '2rem', padding: 0, overflow: 'hidden', border: view === 'audit' ? '1px solid var(--success)' : undefined }}>
-                <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Scale style={{ color: 'var(--primary)' }} /> Audit Mode (Verification UI)
+                <section ref={commandCenterRef} className="card" style={{ marginTop: '2rem', padding: 0, overflow: 'hidden', border: view === 'audit' ? '1px solid var(--success)' : '1px solid var(--border)' }}>
+                <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border)', background: 'rgba(34, 197, 94, 0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h2 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }} className="font-serif">
+                        <Scale style={{ color: 'var(--success)' }} size={20} /> Analytical Verification (Audit Mode)
                     </h2>
                     <button
                         onClick={() => void loadCommandCenter(runs)}
-                        className="text-muted hover:text-white"
-                        title="Refresh command center"
+                        className="text-slate-500 hover:text-white transition-colors"
+                        title="Refresh analysis"
                         style={{ background: 'none', border: 'none', cursor: 'pointer' }}
                     >
                         <RefreshCw size={16} />
                     </button>
                 </div>
 
-                <div style={{ padding: '1rem' }}>
+                <div style={{ padding: '1.5rem' }}>
                     {!getLatestCompletedRun(runs) && (
-                        <div className="empty-state" style={{ border: 'none', padding: '1rem' }}>
-                            Run a successful analysis to unlock command-center insights.
+                        <div className="empty-state" style={{ border: 'none' }}>
+                            Run analysis to unlock legal insights.
                         </div>
                     )}
 
                     {commandCenterLoading && (
-                        <div className="flex items-center gap-2 text-muted">
-                            <Loader2 className="animate-spin" size={16} /> Loading command center...
+                        <div className="flex items-center gap-3 text-slate-400 py-8">
+                            <Loader2 className="animate-spin" size={24} /> 
+                            <span className="text-lg font-serif italic">Synthesizing litigation extensions...</span>
                         </div>
                     )}
 
                     {!commandCenterLoading && commandCenterError && (
-                        <div style={{ fontSize: '0.85rem', color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.1)', padding: '0.75rem', borderRadius: '6px' }}>
-                            Command center unavailable for latest run: {commandCenterError}
+                        <div className="badge-risk py-3 px-4 rounded-md text-sm border-rose-500/20 w-full text-center">
+                            Analysis Unavailable: {commandCenterError}
                         </div>
                     )}
 
                     {!commandCenterLoading && !commandCenterError && commandCenterData && (
-                        <div className="flex flex-col gap-4">
-                            <div className="grid grid-cols-2 gap-2 text-sm" style={{ background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '6px' }}>
-                                <div>Run: <span className="font-mono">{commandCenterData.runId.slice(0, 8)}</span></div>
-                                <div>Claims: <span className="text-main">{commandCenterData.claimRows.length}</span></div>
-                                <div>Causation Chains: <span className="text-main">{commandCenterData.causationChains.length}</span></div>
-                                <div>Collapse Candidates: <span className="text-main">{commandCenterData.collapseCandidates.length}</span></div>
-                                <div>Contradictions: <span className="text-main">{commandCenterData.contradictionMatrix.length}</span></div>
-                                <div>Anchored Ratio: <span className="text-main">{commandCenterData.citationFidelity?.claim_row_anchor_ratio ?? 'n/a'}</span></div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-8">
-                                <div>
-                                    <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                        <GitBranch size={16} /> Causation Ladder
-                                    </h3>
-                                    {(commandCenterData.causationChains || []).slice(0, 3).map((chain, idx) => (
-                                        <div key={`chain-${idx}`} className="run-item" style={{ marginBottom: '0.5rem' }}>
-                                            <div><strong>{chain?.body_region || 'general'}</strong> | integrity {chain?.chain_integrity_score ?? 0}</div>
-                                            <div className="text-xs text-muted">Missing: {(chain?.missing_rungs || []).join(', ') || 'none'}</div>
-                                        </div>
-                                    ))}
-                                    {commandCenterData.causationChains.length === 0 && <div className="text-xs text-muted">No causation chains detected.</div>}
+                        <div className="flex flex-col gap-8">
+                            <div className="grid grid-cols-4 gap-4">
+                                <div className="p-4 bg-slate-950/40 rounded-lg border border-slate-800">
+                                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Anchor Fidelity</div>
+                                    <div className="text-2xl font-serif text-emerald-400">{(Number(commandCenterData.citationFidelity?.claim_row_anchor_ratio || 0) * 100).toFixed(0)}%</div>
                                 </div>
-
-                                <div>
-                                    <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                        <ShieldAlert size={16} /> Case Collapse
-                                    </h3>
-                                    {(commandCenterData.collapseCandidates || []).slice(0, 3).map((cand, idx) => (
-                                        <div key={`collapse-${idx}`} className="run-item" style={{ marginBottom: '0.5rem' }}>
-                                            <div><strong>{cand?.fragility_type || 'unknown'}</strong> | score {cand?.fragility_score ?? 0}</div>
-                                            <div className="text-xs text-muted">{cand?.why || ''}</div>
-                                        </div>
-                                    ))}
-                                    {commandCenterData.collapseCandidates.length === 0 && <div className="text-xs text-muted">No collapse candidates for this run.</div>}
+                                <div className="p-4 bg-slate-950/40 rounded-lg border border-slate-800">
+                                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Causation Rungs</div>
+                                    <div className="text-2xl font-serif text-sky-400">{commandCenterData.causationChains.length}</div>
+                                </div>
+                                <div className="p-4 bg-slate-950/40 rounded-lg border border-slate-800">
+                                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Case Risks</div>
+                                    <div className="text-2xl font-serif text-rose-400">{commandCenterData.collapseCandidates.length}</div>
+                                </div>
+                                <div className="p-4 bg-slate-950/40 rounded-lg border border-slate-800">
+                                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Factual Conflicts</div>
+                                    <div className="text-2xl font-serif text-amber-400">{commandCenterData.contradictionMatrix.length}</div>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-8">
-                                <div>
-                                    <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                        <ListChecks size={16} /> Contradiction Matrix
+                                <div className="space-y-4">
+                                    <h3 className="text-xl font-serif flex items-center gap-2 border-b border-white/10 pb-3">
+                                        <GitBranch size={20} className="text-sky-400" /> Strategic Causation
                                     </h3>
-                                    {(commandCenterData.contradictionMatrix || []).slice(0, 4).map((row, idx) => (
-                                        <div key={`cx-${idx}`} className="run-item" style={{ marginBottom: '0.5rem' }}>
-                                            <div><strong>{row?.category || 'unknown'}</strong> | delta {row?.strength_delta ?? 0}</div>
-                                            <div className="text-xs text-muted">
-                                                {row?.supporting?.value || 'n/a'} vs {row?.contradicting?.value || 'n/a'}
+                                    <div className="space-y-3">
+                                        {(commandCenterData.causationChains || []).slice(0, 4).map((chain, idx) => (
+                                            <div key={`chain-${idx}`} className="p-4 bg-slate-900/40 rounded-lg border border-white/5 hover:border-sky-500/30 transition-colors">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <strong className="text-slate-100 font-serif text-lg">{chain?.body_region || 'general'}</strong>
+                                                    <span className="text-[10px] px-2 py-1 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 font-bold uppercase tracking-widest">Integrity {chain?.chain_integrity_score ?? 0}%</span>
+                                                </div>
+                                                <div className="text-[12px] text-slate-400 leading-relaxed">
+                                                    <span className="text-rose-400 font-bold uppercase tracking-tighter mr-1">Missing Rungs:</span> 
+                                                    <span className="italic">{(chain?.missing_rungs || []).join(', ') || 'None identified'}</span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                    {commandCenterData.contradictionMatrix.length === 0 && <div className="text-xs text-muted">No contradictions detected.</div>}
-                                </div>
-
-                                <div>
-                                    <h3 style={{ marginBottom: '0.5rem' }}>Narrative Duality</h3>
-                                    <div className="run-item">
-                                        <div className="text-sm"><strong>Plaintiff:</strong> {commandCenterData.narrativeDuality?.plaintiff_narrative?.summary || 'n/a'}</div>
-                                        <div className="text-sm" style={{ marginTop: '0.4rem' }}><strong>Defense:</strong> {commandCenterData.narrativeDuality?.defense_narrative?.summary || 'n/a'}</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <h3 style={{ marginBottom: '0.5rem' }}>Record Packet</h3>
-                                <div className="text-xs text-muted" style={{ marginBottom: '0.5rem' }}>
-                                    Click any citation to open the original packet at the referenced page.
-                                </div>
-                                {citationLinks.length > 0 ? (
-                                    <div className="flex flex-wrap gap-2">
-                                        {citationLinks.map((c, idx) => (
-                                            c.href ? (
-                                                <a
-                                                    key={`cite-${idx}`}
-                                                    href={c.href}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="artifact-link"
-                                                    title={c.filename || c.label}
-                                                >
-                                                    <ExternalLink size={12} /> {c.label}
-                                                </a>
-                                            ) : (
-                                                <span key={`cite-${idx}`} className="artifact-link" style={{ opacity: 0.7 }}>
-                                                    {c.label}
-                                                </span>
-                                            )
                                         ))}
                                     </div>
-                                ) : (
-                                    <div className="text-xs text-muted">No citation links available for this run yet.</div>
-                                )}
+                                </div>
+
+                                <div className="space-y-4">
+                                    <h3 className="text-xl font-serif flex items-center gap-2 border-b border-white/10 pb-3">
+                                        <ShieldAlert size={20} className="text-rose-400" /> Vulnerability Scan
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {(commandCenterData.collapseCandidates || []).slice(0, 4).map((cand, idx) => (
+                                            <div key={`collapse-${idx}`} className="p-4 bg-slate-900/40 rounded-lg border border-white/5 hover:border-rose-500/30 transition-colors">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <strong className="text-rose-100 font-serif text-lg capitalize">{cand?.fragility_type?.replace('_', ' ') || 'Case Risk'}</strong>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div style={{ width: 40, height: 4, background: '#334155', borderRadius: 2 }}>
+                                                            <div style={{ width: `${cand?.fragility_score || 0}%`, height: '100%', background: 'var(--danger)', borderRadius: 2 }} />
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-rose-400 font-mono">{cand?.fragility_score ?? 0}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-[12px] text-slate-300 leading-relaxed font-medium">"{cand?.why || 'Specific rationale pending...'}"</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <h3 className="text-xl font-serif flex items-center gap-2 border-b border-white/10 pb-3">
+                                    <Scale size={20} className="text-emerald-400" /> Argumentative Duality
+                                </h3>
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="p-5 bg-emerald-500/[0.03] border border-emerald-500/10 rounded-xl">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                            <div className="text-[11px] font-bold text-emerald-500 uppercase tracking-widest">Plaintiff Narrative</div>
+                                        </div>
+                                        <div className="text-sm text-slate-300 leading-relaxed font-serif italic">
+                                            {commandCenterData.narrativeDuality?.plaintiff_narrative?.summary || 'Synthesizing plaintiff medical theory...'}
+                                        </div>
+                                    </div>
+                                    <div className="p-5 bg-rose-500/[0.03] border border-rose-500/10 rounded-xl">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="w-2 h-2 rounded-full bg-rose-500" />
+                                            <div className="text-[11px] font-bold text-rose-500 uppercase tracking-widest">Defense Counter</div>
+                                        </div>
+                                        <div className="text-sm text-slate-300 leading-relaxed font-serif italic">
+                                            {commandCenterData.narrativeDuality?.defense_narrative?.summary || 'Predicting defense medical challenges...'}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
                 </div>
             </section>
+                </div>
+            )}
+
+            {selectedCitation && (
+                <div className="evidence-dock" style={{ width: `${dockWidth}px` }}>
+                    <div 
+                        onMouseDown={startResizing}
+                        style={{ 
+                            position: 'absolute', 
+                            left: -4, 
+                            top: 0, 
+                            bottom: 0, 
+                            width: 8, 
+                            cursor: 'col-resize',
+                            zIndex: 10,
+                            background: isResizing.current ? 'var(--primary)' : 'transparent',
+                            transition: 'background 200ms'
+                        }} 
+                    />
+                    <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <Scale size={18} className="text-primary" />
+                            <span style={{ fontWeight: 600, fontSize: '0.9rem', fontFamily: 'var(--font-heading)' }}>
+                                Source Verification: {selectedCitation.filename} (Page {selectedCitation.page})
+                            </span>
+                        </div>
+                        <button 
+                            onClick={() => setSelectedCitation(null)}
+                            className="btn"
+                            style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                        >
+                            Close Panel
+                        </button>
+                    </div>
+                    <iframe 
+                        src={selectedCitation.href || ''} 
+                        className="pdf-viewer"
+                        title="Evidence Source"
+                    />
+                </div>
+            )}
         </div>
     );
 }

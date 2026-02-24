@@ -1,5 +1,6 @@
 
 import logging
+import json
 from packages.shared.models import Event, Warning
 from packages.shared.storage import save_artifact
 from apps.worker.lib.litigation_review import LitigationReviewer
@@ -25,6 +26,8 @@ def run_litigation_review(
     full_text = "\n".join([page_text_by_number[k] for k in sorted(page_text_by_number.keys())])
     
     # 2. Initialize Reviewer
+    if events:
+        print(f"DEBUG_FIRST_EVENT_CITATIONS: {events[0].event_id} -> {events[0].citation_ids}")
     reviewer = LitigationReviewer(run_id)
     reviewer.load_from_memory(events=events, text_content=full_text)
     
@@ -36,8 +39,9 @@ def run_litigation_review(
     
     # 5. Save Artifacts
     if checklist:
+        # Debug print for CLI
+        print(f"DEBUG_CHECKLIST: {json.dumps(checklist)}")
         # Save JSON
-        import json
         json_bytes = json.dumps(checklist, indent=2).encode('utf-8')
         save_artifact(run_id, "qa_litigation_checklist.json", json_bytes)
         

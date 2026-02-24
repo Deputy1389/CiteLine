@@ -137,6 +137,7 @@ class ClaimEdge(BaseModel):
     provider: str = "Unknown"
     assertion: str = ""
     citations: list[str] = Field(default_factory=list)
+    citation_anchors: list[dict[str, Any]] = Field(default_factory=list)
     support_score: int = 0
     support_strength: str = "Weak"
     flags: list[str] = Field(default_factory=list)

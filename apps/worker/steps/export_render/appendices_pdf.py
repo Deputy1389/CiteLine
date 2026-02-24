@@ -159,8 +159,69 @@ def build_projection_appendix_sections(
     normal_style = styles["Normal"]
     link_style = ParagraphStyle("AppendixLink", parent=styles["Normal"], textColor=colors.HexColor("#1D4ED8"), underlineWidth=0.5)
 
-    if not all_citations:
+    def _render_list_appendix(title: str, items: list[str], flow: list) -> None:
+        flow.append(Paragraph(title, h1_style))
+        if not items:
+            flow.append(Paragraph("No findings available for this category.", normal_style))
+        else:
+            for item in items:
+                flow.append(Paragraph(f"- {item}", normal_style))
+        flow.append(Spacer(1, 0.1 * inch))
+
+    # Appendix A: Medications
+    med_changes = _extract_medication_changes(entries)
+    _render_list_appendix("Appendix A: Medications", med_changes, flowables)
+
+    # Appendix B: Diagnoses/Problems
+    dx_items = _extract_diagnosis_items(entries)
+    _render_list_appendix("Appendix B: Diagnoses/Problems", dx_items, flowables)
+
+    # Appendix C1: Gap Boundary Anchors
+    gap_rows = _material_gap_rows(gaps, {}, {}, page_map)
+    flowables.append(Paragraph("Appendix C1: Gap Boundary Anchors", h1_style))
+    if not gap_rows:
+        flowables.append(Paragraph("No gap boundary anchors detected.", normal_style))
+    else:
+        for gr in gap_rows:
+            lb = gr.get("last_before", {})
+            fa = gr.get("first_after", {})
+            if lb and fa:
+                lb_date = lb.get('date_display', '').split(' ')[0]
+                fa_date = fa.get('date_display', '').split(' ')[0]
+                flowables.append(Paragraph(f"Gap: {lb_date} to {fa_date}", normal_style))
+                flowables.append(Paragraph(f"Last before gap: {lb_date}", normal_style))
+                flowables.append(Paragraph(f"First after gap: {fa_date}", normal_style))
+                if gr.get("collapse_label"):
+                    flowables.append(Paragraph(f"Note: {gr['collapse_label']}", normal_style))
+                flowables.append(Spacer(1, 0.05 * inch))
+    flowables.append(Spacer(1, 0.1 * inch))
+
+    # Appendix C: Treatment Gaps
+    flowables.append(Paragraph("Appendix C: Treatment Gaps", h1_style))
+    if not gap_rows:
+        flowables.append(Paragraph("No treatment gaps detected.", normal_style))
+    else:
+        for gr in gap_rows:
+            flowables.append(Paragraph(f"- {gr.get('label', 'Gap')} ({gr.get('duration_days', 0)} days)", normal_style))
+    flowables.append(Spacer(1, 0.1 * inch))
+
+    # Appendix D: Patient-Reported Outcomes
+    pro_items = _extract_pro_items(entries)
+    _render_list_appendix("Appendix D: Patient-Reported Outcomes", pro_items, flowables)
+
+    # Appendix F: Social Determinants/Intake
+    sdoh_items = _extract_sdoh_items(entries)
+    _render_list_appendix("Appendix F: Social Determinants/Intake", sdoh_items, flowables)
+
+    # Appendix G: Record Packet Citation Index
+    if all_citations:
+        rows = _build_record_packet_rows(entries, all_citations, page_map)
+        flowables.extend(_render_record_packet_index(rows, styles, h1_style, normal_style, styles["Italic"]))
+    else:
+        flowables.append(Paragraph("Appendix G: Record Packet Citation Index", h1_style))
         flowables.append(Paragraph("No citation anchors were available for source packet linking.", normal_style))
+
+    if not all_citations:
         return flowables
 
     event_label_map: dict[str, str] = {}

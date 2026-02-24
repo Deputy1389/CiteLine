@@ -189,15 +189,31 @@ def build_claim_edges(
     *,
     material_gap_rows: list[dict] | None = None,
     raw_events: list[Event] | None = None,
+    all_citations: list[Citation] | None = None,
 ) -> list[ClaimEdge]:
     rows: list[ClaimEdge] = []
     by_date_region_side: dict[tuple[str, str], set[str]] = defaultdict(set)
+    citation_map = {c.citation_id: c for c in (all_citations or [])}
 
     for entry in entries:
         date_str = _parse_date(getattr(entry, "date_display", ""))
         provider = sanitize_for_report(getattr(entry, "provider_display", "") or "Unknown")
         patient_label = getattr(entry, "patient_label", "Unknown Patient")
         citations = [c.strip() for c in re.split(r"\s*\|\s*", str(getattr(entry, "citation_display", "") or "")) if c.strip()]
+        
+        # Map entry citation_ids to anchors if available
+        anchors = []
+        entry_citation_ids = getattr(entry, "citation_ids", [])
+        for cid in entry_citation_ids:
+            if cid in citation_map:
+                cit = citation_map[cid]
+                anchors.append({
+                    "citation_id": cit.citation_id,
+                    "doc_id": cit.source_document_id,
+                    "page": cit.page_number,
+                    "bbox": [cit.bbox.x, cit.bbox.y, cit.bbox.w, cit.bbox.h]
+                })
+
         facts = [sanitize_for_report(f) for f in list(getattr(entry, "facts", []) or []) if sanitize_for_report(f)]
         if not facts:
             continue
@@ -243,6 +259,7 @@ def build_claim_edges(
                     provider=provider,
                     assertion=assertion,
                     citations=citations[:3],
+                    citation_anchors=anchors[:3],
                     support_score=base,
                     support_strength=_strength(base),
                     flags=sorted(flags),
@@ -308,6 +325,17 @@ def build_claim_edges(
             provider = str(evt.provider_id or "Unknown")
             page_nums = sorted(set(evt.source_page_numbers or []))
             citations = [f"p. {p}" for p in page_nums[:3]] or (["record refs"] if evt.citation_ids else [])
+            
+            anchors = []
+            for cid in (evt.citation_ids or []):
+                if cid in citation_map:
+                    cit = citation_map[cid]
+                    anchors.append({
+                        "citation_id": cit.citation_id,
+                        "doc_id": cit.source_document_id,
+                        "page": cit.page_number,
+                        "bbox": [cit.bbox.x, cit.bbox.y, cit.bbox.w, cit.bbox.h]
+                    })
 
             def _emit(assertion: str, claim_type: str, extra_flags: set[str] | None = None):
                 assertion = _clean_assertion(assertion)
@@ -336,6 +364,7 @@ def build_claim_edges(
                         provider=provider,
                         assertion=assertion[:220],
                         citations=citations,
+                        citation_anchors=anchors[:3],
                         support_score=score,
                         support_strength=_strength(score),
                         flags=sorted(flags),
@@ -387,8 +416,9 @@ def build_claim_ledger_lite(
     *,
     material_gap_rows: list[dict] | None = None,
     raw_events: list[Event] | None = None,
+    all_citations: list[Citation] | None = None,
 ) -> list[dict]:
-    edges = build_claim_edges(entries, material_gap_rows=material_gap_rows, raw_events=raw_events)
+    edges = build_claim_edges(entries, material_gap_rows=material_gap_rows, raw_events=raw_events, all_citations=all_citations)
     return [edge.model_dump(mode="json") for edge in edges]
 
 
