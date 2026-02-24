@@ -1183,7 +1183,7 @@ def _merge_projection_entries(entries: list[ChronologyProjectionEntry], select_t
     grouped: dict[tuple[str, str, str, str], list[ChronologyProjectionEntry]] = {}
     for entry in deduped:
         # Do not collapse all undated rows into a single bucket; keep them distinct per event.
-        if (entry.date_display or "").strip().lower() == "date not documented":
+        if (entry.date_display or "").strip().lower() == "date not documented" or not select_timeline:
             key = (entry.patient_label, entry.date_display, entry.event_type_display, entry.event_id)
         else:
             key = (entry.patient_label, entry.date_display, entry.event_type_display, entry.provider_display)
@@ -1236,7 +1236,7 @@ def _merge_projection_entries(entries: list[ChronologyProjectionEntry], select_t
                 provider_display=provider_display,
                 event_type_display=event_type_display,
                 patient_label=key[0],
-                facts=facts[:4],
+                facts=facts if not select_timeline else facts[:4],
                 citation_display=merged_citations,
                 confidence=max(g.confidence for g in group),
             )
@@ -1329,16 +1329,6 @@ def build_chronology_projection(
         return sorted(page_dates)[0]
 
     for event in sorted_events:
-        if not surgery_classifier_guard(event):
-            if debug_sink is not None:
-                debug_sink.append({"event_id": event.event_id, "reason": "surgery_guard", "provider_id": event.provider_id})
-            continue
-        inferred_date: date | None = None
-        if not event.date or not event.date.value:
-            inferred_date = infer_date(event)
-            if inferred_date is None and debug_sink is not None:
-                debug_sink.append({"event_id": event.event_id, "reason": "undated_no_inference", "provider_id": event.provider_id})
-
         facts: list[str] = []
         joined_raw = " ".join(f.text for f in event.facts if f.text)
         low_joined_raw = joined_raw.lower()
@@ -1346,92 +1336,115 @@ def build_chronology_projection(
             if debug_sink is not None:
                 debug_sink.append({"event_id": event.event_id, "reason": "flowsheet_noise", "provider_id": event.provider_id})
             continue
-        if event.event_type.value == "referenced_prior_event":
-            if not re.search(
-                r"\b(impression|assessment|diagnosis|initial evaluation|physical therapy|pt eval|rom|range of motion|strength|work status|work restriction|clinical impression|mri|x-?ray|fluoroscopy|depo-?medrol|lidocaine|epidural|esi)\b",
-                low_joined_raw,
-            ):
+        if select_timeline:
+            if not surgery_classifier_guard(event):
                 if debug_sink is not None:
-                    debug_sink.append({"event_id": event.event_id, "reason": "referenced_noise", "provider_id": event.provider_id})
+                    debug_sink.append({"event_id": event.event_id, "reason": "surgery_guard", "provider_id": event.provider_id})
                 continue
-        high_value = _is_high_value_event(event, joined_raw)
-        if (not event.date or not event.date.value) and not high_value:
-            if debug_sink is not None:
-                debug_sink.append({"event_id": event.event_id, "reason": "undated_low_value", "provider_id": event.provider_id})
-            continue
-        if (not event.date or not event.date.value) and event.event_type.value in {"office_visit", "pt_visit", "inpatient_daily_note"}:
-            strong_undated = bool(
-                re.search(
-                    r"\b(diagnosis|impression|fracture|tear|infection|debridement|orif|procedure|injection|mri|x-?ray|fluoroscopy|depo-?medrol|lidocaine|pain\s*\d)\b",
+            if _is_flowsheet_noise(joined_raw):
+                if debug_sink is not None:
+                    debug_sink.append({"event_id": event.event_id, "reason": "flowsheet_noise", "provider_id": event.provider_id})
+                continue
+            if event.event_type.value == "referenced_prior_event":
+                if not re.search(
+                    r"\b(impression|assessment|diagnosis|initial evaluation|physical therapy|pt eval|rom|range of motion|strength|work status|work restriction|clinical impression|mri|x-?ray|fluoroscopy|depo-?medrol|lidocaine|epidural|esi)\b",
                     low_joined_raw,
-                )
-            )
-            if not strong_undated:
+                ):
+                    if debug_sink is not None:
+                        debug_sink.append({"event_id": event.event_id, "reason": "referenced_noise", "provider_id": event.provider_id})
+                    continue
+            high_value = _is_high_value_event(event, joined_raw)
+            if (not event.date or not event.date.value) and not high_value:
                 if debug_sink is not None:
                     debug_sink.append({"event_id": event.event_id, "reason": "undated_low_value", "provider_id": event.provider_id})
                 continue
+            if (not event.date or not event.date.value) and event.event_type.value in {"office_visit", "pt_visit", "inpatient_daily_note"}:
+                strong_undated = bool(
+                    re.search(
+                        r"\b(diagnosis|impression|fracture|tear|infection|debridement|orif|procedure|injection|mri|x-?ray|fluoroscopy|depo-?medrol|lidocaine|pain\s*\d)\b",
+                        low_joined_raw,
+                    )
+                )
+                if not strong_undated:
+                    if debug_sink is not None:
+                        debug_sink.append({"event_id": event.event_id, "reason": "undated_low_value", "provider_id": event.provider_id})
+                    continue
+        inferred_date: date | None = None
+        if not event.date or not event.date.value:
+            inferred_date = infer_date(event)
         effective_date: date | None = None
         if event.date and event.date.value and isinstance(event.date.value, date):
             effective_date = event.date.value if date_sanity(event.date.value) else None
         elif inferred_date:
             effective_date = inferred_date
 
-        for fact in event.facts:
-            if not is_reportable_fact(fact.text):
-                continue
-            cleaned = sanitize_for_report(fact.text)
-            if is_noise_span(cleaned) and not re.search(
-                r"\b(assessment|diagnosis|impression|plan|fracture|tear|infection|pain|rom|strength|procedure|injection|mri|x-?ray|follow-?up|therapy)\b",
-                cleaned.lower(),
-            ):
-                continue
-            if _is_header_noise_fact(cleaned):
-                continue
-            low_cleaned = cleaned.lower()
-            if "labs found:" in low_cleaned and not re.search(
-                r"\b(h|l|high|low|critical|panic|elevated|depressed|abnormal|>|<)\b",
-                low_cleaned,
-            ):
-                continue
-            if re.search(
-                r"\b(tobacco status|never smoked|smokeless tobacco|weight percentile|body height|body weight|head occipital-frontal circumference)\b",
-                low_cleaned,
-            ):
-                continue
-            if not _fact_temporally_consistent(cleaned, effective_date):
-                if debug_sink is not None:
-                    debug_sink.append({"event_id": event.event_id, "reason": "fact_date_mismatch", "provider_id": event.provider_id})
-                continue
-            cleaned = _strip_conflicting_timestamps(cleaned, effective_date)
-            if len(cleaned) > 280:
-                cleaned = cleaned[:280] + "..."
-            if _is_vitals_heavy(cleaned):
-                continue
-            low_fact = cleaned.lower()
-            # Keep questionnaire/scores out of the main timeline unless clinically severe.
-            if re.search(r"\b(phq-?9|gad-?7|pain interference|questionnaire|survey score|score)\b", low_fact):
-                severe_score = False
-                m = re.search(r"\b(phq-?9|gad-?7)\s*[:=]?\s*(\d{1,2})\b", low_fact)
-                if m and int(m.group(2)) >= 15:
-                    severe_score = True
-                if not severe_score:
+        if select_timeline:
+            for fact in event.facts:
+                if not is_reportable_fact(fact.text):
                     continue
-            facts.append(cleaned)
-            max_fact_count = 8 if (page_text_by_number and len(page_text_by_number) > 300) else 3
-            if len(facts) >= max_fact_count:
-                break
+                cleaned = sanitize_for_report(fact.text)
+                if is_noise_span(cleaned) and not re.search(
+                    r"\b(assessment|diagnosis|impression|plan|fracture|tear|infection|pain|rom|strength|procedure|injection|mri|x-?ray|follow-?up|therapy)\b",
+                    cleaned.lower(),
+                ):
+                    continue
+                if _is_header_noise_fact(cleaned):
+                    continue
+                low_cleaned = cleaned.lower()
+                if "labs found:" in low_cleaned and not re.search(
+                    r"\b(h|l|high|low|critical|panic|elevated|depressed|abnormal|>|<)\b",
+                    low_cleaned,
+                ):
+                    continue
+                if re.search(
+                    r"\b(tobacco status|never smoked|smokeless tobacco|weight percentile|body height|body weight|head occipital-frontal circumference)\b",
+                    low_cleaned,
+                ):
+                    continue
+                if not _fact_temporally_consistent(cleaned, effective_date):
+                    if debug_sink is not None:
+                        debug_sink.append({"event_id": event.event_id, "reason": "fact_date_mismatch", "provider_id": event.provider_id})
+                    continue
+                cleaned = _strip_conflicting_timestamps(cleaned, effective_date)
+                if len(cleaned) > 280:
+                    cleaned = textwrap.shorten(cleaned, width=280, placeholder="...")
+                if _is_vitals_heavy(cleaned):
+                    continue
+                low_fact = cleaned.lower()
+                if re.search(r"\b(phq-?9|gad-?7|pain interference|questionnaire|survey score|score)\b", low_fact):
+                    severe_score = False
+                    m = re.search(r"\b(phq-?9|gad-?7)\s*[:=]?\s*(\d{1,2})\b", low_fact)
+                    if m and int(m.group(2)) >= 15:
+                        severe_score = True
+                    if not severe_score:
+                        continue
+                facts.append(cleaned)
+                max_fact_count = 8 if (page_text_by_number and len(page_text_by_number) > 300) else 3
+                if len(facts) >= max_fact_count:
+                    break
+        else:
+            for fact in event.facts:
+                if fact.text:
+                    cleaned = sanitize_for_report(fact.text)
+                    if is_noise_span(cleaned) and not re.search(
+                        r"\b(assessment|diagnosis|impression|plan|fracture|tear|infection|pain|rom|strength|procedure|injection|mri|x-?ray|follow-?up|therapy)\b",
+                        cleaned.lower(),
+                    ):
+                        continue
+                    facts.append(cleaned)
 
-        # PT/imaging enrichment for large packets to improve substantive extraction.
-        if page_text_by_number and len(page_text_by_number) > 300:
-            if event.event_type.value == "pt_visit" or re.search(r"\b(physical therapy|pt eval|range of motion|rom|strength)\b", low_joined_raw):
-                for ptf in _extract_pt_elements(joined_raw):
-                    if ptf.lower() not in {f.lower() for f in facts}:
-                        facts.append(ptf)
-            if event.event_type.value == "imaging_study" or re.search(r"\b(mri|x-?ray|radiology|impression)\b", low_joined_raw):
-                for imf in _extract_imaging_elements(joined_raw):
-                    if imf.lower() not in {f.lower() for f in facts}:
-                        facts.append(imf)
-            facts = facts[:10]
+        if select_timeline:
+            # PT/imaging enrichment for large packets to improve substantive extraction.
+            if page_text_by_number and len(page_text_by_number) > 300:
+                if event.event_type.value == "pt_visit" or re.search(r"\b(physical therapy|pt eval|range of motion|rom|strength)\b", low_joined_raw):
+                    for ptf in _extract_pt_elements(joined_raw):
+                        if ptf.lower() not in {f.lower() for f in facts}:
+                            facts.append(ptf)
+                if event.event_type.value == "imaging_study" or re.search(r"\b(mri|x-?ray|radiology|impression)\b", low_joined_raw):
+                    for imf in _extract_imaging_elements(joined_raw):
+                        if imf.lower() not in {f.lower() for f in facts}:
+                            facts.append(imf)
+                facts = facts[:10]
         # Minimum substance threshold for client timeline.
         if not facts:
             if debug_sink is not None:
@@ -1446,10 +1459,12 @@ def build_chronology_projection(
             date_display = "Date not documented"
 
         citation_display = _citation_display(event, page_map)
-        if not citation_display:
+        if not citation_display and select_timeline:
             if debug_sink is not None:
                 debug_sink.append({"event_id": event.event_id, "reason": "no_citation", "provider_id": event.provider_id})
             continue
+        if not citation_display:
+            citation_display = "Source record not documented"
 
         event_type_display = (
             "Emergency Visit"
@@ -1492,94 +1507,6 @@ def build_chronology_projection(
             )
         )
 
-        # Large-packet deterministic sub-event expansion for factual density.
-        if page_text_by_number and len(page_text_by_number) > 300:
-            if event_type_display == "Therapy Visit":
-                metric_facts = [
-                    f for f in facts
-                    if re.search(r"\b(pain|rom|range of motion|strength|functional limitation|adl|sitting tolerance)\b", f.lower())
-                ][:3]
-                assess_facts = [
-                    f for f in facts
-                    if re.search(r"\b(assessment|plan|evaluation|re-?evaluation|discharge summary|home exercise|follow-?up)\b", f.lower())
-                ][:3]
-                progression_facts = [
-                    f for f in facts
-                    if re.search(r"\b(progress|improv|toleran|goal|plan of care|return to work|work restriction)\b", f.lower())
-                ][:2]
-                if metric_facts:
-                    entries.append(
-                        ChronologyProjectionEntry(
-                            event_id=f"{event.event_id}::pt_metrics",
-                            date_display=date_display,
-                            provider_display=provider_display,
-                            event_type_display="Therapy Visit",
-                            patient_label=patient_label,
-                            facts=metric_facts,
-                            citation_display=citation_display,
-                            confidence=event.confidence,
-                        )
-                    )
-                if assess_facts:
-                    entries.append(
-                        ChronologyProjectionEntry(
-                            event_id=f"{event.event_id}::pt_assessment",
-                            date_display=date_display,
-                            provider_display=provider_display,
-                            event_type_display="Therapy Visit",
-                            patient_label=patient_label,
-                            facts=assess_facts,
-                            citation_display=citation_display,
-                            confidence=event.confidence,
-                        )
-                    )
-                if progression_facts:
-                    entries.append(
-                        ChronologyProjectionEntry(
-                            event_id=f"{event.event_id}::pt_progression",
-                            date_display=date_display,
-                            provider_display=provider_display,
-                            event_type_display="Therapy Visit",
-                            patient_label=patient_label,
-                            facts=progression_facts,
-                            citation_display=citation_display,
-                            confidence=event.confidence,
-                        )
-                    )
-                elif metric_facts or assess_facts:
-                    weekly = (metric_facts + assess_facts)[:2]
-                    if weekly:
-                        entries.append(
-                            ChronologyProjectionEntry(
-                                event_id=f"{event.event_id}::pt_weekly",
-                                date_display=date_display,
-                                provider_display=provider_display,
-                                event_type_display="Therapy Visit",
-                                patient_label=patient_label,
-                                facts=[f"Weekly PT progression block: {w}" for w in weekly],
-                                citation_display=citation_display,
-                                confidence=event.confidence,
-                            )
-                        )
-
-            if event_type_display == "Imaging Study":
-                bullet_facts = [
-                    f for f in facts
-                    if re.search(r"\b(impression|c\d-\d|l\d-\d|disc protrusion|foramen|thecal sac|radicular)\b", f.lower())
-                ][:4]
-                for idx, bf in enumerate(bullet_facts, start=1):
-                    entries.append(
-                        ChronologyProjectionEntry(
-                            event_id=f"{event.event_id}::img_{idx}",
-                            date_display=date_display,
-                            provider_display=provider_display,
-                            event_type_display="Imaging Study",
-                            patient_label=patient_label,
-                            facts=[bf],
-                            citation_display=citation_display,
-                            confidence=event.confidence,
-                        )
-                    )
 
     def _line_snippets(text: str, pattern: str, limit: int = 2) -> list[str]:
         out: list[str] = []
@@ -1599,7 +1526,7 @@ def build_chronology_projection(
     # Deterministic procedure anchor-scan fallback:
     # if no procedure entries were projected but source pages contain clustered procedure anchors,
     # emit a synthetic procedure projection entry with explicit page citations.
-    if page_text_by_number and not any(e.event_type_display == "Procedure/Surgery" for e in entries):
+    if select_timeline and page_text_by_number and not any(e.event_type_display == "Procedure/Surgery" for e in entries):
         proc_markers = [
             "fluoroscopy",
             "depo-medrol",
@@ -1654,7 +1581,7 @@ def build_chronology_projection(
                 )
             )
     # Deterministic ED fallback when source clearly contains emergency-care markers.
-    if page_text_by_number and not any((e.event_type_display or "").lower() == "emergency visit" for e in entries):
+    if select_timeline and page_text_by_number and not any((e.event_type_display or "").lower() in {"emergency visit", "hospital admission"} for e in entries):
         ed_pages: list[int] = []
         ed_dates: list[date] = []
         for page_num in sorted(page_text_by_number.keys()):
@@ -1701,7 +1628,7 @@ def build_chronology_projection(
             )
 
     # Deterministic MRI fallback when source contains MRI/impression markers.
-    if page_text_by_number and not any((e.event_type_display or "").lower() == "imaging study" for e in entries):
+    if select_timeline and page_text_by_number and not any((e.event_type_display or "").lower() == "imaging study" for e in entries):
         mri_pages: list[int] = []
         mri_dates: list[date] = []
         for page_num in sorted(page_text_by_number.keys()):
@@ -1746,7 +1673,7 @@ def build_chronology_projection(
                 )
             )
     # Deterministic orthopedic-consult fallback when source contains ortho assessment markers.
-    if page_text_by_number and not any(re.search(r"\b(ortho|orthopedic)\b", " ".join(e.facts).lower()) for e in entries):
+    if select_timeline and page_text_by_number and not any(re.search(r"\b(ortho|orthopedic)\b", " ".join(e.facts).lower()) for e in entries):
         ortho_pages: list[int] = []
         ortho_dates: list[date] = []
         for page_num in sorted(page_text_by_number.keys()):
@@ -1796,7 +1723,7 @@ def build_chronology_projection(
                 )
             )
     # Deterministic PT weekly synthesis for PT-heavy packets to preserve factual density and scale.
-    if page_text_by_number and len(page_text_by_number) > 300:
+    if select_timeline and page_text_by_number and len(page_text_by_number) > 300:
         pt_pages = [
             p for p in sorted(page_text_by_number.keys())
             if re.search(r"\b(physical therapy|pt daily|pt eval|range of motion|rom|strength)\b", (page_text_by_number.get(p) or "").lower())
@@ -1957,7 +1884,11 @@ def build_chronology_projection(
             selected_utility_components=list(selection_meta.get("selected_utility_components", [])),
         )
         selection_meta.update(asdict(sel))
-    return ChronologyProjection(generated_at=datetime.now(timezone.utc), entries=merged_entries)
+    return ChronologyProjection(
+        generated_at=datetime.now(timezone.utc),
+        entries=merged_entries,
+        select_timeline=select_timeline
+    )
 @dataclass
 class SelectionResult:
     extracted_event_ids: list[str]

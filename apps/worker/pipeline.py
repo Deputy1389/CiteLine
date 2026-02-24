@@ -446,7 +446,10 @@ def run_pipeline(run_id: str) -> None:
                 fact.text = cleaned
                 cleaned_facts.append(fact)
             evt.facts = cleaned_facts
-        logger.info(f"[{run_id}] Quality gate stats: {quality_stats}")
+        # Drop events whose facts were entirely filtered out by the quality gate
+        _before_drop = len(all_events)
+        all_events = [e for e in all_events if e.facts]
+        logger.info(f"[{run_id}] Quality gate stats: {quality_stats} | zero-fact drop: {_before_drop} → {len(all_events)}")
 
         assign_patient_scope_to_events(all_events, page_to_patient_scope)
         enforce_event_patient_scope(all_events, all_citations, page_to_patient_scope)
