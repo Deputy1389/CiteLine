@@ -1070,12 +1070,17 @@
           ],
           "minimum": 0,
           "maximum": 100
+        },
+        "technical_noise": {
+          "type": "boolean",
+          "default": false
         }
-      }
+      },
+      "additionalProperties": true
     },
     "ImagingDetails": {
       "type": "object",
-      "additionalProperties": false,
+      "additionalProperties": true,
       "required": [
         "modality",
         "body_part"
