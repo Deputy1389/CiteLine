@@ -99,6 +99,15 @@ def extract_lab_events(
         for test in _LAB_TESTS:
             if test == "PT" and is_pt_context:
                 continue
+            # "PT" alone is ambiguous (Physical Therapy vs Prothrombin Time).
+            # Require explicit coagulation context to count it as a lab test.
+            if test == "PT":
+                coag_context = any(
+                    kw in text_lower
+                    for kw in ("ptt", "inr", "prothrombin", "coagul", "fibrin", "anticoagul")
+                )
+                if not coag_context:
+                    continue
             if test.lower() in text_lower:
                 found_tests.append(test)
 

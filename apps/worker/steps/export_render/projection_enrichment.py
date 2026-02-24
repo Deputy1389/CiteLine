@@ -197,9 +197,15 @@ def _ensure_mri_bucket_entry(
     if page_text_by_number:
         for p in mri_pages:
             txt = page_text_by_number.get(p) or ""
-            mt = re.search(r"(?is)\bimpression\b[:\s-]+(.{20,220})", txt)
+            # Try same-line: "IMPRESSION: text here ..."
+            mt = re.search(r"(?i)\bimpression\b\s*[:\-]\s*([^\n]{20,})", txt)
             if mt:
-                finding = sanitize_for_report(mt.group(1).split("\n")[0].strip())
+                finding = sanitize_for_report(mt.group(1).strip()[:220])
+                if finding: break
+            # Try next-line: "IMPRESSION:\n   text here ..."
+            mt = re.search(r"(?i)\bimpression\b\s*[:\-]\s*\n\s*([^\n]{20,})", txt)
+            if mt:
+                finding = sanitize_for_report(mt.group(1).strip()[:220])
                 if finding: break
     if not finding: finding = "MRI report reviewed; impression documented."
     mri_entry = ChronologyProjectionEntry(

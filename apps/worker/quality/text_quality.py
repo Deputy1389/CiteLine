@@ -145,6 +145,15 @@ def is_garbage(text: str) -> bool:
 
     tokens = _tokenize(analyze)
     if len(tokens) < 3:
+        # Short body after label strip: only garbage if it has no medical signal.
+        # "Pain 8/10" → body "8/10" has a digit → NOT garbage.
+        # "Pain Assessment: " → empty body → garbage.
+        if not tokens:
+            return True
+        has_digits = any(re.search(r"\d", t) for t in tokens)
+        has_medical_word = any(t.lower().rstrip(".,;:!?()[]") in _MEDICAL_TERMS for t in tokens)
+        if has_digits or has_medical_word:
+            return False
         return True
     med_density = _medical_density(tokens)
     diversity = _diversity_score(analyze)

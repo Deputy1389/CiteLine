@@ -18,7 +18,7 @@ from packages.shared.models import (
 )
 from apps.worker.steps.events.common import _make_citation, _make_fact, _find_section
 from apps.worker.steps.step06_dates import make_partial_date
-from apps.worker.quality.text_quality import _EMR_LABEL_PREFIX_RE
+from apps.worker.quality.text_quality import _EMR_LABEL_PREFIX_RE, is_garbage
 
 # Some PDFs split date & time across two lines:
 #   "9/24"
@@ -49,8 +49,9 @@ _CLINICAL_INDICATORS = [
     (r"(?i)\b(range of motion|rom|flexibility)\b", "Range of Motion"),
     (r"(?i)\b(transfer|transferring|bed mobility)\b", "Transfer"),
     (r"(?i)\b(walker|cane|assistive device|wheelchair)\b", "Assistive Device"),
-    # ER / Triage
-    (r"(?i)\b(triage level|triage category|chief complaint|presenting complaint)\b", "ER Triage"),
+    # ER / Triage — label as "Chief Complaint" (not "ER Triage") so this label doesn't
+    # cause _detect_encounter_type to upgrade the event to ER_VISIT downstream.
+    (r"(?i)\b(triage level|triage category|chief complaint|presenting complaint)\b", "Chief Complaint"),
     (r"(?i)\b(vital signs|bp|blood pressure|heart rate|temp|temperature|o2 sat)\b", "Vital Signs"),
 ]
 
@@ -611,6 +612,14 @@ def _add_flowsheet_event(events, citations, page, month, day, hhmm, text, page_p
     clean_txt = re.sub(r"\s*[A-Z]\.\s*[A-Za-z]+,\s*RN\s*$", "", clean_txt).strip()
 
     if not clean_txt:
+        return None
+
+    # Garbage filter: skip flowsheet lines whose body text is OCR word-salad.
+    # This catches patterns like "Pain Assessment: Blue cost expert reach" where
+    # the label is real but the body is garbled OCR output.
+    if is_garbage(clean_txt):
+        if debug_enabled:
+            print(f"CLINICAL_DEBUG: Skipping garbage flowsheet line: {clean_txt[:80]}")
         return None
 
     etype = _detect_encounter_type(clean_txt)

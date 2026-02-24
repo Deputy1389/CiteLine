@@ -52,30 +52,34 @@ def prepare_projection_bundle(
         selection_meta=selection_meta,
         select_timeline=select_timeline,
     )
-    appendix_projection = projection.model_copy()
-    
     projection = enrich_projection_procedure_entries(
-        projection, 
-        page_text_by_number=page_text_by_number, 
+        projection,
+        page_text_by_number=page_text_by_number,
         page_map=page_map
     )
     projection = ensure_mri_bucket_entry(
-        projection, 
-        page_text_by_number=page_text_by_number, 
+        projection,
+        page_text_by_number=page_text_by_number,
         page_map=page_map
     )
     projection = ensure_procedure_bucket_entry(
-        projection, 
-        page_text_by_number=page_text_by_number, 
+        projection,
+        page_text_by_number=page_text_by_number,
         page_map=page_map
     )
     projection = ensure_ortho_bucket_entry(
-        projection, 
-        page_text_by_number=page_text_by_number, 
+        projection,
+        page_text_by_number=page_text_by_number,
         page_map=page_map,
         raw_events=events
     )
-    
+
+    # Snapshot AFTER enrichments so that synthetic bucket entries (mri_anchor_*,
+    # ortho_anchor_*, proc_anchor_*) are included in the appendix event_label_map.
+    # Previously this was taken before enrichments, causing raw anchor IDs like
+    # "chron_row_mri_anchor_65a474b4ac23" to appear in "Referenced by:" lines.
+    appendix_projection = projection.model_copy()
+
     projection = normalize_projection_patient_labels(projection)
     if select_timeline:
         projection = merge_projection_entries_same_day(projection)
