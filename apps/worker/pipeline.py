@@ -221,7 +221,12 @@ def run_pipeline(run_id: str) -> None:
             firm_id = matter.firm_id
             tz = matter.timezone or "America/Los_Angeles"
 
-            config = RunConfig(**json.loads(run_row.config_json)) if run_row.config_json else RunConfig()
+            # Load and override config for maximum density
+            config_dict = json.loads(run_row.config_json) if run_row.config_json else {}
+            config_dict["pt_mode"] = "per_visit"
+            if config_dict.get("event_confidence_min_export", 100) > 30:
+                config_dict["event_confidence_min_export"] = 30
+            config = RunConfig(**config_dict)
 
             # Load source documents
             doc_rows = session.query(SourceDocORM).filter_by(matter_id=matter_id).all()
