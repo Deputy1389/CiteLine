@@ -692,6 +692,10 @@
         },
         "page_type": {
           "$ref": "#/$defs/PageType"
+        },
+        "extensions": {
+          "type": "object",
+          "additionalProperties": true
         }
       }
     },
