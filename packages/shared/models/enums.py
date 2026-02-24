@@ -43,6 +43,14 @@ class DateKind(str, Enum):
     RANGE = "range"
 
 
+class DateStatus(str, Enum):
+    EXPLICIT = "explicit"    # Closely anchored labeling
+    AMBIGUOUS = "ambiguous"  # Multiple candidate dates
+    RANGE = "range"          # Document describes a span
+    PROPAGATED = "propagated" # Inherited from header/previous page
+    UNDATED = "undated"      # No valid date found in window
+
+
 class ProviderType(str, Enum):
     PHYSICIAN = "physician"
     HOSPITAL = "hospital"

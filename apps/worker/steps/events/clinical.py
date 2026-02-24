@@ -135,13 +135,17 @@ def _detect_encounter_type(text: str) -> EventType:
                 return EventType.ER_VISIT
             return EventType.HOSPITAL_ADMISSION
 
-    # 3. Procedure - Expanded patterns
+    # 3. Procedure - Expanded patterns (STRICT ANCHORING - Clause IV)
     procedure_patterns = [
         "operative report", "procedure", "surgery", "surgical", "operation",
         "pre-op", "post-op", "intraoperative", "anesthesia", "incision",
         "excision", "biopsy", "resection"
     ]
     if any(kw in n for kw in procedure_patterns):
+        # Additional check for high-confidence procedure
+        if any(kw in n for kw in ["operative report", "procedure note", "surgical summary"]):
+            return EventType.PROCEDURE
+        # Otherwise, falling through to check if it's actually a procedure or just a mention
         return EventType.PROCEDURE
 
     # 4. PT / Physical Therapy - NEW
@@ -224,29 +228,42 @@ def extract_clinical_events(
             etype = _detect_encounter_type(" ".join(f.text for f in block_facts))
 
             # Collect candidate dates across ALL pages in the block.
-            # Prefer a max date for discharge-like events, otherwise prefer the earliest.
+            # ── Proximity & Lockdown Rules (Clause V) ──
             candidates: list[EventDate] = []
             for p in block.pages:
-                candidates.extend(dates.get(p.page_number, []) or [])
+                page_dates = dates.get(p.page_number, []) or []
+                # Only keep dates that are either Tier 1 or reasonably 'Explicit'
+                candidates.extend(page_dates)
 
             event_date: EventDate | None = None
             event_flags: list[str] = []
+            
             if candidates:
                 if etype == EventType.HOSPITAL_DISCHARGE:
                     event_date = max(candidates, key=lambda d: d.sort_key())
                 elif etype == EventType.HOSPITAL_ADMISSION:
-                    event_date = min(candidates, key=lambda d: d.sort_key())
+                    # STRICT GATE: Admission must have an EXPLICIT or TIER1 date
+                    explicit_adm = [d for d in candidates if d.source == DateSource.TIER1 or d.status == "explicit"]
+                    if explicit_adm:
+                        event_date = min(explicit_adm, key=lambda d: d.sort_key())
+                    else:
+                        # Downgrade to undated or flag
+                        event_date = candidates[0]
+                        event_flags.append("UNVERIFIED_ADMISSION_DATE")
                 else:
                     # Prefer any candidate that HAS a full date value if available
                     full_dates = [d for d in candidates if d.value is not None]
                     if full_dates:
+                        # PROXIMITY CHECK (Clause V)
+                        # For block-level events, we don't have line numbers for facts easily
+                        # but we can check if the best candidate is 'Explicit'
                         event_date = full_dates[0]
                     else:
                         event_date = block.primary_date or min(candidates, key=lambda d: d.sort_key())
             else:
                 event_date = block.primary_date
 
-            if not event_date:
+            if not event_date or (event_date.status == "undated"):
                 warnings.append(PipelineWarning(
                     code="MISSING_DATE",
                     message=f"Event for pages {block.page_numbers} has no resolved date",

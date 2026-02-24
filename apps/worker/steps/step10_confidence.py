@@ -9,6 +9,7 @@ from packages.shared.models import (
     Event,
     EventType,
     FactKind,
+    DateStatus,
     RunConfig,
     Warning,
 )
@@ -18,17 +19,18 @@ def score_event(event: Event) -> int:
     """Compute confidence score for an event (0–100)."""
     score = 0
 
-    # Date tier contribution
+    # Date status contribution
     if event.date:
-        if event.date.source == DateSource.TIER1:
+        if event.date.status == DateStatus.EXPLICIT:
             score += 35
-        # If we have a resolved full date, treat as Tier 1 equivalent
-        elif event.date.value:
-            score += 35
-        elif event.date.source == DateSource.TIER2:
-            score += 25  # Increased from 20 — TIER2 is still a real date
-        elif event.date.source in (DateSource.PROPAGATED, DateSource.ANCHOR):
+        elif event.date.status == DateStatus.RANGE:
+            score += 25
+        elif event.date.status == DateStatus.PROPAGATED:
             score += 15
+        elif event.date.status == DateStatus.AMBIGUOUS:
+            score += 10
+        elif event.date.status == DateStatus.UNDATED:
+            score -= 50  # Heavy penalty for undated status
 
     # Provider confidence
     if event.provider_id and event.provider_id != "unknown":

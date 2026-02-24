@@ -8,6 +8,7 @@ from packages.shared.models import (
     DateRange,
     Event,
     EventDate,
+    DateStatus,
     EventType,
     Fact,
     FactKind,
@@ -149,6 +150,7 @@ def extract_pt_events(
                     kind=DateKind.RANGE,
                     value=DateRange(start=first_date.sort_date(), end=last_date.sort_date()),
                     source=first_date.source,
+                    status=DateStatus.RANGE,
                 )
             else:
                 event_date = first_date

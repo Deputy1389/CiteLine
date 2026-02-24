@@ -14,7 +14,7 @@ import re
 from collections import defaultdict
 from datetime import date, timedelta
 
-from packages.shared.models import DateKind, DateSource, EventDate, Page, Warning
+from packages.shared.models import DateKind, DateSource, DateStatus, EventDate, DateRange, Page, Warning, PageType
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,15 @@ _DATE_PATTERNS = [
     rf"(\d{{1,2}})\s+({_FULL_MONTHS}),?\s+(\d{{4}})",
     # 7: DD Mon YYYY  (e.g. 14 Mar 2024)
     rf"(\d{{1,2}})\s+({_ABBREV_MONTHS}),?\s+(\d{{4}})",
+]
+
+_DATE_RANGE_PATTERNS = [
+    # "From MM/DD/YYYY to MM/DD/YYYY"
+    rf"(?i)from\s+({_DATE_PATTERNS[0]})\s+to\s+({_DATE_PATTERNS[0]})",
+    # "Between MM/DD/YYYY and MM/DD/YYYY"
+    rf"(?i)between\s+({_DATE_PATTERNS[0]})\s+and\s+({_DATE_PATTERNS[0]})",
+    # "MM/YYYY - MM/YYYY" (Service range)
+    r"(\d{1,2})[/\-](\d{4})\s*[\-–—]\s*(\d{1,2})[/\-](\d{4})",
 ]
 
 _PARTIAL_DATE_PATTERNS = [
@@ -187,16 +196,16 @@ def _parse_date_from_match(match: re.Match, pattern_index: int) -> date | None:
     return None
 
 
-def _find_dates_in_text(text: str) -> list[tuple[date, int]]:
-    """Find all dates in text with their character positions."""
-    results: list[tuple[date, int]] = []
+def _find_dates_in_text(text: str) -> list[tuple[date, int, int]]:
+    """Find all dates in text with their character positions and line numbers."""
+    results: list[tuple[date, int, int]] = []
     seen: set[tuple[date, int]] = set()
     
     # Split by lines to check context
     lines = text.split("\n")
     current_pos = 0
     
-    for line in lines:
+    for line_idx, line in enumerate(lines):
         if is_copyright_or_footer_context(line):
             current_pos += len(line) + 1
             continue
@@ -209,29 +218,45 @@ def _find_dates_in_text(text: str) -> list[tuple[date, int]]:
                     key = (d, pos)
                     if key not in seen:
                         seen.add(key)
-                        results.append((d, pos))
+                        results.append((d, pos, line_idx + 1))
         current_pos += len(line) + 1
         
     return results
 
 
-def _find_partial_dates_in_text(text: str) -> list[tuple[int, int, int]]:
-    """Find (month, day, pos) in text for yearless dates."""
-    results: list[tuple[int, int, int]] = []
-    for i, pattern in enumerate(_PARTIAL_DATE_PATTERNS):
-        for m in re.finditer(pattern, text, re.IGNORECASE):
-            try:
-                groups = m.groups()
-                if i in (0, 1):  # Month DD
-                    month = _MONTH_MAP.get(groups[0].lower(), 0)
-                    day = int(groups[1])
-                else:  # MM/DD
-                    month, day = int(groups[0]), int(groups[1])
+def _parse_range_from_match(match: re.Match, pattern_index: int) -> DateRange | None:
+    try:
+        groups = match.groups()
+        if pattern_index in (0, 1):  # From/Between
+            # groups are (m1, d1, y1, m2, d2, y2)
+            d1 = date(int(groups[2]), int(groups[0]), int(groups[1]))
+            d2 = date(int(groups[5]), int(groups[3]), int(groups[4]))
+            return DateRange(start=d1, end=d2)
+        elif pattern_index == 2:  # MM/YYYY - MM/YYYY
+            # groups are (m1, y1, m2, y2)
+            d1 = date(int(groups[1]), int(groups[0]), 1)
+            # End of month for d2
+            y2, m2 = int(groups[3]), int(groups[2])
+            import calendar
+            _, last_day = calendar.monthrange(y2, m2)
+            d2 = date(y2, m2, last_day)
+            return DateRange(start=d1, end=d2)
+    except (ValueError, IndexError):
+        pass
+    return None
 
-                if 1 <= month <= 12 and 1 <= day <= 31:
-                    results.append((month, day, m.start()))
-            except Exception:
-                continue
+
+def _find_date_ranges_in_text(text: str) -> list[tuple[DateRange, int, int]]:
+    results: list[tuple[DateRange, int, int]] = []
+    lines = text.split("\n")
+    current_pos_val = 0
+    for line_idx, line in enumerate(lines):
+        for i, pattern in enumerate(_DATE_RANGE_PATTERNS):
+            for m in re.finditer(pattern, line, re.IGNORECASE):
+                dr = _parse_range_from_match(m, i)
+                if dr:
+                    results.append((dr, current_pos_val + m.start(), line_idx + 1))
+        current_pos_val += len(line) + 1
     return results
 
 
@@ -355,7 +380,7 @@ def extract_dates(page: Page) -> list[tuple[EventDate, str]]:
     results: list[tuple[EventDate, str]] = []
     found_dates = _find_dates_in_text(text)
 
-    for d, pos in found_dates:
+    for d, pos, line_num in found_dates:
         # Find best label in context
         label_type = _find_best_label(text, pos)
 
@@ -364,13 +389,13 @@ def extract_dates(page: Page) -> list[tuple[EventDate, str]]:
 
         elif label_type == "tier1":
             results.append((
-                EventDate(kind=DateKind.SINGLE, value=d, source=DateSource.TIER1),
+                EventDate(kind=DateKind.SINGLE, value=d, source=DateSource.TIER1, line_number=line_num, status=DateStatus.EXPLICIT),
                 "tier1",
             ))
 
         elif label_type == "tier2":
             results.append((
-                EventDate(kind=DateKind.SINGLE, value=d, source=DateSource.TIER2),
+                EventDate(kind=DateKind.SINGLE, value=d, source=DateSource.TIER2, line_number=line_num, status=DateStatus.EXPLICIT),
                 "tier2",
             ))
 
@@ -379,15 +404,23 @@ def extract_dates(page: Page) -> list[tuple[EventDate, str]]:
             # Unlabeled date at top of page → tier 2 (header date)
             if pos < len(text) * 0.2:
                 results.append((
-                    EventDate(kind=DateKind.SINGLE, value=d, source=DateSource.TIER2),
+                    EventDate(kind=DateKind.SINGLE, value=d, source=DateSource.TIER2, line_number=line_num, status=DateStatus.PROPAGATED),
                     "header_date",
                 ))
 
-    # Second pass: Partial dates
-    partials = _find_partial_dates_in_text(text)
-    for month, day, pos in partials:
+    # Second pass: Date Ranges
+    ranges = _find_date_ranges_in_text(text)
+    for dr, pos, line_num in ranges:
+        results.append((
+            EventDate(kind=DateKind.RANGE, value=dr, source=DateSource.TIER2, line_number=line_num, status=DateStatus.RANGE),
+            "range",
+        ))
+
+    # Third pass: Partial dates
+    partials = _find_partial_dates_in_text_with_lines(text)
+    for month, day, pos, line_num in partials:
         # Check if we already covered this position with a full date
-        if any(abs(pos - p) < 5 for _, p in found_dates):
+        if any(abs(pos - p) < 5 for _, p, _ in found_dates):
             continue
 
         label_type = _find_best_label(text, pos)
@@ -396,8 +429,33 @@ def extract_dates(page: Page) -> list[tuple[EventDate, str]]:
 
         # Store partials as EventDates using explicit partial fields and extensions.
         ed = make_partial_date(month, day)
+        ed.line_number = line_num
+        ed.status = DateStatus.AMBIGUOUS
         results.append((ed, "partial"))
 
+    return results
+
+
+def _find_partial_dates_in_text_with_lines(text: str) -> list[tuple[int, int, int, int]]:
+    results: list[tuple[int, int, int, int]] = []
+    lines = text.split("\n")
+    current_pos = 0
+    for line_idx, line in enumerate(lines):
+        for i, pattern in enumerate(_PARTIAL_DATE_PATTERNS):
+            for m in re.finditer(pattern, line, re.IGNORECASE):
+                try:
+                    groups = m.groups()
+                    if i in (0, 1):  # Month DD
+                        month = _MONTH_MAP.get(groups[0].lower(), 0)
+                        day = int(groups[1])
+                    else:  # MM/DD
+                        month, day = int(groups[0]), int(groups[1])
+
+                    if 1 <= month <= 12 and 1 <= day <= 31:
+                        results.append((month, day, current_pos + m.start(), line_idx + 1))
+                except Exception:
+                    continue
+        current_pos += len(line) + 1
     return results
 
 
@@ -478,13 +536,25 @@ def extract_dates_for_pages(pages: list[Page]) -> dict[int, list[EventDate]]:
                         break
                 last_valid_date = best_candidate
             elif last_valid_date is not None:
-                # No dates on this page — propagate from previous
-                propagated = EventDate(
-                    kind=DateKind.SINGLE,
-                    value=last_valid_date.value,
-                    relative_day=last_valid_date.relative_day,
-                    source=DateSource.PROPAGATED,
-                )
+                # ── DOI Propagation Ban (Clause V) ──
+                # Billing, PT, and Summary pages should NOT anchor to the DOI header.
+                # If they have no date, they are UNDATED.
+                _BAN_TYPES = (PageType.PT_NOTE, PageType.BILLING, PageType.DISCHARGE_SUMMARY)
+                if page.page_type in _BAN_TYPES:
+                    propagated = EventDate(
+                        kind=DateKind.SINGLE,
+                        value=None,
+                        source=DateSource.PROPAGATED,
+                        status=DateStatus.UNDATED,
+                    )
+                else:
+                    propagated = EventDate(
+                        kind=DateKind.SINGLE,
+                        value=last_valid_date.value,
+                        relative_day=last_valid_date.relative_day,
+                        source=DateSource.PROPAGATED,
+                        status=DateStatus.PROPAGATED,
+                    )
                 result[page.page_number] = [propagated]
 
     return result

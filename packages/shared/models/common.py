@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from .enums import DateKind, DateSource
+from .enums import DateKind, DateSource, DateStatus
 
 
 class BBox(BaseModel):
@@ -23,9 +23,11 @@ class EventDate(BaseModel):
     value: date | DateRange | None = None
     relative_day: int | None = None  # e.g. 1 for "Day 1" (ADMISSION RELATIVE ONLY)
     source: DateSource
+    status: DateStatus = DateStatus.EXPLICIT
+    line_number: int | None = None  # The raw OCR line where this date was found
     partial_month: int | None = None
     partial_day: int | None = None
-    extensions: dict | None = None
+    extensions: dict | None = Field(default_factory=dict)
 
     def sort_key(self) -> tuple[int, str]:
         """Return a sortable tuple. Strict priority logic."""

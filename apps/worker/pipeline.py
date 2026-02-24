@@ -97,6 +97,7 @@ from apps.worker.steps.step18_paralegal_chronology import (
 from apps.worker.pipeline_artifacts import build_artifact_ref_entries, build_page_map
 from apps.worker.pipeline_persistence import persist_pipeline_state
 from apps.worker.steps.step19_llm_reasoning import run_llm_reasoning
+from apps.worker.lib.litigation_integrity import run_litigation_integrity_pass
 
 logger = logging.getLogger(__name__)
 RUN_TIMEOUT_SECONDS = int(os.getenv("RUN_TIMEOUT_SECONDS", "1800"))
@@ -520,6 +521,12 @@ def run_pipeline(run_id: str) -> None:
         evidence_graph.extensions["patient_scope_violations"] = patient_scope_violations
         if patient_scope_violations:
             logger.warning(f"[{run_id}] Patient scope invariant violations: {len(patient_scope_violations)}")
+
+        # ── Step 11b: Litigation Integrity Pass (Clause V) ────────────────
+        _check_deadline(start_time, run_id, "step11b")
+        logger.info(f"[{run_id}] Step 11b: Litigation Integrity Pass")
+        integrity_warns = run_litigation_integrity_pass(evidence_graph)
+        all_warnings.extend(integrity_warns)
 
         # ── Extraction metrics ───────────────────────────────────────────────
         page_type_counts: dict[str, int] = {}
