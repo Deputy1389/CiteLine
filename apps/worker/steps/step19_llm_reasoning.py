@@ -155,20 +155,22 @@ def run_llm_reasoning(
         return extensions, warnings
 
     try:
-        import google.generativeai as genai
+        from google import genai
+        from google.genai import types as genai_types
     except ImportError:
         warnings.append(Warning(
             code="LLM_SKIPPED",
-            message="google-generativeai not installed — LLM reasoning skipped",
+            message="google-genai not installed — LLM reasoning skipped",
         ))
         return extensions, warnings
 
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            model_name=config.gemini_model,
-            generation_config={"response_mime_type": "application/json"},
-        )
+        client = genai.Client(api_key=api_key)
+
+        # Use gemini-2.0-flash if model is still the old default
+        model_name = config.gemini_model
+        if model_name == "gemini-1.5-flash":
+            model_name = "gemini-2.0-flash"
 
         events = evidence_graph.events
         valid_ids = {e.event_id for e in events}
@@ -178,13 +180,18 @@ def run_llm_reasoning(
             logger.info("LLM Step 19: No events to analyze — skipping")
             return extensions, warnings
 
-        logger.info(f"LLM Step 19: Starting — {len(event_rows)} events, model={config.gemini_model}")
+        logger.info(f"LLM Step 19: Starting — {len(event_rows)} events, model={model_name}")
+
+        generate_config = genai_types.GenerateContentConfig(
+            response_mime_type="application/json",
+        )
 
         # ── Prompt 1: Causation assessment ────────────────────────────────
         t0 = time.time()
-        causation_response = model.generate_content(
-            _prompt_causation(event_rows),
-            request_options={"timeout": _GEMINI_TIMEOUT},
+        causation_response = client.models.generate_content(
+            model=model_name,
+            contents=_prompt_causation(event_rows),
+            config=generate_config,
         )
         causation_data = json.loads(causation_response.text)
         causation_data = _validate_event_ids(causation_data, valid_ids)
@@ -196,9 +203,10 @@ def run_llm_reasoning(
 
         # ── Prompt 2: Contradictions ───────────────────────────────────────
         t0 = time.time()
-        contradiction_response = model.generate_content(
-            _prompt_contradictions(event_rows),
-            request_options={"timeout": _GEMINI_TIMEOUT},
+        contradiction_response = client.models.generate_content(
+            model=model_name,
+            contents=_prompt_contradictions(event_rows),
+            config=generate_config,
         )
         contradiction_data = json.loads(contradiction_response.text)
         contradiction_data = _validate_event_ids(contradiction_data, valid_ids)
@@ -224,7 +232,7 @@ def run_llm_reasoning(
         logger.info(f"LLM Step 19: Annotated {annotated} events with causal scores")
 
         extensions["llm_metadata"] = {
-            "model": config.gemini_model,
+            "model": model_name,
             "events_analyzed": len(event_rows),
             "run_timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "causation_count": len(causation_data.get("causation_assessments", [])),
