@@ -78,7 +78,7 @@ from apps.worker.steps.litigation import (
     build_contradiction_matrix,
     build_narrative_duality,
 )
-from apps.worker.lib.noise_filter import is_noise_span
+from apps.worker.quality.text_quality import is_garbage
 from apps.worker.steps.step12a_narrative_synthesis import synthesize_narrative
 from apps.worker.project.chronology import build_chronology_projection, infer_page_patient_labels
 from scripts.litigation_qa import build_litigation_checklist, write_litigation_checklist
@@ -188,6 +188,11 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
     ):
         if extractor is extract_pt_events:
             events, citations, _, skipped = extractor(pages, dates, providers, config, page_provider_map)
+        elif extractor is extract_imaging_events:
+            events, citations, _, skipped = extractor(
+                pages, dates, providers, page_provider_map,
+                page_text_by_number={p.page_number: (p.text or "") for p in pages}
+            )
         else:
             events, citations, _, skipped = extractor(pages, dates, providers, page_provider_map)
         all_events.extend(events)
@@ -210,10 +215,14 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
             txt = (fact.text or "").strip()
             if not txt:
                 continue
-            if is_noise_span(txt):
+            if is_garbage(txt):
                 continue
             clean_facts.append(fact)
         evt.facts = clean_facts
+    
+    # Drop events with zero facts after cleaning
+    chronology_events = [e for e in chronology_events if e.facts]
+    
     page_text_by_number = {p.page_number: (p.text or "") for p in pages}
     page_patient_labels = infer_page_patient_labels(page_text_by_number)
     projection_debug: list[dict] = []

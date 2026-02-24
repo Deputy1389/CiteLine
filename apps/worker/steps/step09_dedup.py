@@ -150,6 +150,68 @@ def deduplicate_events(events: list[Event]) -> tuple[list[Event], list[Warning]]
 
     merged = collapsed
 
+    # 2c. Third pass: merge same-day same-type events if providers match or one is unknown.
+    # This handles documentation fragmentation across multiple pages on the same encounter day.
+    day_groups: dict[tuple, list[Event]] = defaultdict(list)
+    for evt in merged:
+        sd = evt.date.sort_date() if evt.date else None
+        # Use SOFT_CLINICAL group for mergeable types
+        type_key = "SOFT_CLINICAL" if evt.event_type in SOFT_TYPES else evt.event_type
+        key = (sd, type_key)
+        day_groups[key].append(evt)
+
+    final_merged: list[Event] = []
+    for key, group_evts in day_groups.items():
+        if len(group_evts) == 1:
+            final_merged.append(group_evts[0])
+            continue
+
+        # Group within the day by provider compatibility
+        # If two events have different SPECIFIC providers, don't merge.
+        # If one has "unknown", merge into the specific one.
+        # If both are "unknown", merge.
+        n = len(group_evts)
+        parent = list(range(n))
+
+        def _find_final(i: int) -> int:
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                p1 = group_evts[i].provider_id or "unknown"
+                p2 = group_evts[j].provider_id or "unknown"
+                
+                match = (p1 == p2) or (p1 == "unknown") or (p2 == "unknown")
+                if match:
+                    # Further check: don't merge if they have different explicit times
+                    t1 = (group_evts[i].date.extensions or {}).get("time") if group_evts[i].date else None
+                    t2 = (group_evts[j].date.extensions or {}).get("time") if group_evts[j].date else None
+                    if t1 and t2 and t1 != t2:
+                        continue # Keep distinct timestamped encounters separate
+                        
+                    pi, pj = _find_final(i), _find_final(j)
+                    if pi != pj:
+                        parent[pi] = pj
+
+        components: dict[int, list[int]] = defaultdict(list)
+        for i in range(n):
+            components[_find_final(i)].append(i)
+
+        for indices in components.values():
+            base = group_evts[indices[0]]
+            for idx in indices[1:]:
+                other = group_evts[idx]
+                # If base has unknown provider, adopt other's provider
+                if (base.provider_id == "unknown" or not base.provider_id) and other.provider_id != "unknown":
+                    base.provider_id = other.provider_id
+                base = _merge_events(base, other)
+            final_merged.append(base)
+
+    merged = final_merged
+
     # 3. Filter individual facts and the events themselves
     from apps.worker.steps.events.signal_filter import BOILERPLATE_PATTERNS, LEGEND_PATTERNS
     import re

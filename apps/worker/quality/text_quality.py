@@ -246,7 +246,9 @@ def _is_line_garbage(line: str) -> bool:
     max_consecutive = 0
     for t in tokens:
         low = t.lower().rstrip(".,;:!?()[]")
-        if low in _MEDICAL_TERMS or low in _STOPWORDS or re.search(r"\d", t):
+        # Treat assessment/plan/note as medical terms to prevent false positives on valid headers,
+        # but the BODY needs actual medical signal.
+        if low in _MEDICAL_TERMS or re.search(r"\d", t):
             consecutive_nonmed = 0
         else:
             consecutive_nonmed += 1
