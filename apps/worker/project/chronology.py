@@ -1427,7 +1427,7 @@ def build_chronology_projection(
                 if fact.text:
                     cleaned = sanitize_for_report(fact.text)
                     if is_noise_span(cleaned) and not re.search(
-                        r"\b(assessment|diagnosis|impression|plan|fracture|tear|infection|pain|rom|strength|procedure|injection|mri|x-?ray|follow-?up|therapy)\b",
+                        r"\b(diagnosis|impression|fracture|tear|infection|rom|strength|procedure|injection|mri|x-?ray|follow-?up|therapy|medication|treatment)\b",
                         cleaned.lower(),
                     ):
                         continue
