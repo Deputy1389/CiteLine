@@ -33,7 +33,7 @@ class RunConfig(BaseModel):
     event_confidence_min_export: int = 30  # Lowered from 40 to capture undated specialist events
     low_confidence_event_behavior: object = "exclude_from_export"  # exclude_from_export or include_with_flag
     enable_llm_reasoning: bool = True  # Enable Gemini Flash semantic reasoning (Step 19)
-    gemini_model: str = "gemini-2.0-flash"  # Gemini model for LLM reasoning
+    gemini_model: str = "gemini-1.5-flash"  # Gemini model for LLM reasoning
 
 
 class SourceDocument(BaseModel):
