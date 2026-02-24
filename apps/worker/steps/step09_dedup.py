@@ -184,8 +184,16 @@ def deduplicate_events(events: list[Event]) -> tuple[list[Event], list[Warning]]
                 p1 = group_evts[i].provider_id or "unknown"
                 p2 = group_evts[j].provider_id or "unknown"
                 
-                match = (p1 == p2) or (p1 == "unknown") or (p2 == "unknown")
-                if match:
+                # If they are SOFT_CLINICAL, they are very likely the same encounter cluster.
+                # Force merge regardless of provider or minor time differences.
+                if type_key == "SOFT_CLINICAL":
+                    pi, pj = _find_final(i), _find_final(j)
+                    if pi != pj:
+                        parent[pi] = pj
+                    continue
+
+                provider_match = (p1 == p2) or (p1 == "unknown") or (p2 == "unknown")
+                if provider_match:
                     # Further check: don't merge if they have different explicit times
                     t1 = (group_evts[i].date.extensions or {}).get("time") if group_evts[i].date else None
                     t2 = (group_evts[j].date.extensions or {}).get("time") if group_evts[j].date else None
