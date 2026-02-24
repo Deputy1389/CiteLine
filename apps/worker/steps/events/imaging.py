@@ -90,13 +90,19 @@ def extract_imaging_events(
 
         for page in page_group:
             content_section = None
-            for header in ["Impression", "Findings", "Conclusion", "Summary", "Results", "Interpretation", "Report"]:
+            for header in ["Impression", "Findings", "Conclusion", "Summary", "Results", "Interpretation", "Report", "Narrative", "Discussion", "Opinion", "Diagnosis"]:
                 section = _find_section(page.text, header)
                 if section:
                     content_section = section
                     break
             if not content_section:
-                continue
+                # Fallback: if no header, use the first 3 lines of clinical text
+                lines = [l.strip() for l in page.text.split("\n") if l.strip()]
+                if len(lines) > 2:
+                    content_section = "\n".join(lines[:3])
+                else:
+                    continue
+
             lines = [l.strip() for l in content_section.split("\n") if l.strip()][:3]
             for line in lines:
                 if len(facts) >= 6:

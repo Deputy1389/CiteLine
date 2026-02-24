@@ -134,10 +134,10 @@ def _extract_candidates_from_page(page: Page) -> list[tuple[str, int]]:
         for m in pattern.finditer(full_text):
             name = m.group(1).strip()
             if _is_valid_candidate(name) and len(name) > 4:
-                candidates.append((name, 65))
+                candidates.append((name, 75))
 
-    # Check letterhead (top 20% of page text = first few lines)
-    top_lines = lines[:max(3, len(lines) // 5)]
+    # Check letterhead (top 30% of page text)
+    top_lines = lines[:max(5, int(len(lines) * 0.3))]
     for line in top_lines:
         line_stripped = line.strip()
         # Letterhead heuristic: short-ish lines with title-case, no obvious sentence structure
@@ -149,7 +149,7 @@ def _extract_candidates_from_page(page: Page) -> list[tuple[str, int]]:
                    ["medical", "hospital", "clinic", "health", "center", "radiology",
                     "therapy", "orthopedic", "chiropractic", "imaging"]):
                 if _is_valid_candidate(line_stripped):
-                    candidates.append((line_stripped, 70))
+                    candidates.append((line_stripped, 75))
 
     return candidates
 

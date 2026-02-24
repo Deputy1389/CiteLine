@@ -55,7 +55,7 @@ def _provider_name(event: Event, providers: list[Provider]) -> str:
             clean = sanitize_for_report(provider.normalized_name or provider.detected_name_raw)
             if not clean:
                 return "Unknown"
-            if provider.confidence < 70:
+            if provider.confidence < 60:
                 return "Unknown"
             low_clean = clean.lower()
             # Guard against document-title / run-label contamination in provider field.
@@ -536,6 +536,10 @@ def _entry_substance_score(entry: ChronologyProjectionEntry) -> int:
     score = 0
     if re.search(r"\b(diagnosis|assessment|impression|problem|radiculopathy|fracture|tear|infection|stenosis|sprain|strain)\b", facts):
         score += 2
+    if re.search(r"\b(surgery|operative|procedure|debridement|orif|arthroplasty|repair|reconstruction|injection|epidural|nerve block|medrol|lidocaine|marcaine|depo)\b", facts):
+        score += 3
+    if re.search(r"\b(mri|ct\s+scan|x-ray|radiograph|ultrasound|sonogram|imaging|angiogram|myelogram)\b", facts):
+        score += 2
     if re.search(r"\bimpression\b", facts):
         score += 2
     if re.search(r"\b(hydrocodone|oxycodone|morphine|tramadol|fentanyl|acetaminophen|ibuprofen|naproxen|lisinopril|metformin)\b.*\b\d+(?:\.\d+)?\s*(mg|mcg|ml)\b", facts):
@@ -579,6 +583,24 @@ def _is_substantive_entry(entry: ChronologyProjectionEntry) -> bool:
         if category_hits >= 2:
             return True
     return _entry_substance_score(entry) >= MIN_SUBSTANCE_THRESHOLD
+
+
+def _is_substantive_event(event: Event) -> bool:
+    """Check if a raw Event object is clinically substantive."""
+    joined_facts = " ".join(f.text for f in event.facts).lower()
+    keywords = (
+        "diagnosis", "assessment", "impression", "problem", "radiculopathy",
+        "fracture", "tear", "infection", "stenosis", "sprain", "strain",
+        "medication", "prescribed", "started", "stopped", "procedure",
+        "surgery", "injection", "mri", "x-ray", "ct scan", "ultrasound",
+        "physician overread", "medical director", "care summary"
+    )
+    # Check for direct keyword hits or a high fact count
+    if any(k in joined_facts for k in keywords):
+        return True
+    if len(event.facts) > 3:
+        return True
+    return False
 
 
 def _is_high_substance_entry(entry: ChronologyProjectionEntry) -> bool:
@@ -1092,7 +1114,7 @@ def _apply_timeline_selection(
                 }
             )
 
-            if covered_buckets.issuperset(present_buckets) and low_delta_streak >= UTILITY_CONSECUTIVE_LOW_K:
+            if covered_buckets.issuperset(present_buckets) and low_delta_streak >= (UTILITY_CONSECUTIVE_LOW_K * 2 if total_pages > 300 else UTILITY_CONSECUTIVE_LOW_K):
                 stopping_reason = "saturation"
                 break
             if len(selected_patient) >= SELECTION_HARD_MAX_ROWS:
@@ -1355,20 +1377,27 @@ def build_chronology_projection(
                     continue
             high_value = _is_high_value_event(event, joined_raw)
             if (not event.date or not event.date.value) and not high_value:
-                if debug_sink is not None:
-                    debug_sink.append({"event_id": event.event_id, "reason": "undated_low_value", "provider_id": event.provider_id})
-                continue
+                # Relaxed undated filter for large packets
+                if page_text_by_number and len(page_text_by_number) > 300 and _is_substantive_event(event):
+                    pass
+                else:
+                    if debug_sink is not None:
+                        debug_sink.append({"event_id": event.event_id, "reason": "undated_low_value", "provider_id": event.provider_id})
+                    continue
             if (not event.date or not event.date.value) and event.event_type.value in {"office_visit", "pt_visit", "inpatient_daily_note"}:
                 strong_undated = bool(
                     re.search(
-                        r"\b(diagnosis|impression|fracture|tear|infection|debridement|orif|procedure|injection|mri|x-?ray|fluoroscopy|depo-?medrol|lidocaine|pain\s*\d)\b",
+                        r"\b(diagnosis|assessment|impression|problem|fracture|tear|infection|debridement|orif|procedure|injection|mri|x-?ray|fluoroscopy|depo-?medrol|lidocaine|pain\s*\d)\b",
                         low_joined_raw,
                     )
                 )
                 if not strong_undated:
-                    if debug_sink is not None:
-                        debug_sink.append({"event_id": event.event_id, "reason": "undated_low_value", "provider_id": event.provider_id})
-                    continue
+                    if page_text_by_number and len(page_text_by_number) > 300 and _is_substantive_event(event):
+                         pass
+                    else:
+                        if debug_sink is not None:
+                            debug_sink.append({"event_id": event.event_id, "reason": "undated_low_value", "provider_id": event.provider_id})
+                        continue
         inferred_date: date | None = None
         if not event.date or not event.date.value:
             inferred_date = infer_date(event)

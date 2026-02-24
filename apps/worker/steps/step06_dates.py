@@ -43,6 +43,10 @@ _DATE_PATTERNS = [
     rf"(\d{{1,2}})\s+({_FULL_MONTHS}),?\s+(\d{{4}})",
     # 7: DD Mon YYYY  (e.g. 14 Mar 2024)
     rf"(\d{{1,2}})\s+({_ABBREV_MONTHS}),?\s+(\d{{4}})",
+    # 8: MM/DD/YY (2-digit year)
+    r"\b(\d{1,2})[/\-](\d{1,2})[/\-](\d{2})\b",
+    # 9: DDth of Month, YYYY (e.g. 14th of March, 2024)
+    rf"(\d{{1,2}})(?:st|nd|rd|th)\s+of\s+({_FULL_MONTHS}),?\s+(\d{{4}})",
 ]
 
 _DATE_RANGE_PATTERNS = [
@@ -175,14 +179,20 @@ def _parse_date_from_match(match: re.Match, pattern_index: int) -> date | None:
     """Parse a date from a regex match based on which pattern matched."""
     try:
         groups = match.groups()
-        if pattern_index == 0:  # MM/DD/YYYY
+        if pattern_index == 0 or pattern_index == 8:  # MM/DD/YYYY or MM/DD/YY
             month, day, year = int(groups[0]), int(groups[1]), int(groups[2])
+            if pattern_index == 8 and year < 100:
+                year += 2000 if year < 50 else 1900
         elif pattern_index == 1:  # YYYY-MM-DD
             year, month, day = int(groups[0]), int(groups[1]), int(groups[2])
         elif pattern_index in (2, 3, 4, 5):  # Month DD YYYY variants
             month = _MONTH_MAP.get(groups[0].lower(), 0)
             day, year = int(groups[1]), int(groups[2])
         elif pattern_index in (6, 7):  # DD Month YYYY
+            day = int(groups[0])
+            month = _MONTH_MAP.get(groups[1].lower(), 0)
+            year = int(groups[2])
+        elif pattern_index == 9:  # DDth of Month YYYY
             day = int(groups[0])
             month = _MONTH_MAP.get(groups[1].lower(), 0)
             year = int(groups[2])
@@ -297,28 +307,38 @@ def _find_best_label(text: str, date_pos: int) -> str | None:
 def _find_anchor_date(pages: list[Page]) -> date | None:
     """
     Scan pages for a labeled anchor date (e.g. "Admission Date: 01/15/2024").
-    Checks all pages but prioritises earlier ones. Returns the first valid
-    anchor date found.
+    Checks all pages but prioritises earlier ones.
+    Fallback: returns the first valid date found on any page if no labeled anchor exists.
     """
+    first_detected_date: date | None = None
+
     for page in pages:
         text = page.text
+        # First, try labeled anchor patterns
         for label_pattern in _ANCHOR_LABELS:
-            # Build a combined pattern: label followed by a date
             for date_idx, date_pattern in enumerate(_DATE_PATTERNS):
                 combined = label_pattern + date_pattern
                 m = re.search(combined, text, re.IGNORECASE)
                 if m:
-                    # The date groups start after the label groups (which is 0 groups)
-                    # We need to extract only the date part
-                    # Re-search just the date portion
                     date_match = re.search(date_pattern, text[m.start():], re.IGNORECASE)
                     if date_match:
                         d = _parse_date_from_match(date_match, date_idx)
                         if d:
-                            logger.info(
-                                f"Anchor date found on page {page.page_number}: {d}"
-                            )
+                            logger.info(f"Anchor date found on page {page.page_number}: {d}")
                             return d
+        
+        # Second, keep track of the first date we see anywhere (as a fallback)
+        if first_detected_date is None:
+            raw_dates = _find_dates_in_text(text)
+            if raw_dates:
+                # Use the one closest to top of page
+                raw_dates.sort(key=lambda x: x[1])
+                first_detected_date = raw_dates[0][0]
+
+    if first_detected_date:
+        logger.info(f"Using fallback anchor date from body text: {first_detected_date}")
+        return first_detected_date
+
     return None
 
 
@@ -339,9 +359,12 @@ def _resolve_relative_dates(page: Page, anchor: date | None) -> list[EventDate]:
 
     for pattern, kind in _RELATIVE_PATTERNS:
         for m in re.finditer(pattern, page.text, re.IGNORECASE):
-            day_num = int(m.group(1))
+            try:
+                day_num = int(m.group(1))
+            except (ValueError, IndexError):
+                continue
+
             resolved_value: date | None = None
-            
             if anchor:
                 try:
                     if kind == "day":
@@ -351,16 +374,18 @@ def _resolve_relative_dates(page: Page, anchor: date | None) -> list[EventDate]:
                 except Exception:
                     pass
             
-            # FIXED: Do not set synthetic 'relative_day' if we can't resolve it to a real date.
-            # Only set it if we have an anchor and resolved_value.
+            # Only emit if we could resolve to a real date.
+            # An EventDate(value=None) passes `if event.date:` checks but then
+            # breaks any code that tries to format or sort on the date value.
             if resolved_value:
-                key = (resolved_value, None)
+                key = (resolved_value, day_num)
                 if key not in seen_dates:
                     seen_dates.add(key)
                     results.append(
                         EventDate(
                             kind=DateKind.SINGLE,
                             value=resolved_value,
+                            relative_day=day_num,
                             source=DateSource.ANCHOR if anchor else DateSource.TIER2,
                         )
                     )
