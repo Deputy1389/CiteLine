@@ -88,7 +88,11 @@ def extract_lab_events(
         # Extract specific tests found on page
         found_tests = []
         text_lower = page.text.lower()
+        # On PT/therapy pages, "PT" means Physical Therapy not Prothrombin Time
+        is_pt_page = page.page_type == PageType.PT_NOTE
         for test in _LAB_TESTS:
+            if test == "PT" and is_pt_page:
+                continue
             if test.lower() in text_lower:
                 found_tests.append(test)
 

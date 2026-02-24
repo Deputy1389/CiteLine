@@ -18,6 +18,7 @@ from packages.shared.models import (
 )
 from apps.worker.steps.events.common import _make_citation, _make_fact, _find_section
 from apps.worker.steps.step06_dates import make_partial_date
+from apps.worker.quality.text_quality import _EMR_LABEL_PREFIX_RE
 
 # Some PDFs split date & time across two lines:
 #   "9/24"
@@ -83,6 +84,13 @@ def _append_to_event(event: Event, text: str, page: Page, citations: list[Citati
 def _detect_encounter_type(text: str) -> EventType:
     """Detect encounter type from clinical note text with deterministic rules."""
     n = text.lower()
+
+    # 0a. Intake questionnaires / patient intake forms are never ER visits.
+    # They exist in all specialties (ortho, PT, chiro) and should not be
+    # misclassified as Emergency Visits just because they contain triage-adjacent words.
+    _INTAKE_MARKERS = ("intake questionnaire", "patient intake", "new patient intake", "intake form")
+    if any(m in n for m in _INTAKE_MARKERS):
+        return EventType.OFFICE_VISIT
 
     # 0. Historical Reference Detection
     # If text contains "on MM/DD" or "prior to" but it's not a header/row, it's a reference
@@ -369,8 +377,17 @@ def _is_boilerplate_line(text: str) -> bool:
     return False
 
 def _is_eventworthy(text: str) -> bool:
-    """Check if line contains clinical signal words."""
-    n = text.lower()
+    """Check if line contains clinical signal words.
+
+    Strips EMR label prefixes (e.g. 'Pain Assessment:', 'Vitals Check:') before
+    checking keywords so that label-only lines (e.g. 'Pain Assessment: Blue cost
+    expert') don't trigger event creation purely because the label matches 'pain'.
+    """
+    # Strip known EMR label prefixes; if nothing is left, the line has no body
+    body = _EMR_LABEL_PREFIX_RE.sub("", text.strip())
+    check = body.lower() if body.strip() else ""
+    if not check:
+        return False
     keywords = (
         "pain", "c/o", "complained", "vomit", "emesis", "nause",
         "cough", "ambulat", "discharg", "admit", "admission",
@@ -390,7 +407,7 @@ def _is_eventworthy(text: str) -> bool:
         "discharge instructions", "discharge plan", "discharge medications",
         "follow-up", "follow up"
     )
-    return any(k in n for k in keywords)
+    return any(k in check for k in keywords)
 
 def _is_same_timestamp(event: Event, month: int, day: int, hhmm: str | None) -> bool:
     """True if the event matches the given month, day, and time."""

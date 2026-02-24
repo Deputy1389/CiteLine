@@ -1,6 +1,7 @@
 """
 Step 9 - Signal Filtering + Event Consolidation.
 Merge adjacent events with same (date, time, provider, event_type).
+Also collapse events that share source pages (same physical page = same encounter).
 Drop events that fail the clinical signal test.
 """
 from __future__ import annotations
@@ -95,6 +96,51 @@ def deduplicate_events(events: list[Event]) -> tuple[list[Event], list[Warning]]
             current_event = next_event
             
     merged.append(current_event)
+
+    # 2b. Second pass: collapse events that share source pages.
+    # One physical page should produce at most one event per (date, provider, type).
+    # This handles cases where the same page spawns multiple events with different timestamps.
+    page_groups: dict[tuple, list[Event]] = defaultdict(list)
+    for evt in merged:
+        sd = evt.date.sort_date() if evt.date else None
+        key = (sd, evt.provider_id, evt.event_type)
+        page_groups[key].append(evt)
+
+    collapsed: list[Event] = []
+    for key, group_evts in page_groups.items():
+        if len(group_evts) == 1:
+            collapsed.append(group_evts[0])
+            continue
+
+        # Union-find: merge events that share at least one source page
+        n = len(group_evts)
+        parent = list(range(n))
+
+        def _find(i: int) -> int:
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+
+        page_sets = [set(e.source_page_numbers) for e in group_evts]
+        for i in range(n):
+            for j in range(i + 1, n):
+                if page_sets[i] & page_sets[j]:
+                    pi, pj = _find(i), _find(j)
+                    if pi != pj:
+                        parent[pi] = pj
+
+        components: dict[int, list[int]] = defaultdict(list)
+        for i in range(n):
+            components[_find(i)].append(i)
+
+        for indices in components.values():
+            base = group_evts[indices[0]]
+            for idx in indices[1:]:
+                base = _merge_events(base, group_evts[idx])
+            collapsed.append(base)
+
+    merged = collapsed
 
     # 3. Filter individual facts and the events themselves
     from apps.worker.steps.events.signal_filter import BOILERPLATE_PATTERNS, LEGEND_PATTERNS

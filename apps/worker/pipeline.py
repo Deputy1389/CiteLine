@@ -310,6 +310,31 @@ def run_pipeline(run_id: str) -> None:
         logger.info(f"[{run_id}] Step 6: Date extraction")
         dates = extract_dates_for_pages(all_pages)
 
+        # Step 6b: Provider-session date propagation.
+        # Standard propagation is document-level only. Pages that belong to the same
+        # provider session (e.g. ortho consult spanning pages 100-114) should inherit
+        # the session date even if there's a page-type change mid-session.
+        from packages.shared.models.common import EventDate, DateKind, DateSource
+        _provider_session_dates: dict[str, EventDate | None] = {}
+        for page in sorted(all_pages, key=lambda p: p.page_number):
+            pid = page_provider_map.get(page.page_number)
+            if not pid:
+                continue
+            if page.page_number in dates:
+                # This page has a date — update the session anchor
+                candidates = [d for d in dates[page.page_number] if d.value is not None]
+                if candidates:
+                    _provider_session_dates[pid] = candidates[0]
+            elif pid in _provider_session_dates and _provider_session_dates[pid] is not None:
+                # No date on this page — inherit from the provider session anchor
+                anchor = _provider_session_dates[pid]
+                dates[page.page_number] = [EventDate(
+                    kind=DateKind.SINGLE,
+                    value=anchor.value,
+                    source=DateSource.PROPAGATED,
+                )]
+        logger.info(f"[{run_id}] Step 6b: Provider-session date propagation complete")
+
         # ── Step 7: Event extraction ──────────────────────────────────────────
         _check_deadline(start_time, run_id, "step7")
         logger.info(f"[{run_id}] Step 7: Event extraction")
@@ -365,7 +390,48 @@ def run_pipeline(run_id: str) -> None:
         all_skipped.extend(op_skipped)
         logger.info(f"[{run_id}] Extraction complete: {len(all_events)} events")
 
-        # Quality gate: clean/flag garbage text in event facts without dropping citations.
+        # ── Step 7b: Cross-extractor page exclusivity ──────────────────────────
+        # Each specialist page type has a primary extractor that owns it.
+        # If all of an event's source pages belong to a specialist type but the
+        # event is from a different extractor, drop it.  This prevents the
+        # clinical extractor from creating duplicate OFFICE_VISIT events on top of
+        # PT events, imaging events, etc.
+        from packages.shared.models import PageType as _PT, EventType as _ET
+        _PAGE_OWNER: dict = {
+            _PT.PT_NOTE: "PT",
+            _PT.IMAGING_REPORT: "IMAGING",
+            _PT.LAB_REPORT: "LAB",
+            _PT.BILLING: "BILLING",
+            _PT.DISCHARGE_SUMMARY: "DISCHARGE",
+            _PT.OPERATIVE_REPORT: "OPERATIVE",
+        }
+        _EVT_OWNER: dict = {
+            _ET.PT_VISIT: "PT",
+            _ET.IMAGING_STUDY: "IMAGING",
+            _ET.LAB_RESULT: "LAB",
+            _ET.BILLING_EVENT: "BILLING",
+            _ET.HOSPITAL_DISCHARGE: "DISCHARGE",
+            _ET.PROCEDURE: "OPERATIVE",
+        }
+        _page_type_map = {p.page_number: p.page_type for p in all_pages}
+        _exclusive: list = []
+        for evt in all_events:
+            if not evt.source_page_numbers:
+                _exclusive.append(evt)
+                continue
+            owners = {_PAGE_OWNER.get(_page_type_map.get(pg)) for pg in evt.source_page_numbers}
+            owners.discard(None)
+            # Only apply rule when all source pages unanimously belong to one specialist type
+            if len(owners) == 1:
+                page_owner = next(iter(owners))
+                evt_owner = _EVT_OWNER.get(evt.event_type)
+                if evt_owner != page_owner:
+                    continue  # Drop — wrong extractor for these pages
+            _exclusive.append(evt)
+        logger.info(f"[{run_id}] Step 7b: Exclusivity pass: {len(all_events)} → {len(_exclusive)} events")
+        all_events = _exclusive
+
+        # Quality gate: clean facts and drop garbage text.
         from apps.worker.quality.text_quality import clean_text, is_garbage
         for evt in all_events:
             cleaned_facts = []
@@ -376,7 +442,7 @@ def run_pipeline(run_id: str) -> None:
                     quality_stats["num_snippets_cleaned"] += 1
                 if is_garbage(cleaned):
                     quality_stats["num_snippets_filtered"] += 1
-                    # Keep cleaned text; allow attorney to decide.
+                    continue  # Drop garbage facts — not "allow attorney to decide"
                 fact.text = cleaned
                 cleaned_facts.append(fact)
             evt.facts = cleaned_facts

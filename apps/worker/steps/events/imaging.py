@@ -131,4 +131,34 @@ def extract_imaging_events(
             source_page_numbers=[page.page_number],
         ))
 
+    # Fallback: for undated imaging events, try to inherit date from a nearby
+    # same-provider event (handles multi-page imaging reports where only first page is dated).
+    if events:
+        dated = {e.event_id: e for e in events if e.date is not None}
+        for evt in events:
+            if evt.date is not None:
+                continue
+            # Find the nearest dated event from the same provider
+            best: Event | None = None
+            best_dist = 9999
+            for other in dated.values():
+                if other.provider_id != evt.provider_id:
+                    continue
+                dist = min(
+                    abs(pg - opg)
+                    for pg in evt.source_page_numbers
+                    for opg in other.source_page_numbers
+                )
+                if dist < best_dist:
+                    best_dist = dist
+                    best = other
+            if best is not None and best_dist <= 10:
+                from packages.shared.models.common import EventDate, DateKind, DateSource
+                evt.date = EventDate(
+                    kind=DateKind.SINGLE,
+                    value=best.date.value if best.date else None,
+                    source=DateSource.PROPAGATED,
+                )
+                evt.flags = [f for f in evt.flags if f != "MISSING_DATE"]
+
     return events, citations, warnings, skipped

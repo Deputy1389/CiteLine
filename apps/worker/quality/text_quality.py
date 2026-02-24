@@ -15,6 +15,12 @@ _MEDICAL_TERMS = {
     "lumbar","cervical","thoracic","spine","disc","herniation","fracture",
     "mm","cm","left","right","bilateral","worsened","improved","report","denies",
     "presented","complaint","history","hpi","plan","vitals","blood","pressure",
+    # Unambiguous clinical terms missing from original set
+    "patient","patients","presents","presenting","symptoms","symptom","complaints",
+    "mva","mvc","trauma","swelling","numbness","weakness","radiating","radicular",
+    "tenderness","concussion","laceration","contusion","abrasion",
+    # Transport/mechanism-of-injury terms (almost always medical in records context)
+    "accident","vehicle","collision","pedestrian","occupant","transport",
 }
 _STOPWORDS = {
     "the","and","or","of","to","in","for","with","on","at","by","from","as","an","a","is","was","were","be","been","are",
@@ -22,7 +28,16 @@ _STOPWORDS = {
 }
 
 _FAX_ARTIFACT_RE = re.compile(
-    r"^(from|to|fax|page|date|time)\s*[:#]|^\s*\d{3}[-\s]?\d{3}[-\s]?\d{4}\s*$",
+    r"^(from|to|fax|page|date|time)\s*[:#]"
+    r"|^fax\s*id\s*[:#]"
+    r"|^\s*\d{3}[-\s]?\d{3}[-\s]?\d{4}\s*$"
+    r"|\bto\s*:\s*records?\s*(?:dept|department)\b"
+    r"|\bpage\s*:\s*0*\d+\s*$",
+    re.IGNORECASE,
+)
+# Date-prefixed fax routing lines: "10/11/2024 12:01 FROM: ..."
+_FAX_DATE_FROM_RE = re.compile(
+    r"^\d{1,2}/\d{1,2}/\d{2,4}\s+\d{1,2}:\d{2}\s+FROM\s*:",
     re.IGNORECASE,
 )
 # Inline fax footer: timestamps, phone numbers, and page markers that appear mid-text after line joining
@@ -33,6 +48,16 @@ _FAX_INLINE_RE = re.compile(
 )
 _REPEATED_LABEL_RE = re.compile(r"(pain assessment:?\s*){2,}", re.IGNORECASE)
 _NON_WORD_RE = re.compile(r"[^A-Za-z0-9]+")
+
+# EMR label prefixes that should be stripped before quality analysis
+# e.g. "Pain Assessment: gibberish" → analyze "gibberish" only
+_EMR_LABEL_PREFIX_RE = re.compile(
+    r"^(?:pain\s*(?:assessment|level|scale)?|vitals?\s*(?:check|signs?)?|rounding|"
+    r"pt\.?\s*request|meds?\s*(?:given|administered)?|orders?\s*(?:received)?|"
+    r"chief\s*complaint|assessment|hpi|subjective|objective|plan|"
+    r"physician(?:'s)?\s*orders?)\s*:?\s*",
+    re.IGNORECASE,
+)
 
 
 def _tokenize(text: str) -> list[str]:
@@ -62,7 +87,7 @@ def clean_text(text: str) -> str:
     cleaned_lines: list[str] = []
     seen = set()
     for line in lines:
-        if _FAX_ARTIFACT_RE.search(line):
+        if _FAX_ARTIFACT_RE.search(line) or _FAX_DATE_FROM_RE.search(line):
             continue
         line = _REPEATED_LABEL_RE.sub("Pain Assessment: ", line)
         line = re.sub(r"\s{2,}", " ", line).strip()
@@ -112,28 +137,41 @@ def is_garbage(text: str) -> bool:
         return True
     if _FAX_ARTIFACT_RE.search(cleaned):
         return True
-    tokens = _tokenize(cleaned)
+
+    # Strip EMR label prefix for body analysis.
+    # "Pain Assessment: Blue cost expert" → analyze "Blue cost expert" only.
+    body = _EMR_LABEL_PREFIX_RE.sub("", cleaned).strip()
+    analyze = body if body else cleaned
+
+    tokens = _tokenize(analyze)
     if len(tokens) < 3:
         return True
     med_density = _medical_density(tokens)
-    diversity = _diversity_score(cleaned)
-    # Original short-text check
+    diversity = _diversity_score(analyze)
+
+    # Short-text check (use original cleaned length)
     if len(cleaned) < 30 and med_density < 0.02 and diversity < 0.1:
         return True
-    # NEW: Check for consecutive non-medical word runs (hallmark of OCR garbage/word salad)
+
+    # Consecutive non-medical word runs (hallmark of word salad).
+    # Adaptive threshold: short texts need fewer consecutive non-medical words to fail.
     consecutive_nonmed = 0
     max_consecutive = 0
     for t in tokens:
-        low = t.lower()
+        low = t.lower().rstrip(".,;:!?()[]")
         if low in _MEDICAL_TERMS or low in _STOPWORDS or re.search(r"\d", t):
             consecutive_nonmed = 0
         else:
             consecutive_nonmed += 1
             max_consecutive = max(max_consecutive, consecutive_nonmed)
-    # 5+ consecutive non-medical words = almost certainly garbage
-    if max_consecutive >= 5:
+
+    # ≤5 tokens (short body after label strip): 3+ consecutive non-medical = garbage
+    # 6+ tokens: 6+ consecutive = garbage (allows natural sentences like "Patient presents via private vehicle")
+    max_allowed = 2 if len(tokens) <= 5 else 5
+    if max_consecutive > max_allowed:
         return True
-    # NEW: For longer texts, require minimum medical density
+
+    # For longer texts, require minimum medical density
     if len(cleaned) > 50 and med_density < 0.08:
         return True
     return False
