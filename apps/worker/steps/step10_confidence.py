@@ -13,6 +13,7 @@ from packages.shared.models import (
     RunConfig,
     Warning,
 )
+from apps.worker.quality.text_quality import should_quarantine_fact
 
 
 def score_event(event: Event) -> int:
@@ -76,6 +77,23 @@ def score_event(event: Event) -> int:
     return max(0, min(score, 100))
 
 
+def apply_ocr_quarantine(events: list[Event]) -> int:
+    """
+    Clause VI — OCR Quarantine pass.
+    Mark facts that fail quality thresholds as technical_noise=True.
+    Facts are NEVER deleted; they are suppressed from attorney-facing output
+    but remain in the raw evidence graph for audit.
+    Returns the count of quarantined facts.
+    """
+    quarantined = 0
+    for event in events:
+        for fact in event.facts:
+            if not fact.technical_noise and should_quarantine_fact(fact.text):
+                fact.technical_noise = True
+                quarantined += 1
+    return quarantined
+
+
 def apply_confidence_scoring(
     events: list[Event],
     config: RunConfig,
@@ -85,6 +103,9 @@ def apply_confidence_scoring(
     Returns (events_with_scores, warnings).
     """
     warnings: list[Warning] = []
+
+    # Clause VI: mark OCR noise facts before scoring so noisy events score lower
+    apply_ocr_quarantine(events)
 
     for event in events:
         event.confidence = score_event(event)

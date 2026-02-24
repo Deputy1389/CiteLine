@@ -180,6 +180,27 @@ def _top10_rows(projection_entries: list, score_func: Any) -> list[str]:
             continue
         if _is_sdoh_noise(blob):
             continue
+
+        # Evidence fence — hard integrity requirements for Case Driving Events.
+        # These checks are NON-NEGOTIABLE: if any fail the entry is excluded entirely.
+        # 1. Synthetic bucket entries (mri_anchor_*, ortho_anchor_*, proc_anchor_*) are
+        #    enrichment placeholders, not real events — never allowed in Case Driving.
+        event_id = entry.event_id or ""
+        if any(event_id.startswith(pfx) for pfx in ("mri_anchor_", "ortho_anchor_", "proc_anchor_")):
+            continue
+        # 2. Entries must have at least one citation traceable to source pages.
+        if not entry.citation_display:
+            continue
+        # 3. Undated events have no established temporal foothold — exclude.
+        date_disp = (entry.date_display or "").lower()
+        if any(kw in date_disp for kw in ("not documented", "undated", "unknown")):
+            continue
+        # 4. Aggregate PT summary rows are derived statistics, not discrete events.
+        if "pt sessions documented" in blob or (
+            "physical therapy" in blob and "session" in blob and "documented" in blob
+        ):
+            continue
+
         score = score_func(entry)
         label = (entry.event_type_display or "").lower()
         if "emergency" in label:

@@ -1409,6 +1409,9 @@ def build_chronology_projection(
 
         if select_timeline:
             for fact in event.facts:
+                # Clause VI: skip OCR-quarantined facts in attorney-facing output
+                if fact.technical_noise:
+                    continue
                 if not is_reportable_fact(fact.text):
                     continue
                 cleaned = sanitize_for_report(fact.text)
@@ -1453,6 +1456,9 @@ def build_chronology_projection(
                     break
         else:
             for fact in event.facts:
+                # Clause VI: skip OCR-quarantined facts in attorney-facing output
+                if fact.technical_noise:
+                    continue
                 if fact.text:
                     cleaned = sanitize_for_report(fact.text)
                     if is_noise_span(cleaned) and not re.search(

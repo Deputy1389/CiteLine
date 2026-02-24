@@ -140,6 +140,11 @@ class Fact(BaseModel):
     citation_id: Optional[str] = None # Deprecating but keeping for compat
     citation_ids: list[str] = Field(default_factory=list)
     confidence: Optional[int] = None
+    # OCR / text quality quarantine flag.
+    # True = fact text failed quality checks (word-salad, low medical density, etc.).
+    # Quarantined facts are EXCLUDED from attorney-facing PDF output but RETAINED in the
+    # raw evidence graph for audit. Never deleted, never silently rewritten.
+    technical_noise: bool = False
 
 
 class ImagingDetails(BaseModel):

@@ -129,6 +129,50 @@ def explain_flags(text: str) -> list[str]:
     return flags
 
 
+def should_quarantine_fact(text: str) -> bool:
+    """
+    Clause VI — OCR Quarantine gate for individual Fact text.
+
+    Criteria (all deterministic, no model calls):
+    - dictionary hit ratio  < 0.40  (fewer than 40% tokens are real English/medical words)
+    - medical lexicon density < 0.05  (almost no medical signal)
+    - alphabetic token ratio  < 0.50  (majority tokens non-alphabetic → OCR noise)
+
+    Returns True if the fact should be marked technical_noise=True.
+    Facts are never deleted; callers must set fact.technical_noise = True and
+    suppress from attorney-facing output while retaining for audit.
+    """
+    if not text or len(text.strip()) < 4:
+        return False  # Too short to score — let is_garbage handle blanks
+
+    body = _EMR_LABEL_PREFIX_RE.sub("", text).strip()
+    analyze = body if body else text
+    tokens = _tokenize(analyze)
+    if not tokens:
+        return False
+
+    # Alphabetic token ratio: exclude tokens that are purely digits / punctuation
+    alpha_tokens = [t for t in tokens if re.search(r"[A-Za-z]", t)]
+    alpha_ratio = len(alpha_tokens) / len(tokens)
+
+    # Medical lexicon density (existing helper, counts digits too)
+    med_density = _medical_density(tokens)
+
+    # Dictionary hit ratio: any token that is a medical term, stopword, or contains digits
+    dict_hits = sum(
+        1 for t in tokens
+        if t.lower().rstrip(".,;:!?()[]") in _MEDICAL_TERMS
+        or t.lower().rstrip(".,;:!?()[]") in _STOPWORDS
+        or re.search(r"\d", t)
+    )
+    dict_ratio = dict_hits / len(tokens)
+
+    # Quarantine if all three metrics fail threshold
+    if dict_ratio < 0.40 and med_density < 0.05 and alpha_ratio < 0.50:
+        return True
+    return False
+
+
 def is_garbage(text: str) -> bool:
     if not text:
         return True

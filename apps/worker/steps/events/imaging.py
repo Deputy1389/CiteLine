@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 import uuid
 from packages.shared.models import (
     Citation,
@@ -95,13 +96,27 @@ def extract_imaging_events(
                 if section:
                     content_section = section
                     break
+
+            # Filter out "EXAM:" lines from content_section — these are study descriptors,
+            # not diagnostic findings (e.g. "EXAM: XR Cervical Spine 3 Views").
+            if content_section:
+                filtered_lines = [
+                    l for l in content_section.splitlines()
+                    if l.strip() and not re.match(r"(?i)^\s*exam\s*:", l)
+                ]
+                content_section = "\n".join(filtered_lines) if filtered_lines else None
+
             if not content_section:
-                # Fallback: if no header, use the first 3 lines of clinical text
-                lines = [l.strip() for l in page.text.split("\n") if l.strip()]
-                if len(lines) > 2:
-                    content_section = "\n".join(lines[:3])
-                else:
-                    continue
+                # No impression/findings header found — emit a placeholder fact so the
+                # imaging event is present in the timeline but the absence is explicit.
+                cit = _make_citation(page, page.text[:200])
+                citations.append(cit)
+                citation_ids.append(cit.citation_id)
+                placeholder = "Imaging record present; Impression section not detected on cited page."
+                fact = _make_fact(placeholder, FactKind.IMPRESSION, cit.citation_id, verbatim=False)
+                facts.append(fact)
+                impression_facts.append(fact)
+                continue
 
             lines = [l.strip() for l in content_section.split("\n") if l.strip()][:3]
             for line in lines:

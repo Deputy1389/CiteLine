@@ -556,6 +556,45 @@ def run_pipeline(run_id: str) -> None:
         evidence_graph.extensions["quality_gate"] = quality_stats
         evidence_graph.extensions["event_weighting"] = weight_summary
         logger.info(f"[{run_id}] Extraction metrics: {evidence_graph.extensions['extraction_metrics']}")
+
+        # ── Litigation Integrity Metrics (Fix 5) ─────────────────────────
+        _high_stakes_types = {"er_visit", "hospital_admission", "hospital_discharge", "procedure"}
+        date_status_counts: dict[str, int] = {}
+        for _e in all_events:
+            _ds = (_e.date.status.value if _e.date and _e.date.status else "undated")
+            date_status_counts[_ds] = date_status_counts.get(_ds, 0) + 1
+
+        _high_stakes = [
+            _e for _e in export_events
+            if (getattr(_e.event_type, "value", str(_e.event_type))) in _high_stakes_types
+        ]
+        high_stakes_by_status: dict[str, int] = {}
+        for _e in _high_stakes:
+            _ds = (_e.date.status.value if _e.date and _e.date.status else "undated")
+            high_stakes_by_status[_ds] = high_stakes_by_status.get(_ds, 0) + 1
+
+        facts_quarantined = sum(1 for _e in all_events for _f in _e.facts if _f.technical_noise)
+
+        # litigation_integrity_pass=False if any exported high-stakes event lacks EXPLICIT date
+        _integrity_pass = all(
+            (_e.date and _e.date.status and _e.date.status.value == "explicit")
+            for _e in _high_stakes
+        )
+        evidence_graph.extensions["litigation_integrity_metrics"] = {
+            "date_status_counts": date_status_counts,
+            "high_stakes_events_total": len(_high_stakes),
+            "high_stakes_by_date_status": high_stakes_by_status,
+            "facts_quarantined_technical_noise": facts_quarantined,
+            "litigation_integrity_pass": _integrity_pass,
+        }
+        logger.info(
+            f"[{run_id}] Litigation integrity: pass={_integrity_pass}, "
+            f"high_stakes={len(_high_stakes)} "
+            f"(explicit={high_stakes_by_status.get('explicit', 0)}, "
+            f"undated={high_stakes_by_status.get('undated', 0)}), "
+            f"quarantined_facts={facts_quarantined}"
+        )
+
         claim_edges = build_claim_edges([], raw_events=chronology_events)
         citations_with = sum(1 for e in claim_edges if (e.citations or []))
         logger.info(

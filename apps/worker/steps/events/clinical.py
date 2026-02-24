@@ -124,14 +124,17 @@ def _detect_encounter_type(text: str) -> EventType:
     if any(kw in n for kw in er_patterns):
         return EventType.ER_VISIT
 
-    # 2. Admission - Expanded patterns (Avoid labels like "Date Admitted:")
+    # 2. Admission — requires explicit lexical anchors.
+    # "triage" alone is NOT an admission anchor (triage vitals appear in ER/PT/office notes).
+    # "inpatient", "admit", "admitted", "admit date" are the required signals.
     admission_patterns = [
-        "admitted", "admission", "admit to oncology", "triage", "er admission",
+        "admitted", "admission", "admit to oncology",
         "inpatient admission", "admit to oncology floor", "hospital admission",
-        "admitted to hospital", "admitted for", "direct admission", "admit orders"
+        "admitted to hospital", "admitted for", "direct admission", "admit orders",
+        "admit date", "inpatient"
     ]
     if any(kw in n for kw in admission_patterns):
-        if not re.search(r"date\s+admitted\s*:", n): # Skip labels
+        if not re.search(r"date\s+admitted\s*:", n): # Skip bare labels
             if any(kw in n for kw in er_patterns):
                 return EventType.ER_VISIT
             return EventType.HOSPITAL_ADMISSION
