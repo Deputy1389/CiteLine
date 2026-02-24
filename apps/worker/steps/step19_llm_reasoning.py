@@ -7,8 +7,6 @@ and case summarization via Gemini Flash.
 Only runs if config.enable_llm_reasoning is True and GEMINI_API_KEY is set.
 All LLM assertions are validated — only references to existing event_ids are kept.
 """
-from __future__ import annotations
-
 import json
 import logging
 import os
@@ -18,6 +16,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import requests
+
 from packages.shared.models import EvidenceGraph, Event, Provider, RunConfig, Warning
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,24 @@ logger = logging.getLogger(__name__)
 _GEMINI_TIMEOUT = 60  # seconds per request
 _MAX_EVENTS_FOR_LLM = 200  # cap payload size
 _MAX_FACTS_PER_EVENT = 3   # only top facts per event
+
+
+def _gemini_call(api_key: str, model: str, prompt: str) -> dict:
+    """Make Gemini API call via REST."""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "temperature": 0.2,
+            "maxOutputTokens": 8192,
+        }
+    }
+    resp = requests.post(url, json=payload, timeout=_GEMINI_TIMEOUT)
+    resp.raise_for_status()
+    data = resp.json()
+    text = data["candidates"][0]["content"]["parts"][0]["text"]
+    return json.loads(text)
 
 
 def _build_event_payload(events: list[Event], providers: list[Provider]) -> list[dict]:
@@ -163,22 +181,9 @@ def run_llm_reasoning(
         return extensions, warnings
 
     try:
-        from google import genai
-        from google.genai import types as genai_types
-    except ImportError:
-        warnings.append(Warning(
-            code="LLM_SKIPPED",
-            message="google-genai not installed — LLM reasoning skipped",
-        ))
-        return extensions, warnings
-
-    try:
-        client = genai.Client(api_key=api_key)
-
-        # Use gemini-2.0-flash if model is still the old default
         model_name = config.gemini_model
-        if model_name == "gemini-1.5-flash":
-            model_name = "gemini-2.0-flash"
+        if model_name in ("gemini-1.5-flash", "gemini-2.0-flash"):
+            model_name = "gemini-2.5-flash"
 
         events = evidence_graph.events
         valid_ids = {e.event_id for e in events}
@@ -190,18 +195,9 @@ def run_llm_reasoning(
 
         logger.info(f"LLM Step 19: Starting — {len(event_rows)} events, model={model_name}")
 
-        generate_config = genai_types.GenerateContentConfig(
-            response_mime_type="application/json",
-        )
-
         # ── Prompt 1: Causation assessment ────────────────────────────────
         t0 = time.time()
-        causation_response = client.models.generate_content(
-            model=model_name,
-            contents=_prompt_causation(event_rows),
-            config=generate_config,
-        )
-        causation_data = json.loads(causation_response.text)
+        causation_data = _gemini_call(api_key, model_name, _prompt_causation(event_rows))
         causation_data = _validate_event_ids(causation_data, valid_ids)
         extensions["llm_causation"] = causation_data
         logger.info(
@@ -211,12 +207,7 @@ def run_llm_reasoning(
 
         # ── Prompt 2: Contradictions ───────────────────────────────────────
         t0 = time.time()
-        contradiction_response = client.models.generate_content(
-            model=model_name,
-            contents=_prompt_contradictions(event_rows),
-            config=generate_config,
-        )
-        contradiction_data = json.loads(contradiction_response.text)
+        contradiction_data = _gemini_call(api_key, model_name, _prompt_contradictions(event_rows))
         contradiction_data = _validate_event_ids(contradiction_data, valid_ids)
         extensions["llm_contradictions"] = contradiction_data
         logger.info(
