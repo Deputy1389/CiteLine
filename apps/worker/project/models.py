@@ -19,3 +19,4 @@ class ChronologyProjectionEntry(BaseModel):
 class ChronologyProjection(BaseModel):
     generated_at: datetime
     entries: list[ChronologyProjectionEntry] = Field(default_factory=list)
+    select_timeline: bool = True

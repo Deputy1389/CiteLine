@@ -84,8 +84,19 @@ def is_clinical_signal_event(event: Event) -> bool:
     if not event.facts:
         return False
 
-    # Admission and Discharge are always signals
-    if event.event_type in [EventType.HOSPITAL_ADMISSION, EventType.HOSPITAL_DISCHARGE]:
+    # Admission, Discharge, and specialist event types always pass if they have facts.
+    # Specialist extractors (imaging, PT, lab, billing) only run on their dedicated page types,
+    # so if they produced facts they are inherently meaningful clinical content.
+    _ALWAYS_PASS = {
+        EventType.HOSPITAL_ADMISSION,
+        EventType.HOSPITAL_DISCHARGE,
+        EventType.PT_VISIT,
+        EventType.IMAGING_STUDY,
+        EventType.LAB_RESULT,
+        EventType.BILLING_EVENT,
+        EventType.PROCEDURE,
+    }
+    if event.event_type in _ALWAYS_PASS:
         return True
 
     has_signal = False

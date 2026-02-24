@@ -70,6 +70,7 @@ def _render_entry(
     chron_anchor: str | None = None,
     citation_links: list[dict[str, str]] | None = None,
     manifest: "RenderManifest | None" = None,
+    select_timeline: bool = True,
 ) -> list:
     disposition = _extract_disposition(entry.facts)
     encounter_label = _normalized_encounter_label(entry)
@@ -81,7 +82,10 @@ def _render_entry(
     raw_facts = [sanitize_for_report(clean_text(f.strip())) for f in (entry.facts or []) if f and f.strip()]
     facts = [_clean_direct_snippet(f.strip()) for f in raw_facts]
     facts = [f for f in facts if f]
-    if not facts: return []
+    if not facts and select_timeline: return []
+    # If no high-value facts but we want comprehensive, use whatever raw fragments we have
+    if not facts: facts = raw_facts[:5]
+
 
     from apps.worker.steps.export_render.projection_enrichment import _normalize_event_class_local
     normalized_event_class = _normalize_event_class_local(entry)
@@ -114,7 +118,9 @@ def _render_entry(
     elif normalized_event_class == "imaging":
         modality = _pick(facts, r"\b(mri|x-?ray|xr|ct|ultrasound)\b")
         impressions = [f for f in facts if re.search(r"\b(impression|c\d-\d|l\d-\d|disc protrusion|foramen|thecal sac|finding)\b", f.lower())]
-        if not impressions: return []
+        if not impressions and select_timeline: return []
+        if not impressions: impressions = facts[:3]
+
         if modality:
             q = _quoted(modality)
             if q: lines.append(f"Modality: {q}")
@@ -170,6 +176,8 @@ def _render_entry(
         if plan and (not diagnosis or plan.strip().lower() != diagnosis.strip().lower()):
             lines.append(f'Plan: "{plan}"')
         if summary and not diagnosis: lines.append(f'Course: "{summary}"')
+        if not lines and not select_timeline:
+            lines = [f'Record Detail: "{f}"' for f in facts[:2]]
         if disposition: lines.append(f"Disposition: {disposition}")
 
     elif normalized_event_class == "therapy":
@@ -199,14 +207,22 @@ def _render_entry(
         if segments:
             q = _quoted("; ".join(segments[:5]))
             if q: lines.append(f"PT Progress: {q}")
+        if not lines and not select_timeline:
+            lines = [f'Therapy Note: "{f}"' for f in facts[:2]]
+
 
     if not lines:
         direct = [f for f in facts if re.search(r"\b(chief complaint|hpi|assessment|impression|plan|medication|mg|pain|rom|strength|diagnosis|finding)\b", f.lower())]
         for s in direct[:3]:
             q = _quoted(s)
             if q: lines.append(q)
+    
+    # Comprehensive fallback: if still no lines but we have facts and want everything, just take the first 2 facts
+    if not lines and not select_timeline and facts:
+        lines = [_quoted(f) for f in facts[:2]]
 
     if not lines: return []
+
 
     # Final noise check for unit tests
     rendered_blob = " ".join(lines).lower()
@@ -216,21 +232,14 @@ def _render_entry(
 
     if display_date == "Undated" and normalized_event_class in {"discharge", "admission", "procedure"}: return []
 
-    required_bucket = normalized_event_class in {"ed", "imaging", "procedure", "admission", "discharge", "hospice_admission", "snf_disposition"} or encounter_label.lower().startswith("orthopedic")
-    if not required_bucket:
-        fact_categories = _fact_category_count(rendered_blob)
-        if is_noise_span(" ".join(raw_facts)) or fact_categories < 2: return []
-    elif normalized_event_class == "therapy" and _fact_category_count(rendered_blob) < 2: return []
-    token_count = len(re.findall(r"[a-zA-Z0-9/-]+", " ".join(lines)))
-    if token_count < 12 and not required_bucket: return []
-
     provider_key = re.sub(r"\s+", " ", (entry.provider_display or "").strip().lower())
     lines_key = re.sub(r"\W+", " ", " ".join(lines).lower()).strip()
     dedupe_key = f"{display_date}|{encounter_label.lower()}|{provider_key}|{hashlib.sha1(lines_key.encode('utf-8')).hexdigest()[:12]}"
-    if dedupe_key in timeline_row_keys: return []
-    timeline_row_keys.add(dedupe_key)
+    if dedupe_key in timeline_row_keys and select_timeline: return []
+    if select_timeline:
+        timeline_row_keys.add(dedupe_key)
 
-    if normalized_event_class == "therapy":
+    if normalized_event_class == "therapy" and select_timeline:
         row_date = extract_date_func(display_date)
         normalized_pt_lines = re.sub(r"\b\d+\b", "N", lines_key)
         pt_signature = hashlib.sha1(normalized_pt_lines.encode("utf-8")).hexdigest()[:12]
@@ -248,8 +257,10 @@ def _render_entry(
         clean_line = depo_safe_rewrite(clean_line, matching_claims)
         if _is_meta_language(clean_line): continue
         parts.append(Paragraph(clean_line, fact_style))
+
     if disposition and not any(str(ln).lower().startswith("disposition:") for ln in lines):
         parts.append(Paragraph(_sanitize_render_sentence(f"Disposition: {disposition}"), fact_style))
+
     if citation_links:
         link_bits = []
         for link in citation_links:

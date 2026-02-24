@@ -33,6 +33,7 @@ def prepare_projection_bundle(
     compute_care_window_from_projection: Callable,
     apply_claim_guard_to_narrative: Callable,
     repair_case_summary_narrative: Callable,
+    select_timeline: bool = True,
 ) -> dict[str, Any]:
     """
     Common logic to prepare the projection, apply enrichments, and compute metadata.
@@ -49,7 +50,7 @@ def prepare_projection_bundle(
         page_text_by_number=page_text_by_number,
         debug_sink=projection_debug_sink,
         selection_meta=selection_meta,
-        select_timeline=False,
+        select_timeline=select_timeline,
     )
     appendix_projection = projection.model_copy()
     
@@ -76,7 +77,8 @@ def prepare_projection_bundle(
     )
     
     projection = normalize_projection_patient_labels(projection)
-    projection = merge_projection_entries_same_day(projection)
+    if select_timeline:
+        projection = merge_projection_entries_same_day(projection)
     care_window = compute_care_window_from_projection(projection)
     
     claim_guard_report = {}

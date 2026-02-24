@@ -96,6 +96,7 @@ from apps.worker.steps.step18_paralegal_chronology import (
 )
 from apps.worker.pipeline_artifacts import build_artifact_ref_entries, build_page_map
 from apps.worker.pipeline_persistence import persist_pipeline_state
+from apps.worker.steps.step19_llm_reasoning import run_llm_reasoning
 
 logger = logging.getLogger(__name__)
 RUN_TIMEOUT_SECONDS = int(os.getenv("RUN_TIMEOUT_SECONDS", "1800"))
@@ -633,6 +634,18 @@ def run_pipeline(run_id: str) -> None:
             payload=paralegal_payload,
             extraction_notes_md=extraction_notes_md,
         )
+
+        # ── Step 19: LLM Reasoning (optional) ────────────────────────────────
+        if config.enable_llm_reasoning:
+            _check_deadline(start_time, run_id, "step19")
+            logger.info(f"[{run_id}] Step 19: LLM reasoning (Gemini Flash)")
+            llm_extensions, llm_warnings = run_llm_reasoning(evidence_graph, providers, config)
+            all_warnings.extend(llm_warnings)
+            evidence_graph.extensions.update(llm_extensions)
+            if llm_extensions.get("llm_metadata"):
+                logger.info(f"[{run_id}] Step 19: LLM metadata: {llm_extensions['llm_metadata']}")
+        else:
+            logger.info(f"[{run_id}] Step 19: LLM reasoning disabled (set enable_llm_reasoning=true to enable)")
 
         # First render exports
         logger.info(f"[{run_id}] Chronology generation input: {len(chronology_events)} events")

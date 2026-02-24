@@ -87,6 +87,7 @@ def render_exports(
         compute_care_window_from_projection=_compute_care_window_from_projection,
         apply_claim_guard_to_narrative=apply_claim_guard_to_narrative,
         repair_case_summary_narrative=_repair_case_summary_narrative,
+        select_timeline=False,
     )
     projection = projection_bundle["projection"]
     appendix_projection = projection_bundle["appendix_projection"]

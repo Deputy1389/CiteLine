@@ -125,6 +125,7 @@ def _build_projection_flowables(
             chron_anchor=chron_anchor(entry.event_id),
             citation_links=citation_links,
             manifest=manifest,
+            select_timeline=getattr(projection, "select_timeline", True),
         )
         if entry_flowables:
             flowables.extend(entry_flowables)
