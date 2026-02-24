@@ -14,6 +14,8 @@ _RULES: list[tuple[PageType, tuple[str, ...]]] = [
         "operative report", "procedure note", "anesthesia", "pre-op", "post-op",
         "surgical", "operation", "preoperative", "postoperative", "surgeon:",
         "anesthesiologist:", "operative findings", "indication for surgery",
+        "procedure performed", "procedure:", "operative procedure", "surgery:",
+        "incision", "specimen:", "estimated blood", "specimens", "procedure",
     )),
     (PageType.IMAGING_REPORT, (
         "impression", "findings", "technique", "radiology", "mri ", " ct ",
@@ -66,6 +68,28 @@ _RULES: list[tuple[PageType, tuple[str, ...]]] = [
         "patient complaint", "exam:", "impression:", "attending:",
         "provider:", "blood pressure", "temperature", "pulse",
         "respiratory rate", "pain level", "alert and oriented",
+        # SOAP note shorthand
+        "cc:", "hpi:", "pmh:", "psh:", "meds:", "ros:",
+        "s:", "o:", "a:", "p:",
+        # Consultation / specialist notes
+        "consultation", "consult note", "consulting physician",
+        "referred by", "reason for referral", "referring physician",
+        "requesting physician", "consulting service",
+        # Office visit / follow-up
+        "office visit", "follow up visit", "follow-up visit",
+        "date of service", "date of visit", "dos:", "return visit",
+        # Emergency / urgent care
+        "emergency", "triage", "urgent care", "chief complaint:",
+        "disposition:", "er visit", "ed visit",
+        # Ortho / spine / neurology
+        "orthopedic", "neurology", "chiropractic", "pain management",
+        "spine", "cervical", "lumbar", "radiculopathy",
+        # Inpatient notes
+        "hospital day", "inpatient", "nursing note", "rn note",
+        "attending note", "resident note", "intern note",
+        # Injury / PI context
+        "accident", "mechanism of injury", "injured", "injury date",
+        "initial evaluation", "return to work", "work status",
     )),
 ]
 
