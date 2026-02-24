@@ -14,6 +14,9 @@ import logging
 import os
 import time
 from typing import Any
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from packages.shared.models import EvidenceGraph, Event, Provider, RunConfig, Warning
 
