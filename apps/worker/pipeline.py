@@ -271,6 +271,7 @@ def run_pipeline(run_id: str) -> None:
             events=chronology_events,
             evidence_graph_extensions=evidence_graph.extensions,
             specials_summary=specials_payload,
+            citations=all_citations,
         )
         evidence_graph.extensions["renderer_manifest"] = renderer_manifest.model_dump(mode="json")
 

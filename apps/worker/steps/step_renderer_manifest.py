@@ -10,7 +10,7 @@ import re
 from datetime import date
 from typing import Any
 
-from packages.shared.models import Event, RendererManifest, RendererDoiField, RendererCitationValue, RendererPtSummary, PromotedFinding
+from packages.shared.models import Citation, Event, RendererManifest, RendererDoiField, RendererCitationValue, RendererPtSummary, PromotedFinding
 
 
 _SENTINEL_DATES = {"1900-01-01", "0001-01-01", "unknown", "undated", ""}
@@ -117,7 +117,28 @@ def _build_mechanism(events: list[Event]) -> RendererCitationValue:
     return RendererCitationValue(value=None, citation_ids=[])
 
 
-def _build_pt_summary(events: list[Event]) -> RendererPtSummary:
+def _build_mechanism_from_citations(citations: list[Citation] | None) -> RendererCitationValue:
+    if not citations:
+        return RendererCitationValue(value=None, citation_ids=[])
+    patterns = [
+        (re.compile(r"\b(rear[- ]end)\b", re.I), "rear-end motor vehicle collision"),
+        (re.compile(r"\b(motor vehicle collision|motor vehicle accident|mvc|mva|auto accident|car accident)\b", re.I), "motor vehicle collision"),
+        (re.compile(r"\b(slip and fall|trip and fall|fall)\b", re.I), "fall"),
+        (re.compile(r"\b(pedestrian (?:struck|hit)|struck by vehicle)\b", re.I), "pedestrian struck"),
+        (re.compile(r"\b(work(?:place)? injury|on the job|lifting injury)\b", re.I), "work injury"),
+    ]
+    for c in sorted(citations, key=lambda x: int(getattr(x, "page_number", 999999) or 999999)):
+        sn = str(getattr(c, "snippet", "") or "").strip()
+        if not sn:
+            continue
+        low = sn.lower()
+        for pat, label in patterns:
+            if pat.search(low):
+                return RendererCitationValue(value=label, citation_ids=[str(c.citation_id)])
+    return RendererCitationValue(value=None, citation_ids=[])
+
+
+def _build_pt_summary(events: list[Event], citations: list[Citation] | None = None) -> RendererPtSummary:
     pt_evidence_events: list[Event] = []
     for e in events:
         etype = str(getattr(getattr(e, "event_type", None), "value", getattr(e, "event_type", "")))
@@ -129,15 +150,15 @@ def _build_pt_summary(events: list[Event]) -> RendererPtSummary:
         return RendererPtSummary(count_source="not_found")
 
     aggregate_counts: list[int] = []
-    citations: list[str] = []
+    citation_ids_collected: list[str] = []
     starts: list[str] = []
     ends: list[str] = []
     discharge_status: str | None = None
 
     for e in pt_evidence_events:
         for cid in list(getattr(e, "citation_ids", []) or []):
-            if cid not in citations:
-                citations.append(cid)
+            if cid not in citation_ids_collected:
+                citation_ids_collected.append(cid)
         s, en = _iso_from_event(e)
         if s:
             starts.append(s)
@@ -152,6 +173,17 @@ def _build_pt_summary(events: list[Event]) -> RendererPtSummary:
                 aggregate_counts.append(int(m2.group(1)))
             if "discharge" in txt.lower() and not discharge_status:
                 discharge_status = txt[:180]
+
+    # Citation-backed fallback for aggregate summaries that were not promoted into event facts.
+    if citations:
+        for c in citations:
+            sn = str(getattr(c, "snippet", "") or "")
+            low = sn.lower()
+            if "physical therapy" not in low and "pt " not in f" {low} " and "pt sessions" not in low and "aggregated pt sessions" not in low:
+                continue
+            m = re.search(r"\b(?:PT sessions documented|Aggregated PT sessions)\D+(\d+)\s+encounters?\b", sn, re.I)
+            if m:
+                aggregate_counts.append(int(m.group(1)))
 
     if aggregate_counts:
         total = max(aggregate_counts)
@@ -175,9 +207,67 @@ def _build_pt_summary(events: list[Event]) -> RendererPtSummary:
         date_end=max(ends) if ends else None,
         discharge_status=discharge_status,
         reconciliation_note=note,
-        citation_ids=citations[:12],
+        citation_ids=citation_ids_collected[:12],
         count_source=source,
     )
+
+
+def _promoted_findings_from_citations(
+    citations: list[Citation] | None,
+    existing: list[PromotedFinding],
+) -> list[PromotedFinding]:
+    if not citations:
+        return existing
+    seen = {f"{pf.category}|{pf.label.strip().lower()}" for pf in existing}
+    have_categories = {pf.category for pf in existing if pf.headline_eligible}
+    out = list(existing)
+
+    def add(category: str, label: str, citation_id: str, *, severity: str = "high", headline: bool = True, polarity: str | None = None):
+        key = f"{category}|{label.strip().lower()}"
+        if key in seen:
+            return
+        seen.add(key)
+        out.append(PromotedFinding(
+            category=category,
+            label=label.strip(),
+            severity=severity, headline_eligible=headline, finding_polarity=polarity,
+            citation_ids=[citation_id],
+            confidence=0.75 if headline else 0.55,
+        ))
+
+    # Only fallback-fill missing critical categories to avoid overfitting/duplication.
+    need_dx = "diagnosis" not in have_categories
+    need_obj = "objective_deficit" not in have_categories
+    need_proc = "procedure" not in have_categories
+    need_img = "imaging" not in have_categories
+
+    for c in sorted(citations, key=lambda x: int(getattr(x, "page_number", 999999) or 999999)):
+        sn = str(getattr(c, "snippet", "") or "").strip()
+        if not sn:
+            continue
+        # Generic diagnosis fallback: ICD-coded diagnosis lines
+        if need_dx and re.search(r"\bICD-10\b", sn, re.I):
+            if re.search(r"\b([A-TV-Z]\d{1,2}(?:\.\d+)?)\b", sn):
+                add("diagnosis", sn, str(c.citation_id), severity="high", headline=True, polarity="positive")
+                continue
+        # Generic procedure/intervention fallback
+        if need_proc and re.search(r"\b(injection|epidural|surgery|operative|arthroscop|fusion|procedure performed)\b", sn, re.I):
+            add("procedure", sn, str(c.citation_id), severity="high", headline=True, polarity="positive")
+            continue
+        # Generic objective-deficit fallback
+        if need_obj and re.search(r"\b(weakness|strength|reflex|diminished|range of motion|rom|spasm|lordosis|[0-5]/5)\b", sn, re.I):
+            # avoid pure headers/labels
+            if not re.fullmatch(r"[A-Za-z0-9 /:+().-]{1,40}", sn.strip()):
+                add("objective_deficit", sn, str(c.citation_id), severity="high", headline=True, polarity="positive")
+                continue
+        # Generic imaging pathology fallback (positive structural findings only)
+        if need_img and re.search(r"\b(disc|foramen|foraminal|stenosis|herniat|protrusion|tear|edema|compression|fracture|displacement)\b", sn, re.I):
+            negative = bool(re.search(r"\b(no acute|unremarkable|no fracture|normal)\b", sn, re.I))
+            add("imaging", sn, str(c.citation_id), severity=("low" if negative else "high"), headline=(not negative), polarity=("negative" if negative else "positive"))
+            continue
+
+    out.sort(key=lambda f: (_CATEGORY_ORDER.get(f.category, 99), 0 if f.headline_eligible else 1, {"high": 0, "medium": 1, "low": 2}.get(f.severity or "low", 2), -f.confidence))
+    return out
 
 
 def _claim_to_category(claim_type: str) -> str:
@@ -358,15 +448,20 @@ def build_renderer_manifest(
     events: list[Event],
     evidence_graph_extensions: dict[str, Any] | None,
     specials_summary: dict | None,
+    citations: list[Citation] | None = None,
 ) -> RendererManifest:
     ext = evidence_graph_extensions or {}
     claim_rows = list(ext.get("claim_rows") or [])
     promoted = _promoted_findings_from_claim_rows(claim_rows)
     promoted = _promoted_findings_from_events(events, promoted)
+    promoted = _promoted_findings_from_citations(citations, promoted)
+    mechanism = _build_mechanism(events)
+    if not mechanism.value:
+        mechanism = _build_mechanism_from_citations(citations)
     return RendererManifest(
         doi=_build_doi(events),
-        mechanism=_build_mechanism(events),
-        pt_summary=_build_pt_summary(events),
+        mechanism=mechanism,
+        pt_summary=_build_pt_summary(events, citations),
         promoted_findings=promoted,
         top_case_drivers=_top_case_drivers_from_claim_rows(claim_rows),
         billing_completeness=_billing_completeness(specials_summary),
