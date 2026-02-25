@@ -35,6 +35,12 @@ class ClinicalEvent:
     fragments: Set[str] = field(default_factory=set)
     plans: Set[str] = field(default_factory=set)
     
+    # PI ADVOCACY UPGRADE
+    disc_injuries: Set[str] = field(default_factory=set)
+    neurological_findings: Set[str] = field(default_factory=set)
+    ortho_tests: Set[str] = field(default_factory=set)
+    objective_findings: Set[str] = field(default_factory=set)
+    
     # CASEMARK ADAPTATION: Structured Encounter Fields
     reason_for_visit: Optional[str] = None
     chief_complaint: Optional[str] = None

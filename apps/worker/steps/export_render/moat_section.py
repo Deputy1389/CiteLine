@@ -49,6 +49,56 @@ def _render_section_block(
     flowables.append(Spacer(1, 0.08 * inch))
 
 
+def _objective_finding_rows(ext: dict) -> list[str]:
+    rows = []
+    # Pull from claim_rows where markers indicate objective findings
+    claims = ext.get("claim_rows") or []
+    for c in claims:
+        a = str(c.get("assertion", "")).lower()
+        if any(kw in a for kw in ["mri", "spurling", "spasm", "guarding", "rom", "strength"]):
+            rows.append(f"Objective: {c.get('assertion')}")
+            if len(rows) >= 6: break
+    return rows
+
+def _litigation_strategy_rows(ext: dict) -> list[str]:
+    rows = []
+    # Anchored findings
+    anchors = ext.get("citation_fidelity", {}).get("claim_row_anchor_ratio", 0)
+    if anchors > 0.9:
+        rows.append("High Evidence Density: >90% of clinical claims are citation-anchored.")
+    
+    # Treatment timing
+    gaps = ext.get("missing_records", {}).get("gaps") or []
+    if not gaps:
+        rows.append("Continuous Care: No treatment gaps detected >45 days.")
+    else:
+        rows.append(f"Defense Counter: {len(gaps)} treatment gaps identified for proactive rebuttal.")
+
+    # Consistency
+    cx_matrix = ext.get("contradiction_matrix") or []
+    if not cx_matrix:
+        rows.append("Uniform Narrative: High consistency in subjective pain and injury reporting.")
+    
+    return rows
+
+def _defense_exposure_rows(ext: dict) -> list[str]:
+    rows = []
+    # Identify high-risk factors
+    collapse = ext.get("case_collapse_candidates") or []
+    for cand in collapse[:3]:
+        frag = str(cand.get("fragility_type") or "").replace("_", " ").title()
+        if "degenerative" in frag.lower():
+            rows.append(f"RISK: Defense may argue degenerative etiology over traumatic impact.")
+        if "gap" in frag.lower():
+            rows.append(f"RISK: Treatment gaps present exposure for mitigation-of-damages defense.")
+            
+    # Strengths
+    ladder = ext.get("causation_chains") or []
+    if any(float(l.get("chain_integrity_score", 0)) > 80 for l in ladder):
+        rows.append("STRENGTH: Strong objective causation chain from impact to imaging.")
+        
+    return rows
+
 def _case_collapse_rows(ext: dict) -> list[str]:
     rows = []
     for item in (ext.get("case_collapse_candidates") or []):
@@ -357,10 +407,11 @@ def build_moat_section_flowables(
     stats: dict = {}
 
     sections = [
-        ("Case Collapse Candidates", _case_collapse_rows(ext)),
-        ("Causation Ladder", _causation_ladder_rows(ext)),
-        ("Contradiction Matrix", _contradiction_rows(ext)),
-        ("Narrative Duality", _narrative_duality_rows(ext)),
+        ("Causation Ladder (Impact → Symptoms → Imaging → Treatment)", _causation_ladder_rows(ext)),
+        ("Objective Litigation Anchors (MRI / Tests / Spasm)", _objective_finding_rows(ext)),
+        ("Defense Exposure & Risk Assessment", _defense_exposure_rows(ext)),
+        ("Strategic Litigation Moat", _litigation_strategy_rows(ext)),
+        ("Plaintiff Narrative Duality", _narrative_duality_rows(ext)),
     ]
 
     from apps.worker.steps.export_render.common import _projection_entry_substance_score

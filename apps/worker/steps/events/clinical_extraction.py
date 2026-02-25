@@ -99,14 +99,31 @@ def extract_concepts(event: ClinicalEvent) -> ClinicalEvent:
         # 2. Injuries (Validated only)
         if is_valid_injury(text):
             concept = normalize_injury_concept(text)
-            if "fracture" in concept.lower():
+            c_low = concept.lower()
+            if "fracture" in c_low:
                 event.fractures.add(concept)
-            elif "tear" in concept.lower():
+            elif "tear" in c_low or "rupture" in c_low:
                 event.tears.add(concept)
-            elif "infection" in concept.lower():
+            elif "infection" in c_low:
                 event.infections.add(concept)
-            elif any(kw in concept.lower() for kw in ["fragment", "bullet"]):
+            elif any(kw in c_low for kw in ["fragment", "bullet"]):
                 event.fragments.add(concept)
+            elif "displacement" in c_low or "herniation" in c_low or "protrusion" in c_low:
+                # High-value PI anchors
+                if not hasattr(event, "disc_injuries"): event.disc_injuries = set()
+                event.disc_injuries.add(concept)
+            elif "radiculopathy" in c_low or "radicular" in c_low:
+                if not hasattr(event, "neurological_findings"): event.neurological_findings = set()
+                event.neurological_findings.add(concept)
+            elif "spasm" in c_low or "guarding" in c_low or "lordosis" in c_low:
+                if not hasattr(event, "objective_findings"): event.objective_findings = set()
+                event.objective_findings.add(concept)
+            elif any(test in c_low for test in ["spurling", "straight leg", "lasegue", "slr", "babinski"]):
+                if not hasattr(event, "ortho_tests"): event.ortho_tests = set()
+                event.ortho_tests.add(concept)
+            elif "range of motion" in c_low or "rom" in c_low:
+                if not hasattr(event, "objective_findings"): event.objective_findings = set()
+                event.objective_findings.add(concept)
 
         # 3. Plans (Filtered for clinical content)
         if any(kw in low for kw in ["plan", "discharge", "follow", "return"]):

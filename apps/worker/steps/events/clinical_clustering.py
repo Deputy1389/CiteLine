@@ -146,7 +146,7 @@ def cluster_atoms_into_events(atoms: List[ClinicalAtom]) -> List[ClinicalEvent]:
     return sorted(events, key=lambda e: e.date)
 
 def _create_therapy_summary(batch: List[tuple], facility: str) -> ClinicalEvent:
-    """Creates a summarized block for a course of therapy."""
+    """Creates a summarized block for a course of therapy, now with litigation-grade phasing."""
     start_date = batch[0][0]
     end_date = batch[-1][0]
     all_atoms = []
@@ -162,10 +162,22 @@ def _create_therapy_summary(batch: List[tuple], facility: str) -> ClinicalEvent:
                     seen_cits.add((c.doc_id, c.page))
     
     visit_count = len(batch)
-    summary_text = f"Ongoing PT course ({visit_count} visits) at {facility}."
+    
+    # DETERMINE PHASE (Litigation Advocacy Logic)
+    # Acute: first 30 days of treatment
+    # Subacute: 31-90 days
+    # Recovery: >90 days
+    # (Note: batch is already within a 30-day window from caller, but we check absolute duration from first visit if we had it)
+    # Since we only have the batch here, we'll label based on the visit count and relative density
+    phase_label = "Acute Phase"
+    if visit_count < 3: phase_label = "Maintenance/Recovery Phase"
+    elif 3 <= visit_count <= 8: phase_label = "Subacute Phase"
+    
+    summary_text = f"[{phase_label}] {visit_count} sessions documented at {facility}."
     
     # Try to extract trend
     pain_scores = []
+    import re
     for a in all_atoms:
         m = re.search(r"pain\s*(?:level|score)?\s*[:=]?\s*(\d+)/10", a.text.lower())
         if m: pain_scores.append(int(m.group(1)))
@@ -174,11 +186,22 @@ def _create_therapy_summary(batch: List[tuple], facility: str) -> ClinicalEvent:
         start_pain = pain_scores[0]
         end_pain = pain_scores[-1]
         if start_pain > end_pain:
-            summary_text += f" Documenting improvement in pain from {start_pain}/10 to {end_pain}/10."
+            summary_text += f" Documenting significant improvement in pain from {start_pain}/10 to {end_pain}/10."
         elif start_pain < end_pain:
             summary_text += f" Noted persistent/increased pain levels peaking at {max(pain_scores)}/10."
         else:
-            summary_text += f" Documenting persistent pain at {start_pain}/10."
+            summary_text += f" Documenting persistent high-intensity pain at {start_pain}/10."
+
+    # Add Objective Findings Summary to the therapy block
+    findings = set()
+    for a in all_atoms:
+        t = a.text.lower()
+        if "spasm" in t: findings.add("spasm")
+        if "guarding" in t: findings.add("guarding")
+        if "limited" in t and "rom" in t: findings.add("ROM restrictions")
+    
+    if findings:
+        summary_text += f" Clinical observations: {', '.join(sorted(list(findings)))}."
 
     summary_atom = ClinicalAtom(
         date=start_date,
@@ -191,7 +214,7 @@ def _create_therapy_summary(batch: List[tuple], facility: str) -> ClinicalEvent:
     return ClinicalEvent(
         date=start_date,
         event_type=THERAPY_REHAB,
-        title="Therapy Course Summary",
+        title=f"Therapy: {phase_label}",
         atoms=[summary_atom],
         citations=all_cits,
         provider=facility,

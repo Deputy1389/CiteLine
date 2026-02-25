@@ -184,6 +184,23 @@ def generate_pdf_from_projection(
 
     # Executive Summary (after moat)
     flowables.append(PageBreak())
+    
+    # DEMAND LETTER INSERT (High Impact)
+    demand_style = ParagraphStyle("DemandStyle", parent=styles["Normal"], fontSize=11, leading=14, borderPadding=10, backColor=colors.HexColor("#F8F9FA"), borderSide="l", borderWidth=3, borderColor=colors.HexColor("#2E548A"))
+    flowables.append(Paragraph("DEMAND LETTER SUMMARY (READY-TO-USE)", h1_style))
+    flowables.append(Spacer(1, 0.1 * inch))
+    
+    if narrative_synthesis:
+        flowables.append(Paragraph("The following summary is synthesized from the record set for immediate inclusion in demand correspondence:", styles["Italic"]))
+        flowables.append(Spacer(1, 0.1 * inch))
+        
+        # Use first 2 paragraphs of narrative as the 'Lead' for the demand
+        for p_text in narrative_synthesis.split("\n\n")[:3]:
+            if p_text.strip():
+                flowables.append(Paragraph(p_text.strip(), demand_style))
+                flowables.append(Spacer(1, 0.1 * inch))
+    
+    flowables.append(PageBreak())
     flowables.append(Paragraph("Executive Summary", h1_style))
     if narrative_synthesis:
         from apps.worker.quality.text_quality import clean_text

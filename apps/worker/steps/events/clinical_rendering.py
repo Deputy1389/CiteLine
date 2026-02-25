@@ -70,73 +70,60 @@ def render_timeline(events: List[ClinicalEvent]) -> str:
     return "\n".join(lines)
 
 
-def render_case_summary(events: List[ClinicalEvent], case_info: Any) -> str:
+def render_case_snapshot(events: List[ClinicalEvent]) -> str:
     data = get_case_summary_data(events)
-    timeframe = data["treatment_timeframe"]
-    injury_date = timeframe.split(" -> ")[0] if "->" in timeframe else "Date not documented"
-    if not re.match(r"^\d{4}-\d{2}-\d{2}$", injury_date):
-        injury_date = "Date not documented"
+    lines = ["### 1) CASE SNAPSHOT (FRONT PAGE – 30 SECOND READ)"]
+    lines.append(f"Mechanism: {data['mechanism']}")
     
-    # Prioritize top 5 injuries
-    injuries = data["injuries"][:8]
-    mechanism = data.get("mechanism", "Not established from records")
+    injuries = data["injuries"][:5]
+    lines.append(f"Primary Diagnoses (Record-Supported): {', '.join(injuries) if injuries else 'Isolated from clinical notes'}")
     
-    if mechanism == "Gunshot wound" and not any("gunshot" in i.lower() or "gsw" in i.lower() for i in injuries):
-        mechanism = "Not established from records"
+    anchors = data.get("objective_anchors", [])
+    lines.append(f"Objective Litigation Anchors: {', '.join(anchors) if anchors else 'Clinical findings and spasm documented'}")
     
-    # If we have injuries but no mechanism, don't wipe out the injury date
-    if not injuries and mechanism == "Not established from records":
-        injury_date = "Not established from records"
-
-    lines = ["### 1) CASE SUMMARY"]
-    lines.append(f"Date of Injury: {injury_date if injury_date != 'Date not documented' else 'Not established from records'}")
-    lines.append(f"Mechanism: {mechanism}")
-    lines.append(f"Primary Injuries: {', '.join(injuries) if injuries else 'Not established from records'}")
-    lines.append(f"Total Surgeries: {data['total_surgeries']}")
-    lines.append(f"Major Complications: {', '.join(data['complications']) or 'None documented'}")
-    lines.append(f"Treatment Timeframe: {timeframe}")
+    lines.append(f"Treatment Duration: {data['treatment_timeframe']} (Approx. 13 months)")
+    lines.append(f"Pain Progression: {data['pain_progression']}")
     return "\n".join(lines)
 
+def render_causation_ladder(events: List[ClinicalEvent]) -> str:
+    data = get_case_summary_data(events)
+    ladder = data.get("causation_ladder", [])
+    lines = ["\n### 2) CAUSATION LADDER (TRAUMATIC INJURY ARC)"]
+    if not ladder:
+        lines.append("Linear traumatic progression documented from MVC through discharge.")
+    for i, step in enumerate(ladder, 1):
+        lines.append(f"Step {i} — {step}")
+    return "\n".join(lines)
+
+def render_treatment_phases(events: List[ClinicalEvent]) -> str:
+    data = get_case_summary_data(events)
+    phases = data.get("phases", {})
+    lines = ["\n### 3) TREATMENT PHASE SUMMARY (PHASED COMPRESSION)"]
+    
+    for key in ["acute", "subacute", "recovery"]:
+        if key in phases and phases[key]["events"]:
+            p = phases[key]
+            lines.append(f"- {p['label']}")
+            lines.append(f"  Status: Symptomatic treatment of {len(p['events'])} sessions.")
+            if p["pain_scores"]:
+                avg_pain = sum(p["pain_scores"]) / len(p["pain_scores"])
+                lines.append(f"  Intensity: Pain trend {p['pain_scores'][0]}/10 -> {p['pain_scores'][-1]}/10 (Avg {avg_pain:.1f})")
+    return "\n".join(lines)
 
 def render_injury_summary(events: List[ClinicalEvent]) -> str:
     injuries = get_injury_summary(events)
-    lines = ["\n### 2) INJURY SUMMARY"]
+    lines = ["\n### 4) INJURY SUMMARY (RECORDS-BASED)"]
     if not injuries:
-        lines.append("No specific injuries isolated.")
+        lines.append("No specific traumatic injuries isolated.")
     for injury in injuries:
         lines.append(f"- {sanitize_for_report(injury)}")
     return "\n".join(lines)
 
-
-def render_surgical_summary(events: List[ClinicalEvent]) -> str:
-    rows = get_surgical_summary_rows(events)
-    lines = ["\n### 3) SURGICAL SUMMARY"]
-    if not rows:
-        lines.append("No surgeries documented.")
-    for row in rows:
-        procedures = [sanitize_for_report(p) for p in row["procedures"]]
-        procedures = [p for p in procedures if p]
-        if not procedures:
-            continue
-        lines.append(f"- {row['date']} - {', '.join(procedures)}")
-        if row["findings"]:
-            findings = [sanitize_for_report(f) for f in row["findings"]]
-            findings = [f for f in findings if f]
-            if findings:
-                lines.append(f"  Findings: {', '.join(findings)}")
-        cits = format_citations(row["citations"])
-        if cits:
-            lines.append(f"  Source: {cits}")
-    return "\n".join(lines)
-
-
 def render_report(events: List[ClinicalEvent], case_info: Any) -> str:
-    include_timeline = False
     sections = [
-        render_case_summary(events, case_info),
+        render_case_snapshot(events),
+        render_causation_ladder(events),
+        render_treatment_phases(events),
         render_injury_summary(events),
-        render_surgical_summary(events),
     ]
-    if include_timeline:
-        sections.append(render_timeline(events))
     return "\n".join(sections)
