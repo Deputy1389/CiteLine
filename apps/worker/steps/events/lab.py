@@ -17,6 +17,7 @@ from packages.shared.models import (
     Page,
     PageType,
     Provider,
+    RunConfig,
     SkippedEvent,
     Warning,
 )
@@ -65,6 +66,7 @@ def extract_lab_events(
     pages: list[Page],
     dates: dict[int, list[EventDate]],
     providers: list[Provider],
+    config: RunConfig,
     page_provider_map: dict[int, str],
 ) -> tuple[list[Event], list[Citation], list[Warning], list[SkippedEvent]]:
     """
@@ -165,7 +167,7 @@ def extract_lab_events(
             event_type=EventType.LAB_RESULT,
             date=event_date,
             facts=facts,
-            confidence=60,
+            confidence=config.lab_base_confidence,
             citation_ids=citation_ids,
             source_page_numbers=[page.page_number],
         ))

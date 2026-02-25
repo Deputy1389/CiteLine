@@ -21,7 +21,10 @@ def _compact_event_payload(events: list[Event], providers: list[Provider]) -> li
     return payload
 
 def generate_anchored_narrative(evidence_graph: EvidenceGraph, providers: list[Provider], config: RunConfig) -> NarrativeChronology:
-    candidates = [e for e in evidence_graph.events if e.confidence >= 30 and len(e.citation_ids) >= 1][:100]
+    candidates = [
+        e for e in evidence_graph.events
+        if e.confidence >= config.narrative_min_confidence and len(e.citation_ids) >= config.narrative_min_citations
+    ][:config.narrative_max_events]
     if not candidates: return NarrativeChronology(generated_at=datetime.now(timezone.utc), entries=[])
 
     if os.getenv("MOCK_LLM") == "true":
@@ -45,8 +48,9 @@ def generate_anchored_narrative(evidence_graph: EvidenceGraph, providers: list[P
     try:
         client = genai.Client(api_key=api_key)
         prompt = f"Compose a chronology from these events. Output JSON matching the schema.\nInput: {json.dumps(_compact_event_payload(candidates, providers))}"
+        model_name = config.gemini_model_narrative or config.gemini_model
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model=model_name,
             contents=prompt,
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
@@ -67,7 +71,7 @@ def generate_anchored_narrative(evidence_graph: EvidenceGraph, providers: list[P
                 citation_ids=[], # Computed by validator if needed
                 confidence=float(row.get("confidence", 0.8))
             ))
-        return NarrativeChronology(generated_at=datetime.now(timezone.utc), entries=entries, model_name="gemini-2.0-flash")
+        return NarrativeChronology(generated_at=datetime.now(timezone.utc), entries=entries, model_name=model_name)
     except Exception as exc:
         logger.error(f"Narrator failed: {exc}")
         return NarrativeChronology(generated_at=datetime.now(timezone.utc), entries=[])

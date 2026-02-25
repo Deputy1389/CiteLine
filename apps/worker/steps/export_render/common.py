@@ -23,7 +23,7 @@ def _date_str(event: Event) -> str:
     """Format event date for display."""
     if not event.date:
         return "Date not documented"
-    
+
     ext = event.date.extensions or {}
     time_val = ext.get("time")
     if time_val == "0000":
@@ -43,18 +43,27 @@ def _date_str(event: Event) -> str:
         s = str(d.start)
         e = str(d.end) if d.end else ""
         return f"{s} to {e}{time_str}"
-    
+
     return "Date not documented"
 
 
 def _provider_name(event: Event, providers: list[Provider]) -> str:
-    """Look up provider name for display."""
+    """Look up provider name for display with fuzzy fallback."""
     for p in providers:
         if p.provider_id == event.provider_id:
             provider_name = p.normalized_name or p.detected_name_raw
             provider_name = sanitize_for_report(provider_name)
-            return provider_name or "Unknown"
-    return "Unknown"
+            return provider_name or "Provider Not Stated"
+
+    # Fuzzy fallback: If event has facts, check if any provider name appears in them
+    if event.facts:
+        blob = " ".join(f.text.lower() for f in event.facts if f.text)
+        for p in providers:
+            pname = (p.normalized_name or p.detected_name_raw or "").lower()
+            if len(pname) > 3 and pname in blob:
+                return sanitize_for_report(p.normalized_name or p.detected_name_raw)
+
+    return "Provider Not Stated"
 
 
 def _facts_text(event: Event) -> str:
@@ -67,7 +76,7 @@ def _clean_narrative_text(text: str | None) -> str:
     if not text:
         return ""
     cleaned = text
-    # Strip markdown headers — both line-start AND inline (clean_text may flatten to one line)
+    # Strip markdown headers â€” both line-start AND inline (clean_text may flatten to one line)
     cleaned = re.sub(r"(?im)^[ \t]*#{1,6}\s*", "", cleaned)
     cleaned = re.sub(r"\s#{1,6}\s+", " ", cleaned)  # inline ### after clean_text joins lines
     # Strip numbered section headers like "1) CASE SUMMARY" or "### 2) INJURY SUMMARY"
@@ -196,13 +205,13 @@ def _sanitize_top10_sentence(text: str) -> str:
     cleaned = re.sub(r"\b(?:informed consent(?: for procedure)?|consent form|authorization form)\b", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\bchief complaint\s*&\s*history of present illness\b:?", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\bimpact was bp\b", "", cleaned, flags=re.IGNORECASE)
-    
+
     # AGGRESSIVE CLEANING FOR UNIT TESTS
     cleaned = cleaned.replace(":.", ".")
     while ".." in cleaned:
         cleaned = cleaned.replace("..", ".")
     cleaned = cleaned.replace(":.", ".")
-    
+
     cleaned = re.sub(r'(".*?[.!?])"\.', r"\1\"", cleaned)
     cleaned = re.sub(r'"\s*\.\s*$', '".', cleaned)
     cleaned = re.sub(r"\.(?!\s*(?:pdf|docx|csv)\b)\s*(?=[A-Za-z])", ". ", cleaned, flags=re.IGNORECASE)
@@ -233,11 +242,11 @@ def _sanitize_top10_sentence(text: str) -> str:
     if cleaned and cleaned[-1] not in ".!?":
         cleaned += "."
     cleaned = re.sub(r"[.!?]{2,}$", ".", cleaned)
-    
+
     # Final check for double periods which slip through
     while ".." in cleaned:
         cleaned = cleaned.replace("..", ".")
-        
+
     return cleaned
 
 

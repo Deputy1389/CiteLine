@@ -37,6 +37,7 @@ _RAW_FRAGMENT_RES: list[re.Pattern[str]] = [
     re.compile(r"\bh&p\b", re.IGNORECASE),
     re.compile(r"medical record summary", re.IGNORECASE),
     re.compile(r"patient id\s*:", re.IGNORECASE),
+    re.compile(r"\(cid:\d+\)", re.IGNORECASE),
 ]
 
 _PROCEDURE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [

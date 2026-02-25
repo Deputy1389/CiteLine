@@ -60,6 +60,7 @@ _FAX_INLINE_RE = re.compile(
 )
 _REPEATED_LABEL_RE = re.compile(r"(pain assessment:?\s*){2,}", re.IGNORECASE)
 _NON_WORD_RE = re.compile(r"[^A-Za-z0-9]+")
+_CID_ARTIFACT_RE = re.compile(r"\(cid:\d+\)", re.IGNORECASE)
 
 # EMR label prefixes that should be stripped before quality analysis
 # e.g. "Pain Assessment: gibberish" → analyze "gibberish" only
@@ -102,6 +103,7 @@ def clean_text(text: str) -> str:
         if _FAX_ARTIFACT_RE.search(line) or _FAX_DATE_FROM_RE.search(line):
             continue
         line = _REPEATED_LABEL_RE.sub("Pain Assessment: ", line)
+        line = _CID_ARTIFACT_RE.sub("", line).strip()
         line = re.sub(r"\s{2,}", " ", line).strip()
         key = line.lower()
         if key in seen:

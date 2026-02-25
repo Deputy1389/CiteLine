@@ -107,8 +107,8 @@ def list_runs(
 
     response = []
     for r in runs:
-        metrics = json.loads(r.metrics_json) if r.metrics_json else None
-        warnings = json.loads(r.warnings_json) if r.warnings_json else None
+        metrics = r.metrics_json
+        warnings = r.warnings_json
 
         response.append(
             RunResponse(
@@ -143,8 +143,8 @@ def get_run(
         raise HTTPException(status_code=404, detail="Matter not found")
     assert_firm_access(identity, matter.firm_id)
 
-    metrics = json.loads(run.metrics_json) if run.metrics_json else None
-    warnings = json.loads(run.warnings_json) if run.warnings_json else None
+    metrics = run.metrics_json
+    warnings = run.warnings_json
 
     return RunResponse(
         id=run.id,
@@ -183,8 +183,8 @@ def cancel_run(
     run.finished_at = datetime.now(timezone.utc)
     run.error_message = "Cancelled by user"
 
-    metrics = json.loads(run.metrics_json) if run.metrics_json else None
-    warnings = json.loads(run.warnings_json) if run.warnings_json else None
+    metrics = run.metrics_json
+    warnings = run.warnings_json
 
     return RunResponse(
         id=run.id,
@@ -220,8 +220,8 @@ def force_fail_run(
     run.finished_at = datetime.now(timezone.utc)
     run.error_message = "Force-failed by user"
 
-    metrics = json.loads(run.metrics_json) if run.metrics_json else None
-    warnings = json.loads(run.warnings_json) if run.warnings_json else None
+    metrics = run.metrics_json
+    warnings = run.warnings_json
 
     return RunResponse(
         id=run.id,

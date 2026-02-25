@@ -93,15 +93,16 @@ from apps.worker.quality.text_quality import clean_text, is_garbage
 logger = logging.getLogger(__name__)
 RUN_TIMEOUT_SECONDS = int(os.getenv("RUN_TIMEOUT_SECONDS", "1800"))
 API_BASE_URL = os.getenv("API_BASE_URL", "https://linecite-api.onrender.com")
+ERROR_MESSAGE_MAX_LEN = int(os.getenv("ERROR_MESSAGE_MAX_LEN", "2000"))
 
-def _download_document_from_api(document_id: str) -> Path:
+def _download_document_from_api(document_id: str, timeout_seconds: int) -> Path:
     ensure_dirs()
     local_path = UPLOADS_DIR / f"{document_id}.pdf"
     if local_path.exists(): return local_path
     url = f"{API_BASE_URL}/documents/{document_id}/download"
     logger.info(f"Downloading document {document_id} from {url}")
     try:
-        response = requests.get(url, timeout=60); response.raise_for_status()
+        response = requests.get(url, timeout=timeout_seconds); response.raise_for_status()
         local_path.write_bytes(response.content)
         return local_path
     except Exception as e:
@@ -113,18 +114,18 @@ def _check_deadline(start_time: float, run_id: str, label: str) -> None:
     if elapsed > RUN_TIMEOUT_SECONDS:
         raise TimeoutError(f"Run {run_id} exceeded timeout at {label} ({int(elapsed)}s)")
 
-def _build_litigation_extensions(claim_rows: list[dict] | list[ClaimEdge]) -> dict:
+def _build_litigation_extensions(claim_rows: list[dict] | list[ClaimEdge], config: RunConfig) -> dict:
     all_rows = list(claim_rows); anchored_rows = [r for r in all_rows if (r.get("citations") or [])]
     collapse_candidates = build_case_collapse_candidates(anchored_rows)
-    attack_paths = build_defense_attack_paths(collapse_candidates, limit=6)
-    objection_profiles = build_objection_profiles(all_rows, limit=24)
-    upgrade_recs = build_upgrade_recommendations(collapse_candidates, limit=8)
+    attack_paths = build_defense_attack_paths(collapse_candidates, limit=config.litigation_defense_paths_limit)
+    objection_profiles = build_objection_profiles(all_rows, limit=config.litigation_objection_profiles_limit)
+    upgrade_recs = build_upgrade_recommendations(collapse_candidates, limit=config.litigation_upgrade_recommendations_limit)
     locked_quotes: list[dict] = []
-    for row in select_top_claim_rows(anchored_rows, limit=12):
+    for row in select_top_claim_rows(anchored_rows, limit=config.litigation_quote_lock_limit):
         q = quote_lock(str(row.get("assertion") or ""))
         if q: locked_quotes.append({"id": str(row.get("id") or ""), "date": str(row.get("date") or "unknown"), "claim_type": str(row.get("claim_type") or ""), "quote": q, "citation": str(row.get("citation") or ""), "event_id": str(row.get("event_id") or "")})
     causation_chains = build_causation_ladders(all_rows)
-    contradiction_matrix = build_contradiction_matrix(all_rows)
+    contradiction_matrix = build_contradiction_matrix(all_rows, limit=config.litigation_contradiction_limit)
     narrative_duality = build_narrative_duality(all_rows)
     comparative_snapshot = build_comparative_pattern_snapshot(all_rows)
     payload = {"claim_rows": all_rows, "causation_chains": causation_chains, "citation_fidelity": {"claim_rows_total": len(all_rows), "claim_rows_anchored": len(anchored_rows), "claim_row_anchor_ratio": round((len(anchored_rows) / len(all_rows)), 4) if all_rows else 1.0}, "case_collapse_candidates": collapse_candidates, "defense_attack_paths": attack_paths, "objection_profiles": objection_profiles, "evidence_upgrade_recommendations": upgrade_recs, "quote_lock_rows": locked_quotes, "contradiction_matrix": contradiction_matrix, "narrative_duality": narrative_duality, "comparative_pattern_engine": comparative_snapshot}
@@ -139,19 +140,18 @@ def run_pipeline(run_id: str) -> None:
             run_row.status = "running"; run_row.started_at = started_at; session.flush()
             matter = run_row.matter; matter_title = matter.title; matter_id = matter.id; firm_id = matter.firm_id; tz = matter.timezone or "America/Los_Angeles"
             config_dict = json.loads(run_row.config_json) if run_row.config_json else {}
-            config_dict["pt_mode"] = "per_visit"; config_dict["event_confidence_min_export"] = 30
             config = RunConfig(**config_dict)
             doc_rows = session.query(SourceDocORM).filter_by(matter_id=matter_id).all()
             source_documents = [SourceDocument(document_id=d.id, filename=d.filename, mime_type=d.mime_type, sha256=d.sha256, bytes=d.bytes, uploaded_at=d.uploaded_at) for d in doc_rows]
         if not source_documents: _fail_run(run_id, "No source documents found"); return
-        
+
         valid_docs, step_warnings = validate_inputs(source_documents, config); all_warnings.extend(step_warnings)
         if not valid_docs: _fail_run(run_id, "No valid documents"); return
 
         all_pages, total_ocr, page_offset = [], 0, 0
         for doc in valid_docs:
             _check_deadline(start_time, run_id, "step1-2")
-            pdf_path = str(_download_document_from_api(doc.document_id))
+            pdf_path = str(_download_document_from_api(doc.document_id, config.api_download_timeout_seconds))
             pages, _ = split_pages(pdf_path, doc.document_id, page_offset, config.max_pages - page_offset)
             pages, ocr_count, _ = acquire_text(pages, pdf_path, run_id=run_id)
             total_ocr += ocr_count; all_pages.extend(pages); page_offset += len(pages)
@@ -167,17 +167,23 @@ def run_pipeline(run_id: str) -> None:
             docs, _ = segment_documents(doc_pages, doc.document_id); all_documents.extend(docs)
 
         providers, page_provider_map, _ = detect_providers(all_pages, all_documents)
+
+        # Filter out the Unknown Provider sentinel from page_provider_map
+        # so events on those pages show "Provider Not Stated" rather than a bogus entity
+        UNKNOWN_SENTINEL_IDS = {p.provider_id for p in providers if p.confidence == 0 and (p.normalized_name or "").lower() == "unknown provider"}
+        page_provider_map = {pg: pid for pg, pid in page_provider_map.items() if pid not in UNKNOWN_SENTINEL_IDS}
+
         dates = extract_dates_for_pages(all_pages, page_provider_map=page_provider_map)
 
         all_events, all_citations, all_skipped = [], [], []
         # Extraction logic
-        e, c, w, s = extract_clinical_events(all_pages, dates, providers, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
-        e, c, w, s = extract_imaging_events(all_pages, dates, providers, page_provider_map, page_text_by_number={p.page_number: (p.text or "") for p in all_pages}); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_clinical_events(all_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_imaging_events(all_pages, dates, providers, config, page_provider_map, page_text_by_number={p.page_number: (p.text or "") for p in all_pages}); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
         e, c, w, s = extract_pt_events(all_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
-        e, c, w, s = extract_billing_events(all_pages, dates, providers, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
-        e, c, w, s = extract_lab_events(all_pages, dates, providers, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
-        e, c, w, s = extract_discharge_events(all_pages, dates, providers, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
-        e, c, w, s = extract_operative_events(all_pages, dates, providers, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_billing_events(all_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_lab_events(all_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_discharge_events(all_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_operative_events(all_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
 
         # Quality Gate
         quality_stats = {"num_snippets_filtered": 0, "num_snippets_cleaned": 0}
@@ -209,8 +215,8 @@ def run_pipeline(run_id: str) -> None:
 
         evidence_graph = EvidenceGraph(documents=all_documents, pages=all_pages, providers=providers, events=all_events, citations=all_citations, gaps=gaps, skipped_events=all_skipped)
         evidence_graph.extensions["patient_partitions"] = patient_partitions_payload
-        
-        # ── Metrics ──
+
+        # Ã¢â€â‚¬Ã¢â€â‚¬ Metrics Ã¢â€â‚¬Ã¢â€â‚¬
         page_type_counts = {}
         for p in all_pages: pt = str(p.page_type or "other"); page_type_counts[pt] = page_type_counts.get(pt, 0) + 1
         event_type_counts = {}
@@ -219,10 +225,10 @@ def run_pipeline(run_id: str) -> None:
         evidence_graph.extensions["quality_gate"] = quality_stats
         evidence_graph.extensions["event_weighting"] = weight_summary
 
-        # ── Step 14-17: Artifacts ──
+        # Ã¢â€â‚¬Ã¢â€â‚¬ Step 14-17: Artifacts Ã¢â€â‚¬Ã¢â€â‚¬
         claim_edges = build_claim_edges([], raw_events=chronology_events, all_citations=all_citations)
-        evidence_graph.extensions.update(_build_litigation_extensions(claim_edges))
-        
+        evidence_graph.extensions.update(_build_litigation_extensions(claim_edges, config))
+
         providers_normalized = normalize_provider_entities(evidence_graph)
         evidence_graph.extensions["providers_normalized"] = providers_normalized
         evidence_graph.extensions["coverage_spans"] = compute_coverage_spans(providers_normalized)
@@ -232,44 +238,44 @@ def run_pipeline(run_id: str) -> None:
         missing_records_payload = detect_missing_records(evidence_graph, providers_normalized)
         evidence_graph.extensions["missing_records"] = missing_records_payload
         mr_csv_ref, mr_json_ref = render_missing_records(run_id, missing_records_payload)
-        
+
         missing_record_requests_payload = generate_missing_record_requests(evidence_graph)
         mrr_csv_ref, mrr_json_ref, mrr_md_ref = render_missing_record_requests(run_id, missing_record_requests_payload)
 
         billing_lines_payload = extract_billing_lines(evidence_graph, providers_normalized)
         bl_csv_ref, bl_json_ref = render_billing_lines(run_id, billing_lines_payload)
-        
+
         specials_payload = compute_specials_summary(billing_lines_payload, providers_normalized)
         evidence_graph.extensions["specials_summary"] = specials_payload
         ss_csv_ref, ss_json_ref, ss_pdf_ref = render_specials_summary(run_id, specials_payload, matter_title)
 
-        # ── Step 18: Paralegal artifacts ──
+        # Ã¢â€â‚¬Ã¢â€â‚¬ Step 18: Paralegal artifacts Ã¢â€â‚¬Ã¢â€â‚¬
         page_map = build_page_map(all_pages, source_documents)
         paralegal_payload = build_paralegal_chronology_payload(evidence_graph, chronology_events, providers, page_map)
         evidence_graph.extensions["paralegal_chronology"] = paralegal_payload
         extraction_notes_md = generate_extraction_notes_md(evidence_graph, chronology_events, page_map)
         paralegal_chronology_md_ref, extraction_notes_md_ref = render_paralegal_chronology_artifacts(run_id, paralegal_payload, extraction_notes_md)
 
-        # ── Step 19/20: LLM ──
+        # Ã¢â€â‚¬Ã¢â€â‚¬ Step 19/20: LLM Ã¢â€â‚¬Ã¢â€â‚¬
         if config.enable_llm_reasoning:
             llm_ext, llm_warns = run_llm_reasoning(evidence_graph, providers, config)
             all_warnings.extend(llm_warns); evidence_graph.extensions.update(llm_ext)
             run_chronology_narrative(evidence_graph, providers, config)
 
-        # ── Final Export ──
+        # Ã¢â€â‚¬Ã¢â€â‚¬ Final Export Ã¢â€â‚¬Ã¢â€â‚¬
         processing_seconds = time.time() - start_time
         case_info = CaseInfo(case_id=matter_id, firm_id=firm_id, title=matter_title, timezone=tz, patient=patient)
-        chronology = render_exports(run_id, matter_title, chronology_events, gaps, providers, page_map=page_map, case_info=case_info, all_citations=all_citations, narrative_synthesis=narrative_synthesis, page_text_by_number={p.page_number: (p.text or "") for p in all_pages})
-        patient_chronologies_json_ref = render_patient_chronology_reports(run_id, matter_title, chronology_events, providers, page_map, {p.page_number: (p.text or "") for p in all_pages})
-        
+        chronology = render_exports(run_id, matter_title, chronology_events, gaps, providers, page_map=page_map, case_info=case_info, all_citations=all_citations, narrative_synthesis=narrative_synthesis, page_text_by_number={p.page_number: (p.text or "") for p in all_pages}, specials_summary=specials_payload, config=config)
+        patient_chronologies_json_ref = render_patient_chronology_reports(run_id, matter_title, chronology_events, providers, page_map, {p.page_number: (p.text or "") for p in all_pages}, config=config)
+
         litigation_checklist, review_warnings = run_litigation_review(run_id, chronology_events, {p.page_number: (p.text or "") for p in all_pages})
         all_warnings.extend(review_warnings)
 
         run_record = create_run_record(run_id, started_at, source_documents, evidence_graph, chronology, all_warnings, processing_seconds)
         full_result = ChronologyResult(schema_version="0.1.0", generated_at=datetime.now(timezone.utc), case=case_info, inputs=PipelineInputs(source_documents=source_documents, run_config=config), outputs=PipelineOutputs(run=run_record, evidence_graph=evidence_graph, chronology=chronology))
-        
-        full_output_dict = json.loads(full_result.model_dump_json())
-        json_bytes = json.dumps(full_output_dict, indent=2, default=str).encode()
+
+        eg_dict = json.loads(evidence_graph.model_dump_json())
+        json_bytes = json.dumps(eg_dict, indent=2, default=str).encode()
         json_path = save_artifact(run_id, "evidence_graph.json", json_bytes)
         json_sha = hashlib.sha256(json_bytes).hexdigest()
         if not chronology.exports.json_export:
@@ -280,7 +286,7 @@ def run_pipeline(run_id: str) -> None:
         is_valid, errors = validate_output(full_output_dict)
         status = "success" if is_valid else "partial"
         artifact_entries = build_artifact_ref_entries(chronology, prov_csv_ref, prov_json_ref, mr_csv_ref, mr_json_ref, mrr_csv_ref, mrr_json_ref, mrr_md_ref, bl_csv_ref, bl_json_ref, ss_csv_ref, ss_json_ref, ss_pdf_ref, paralegal_chronology_md_ref, extraction_notes_md_ref, patient_chronologies_json_ref, patient_partitions_json_ref)
-        
+
         persist_pipeline_state(run_id, status, processing_seconds, run_record, all_warnings, evidence_graph, artifact_entries)
         logger.info(f"[{run_id}] Pipeline complete: {status}")
 
@@ -290,4 +296,4 @@ def run_pipeline(run_id: str) -> None:
 def _fail_run(run_id: str, error: str) -> None:
     with get_session() as session:
         run_row = session.query(RunORM).filter_by(id=run_id).first()
-        if run_row: run_row.status = "failed"; run_row.finished_at = datetime.now(timezone.utc); run_row.error_message = error[:2000]
+        if run_row: run_row.status = "failed"; run_row.finished_at = datetime.now(timezone.utc); run_row.error_message = error[:ERROR_MESSAGE_MAX_LEN]

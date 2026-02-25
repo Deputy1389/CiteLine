@@ -27,13 +27,60 @@ class RunConfig(BaseModel):
     ocr_enabled: bool = True
     ocr_language: str = "eng"
     max_pages: int = 1000
-    pt_mode: object = "per_visit"  # per_visit (one event/page) or aggregate (bucket by window)
+    pt_mode: object = "aggregate"  # per_visit (one event/page) or aggregate (bucket by window)
     pt_aggregate_window_days: int = 7
     gap_threshold_days: int = 60
     event_confidence_min_export: int = 30  # Lowered from 40 to capture undated specialist events
     low_confidence_event_behavior: object = "exclude_from_export"  # exclude_from_export or include_with_flag
     enable_llm_reasoning: bool = True  # Enable Gemini Flash semantic reasoning (Step 19)
-    gemini_model: str = "gemini-1.5-flash"  # Gemini model for LLM reasoning
+    gemini_model: str = "gemini-2.0-flash"  # Gemini model for LLM reasoning
+    gemini_model_narrative: Optional[str] = None  # Optional override for narrative model
+    llm_reasoning_min_confidence: int = 30
+    llm_reasoning_min_citations: int = 1
+    llm_reasoning_max_events: int = 50
+    narrative_min_confidence: int = 30
+    narrative_min_citations: int = 1
+    narrative_max_events: int = 100
+    clinical_max_facts: int = 12
+    pt_max_facts: int = 4
+    chronology_dedupe_facts_max: int = 3
+    chronology_timeline_facts_max: int = 6
+    chronology_merged_facts_max: int = 4
+    chronology_appendix_facts_max: int = 10
+    chronology_min_score: int = 60
+    chronology_selection_hard_max_rows: int = 250
+    litigation_defense_paths_limit: int = 6
+    litigation_objection_profiles_limit: int = 24
+    litigation_upgrade_recommendations_limit: int = 8
+    litigation_quote_lock_limit: int = 12
+    litigation_contradiction_limit: int = 24
+    high_stakes_confidence_cap: int = 40
+    api_download_timeout_seconds: int = 60
+    error_message_max_len: int = 2000
+    imaging_base_confidence: int = 20
+    billing_base_confidence: int = 0
+    lab_base_confidence: int = 60
+    discharge_base_confidence: int = 75
+    operative_base_confidence: int = 80
+    confidence_scoring: dict[str, int] = Field(default_factory=lambda: {
+        "date_explicit": 35,
+        "date_range": 25,
+        "date_propagated": 15,
+        "date_ambiguous": 10,
+        "date_undated": -50,
+        "provider_bonus": 20,
+        "strong_type_bonus": 15,
+        "anchor_per": 7,
+        "anchor_max": 21,
+        "clinical_per": 4,
+        "clinical_max": 12,
+        "fact_richness_min": 3,
+        "fact_richness_bonus": 8,
+        "citation_bonus_2": 10,
+        "citation_bonus_4": 5,
+        "multi_page_bonus": 5,
+        "time_bonus": 25,
+    })
 
 
 class SourceDocument(BaseModel):

@@ -12,6 +12,7 @@ from packages.shared.models import (
     Page,
     PageType,
     Provider,
+    RunConfig,
     SkippedEvent,
     Warning,
 )
@@ -43,6 +44,7 @@ def extract_billing_events(
     pages: list[Page],
     dates: dict[int, list[EventDate]],
     providers: list[Provider],
+    config: RunConfig,
     page_provider_map: dict[int, str] = {},
 ) -> tuple[list[Event], list[Citation], list[Warning], list[SkippedEvent]]:
     """Extract billing events (always stored; export based on config)."""
@@ -125,7 +127,7 @@ def extract_billing_events(
             date=event_date,
             facts=[_make_fact(snippet, FactKind.OTHER, cit.citation_id)],
             billing=billing,
-            confidence=0,
+            confidence=config.billing_base_confidence,
             flags=event_flags,
             citation_ids=[cit.citation_id],
             source_page_numbers=[page.page_number],

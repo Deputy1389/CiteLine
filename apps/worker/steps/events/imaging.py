@@ -13,6 +13,7 @@ from packages.shared.models import (
     Page,
     PageType,
     Provider,
+    RunConfig,
     SkippedEvent,
     Warning,
 )
@@ -50,6 +51,7 @@ def extract_imaging_events(
     pages: list[Page],
     dates: dict[int, list[EventDate]],
     providers: list[Provider],
+    config: RunConfig,
     page_provider_map: dict[int, str] = {},
     page_text_by_number: dict[int, str] | None = None,
 ) -> tuple[list[Event], list[Citation], list[Warning], list[SkippedEvent]]:
@@ -208,7 +210,7 @@ def extract_imaging_events(
                 body_part=body_part,
                 impression=impression_facts,
             ),
-            confidence=0,
+            confidence=config.imaging_base_confidence,
             flags=event_flags,
             citation_ids=citation_ids,
             source_page_numbers=[p.page_number for p in page_group],

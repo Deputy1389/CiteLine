@@ -136,7 +136,7 @@ def _is_contradiction(kind: str, a_val: str, b_val: str) -> bool:
     return False
 
 
-def build_contradiction_matrix(claim_rows: list[ClaimRowLike], *, window_days: int = 45) -> list[dict]:
+def build_contradiction_matrix(claim_rows: list[ClaimRowLike], *, window_days: int = 45, limit: int = 24) -> list[dict]:
     mentions: list[dict] = []
     for row in claim_rows:
         citations = [str(c).strip() for c in (row.get("citations") or []) if str(c).strip()]
@@ -199,4 +199,4 @@ def build_contradiction_matrix(claim_rows: list[ClaimRowLike], *, window_days: i
             str(((r.get("supporting") or {}).get("date") or "")),
         )
     )
-    return matrix[:24]
+    return matrix[:limit]

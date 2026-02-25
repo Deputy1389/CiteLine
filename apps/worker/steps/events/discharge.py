@@ -16,6 +16,7 @@ from packages.shared.models import (
     Page,
     PageType,
     Provider,
+    RunConfig,
     SkippedEvent,
     Warning,
 )
@@ -25,6 +26,7 @@ def extract_discharge_events(
     pages: list[Page],
     dates: dict[int, list[EventDate]],
     providers: list[Provider],
+    config: RunConfig,
     page_provider_map: dict[int, str],
 ) -> tuple[list[Event], list[Citation], list[Warning], list[SkippedEvent]]:
     """
@@ -128,7 +130,7 @@ def extract_discharge_events(
             event_type=EventType.DISCHARGE,
             date=event_date,
             facts=facts,
-            confidence=70, # Generally high confidence if classified as DS
+            confidence=config.discharge_base_confidence, # Generally high confidence if classified as DS
             citation_ids=[f.citation_id for f in facts],
             source_page_numbers=[page.page_number],
         ))

@@ -92,14 +92,14 @@ def run_extraction(pdf_path: Path) -> dict:
     all_skipped = []
 
     clinical_events, clinical_cits, _, clinical_skipped = extract_clinical_events(
-        pages, dates, providers, page_provider_map
+        pages, dates, providers, config, page_provider_map
     )
     all_events.extend(clinical_events)
     all_citations.extend(clinical_cits)
     all_skipped.extend(clinical_skipped)
 
     imaging_events, imaging_cits, _, imaging_skipped = extract_imaging_events(
-        pages, dates, providers, page_provider_map
+        pages, dates, providers, config, page_provider_map
     )
     all_events.extend(imaging_events)
     all_citations.extend(imaging_cits)
@@ -113,7 +113,7 @@ def run_extraction(pdf_path: Path) -> dict:
     all_skipped.extend(pt_skipped)
 
     billing_events, billing_cits, _, billing_skipped = extract_billing_events(
-        pages, dates, providers, page_provider_map
+        pages, dates, providers, config, page_provider_map
     )
     all_events.extend(billing_events)
     all_citations.extend(billing_cits)

@@ -35,6 +35,7 @@ def extract_pt_events(
     citations: list[Citation] = []
     warnings: list[Warning] = []
     skipped: list[SkippedEvent] = []
+    max_facts = max(1, int(config.pt_max_facts))
 
     # Also pick up pages that were classified as CLINICAL_NOTE but contain PT content
     # (happens when PT keywords score below threshold but medical fallback fires)
@@ -93,10 +94,10 @@ def extract_pt_events(
             provider_id=provider_id,
             event_type=EventType.PT_VISIT,
             date=None,
-            facts=facts,
+            facts=facts[:max_facts],
             confidence=0,
             flags=["MISSING_DATE"],
-            citation_ids=[cit.citation_id],
+            citation_ids=[f.citation_id for f in facts[:max_facts] if f.citation_id],
             source_page_numbers=[page.page_number],
         ))
 
@@ -129,7 +130,16 @@ def extract_pt_events(
             all_pages = [p.page_number for p, _ in group]
 
             # Create citation for the summary
-            snippet = f"PT sessions documented: {visit_count}"
+            # Extract clinical keywords for a richer summary
+            group_text = " ".join(p.text.lower() for p, _ in group)
+            keywords = []
+            if "rom" in group_text or "range of motion" in group_text: keywords.append("ROM")
+            if "exercise" in group_text: keywords.append("Exercise")
+            if "gait" in group_text: keywords.append("Gait")
+            if "strength" in group_text: keywords.append("Strength")
+
+            kw_str = f" ({', '.join(keywords)})" if keywords else ""
+            snippet = f"Aggregated PT sessions ({visit_count} encounters){kw_str}"
             cit = _make_citation(first_page, snippet)
             citations.append(cit)
 
@@ -154,7 +164,7 @@ def extract_pt_events(
                 )
             else:
                 event_date = first_date
-            
+
             # Determine provider (use first page of group)
             provider_id = page_provider_map.get(first_page.page_number)
             if not provider_id and providers:
@@ -166,13 +176,13 @@ def extract_pt_events(
                 provider_id=provider_id,
                 event_type=EventType.PT_VISIT,
                 date=event_date,
-                facts=facts[:6],
+                facts=facts[:max_facts],
                 confidence=0,
-                citation_ids=[cit.citation_id for cit in citations[-len(facts):]],
+                citation_ids=[f.citation_id for f in facts[:max_facts] if f.citation_id],
                 source_page_numbers=all_pages,
             ))
     else:
-        # Per-visit mode — one event per PT page (maximum density)
+        # Per-visit mode â€” one event per PT page (maximum density)
         for page, event_date in pt_visits_with_dates:
             facts: list[Fact] = []
 
@@ -232,9 +242,9 @@ def extract_pt_events(
                 provider_id=provider_id,
                 event_type=EventType.PT_VISIT,
                 date=event_date,
-                facts=facts[:6],
+                facts=facts[:max_facts],
                 confidence=0,
-                citation_ids=[f.citation_id for f in facts[:6]],
+                citation_ids=[f.citation_id for f in facts[:max_facts] if f.citation_id],
                 source_page_numbers=[page.page_number],
             ))
 

@@ -5,6 +5,7 @@ from packages.shared.models import (
     DateStatus,
     DateSource,
     PageType,
+    RunConfig,
     Warning as PipelineWarning,
 )
 import logging
@@ -12,7 +13,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 def run_litigation_integrity_pass(
-    evidence_graph: EvidenceGraph
+    evidence_graph: EvidenceGraph,
+    config: RunConfig,
 ) -> list[PipelineWarning]:
     """
     Final integrity check (Clause V).
@@ -54,7 +56,7 @@ def run_litigation_integrity_pass(
                     if event.date.source == DateSource.PROPAGATED:
                         event.flags.append("UNVERIFIED_HIGH_STAKES_DATE")
                         # For litigation grade, we might want to downgrade confidence
-                        event.confidence = min(event.confidence, 40)
+                        event.confidence = min(event.confidence, config.high_stakes_confidence_cap)
         
         vetted_events.append(event)
     

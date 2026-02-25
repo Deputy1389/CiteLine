@@ -22,6 +22,7 @@ def prepare_projection_bundle(
     page_text_by_number: dict[int, str] | None,
     narrative_synthesis: str | None,
     missing_records_payload: dict | None,
+    config,
     build_chronology_projection: Callable,
     infer_page_patient_labels: Callable,
     enrich_projection_procedure_entries: Callable,
@@ -51,6 +52,7 @@ def prepare_projection_bundle(
         debug_sink=projection_debug_sink,
         selection_meta=selection_meta,
         select_timeline=select_timeline,
+        config=config,
     )
     projection = enrich_projection_procedure_entries(
         projection,

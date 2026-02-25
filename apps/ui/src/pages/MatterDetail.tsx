@@ -121,6 +121,9 @@ export default function MatterDetail() {
     const getLatestCompletedRun = (runList: Run[]) => {
         return runList.find((r) => completedStatuses.has(r.status)) || null;
     };
+    const getLatestRun = (runList: Run[]) => {
+        return runList.length ? runList[0] : null;
+    };
 
     const loadCommandCenter = async (runList: Run[]) => {
         const latest = getLatestCompletedRun(runList);
@@ -432,6 +435,18 @@ export default function MatterDetail() {
                                     </div>
                                 </div>
 
+                                {run.status === 'failed' && (
+                                    <div className="text-[11px] text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-md px-3 py-2">
+                                        {run.error_message || 'Run failed. No error details were recorded.'}
+                                    </div>
+                                )}
+
+                                {Array.isArray(run.warnings) && run.warnings.length > 0 && (
+                                    <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-md px-3 py-2 mt-2">
+                                        Warnings: {run.warnings.slice(0, 3).join(' • ')}{run.warnings.length > 3 ? '…' : ''}
+                                    </div>
+                                )}
+
                                 {run.metrics && (
                                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-400 mb-3 border-t border-white/5 pt-2">
                                         <div>Pages: <span className="text-slate-200">{run.metrics.page_count}</span></div>
@@ -481,6 +496,12 @@ export default function MatterDetail() {
                     {!getLatestCompletedRun(runs) && (
                         <div className="empty-state" style={{ border: 'none' }}>
                             Run analysis to unlock legal insights.
+                        </div>
+                    )}
+
+                    {!commandCenterLoading && !commandCenterError && !commandCenterData && getLatestRun(runs)?.status === 'failed' && (
+                        <div className="badge-risk py-3 px-4 rounded-md text-sm border-rose-500/20 w-full text-center">
+                            Latest run failed: {getLatestRun(runs)?.error_message || 'No error details available.'}
                         </div>
                     )}
 

@@ -1,5 +1,5 @@
 """
-Pipeline Step Definitions — Individual stages of the CiteLine processing pipeline.
+Pipeline Step Definitions â€” Individual stages of the CiteLine processing pipeline.
 """
 from __future__ import annotations
 import logging
@@ -44,7 +44,7 @@ from apps.worker.lib.provider_normalize import normalize_provider_entities, comp
 from apps.worker.lib.claim_ledger_lite import build_claim_edges, select_top_claim_rows
 from apps.worker.lib.causation_ladder import build_causation_ladders
 from apps.worker.steps.case_collapse import (
-    build_case_collapse_candidates, build_defense_attack_paths, 
+    build_case_collapse_candidates, build_defense_attack_paths,
     build_objection_profiles, build_upgrade_recommendations, quote_lock
 )
 from apps.worker.steps.litigation import (
@@ -79,7 +79,10 @@ class PipelineSteps:
         total_ocr = 0
         page_offset = 0
         for doc in valid_docs:
-            pdf_path = str(downloader_fn(doc.document_id))
+            try:
+                pdf_path = str(downloader_fn(doc.document_id, config.api_download_timeout_seconds))
+            except TypeError:
+                pdf_path = str(downloader_fn(doc.document_id))
             logger.info(f"Step 1: Splitting pages for {doc.document_id}")
             pages, step_warnings = split_pages(pdf_path, doc.document_id, page_offset, config.max_pages - page_offset)
             logger.info(f"Step 2: Text acquisition for {doc.document_id}")
@@ -122,22 +125,29 @@ class PipelineSteps:
     def step07_extraction(all_pages, dates, providers, page_provider_map, config):
         logger.info("Step 7: Event extraction")
         all_events, all_citations, all_skipped = [], [], []
-        
+
         # Clinical
-        e, c, w, s = extract_clinical_events(all_pages, dates, providers, page_provider_map)
+        e, c, w, s = extract_clinical_events(all_pages, dates, providers, config, page_provider_map)
         all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
-        
+
         # Imaging
-        e, c, w, s = extract_imaging_events(all_pages, dates, providers, page_provider_map, 
+        e, c, w, s = extract_imaging_events(all_pages, dates, providers, config, page_provider_map,
                                            page_text_by_number={p.page_number: (p.text or "") for p in all_pages})
         all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
-        
+
         # PT
         e, c, w, s = extract_pt_events(all_pages, dates, providers, config, page_provider_map)
         all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
-        
+
         # Others... (Billing, Lab, Discharge, Operative)
-        # Simplified for brevity in this refactor pass
+        e, c, w, s = extract_billing_events(all_pages, dates, providers, config, page_provider_map)
+        all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_lab_events(all_pages, dates, providers, config, page_provider_map)
+        all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_discharge_events(all_pages, dates, providers, config, page_provider_map)
+        all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_operative_events(all_pages, dates, providers, config, page_provider_map)
+        all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
         return all_events, all_citations, all_skipped
 
     @staticmethod
@@ -188,19 +198,19 @@ class PipelineSteps:
     def step14_17_artifacts(evidence_graph, run_id, providers_normalized, matter_title):
         # Step 14: Provider Directory
         prov_csv, prov_json = render_provider_directory(run_id, providers_normalized)
-        
+
         # Step 15: Missing Records
         mr_payload = detect_missing_records(evidence_graph, providers_normalized)
         mr_csv, mr_json = render_missing_records(run_id, mr_payload)
-        
+
         # Step 16: Billing
         bl_payload = extract_billing_lines(evidence_graph, providers_normalized)
         bl_csv, bl_json = render_billing_lines(run_id, bl_payload)
-        
+
         # Step 17: Specials
         ss_payload = compute_specials_summary(bl_payload, providers_normalized)
         ss_csv, ss_json, ss_pdf = render_specials_summary(run_id, ss_payload, matter_title)
-        
+
         return {
             "prov_refs": (prov_csv, prov_json),
             "mr_refs": (mr_csv, mr_json),

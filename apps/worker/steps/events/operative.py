@@ -16,6 +16,7 @@ from packages.shared.models import (
     Page,
     PageType,
     Provider,
+    RunConfig,
     SkippedEvent,
     Warning,
 )
@@ -25,6 +26,7 @@ def extract_operative_events(
     pages: list[Page],
     dates: dict[int, list[EventDate]],
     providers: list[Provider],
+    config: RunConfig,
     page_provider_map: dict[int, str],
 ) -> tuple[list[Event], list[Citation], list[Warning], list[SkippedEvent]]:
     """
@@ -88,7 +90,7 @@ def extract_operative_events(
             event_type=EventType.PROCEDURE,
             date=event_date,
             facts=facts,
-            confidence=75, # Operative reports are usually high value
+            confidence=config.operative_base_confidence, # Operative reports are usually high value
             citation_ids=[f.citation_id for f in facts],
             source_page_numbers=[page.page_number],
         ))

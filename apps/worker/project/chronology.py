@@ -17,7 +17,7 @@ from apps.worker.steps.events.report_quality import (
     surgery_classifier_guard,
 )
 from apps.worker.lib.noise_filter import is_noise_span
-from packages.shared.models import Event, Provider
+from packages.shared.models import Event, Provider, RunConfig
 
 # New Utility Imports
 from packages.shared.utils.render_utils import (
@@ -59,7 +59,9 @@ MIN_SUBSTANCE_THRESHOLD = 1
 HIGH_SUBSTANCE_THRESHOLD = 2
 UTILITY_EPSILON = 0.03
 UTILITY_CONSECUTIVE_LOW_K = 8
-SELECTION_HARD_MAX_ROWS = 250
+
+def _resolve_config(config: RunConfig | None) -> RunConfig:
+    return config or RunConfig()
 
 def _event_type_display(event: Event) -> str:
     mapping = {
@@ -205,7 +207,7 @@ def _redundancy_penalty(entry: ChronologyProjectionEntry, selected: list[Chronol
         max_pen = max(max_pen, min(1.0, pen))
     return max_pen
 
-def _collapse_repetitive_entries(rows: list[ChronologyProjectionEntry]) -> list[ChronologyProjectionEntry]:
+def _collapse_repetitive_entries(rows: list[ChronologyProjectionEntry], config: RunConfig) -> list[ChronologyProjectionEntry]:
     if len(rows) <= 100: return rows
     grouped: dict[tuple[str, str, str, str, str], list[ChronologyProjectionEntry]] = defaultdict(list)
     for row in rows:
@@ -230,15 +232,15 @@ def _collapse_repetitive_entries(rows: list[ChronologyProjectionEntry]) -> list[
                 if not norm or norm in seen: continue
                 seen.add(norm)
                 merged_facts.append(fact)
-                if len(merged_facts) >= 4: break
-            if len(merged_facts) >= 4: break
+                if len(merged_facts) >= config.chronology_merged_facts_max: break
+            if len(merged_facts) >= config.chronology_merged_facts_max: break
         if marker == "pt": merged_facts = [f"PT sessions on {date_display.split(' ')[0]} summarized: gradual progression documented with cited metrics."]
         elif marker == "nursing": merged_facts = [f"Nursing/flowsheet documentation on {date_display.split(' ')[0]} consolidated; see citations for details."]
         merged_citations = ", ".join(sorted({it.citation_display for it in items if it.citation_display}))
         out.append(ChronologyProjectionEntry(
             event_id=hashlib.sha1("|".join(sorted(it.event_id for it in items)).encode("utf-8")).hexdigest()[:16],
             date_display=date_display, provider_display=provider, event_type_display=event_type, patient_label=patient,
-            facts=merged_facts or items[0].facts[:2], citation_display=merged_citations or items[0].citation_display,
+            facts=merged_facts or items[0].facts[:config.chronology_dedupe_facts_max], citation_display=merged_citations or items[0].citation_display,
             confidence=max(it.confidence for it in items)
         ))
     return out
@@ -332,11 +334,11 @@ def _aggregate_pt_weekly_rows(rows: list[ChronologyProjectionEntry], total_pages
         ))
     return passthrough + aggregated
 
-def _apply_timeline_selection(entries: list[ChronologyProjectionEntry], *, total_pages: int = 0, selection_meta: dict[str, Any] | None = None) -> list[ChronologyProjectionEntry]:
+def _apply_timeline_selection(entries: list[ChronologyProjectionEntry], *, total_pages: int = 0, selection_meta: dict[str, Any] | None = None, config: RunConfig) -> list[ChronologyProjectionEntry]:
     if not entries: return entries
     entries = _split_composite_entries(entries, total_pages)
     entries = _aggregate_pt_weekly_rows(entries, total_pages)
-    entries = _collapse_repetitive_entries(entries)
+    entries = _collapse_repetitive_entries(entries, config)
     grouped: dict[str, list[ChronologyProjectionEntry]] = defaultdict(list)
     for entry in entries: grouped[entry.patient_label].append(entry)
     selected, selected_utility_components, delta_u_trace, stopping_reason, selected_ids_global = [], [], [], "no_candidates", set()
@@ -346,8 +348,8 @@ def _apply_timeline_selection(entries: list[ChronologyProjectionEntry], *, total
         for row in rows:
             event_class = _classify_projection_entry(row)
             score = _projection_entry_score(row)
-            if "date not documented" in (row.date_display or "").lower() and event_class in {"clinic", "other", "labs", "questionnaire", "vitals"} and score < 70: continue
-            dedupe_key = (row.date_display, event_class, " ".join(f.strip().lower() for f in row.facts[:2]))
+            if "date not documented" in (row.date_display or "").lower() and event_class in {"clinic", "other", "labs", "questionnaire", "vitals"} and score < config.chronology_min_score: continue
+            dedupe_key = (row.date_display, event_class, " ".join(f.strip().lower() for f in row.facts[:config.chronology_dedupe_facts_max]))
             if dedupe_key in seen_payload: score = max(0, score - 20)
             else: seen_payload.add(dedupe_key)
             row.confidence = max(0, min(100, score))
@@ -365,7 +367,7 @@ def _apply_timeline_selection(entries: list[ChronologyProjectionEntry], *, total
             delta_u_trace.append(1.0)
         low_delta_streak, covered_buckets = 0, {b for row in selected_patient for b in [_bucket_for_required_coverage(row)] if b}
         remaining = [(score, cls, row) for score, cls, row in substantive if row.event_id not in selected_ids_patient]
-        while remaining and len(selected_patient) < SELECTION_HARD_MAX_ROWS:
+        while remaining and len(selected_patient) < config.chronology_selection_hard_max_rows:
             selected_dates = [d for d in (_entry_date_only(r) for r in selected_patient) if d is not None]
             best_idx, best_utility, best_payload = -1, -1.0, {}
             for idx, (score, _cls, row) in enumerate(remaining):
@@ -387,7 +389,7 @@ def _apply_timeline_selection(entries: list[ChronologyProjectionEntry], *, total
                 covered_buckets.add(chosen_bucket)
             selected_utility_components.append({"event_id": chosen.event_id, "patient_label": patient_label, "bucket": chosen_bucket, "utility": round(best_utility, 6), "delta_u": delta_u, "components": best_payload, "forced_bucket": False})
             if covered_buckets.issuperset(present_buckets) and low_delta_streak >= (UTILITY_CONSECUTIVE_LOW_K * 2 if total_pages > 300 else UTILITY_CONSECUTIVE_LOW_K): stopping_reason = "saturation"; break
-            if len(selected_patient) >= SELECTION_HARD_MAX_ROWS: stopping_reason = "safety_fuse"; break
+            if len(selected_patient) >= config.chronology_selection_hard_max_rows: stopping_reason = "safety_fuse"; break
         proc_by_date, compact_main = defaultdict(list), []
         main = [(next((s for s, _c, r in scored if r.event_id == row.event_id), 0), _classify_projection_entry(row), row) for row in selected_patient]
         for item in main:
@@ -403,16 +405,17 @@ def _apply_timeline_selection(entries: list[ChronologyProjectionEntry], *, total
                     nf = fact.strip().lower()
                     if not nf or nf in seen_facts: continue
                     seen_facts.add(nf); merged_facts.append(fact)
-            top_row = top[2]; compact_main.append((top[0], top[1], ChronologyProjectionEntry(event_id=top_row.event_id, date_display=top_row.date_display, provider_display=top_row.provider_display, event_type_display=top_row.event_type_display, patient_label=top_row.patient_label, facts=merged_facts[:6] if merged_facts else top_row.facts, citation_display=", ".join(sorted(merged_cites)) if merged_cites else top_row.citation_display, confidence=top_row.confidence)))
+            top_row = top[2]; compact_main.append((top[0], top[1], ChronologyProjectionEntry(event_id=top_row.event_id, date_display=top_row.date_display, provider_display=top_row.provider_display, event_type_display=top_row.event_type_display, patient_label=top_row.patient_label, facts=merged_facts[:config.chronology_merged_facts_max] if merged_facts else top_row.facts, citation_display=", ".join(sorted(merged_cites)) if merged_cites else top_row.citation_display, confidence=top_row.confidence)))
         main = compact_main; main.sort(key=lambda item: (item[2].date_display, -item[0], item[2].event_id)); seen_main_ids = set()
         for _, _, row in main:
             if row.event_id in seen_main_ids: continue
             seen_main_ids.add(row.event_id); selected.append(row)
     if not stopping_reason and selected: stopping_reason = "all_buckets_covered"
-    if selection_meta is not None: selection_meta.update({"selected_utility_components": selected_utility_components, "stopping_reason": stopping_reason if selected else "no_candidates", "delta_u_trace": delta_u_trace[-50:], "hard_max_rows": SELECTION_HARD_MAX_ROWS})
+    if selection_meta is not None: selection_meta.update({"selected_utility_components": selected_utility_components, "stopping_reason": stopping_reason if selected else "no_candidates", "delta_u_trace": delta_u_trace[-50:], "hard_max_rows": config.chronology_selection_hard_max_rows})
     return selected
 
-def _merge_projection_entries(entries: list[ChronologyProjectionEntry], select_timeline: bool = True) -> list[ChronologyProjectionEntry]:
+def _merge_projection_entries(entries: list[ChronologyProjectionEntry], select_timeline: bool = True, config: RunConfig | None = None) -> list[ChronologyProjectionEntry]:
+    config = _resolve_config(config)
     deduped, seen_identity = [], set()
     for entry in entries:
         ident = (entry.event_id, entry.patient_label, entry.date_display, entry.event_type_display)
@@ -437,14 +440,15 @@ def _merge_projection_entries(entries: list[ChronologyProjectionEntry], select_t
                 if len(facts) >= 4: break
             if g.citation_display: citations.extend([part.strip() for part in g.citation_display.split(",") if part.strip()])
         merged_citations = ", ".join(sorted(set(citations))[:6]); provider_display = sorted(provider_counts.items(), key=lambda item: (item[0] == "Unknown", -item[1], item[0]))[0][0]; event_type_display = sorted(event_types, key=lambda et: (type_rank.get(et, 99), et))[0]
-        merged.append(ChronologyProjectionEntry(event_id=event_id, date_display=key[1], provider_display=provider_display, event_type_display=event_type_display, patient_label=key[0], facts=facts if not select_timeline else facts[:4], citation_display=merged_citations, confidence=max(g.confidence for g in group)))
+        merged.append(ChronologyProjectionEntry(event_id=event_id, date_display=key[1], provider_display=provider_display, event_type_display=event_type_display, patient_label=key[0], facts=facts[:config.chronology_appendix_facts_max] if not select_timeline else facts[:config.chronology_timeline_facts_max], citation_display=merged_citations, confidence=max(g.confidence for g in group)))
     def _entry_date_key(entry: ChronologyProjectionEntry) -> tuple[int, str]:
         m = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", entry.date_display)
         return (0, m.group(1)) if m else (99, "9999-12-31")
-    if select_timeline: merged = _apply_timeline_selection(merged)
+    if select_timeline: merged = _apply_timeline_selection(merged, config=config)
     return sorted(merged, key=lambda e: (e.patient_label, _entry_date_key(e), e.event_id))
 
-def build_chronology_projection(events: list[Event], providers: list[Provider], page_map: dict[int, tuple[str, int]] | None = None, page_patient_labels: dict[int, str] | None = None, page_text_by_number: dict[int, str] | None = None, debug_sink: list[dict] | None = None, select_timeline: bool = True, selection_meta: dict | None = None) -> ChronologyProjection:
+def build_chronology_projection(events: list[Event], providers: list[Provider], page_map: dict[int, tuple[str, int]] | None = None, page_patient_labels: dict[int, str] | None = None, page_text_by_number: dict[int, str] | None = None, debug_sink: list[dict] | None = None, select_timeline: bool = True, selection_meta: dict | None = None, config: RunConfig | None = None) -> ChronologyProjection:
+    config = _resolve_config(config)
     entries = []; sorted_events = sorted(events, key=lambda e: e.date.sort_key() if e.date else (99, "UNKNOWN"))
     provider_dated_pages = {}
     for event in sorted_events:
@@ -563,7 +567,11 @@ def build_chronology_projection(events: list[Event], providers: list[Provider], 
                 for imf in _extract_imaging_elements(joined_raw):
                     if imf.lower() not in {f.lower() for f in facts}:
                         facts.append(imf)
-            facts = facts[:10]
+            facts = facts[:config.chronology_appendix_facts_max]
+        if select_timeline:
+            facts = facts[:config.chronology_timeline_facts_max]
+        else:
+            facts = facts[:config.chronology_appendix_facts_max]
         if not facts:
             if debug_sink is not None:
                 debug_sink.append({"event_id": event.event_id, "reason": "low_substance", "provider_id": event.provider_id})
@@ -606,12 +614,12 @@ def build_chronology_projection(events: list[Event], providers: list[Provider], 
                 proc_facts = []
                 for p in hit_pages[:5]:
                     proc_facts.extend(_line_snippets(page_text_by_number.get(p) or "", r"(interlaminar|transforaminal|epidural|fluoroscopy|depo-?medrol|lidocaine|complications?)", limit=3))
-                entries.append(ChronologyProjectionEntry(event_id=f"proc_anchor_{hashlib.sha1('|'.join(map(str, hit_pages)).encode('utf-8')).hexdigest()[:12]}", date_display=_iso_date_display(proc_date) if proc_date else "Date not documented", provider_display="Unknown", event_type_display="Procedure/Surgery", patient_label="See Patient Header", facts=proc_facts[:4] or ["Epidural steroid injection documented."], citation_display=", ".join(f"p. {p}" for p in hit_pages[:5]), confidence=85))
+                entries.append(ChronologyProjectionEntry(event_id=f"proc_anchor_{hashlib.sha1('|'.join(map(str, hit_pages)).encode('utf-8')).hexdigest()[:12]}", date_display=_iso_date_display(proc_date) if proc_date else "Date not documented", provider_display="Unknown", event_type_display="Procedure/Surgery", patient_label="See Patient Header", facts=proc_facts[:config.chronology_timeline_facts_max] or ["Epidural steroid injection documented."], citation_display=", ".join(f"p. {p}" for p in hit_pages[:5]), confidence=85))
 
     if select_timeline:
-        merged_entries = sorted(_apply_timeline_selection(entries, total_pages=len(page_text_by_number or {}), selection_meta=selection_meta), key=lambda e: (e.patient_label, (re.search(r"\b(\d{4}-\d{2}-\d{2})\b", e.date_display).group(1) if re.search(r"\b(\d{4}-\d{2}-\d{2})\b", e.date_display) else "9999-12-31"), e.event_id))
+        merged_entries = sorted(_apply_timeline_selection(entries, total_pages=len(page_text_by_number or {}), selection_meta=selection_meta, config=config), key=lambda e: (e.patient_label, (re.search(r"\b(\d{4}-\d{2}-\d{2})\b", e.date_display).group(1) if re.search(r"\b(\d{4}-\d{2}-\d{2})\b", e.date_display) else "9999-12-31"), e.event_id))
     else:
-        merged_entries = _merge_projection_entries(entries, select_timeline=select_timeline)
+        merged_entries = _merge_projection_entries(entries, select_timeline=select_timeline, config=config)
 
     if selection_meta is not None:
         selection_meta.update(asdict(SelectionResult(

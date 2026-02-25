@@ -11,7 +11,7 @@ from datetime import date
 from packages.shared.models import (
     Citation, Event, EventDate, EventType, Fact, FactKind,
     Page, DateKind, DateSource, Provider, SkippedEvent,
-    Warning as PipelineWarning
+    Warning as PipelineWarning, RunConfig
 )
 from apps.worker.steps.events.common import _make_citation, _make_fact, _find_section
 from apps.worker.steps.step06_dates import make_partial_date
@@ -30,6 +30,7 @@ def extract_clinical_events(
     pages: list[Page],
     dates: dict[int, list[EventDate]],
     providers: list[Provider],
+    config: RunConfig,
     page_provider_map: dict[int, str] = {},
 ) -> tuple[list[Event], list[Citation], list[PipelineWarning], list[SkippedEvent]]:
     """Extract clinical note events using block grouping."""
@@ -40,6 +41,8 @@ def extract_clinical_events(
 
     # 1. Group pages into blocks
     blocks = group_clinical_pages(pages, dates, providers, page_provider_map)
+
+    max_facts = max(1, int(config.clinical_max_facts))
 
     for block in blocks:
         block_events, block_citations = _extract_block_events(block, page_provider_map, providers)
@@ -102,14 +105,18 @@ def extract_clinical_events(
                 provider_id=provider_id,
                 event_type=etype,
                 date=event_date,
-                facts=block_facts[:12],
+                facts=block_facts[:max_facts],
                 confidence=80,
                 flags=event_flags,
-                citation_ids=[f.citation_id for f in block_facts[:12]],
+                citation_ids=[f.citation_id for f in block_facts[:max_facts]],
                 source_page_numbers=block.page_numbers,
             ))
             continue
 
+        for evt in block_events:
+            if evt.facts and len(evt.facts) > max_facts:
+                evt.facts = evt.facts[:max_facts]
+                evt.citation_ids = [f.citation_id for f in evt.facts if f.citation_id]
         events.extend(block_events)
         citations.extend(block_citations)
 

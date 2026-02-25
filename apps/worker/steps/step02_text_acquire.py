@@ -21,6 +21,7 @@ from packages.db.models import SourceDocument, Run, OCRCache
 logger = logging.getLogger(__name__)
 
 _MIN_TEXT_LENGTH = 50
+_CID_ARTIFACT_RE = re.compile(r"\(cid:\d+\)", re.IGNORECASE)
 _TESSERACT_AVAILABLE: bool | None = None
 _OCR_TIMEOUT_SECONDS = int(os.getenv("OCR_TIMEOUT_SECONDS", "30"))
 _OCR_TOTAL_TIMEOUT_SECONDS = int(os.getenv("OCR_TOTAL_TIMEOUT_SECONDS", "600"))
@@ -51,6 +52,9 @@ def _check_tesseract() -> bool:
 def _is_meaningful(text: str) -> bool:
     """Check if text is meaningful (non-trivial content)."""
     stripped = text.strip()
+    if not stripped:
+        return False
+    stripped = _CID_ARTIFACT_RE.sub("", stripped).strip()
     if len(stripped) < _MIN_TEXT_LENGTH:
         return False
     # Check if mostly whitespace
@@ -210,13 +214,16 @@ def acquire_text(
         return pages, ocr_count, warnings
 
     candidates: list[int] = []
-    page_doc_map: dict[str, SourceDocument] = {}
+    page_doc_map: dict[str, dict] = {}
     try:
         with get_session() as session:
             ids = sorted({p.source_document_id for p in pages if p.source_document_id})
             if ids:
                 for doc in session.query(SourceDocument).filter(SourceDocument.id.in_(ids)).all():
-                    page_doc_map[str(doc.id)] = doc
+                    page_doc_map[str(doc.id)] = {
+                        "id": str(doc.id),
+                        "sha256": str(doc.sha256 or ""),
+                    }
     except Exception as exc:
         logger.warning(f"Failed to load source document metadata for OCR cache: {exc}")
 
@@ -282,7 +289,7 @@ def acquire_text(
                     .filter(OCRCache.page_number == int(page.page_number))
                     .one_or_none()
                 )
-                if row and row.document_sha256 == doc_meta.sha256 and row.dpi == _OCR_DPI:
+                if row and row.document_sha256 == doc_meta.get("sha256") and row.dpi == _OCR_DPI:
                     return str(row.text or "")
         except Exception as exc:
             logger.warning(f"OCR cache lookup failed for page {page.page_number}: {exc}")
@@ -297,7 +304,7 @@ def acquire_text(
             with get_session() as session:
                 row = OCRCache(
                     source_document_id=str(page.source_document_id),
-                    document_sha256=doc_meta.sha256,
+                    document_sha256=doc_meta.get("sha256") or "",
                     page_number=int(page.page_number),
                     text=text,
                     text_hash=_text_hash(text),

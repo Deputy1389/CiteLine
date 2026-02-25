@@ -16,26 +16,27 @@ from packages.shared.models import (
 from apps.worker.quality.text_quality import should_quarantine_fact
 
 
-def score_event(event: Event) -> int:
+def score_event(event: Event, config: RunConfig) -> int:
     """Compute confidence score for an event (0–100)."""
     score = 0
+    w = config.confidence_scoring or {}
 
     # Date status contribution
     if event.date:
         if event.date.status == DateStatus.EXPLICIT:
-            score += 35
+            score += w.get("date_explicit", 35)
         elif event.date.status == DateStatus.RANGE:
-            score += 25
+            score += w.get("date_range", 25)
         elif event.date.status == DateStatus.PROPAGATED:
-            score += 15
+            score += w.get("date_propagated", 15)
         elif event.date.status == DateStatus.AMBIGUOUS:
-            score += 10
+            score += w.get("date_ambiguous", 10)
         elif event.date.status == DateStatus.UNDATED:
-            score -= 50  # Heavy penalty for undated status
+            score += w.get("date_undated", -50)  # Heavy penalty for undated status
 
     # Provider confidence
     if event.provider_id and event.provider_id != "unknown":
-        score += 20
+        score += w.get("provider_bonus", 20)
 
     # Encounter type strong cue
     strong_types = {
@@ -44,35 +45,35 @@ def score_event(event: Event) -> int:
         EventType.INPATIENT_DAILY_NOTE,
     }
     if event.event_type in strong_types:
-        score += 15
+        score += w.get("strong_type_bonus", 15)
 
     # Content anchors — +7 each, max 21 (increased from 5/15)
     anchor_kinds = {FactKind.CHIEF_COMPLAINT, FactKind.ASSESSMENT, FactKind.PLAN, FactKind.IMPRESSION}
     anchor_count = sum(1 for f in event.facts if f.kind in anchor_kinds)
-    score += min(anchor_count * 7, 21)
+    score += min(anchor_count * w.get("anchor_per", 7), w.get("anchor_max", 21))
 
     # Clinical content density — bonus for diagnosis, procedure, medication facts
     clinical_kinds = {FactKind.DIAGNOSIS, FactKind.PROCEDURE, FactKind.MEDICATION}
     clinical_count = sum(1 for f in event.facts if f.kind in clinical_kinds)
-    score += min(clinical_count * 4, 12)  # Up to +12 for clinical density
+    score += min(clinical_count * w.get("clinical_per", 4), w.get("clinical_max", 12))  # Up to +12 for clinical density
 
     # Fact richness — reward events with ≥3 facts (increased from 5 to 8)
-    if len(event.facts) >= 3:
-        score += 8
+    if len(event.facts) >= w.get("fact_richness_min", 3):
+        score += w.get("fact_richness_bonus", 8)
 
     # Citation coverage — reward events with multiple citations (increased from 5 to 10)
     if len(event.citation_ids) >= 2:
-        score += 10
+        score += w.get("citation_bonus_2", 10)
     elif len(event.citation_ids) >= 4:
-        score += 5  # Extra bonus for heavily cited events
+        score += w.get("citation_bonus_4", 5)  # Extra bonus for heavily cited events
 
     # multi-page events are stronger
     if len(event.source_page_numbers) > 1:
-        score += 5
+        score += w.get("multi_page_bonus", 5)
 
     # NEW: Granular timestamp boost (Crucial for flowsheet data)
     if event.date and event.date.extensions and event.date.extensions.get("time"):
-        score += 25
+        score += w.get("time_bonus", 25)
 
     return max(0, min(score, 100))
 
@@ -108,7 +109,7 @@ def apply_confidence_scoring(
     apply_ocr_quarantine(events)
 
     for event in events:
-        event.confidence = score_event(event)
+        event.confidence = score_event(event, config)
 
         # Apply flags
         if event.confidence < config.event_confidence_min_export:

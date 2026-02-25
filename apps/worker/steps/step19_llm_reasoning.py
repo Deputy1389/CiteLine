@@ -19,9 +19,9 @@ load_dotenv(dotenv_path=ROOT / ".env")
 
 logger = logging.getLogger(__name__)
 
-def _route_high_value_events(events: list[Event], providers: list[Provider]) -> list[dict]:
-    eligible = [e for e in events if e.confidence >= 30 and len(e.citation_ids) >= 1]
-    return [to_skill_event(e, providers) for e in eligible[:50]]
+def _route_high_value_events(events: list[Event], providers: list[Provider], config: RunConfig) -> list[dict]:
+    eligible = [e for e in events if e.confidence >= config.llm_reasoning_min_confidence and len(e.citation_ids) >= config.llm_reasoning_min_citations]
+    return [to_skill_event(e, providers) for e in eligible[:config.llm_reasoning_max_events]]
 
 def _prompt_analyst_skill(event_rows: list[dict]) -> str:
     return f"""Analyze these medical events. Output ONLY valid JSON.
@@ -50,8 +50,8 @@ def run_llm_reasoning(evidence_graph: EvidenceGraph, providers: list[Provider], 
     try:
         client = genai.Client(api_key=api_key)
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=_prompt_analyst_skill(_route_high_value_events(evidence_graph.events, providers)),
+            model=config.gemini_model,
+            contents=_prompt_analyst_skill(_route_high_value_events(evidence_graph.events, providers, config)),
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
         

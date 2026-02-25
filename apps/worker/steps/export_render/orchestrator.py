@@ -63,6 +63,8 @@ def render_exports(
     evidence_graph_payload: dict | None = None,
     patient_partitions_payload: dict | None = None,
     missing_records_payload: dict | None = None,
+    specials_summary: dict | None = None,
+    config = None,
 ) -> ChronologyOutput:
     """
     Render all export formats, save to disk, and return ChronologyOutput.
@@ -77,6 +79,7 @@ def render_exports(
         page_text_by_number=page_text_by_number,
         narrative_synthesis=narrative_synthesis,
         missing_records_payload=missing_records_payload,
+        config=config,
         build_chronology_projection=build_chronology_projection,
         infer_page_patient_labels=infer_page_patient_labels,
         enrich_projection_procedure_entries=_enrich_projection_procedure_entries,
@@ -134,6 +137,7 @@ def render_exports(
         care_window=care_window,
         missing_records_payload=missing_records_payload,
         evidence_graph_payload=evidence_graph_payload,
+        specials_summary=specials_summary,
         run_id=run_id,
     )
     pdf_path = save_artifact(run_id, "chronology.pdf", pdf_bytes)
@@ -186,6 +190,7 @@ def render_patient_chronology_reports(
     providers: list[Provider],
     page_map: dict[int, tuple[str, int]] | None = None,
     page_text_by_number: dict[int, str] | None = None,
+    config = None,
 ) -> ArtifactRef | None:
     """Render one chronology PDF per detected patient and return manifest JSON artifact ref."""
     page_patient_labels = infer_page_patient_labels(page_text_by_number)
@@ -195,6 +200,7 @@ def render_patient_chronology_reports(
         page_map=page_map,
         page_patient_labels=page_patient_labels,
         page_text_by_number=page_text_by_number,
+        config=config,
     )
     from collections import defaultdict
     grouped: dict[str, list] = defaultdict(list)

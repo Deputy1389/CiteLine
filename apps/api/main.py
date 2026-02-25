@@ -127,7 +127,7 @@ app.add_middleware(
     allow_origins=cors_allow_origins,
     allow_credentials=cors_allow_credentials,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-User-Id", "X-Firm-Id", "X-Internal-Token", "X-Request-Id"],
+    allow_headers=["Authorization", "Content-Type", "X-User-Id", "X-Firm-Id", "X-Internal-Token", "X-Request-Id", "X-Internal-Auth"],
 )
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 

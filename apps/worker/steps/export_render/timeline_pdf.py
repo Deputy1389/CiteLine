@@ -51,20 +51,51 @@ if TYPE_CHECKING:
 
 
 def generate_executive_summary(events: list[Event], matter_title: str, case_info: CaseInfo | None = None) -> str:
-    from apps.worker.steps.export_render.extraction_utils import _scan_incident_signal
+    from apps.worker.steps.export_render.extraction_utils import _scan_incident_signal, _refine_primary_injuries
+    from apps.worker.steps.events.clinical_extraction import canonicalize_injuries
+    from apps.worker.steps.events.billing import _extract_amount
+
     page_text: dict[int, str] = {}
+    all_facts = []
+    total_charges = 0.0
     for e in events:
+        facts = [f.text or "" for f in e.facts]
+        all_facts.extend(facts)
         for p in (e.source_page_numbers or []):
             if p not in page_text:
-                page_text[p] = " ".join(f.text or "" for f in e.facts)
+                page_text[p] = " ".join(facts)
+        if e.billing and e.billing.total_amount:
+            total_charges += e.billing.total_amount
+
     incident = _scan_incident_signal(page_text, None)
     summary = f"Executive Summary for {matter_title}\n\n"
+
+    summary += "--- INCIDENT & DOI ---\n"
     if incident.get("found"):
         summary += f"Date of Injury: {incident['doi'] or 'Not established'}\n"
-        summary += f"Mechanism: {incident['mechanism'] or 'Not established'}\n\n"
+        summary += f"Mechanism: {incident['mechanism'] or 'Not established'}\n"
     else:
-        summary += "Incident details not established from available records.\n\n"
-    summary += f"Total encounters analyzed: {len(events)}\n"
+        summary += "Incident details not established from available records.\n"
+
+    summary += "\n--- PRIMARY INJURIES ---\n"
+    injuries = canonicalize_injuries(set(all_facts))
+    # Filter for high-signal injury keywords
+    injury_keywords = {"fracture", "dislocation", "tear", "strain", "sprain", "herniation", "protrusion", "stenosis", "radiculopathy"}
+    detected_injuries = [inj for inj in injuries if any(kw in inj.lower() for kw in injury_keywords)]
+    if detected_injuries:
+        refined = _refine_primary_injuries(detected_injuries, events)
+        summary += f"Key Clinical Findings: {', '.join(refined[:8])}\n"
+    else:
+        summary += "No specific high-signal injuries isolated.\n"
+
+    summary += "\n--- BILLING SUMMARY ---\n"
+    if total_charges > 0:
+        summary += f"Total Identified Medical Charges: ${total_charges:,.2f}\n"
+        summary += "See 'Specials & Medical Billing Summary' section for detailed breakdown.\n"
+    else:
+        summary += "No medical billing totals identified.\n"
+
+    summary += f"\nTotal encounters analyzed: {len(events)}\n"
     return summary
 
 
@@ -146,6 +177,64 @@ def generate_pdf(run_id: str, matter_title: str, events: list[Event], gaps: list
     return buffer.getvalue()
 
 
+def build_billing_specials_section(specials_summary: dict | None) -> list:
+    """Build a summary of medical billing and specials."""
+    if not specials_summary:
+        return []
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "SpecialsTitle",
+        parent=styles["Heading2"],
+        fontSize=14,
+        spaceAfter=12,
+        textColor=colors.HexColor("#2E5077"),
+    )
+
+    flowables = [
+        PageBreak(),
+        Paragraph("Specials & Medical Billing Summary", title_style),
+        Spacer(1, 0.1 * inch),
+    ]
+
+    # Narrative summary if present
+    narrative = specials_summary.get("narrative_summary")
+    if narrative:
+        flowables.append(Paragraph(f"<b>Overview:</b> {narrative}", styles["Normal"]))
+        flowables.append(Spacer(1, 0.2 * inch))
+
+    # Provider breakdown table
+    breakdown = specials_summary.get("provider_breakdown", [])
+    if breakdown:
+        from reportlab.platypus import Table, TableStyle
+        data = [["Provider", "Service Count", "Total Charges"]]
+        total_all = 0.0
+        for item in breakdown:
+            total_all += item.get("total_amount", 0)
+            data.append([
+                item.get("provider_name", "Unknown"),
+                str(item.get("encounter_count", 0)),
+                f"${item.get('total_amount', 0):,.2f}"
+            ])
+        data.append(["<b>TOTAL</b>", "", f"<b>${total_all:,.2f}</b>"])
+
+        t = Table(data, colWidths=[3.5 * inch, 1.2 * inch, 1.5 * inch])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#F0F4F8")),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor("#2E5077")),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ]))
+        flowables.append(t)
+        flowables.append(Spacer(1, 0.2 * inch))
+
+    return flowables
+
+
 def generate_pdf_from_projection(
     matter_title: str,
     projection: ChronologyProjection,
@@ -184,22 +273,22 @@ def generate_pdf_from_projection(
 
     # Executive Summary (after moat)
     flowables.append(PageBreak())
-    
+
     # DEMAND LETTER INSERT (High Impact)
     demand_style = ParagraphStyle("DemandStyle", parent=styles["Normal"], fontSize=11, leading=14, borderPadding=10, backColor=colors.HexColor("#F8F9FA"), borderSide="l", borderWidth=3, borderColor=colors.HexColor("#2E548A"))
     flowables.append(Paragraph("DEMAND LETTER SUMMARY (READY-TO-USE)", h1_style))
     flowables.append(Spacer(1, 0.1 * inch))
-    
+
     if narrative_synthesis:
         flowables.append(Paragraph("The following summary is synthesized from the record set for immediate inclusion in demand correspondence:", styles["Italic"]))
         flowables.append(Spacer(1, 0.1 * inch))
-        
+
         # Use first 2 paragraphs of narrative as the 'Lead' for the demand
         for p_text in narrative_synthesis.split("\n\n")[:3]:
             if p_text.strip():
                 flowables.append(Paragraph(p_text.strip(), demand_style))
                 flowables.append(Spacer(1, 0.1 * inch))
-    
+
     flowables.append(PageBreak())
     flowables.append(Paragraph("Executive Summary", h1_style))
     if narrative_synthesis:
@@ -212,6 +301,9 @@ def generate_pdf_from_projection(
     else:
         flowables.append(Paragraph("No executive summary available.", normal_style))
         flowables.append(Spacer(1, 0.1 * inch))
+
+    # Specials & Billing
+    flowables.extend(build_billing_specials_section(specials_summary))
 
     # Timeline
     flowables.append(PageBreak())
