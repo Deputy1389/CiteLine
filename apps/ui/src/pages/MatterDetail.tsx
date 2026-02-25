@@ -22,7 +22,7 @@ type CommandCenterData = {
     citationFidelity: Record<string, any>;
 };
 
-const completedStatuses = new Set(['success', 'partial']);
+const completedStatuses = new Set(['success', 'partial', 'needs_review']);
 
 type CitationLink = {
     label: string;
