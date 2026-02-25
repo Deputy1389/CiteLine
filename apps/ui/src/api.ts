@@ -33,7 +33,7 @@ export interface Document {
 export interface Run {
   id: string;
   matter_id: string;
-  status: 'pending' | 'running' | 'success' | 'partial' | 'failed';
+  status: 'pending' | 'running' | 'success' | 'partial' | 'failed' | 'needs_review';
   started_at?: string;
   finished_at?: string;
   metrics?: Record<string, any>;

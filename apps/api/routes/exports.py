@@ -35,7 +35,7 @@ def get_latest_exports(
     db: Session = Depends(get_db),
     identity: RequestIdentity | None = Depends(get_request_identity),
 ):
-    """Get artifacts from the latest completed run for a matter."""
+    """Get artifacts from the latest exportable run for a matter."""
     matter = db.query(Matter).filter_by(id=matter_id).first()
     if not matter:
         raise HTTPException(status_code=404, detail="Matter not found")
@@ -43,12 +43,12 @@ def get_latest_exports(
 
     run = (
         db.query(Run)
-        .filter(Run.matter_id == matter_id, Run.status.in_(["success", "partial"]))
+        .filter(Run.matter_id == matter_id, Run.status.in_(["success", "partial", "needs_review"]))
         .order_by(Run.finished_at.desc())
         .first()
     )
     if not run:
-        raise HTTPException(status_code=404, detail="No completed runs found for this matter")
+        raise HTTPException(status_code=404, detail="No exportable runs found for this matter")
 
     artifacts = db.query(Artifact).filter_by(run_id=run.id).all()
     return ExportsResponse(
