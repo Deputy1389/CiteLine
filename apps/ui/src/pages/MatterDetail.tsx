@@ -38,9 +38,6 @@ export default function MatterDetail() {
     const [docs, setDocs] = useState<Document[]>([]);
     const [runs, setRuns] = useState<Run[]>([]);
     const [loading, setLoading] = useState(true);
-    const [uploading, setUploading] = useState(false);
-    const [commandCenterLoading, setCommandCenterLoading] = useState(false);
-    const [commandCenterError, setCommandCenterError] = useState<string | null>(null);
     const [commandCenterData, setCommandCenterData] = useState<CommandCenterData | null>(null);
 
     const [selectedCitation, setSelectedCitation] = useState<CitationLink | null>(null);
@@ -57,7 +54,7 @@ export default function MatterDetail() {
     const handleMouseMove = (e: MouseEvent) => {
         if (!isResizing.current) return;
         const newWidth = window.innerWidth - e.clientX;
-        if (newWidth > 300 && newWidth < window.innerWidth * 0.8) {
+        if (newWidth > 350 && newWidth < window.innerWidth * 0.8) {
             setDockWidth(newWidth);
         }
     };
@@ -69,27 +66,11 @@ export default function MatterDetail() {
         document.body.style.cursor = 'default';
     };
 
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const commandCenterRef = useRef<HTMLElement | null>(null);
-    
-    const viewParam = searchParams.get('view');
-    const view = (viewParam === 'audit' || viewParam === 'timeline') ? viewParam : 'intake';
-
     useEffect(() => {
         if (matterId) {
             loadData();
-            const interval = setInterval(() => {
-                const hasActiveRuns = runs.some(r => r.status === 'pending' || r.status === 'running');
-                const latestCompleted = runs.find(r => completedStatuses.has(r.status));
-                const needsData = latestCompleted && !commandCenterData;
-                
-                if (hasActiveRuns || needsData) {
-                    checkRuns();
-                }
-            }, 5000);
-            return () => clearInterval(interval);
         }
-    }, [matterId, runs, commandCenterData]);
+    }, [matterId]);
 
     const loadData = async () => {
         try {
@@ -98,6 +79,167 @@ export default function MatterDetail() {
                 getMatterDocuments(matterId!),
                 getMatterRuns(matterId!)
             ]);
+            setMatter(m);
+            setDocs(d);
+            setRuns(r);
+            
+            const latest = r.find(run => completedStatuses.has(run.status));
+            if (latest) {
+                const data = await getArtifactByNameUrl(latest.id, 'command_center.json');
+                setCommandCenterData({ ...data, runId: latest.id });
+            }
+        } catch (err) {
+            console.error('Failed to load matter data', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex-1 flex items-center justify-center bg-[#0F172A]">
+                <div className="text-center">
+                    <Loader2 className="animate-spin text-sky-500 mb-4 mx-auto" size={48} />
+                    <p className="font-serif text-xl">Assembling Evidence Graph...</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex-1 flex flex-col bg-[#0F172A] overflow-hidden">
+            {/* Professional Top Bar */}
+            <header className="h-16 border-b border-white/10 flex items-center justify-between px-8 bg-[#0F172A]/80 backdrop-blur-md z-30">
+                <div className="flex items-center gap-6">
+                    <Link to="/matters" className="text-slate-400 hover:text-white transition-colors">
+                        <ArrowLeft size={20} />
+                    </Link>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-xl font-serif tracking-tight">{matter?.name}</h1>
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 font-bold uppercase tracking-widest">Active Matter</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-medium">Matter ID: {matterId?.slice(0, 8)} • Patient: {commandCenterData?.citationFidelity?.patient_name || 'Loading...'}</p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <button className="btn btn-secondary text-xs h-9 px-4">
+                        <FileSpreadsheet size={14} className="mr-2" /> Export Specials
+                    </button>
+                    <button className="btn btn-primary text-xs h-9 px-4 shadow-lg shadow-sky-500/20">
+                        <Scale size={14} className="mr-2" /> Full Chronology PDF
+                    </button>
+                </div>
+            </header>
+
+            <main className="flex-1 flex overflow-hidden relative">
+                {/* Left Pane: The Intelligence Feed */}
+                <div className="flex-1 overflow-y-auto scroll-smooth custom-scrollbar bg-[#0F172A]">
+                    <div className="max-w-5xl mx-auto py-8 px-8">
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-3 gap-6 mb-8">
+                            <div className="card bg-slate-900/40 border-white/5 p-4 hover:border-sky-500/30 transition-all">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                                        <Clock size={18} />
+                                    </div>
+                                    <span className="text-xs font-bold text-emerald-500">OPTIMAL</span>
+                                </div>
+                                <div className="text-2xl font-serif">{commandCenterData?.claimRows?.length || 0}</div>
+                                <div className="text-[11px] text-slate-500 uppercase tracking-wider font-bold">Verified Events</div>
+                            </div>
+                            <div className="card bg-slate-900/40 border-white/5 p-4 hover:border-rose-500/30 transition-all">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400">
+                                        <AlertTriangle size={18} />
+                                    </div>
+                                    <span className="text-xs font-bold text-rose-500">RISK</span>
+                                </div>
+                                <div className="text-2xl font-serif">14</div>
+                                <div className="text-[11px] text-slate-500 uppercase tracking-wider font-bold">Gaps Identified</div>
+                            </div>
+                            <div className="card bg-slate-900/40 border-white/5 p-4 hover:border-amber-500/30 transition-all">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+                                        <ShieldAlert size={18} />
+                                    </div>
+                                    <span className="text-xs font-bold text-amber-500">DEFENSE</span>
+                                </div>
+                                <div className="text-2xl font-serif">3</div>
+                                <div className="text-[11px] text-slate-500 uppercase tracking-wider font-bold">Attack Paths</div>
+                            </div>
+                        </div>
+
+                        {/* Chronology Section */}
+                        <section>
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-2xl font-serif flex items-center gap-3">
+                                    <Calendar className="text-sky-500" size={24} />
+                                    Medical Chronology
+                                </h2>
+                                <div className="flex gap-2">
+                                    <button className="btn text-[11px] py-1 px-3 border-white/5 bg-white/5">All Providers</button>
+                                    <button className="btn text-[11px] py-1 px-3 border-white/5 bg-white/5">Clinical Only</button>
+                                </div>
+                            </div>
+                            
+                            <TimelineView 
+                                rows={commandCenterData?.claimRows || []} 
+                                docs={docs}
+                                onCitationClick={(cite) => setSelectedCitation(cite)}
+                            />
+                        </section>
+                    </div>
+                </div>
+
+                {/* Vertical Resizer */}
+                <div 
+                    className="w-1 hover:w-1.5 bg-white/5 hover:bg-sky-500/50 cursor-col-resize transition-all z-20"
+                    onMouseDown={startResizing}
+                />
+
+                {/* Right Pane: The Evidence Dock */}
+                <div 
+                    className="bg-[#020617] border-l border-white/10 flex flex-col relative"
+                    style={{ width: selectedCitation ? dockWidth : 0, transition: isResizing.current ? 'none' : 'width 300ms ease-in-out' }}
+                >
+                    {selectedCitation ? (
+                        <>
+                            <div className="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-slate-950">
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                    <FileText size={16} className="text-sky-400 shrink-0" />
+                                    <span className="text-xs font-medium truncate text-slate-300">{selectedCitation.title}</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 shrink-0">Page {selectedCitation.label}</span>
+                                </div>
+                                <button 
+                                    onClick={() => setSelectedCitation(null)}
+                                    className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
+                                >
+                                    <RefreshCw size={14} className="text-slate-500" />
+                                </button>
+                            </div>
+                            <div className="flex-1 bg-slate-900 overflow-hidden">
+                                <iframe 
+                                    src={selectedCitation.href || ''} 
+                                    className="w-full h-full border-none invert brightness-90 contrast-110"
+                                    title="Evidence Viewer"
+                                />
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex-1 flex items-center justify-center text-slate-700">
+                            <div className="text-center p-8 max-w-xs">
+                                <GitBranch size={48} className="mx-auto mb-4 opacity-10" />
+                                <p className="text-xs font-medium uppercase tracking-widest opacity-40">Select a citation to verify source</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </main>
+        </div>
+    );
+}
             setMatter(m);
             setDocs(d);
             setRuns(r);
