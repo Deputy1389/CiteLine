@@ -81,6 +81,7 @@ from apps.worker.steps.step15a_missing_record_requests import (
 )
 from apps.worker.steps.step16_billing_lines import extract_billing_lines, render_billing_lines
 from apps.worker.steps.step17_specials_summary import compute_specials_summary, render_specials_summary
+from apps.worker.steps.step_renderer_manifest import build_renderer_manifest
 from apps.worker.steps.step18_paralegal_chronology import (
     build_paralegal_chronology_payload, generate_extraction_notes_md, render_paralegal_chronology_artifacts,
 )
@@ -266,6 +267,13 @@ def run_pipeline(run_id: str) -> None:
         evidence_graph.extensions["specials_summary"] = specials_payload
         ss_csv_ref, ss_json_ref, ss_pdf_ref = render_specials_summary(run_id, specials_payload, matter_title)
 
+        renderer_manifest = build_renderer_manifest(
+            events=chronology_events,
+            evidence_graph_extensions=evidence_graph.extensions,
+            specials_summary=specials_payload,
+        )
+        evidence_graph.extensions["renderer_manifest"] = renderer_manifest.model_dump(mode="json")
+
         # Ã¢â€â‚¬Ã¢â€â‚¬ Step 18: Paralegal artifacts Ã¢â€â‚¬Ã¢â€â‚¬
         page_map = build_page_map(all_pages, source_documents)
         paralegal_payload = build_paralegal_chronology_payload(evidence_graph, chronology_events, providers, page_map)
@@ -282,7 +290,7 @@ def run_pipeline(run_id: str) -> None:
         # Ã¢â€â‚¬Ã¢â€â‚¬ Final Export Ã¢â€â‚¬Ã¢â€â‚¬
         processing_seconds = time.time() - start_time
         case_info = CaseInfo(case_id=matter_id, firm_id=firm_id, title=matter_title, timezone=tz, patient=patient)
-        chronology = render_exports(run_id, matter_title, chronology_events, gaps, providers, page_map=page_map, case_info=case_info, all_citations=all_citations, narrative_synthesis=narrative_synthesis, page_text_by_number={p.page_number: (p.text or "") for p in all_pages}, specials_summary=specials_payload, config=config)
+        chronology = render_exports(run_id, matter_title, chronology_events, gaps, providers, page_map=page_map, case_info=case_info, all_citations=all_citations, narrative_synthesis=narrative_synthesis, page_text_by_number={p.page_number: (p.text or "") for p in all_pages}, specials_summary=specials_payload, config=config, renderer_manifest=renderer_manifest.model_dump(mode="json"))
         patient_chronologies_json_ref = render_patient_chronology_reports(run_id, matter_title, chronology_events, providers, page_map, {p.page_number: (p.text or "") for p in all_pages}, config=config)
 
         litigation_checklist, review_warnings = run_litigation_review(run_id, chronology_events, {p.page_number: (p.text or "") for p in all_pages})

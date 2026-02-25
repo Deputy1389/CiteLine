@@ -35,6 +35,7 @@ from apps.worker.steps.export_render.common import (
     _clean_direct_snippet,
     _is_meta_language,
     parse_date_string,
+    is_sentinel_date,
 )
 from apps.worker.steps.export_render.timeline_render_utils import _render_entry
 from apps.worker.steps.export_render.appendices_pdf import (
@@ -454,11 +455,96 @@ def _billing_is_complete(summary: dict | None) -> bool:
     return bool(totals.get("total_charges"))
 
 
+def _renderer_manifest_payload(evidence_graph_payload: dict | None, renderer_manifest: dict | None = None) -> dict:
+    if isinstance(renderer_manifest, dict) and renderer_manifest:
+        return renderer_manifest
+    ext = _ext_payload(evidence_graph_payload)
+    rm = ext.get("renderer_manifest")
+    return rm if isinstance(rm, dict) else {}
+
+
+def _refs_from_citation_ids(citation_ids: list[str] | None, citation_by_id: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for cid in citation_ids or []:
+        ref = citation_by_id.get(str(cid))
+        if not ref:
+            continue
+        key = f"{ref.get('doc_id')}|{ref.get('local_page')}"
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(ref)
+    return out[:8]
+
+
+def _manifest_promoted_by_category(rm: dict) -> dict[str, list[dict]]:
+    grouped: dict[str, list[dict]] = {}
+    for item in (rm.get("promoted_findings") or []):
+        if not isinstance(item, dict):
+            continue
+        if not (item.get("citation_ids") or []):
+            continue
+        grouped.setdefault(str(item.get("category") or "unknown"), []).append(item)
+    return grouped
+
+
+def _manifest_finding_paragraphs(
+    rm: dict,
+    *,
+    categories: tuple[str, ...],
+    styles: Any,
+    manifest: RenderManifest | None,
+    citation_by_id: dict[str, dict[str, Any]],
+    limit: int = 8,
+    include_secondary: bool = False,
+) -> list[Paragraph]:
+    normal = styles["Normal"]
+    bullet = ParagraphStyle("ManifestFindingBullet", parent=normal, leftIndent=12, bulletIndent=0, spaceAfter=2)
+    grouped = _manifest_promoted_by_category(rm)
+    rows: list[Paragraph] = []
+    secondary: list[Paragraph] = []
+    seen: set[str] = set()
+    for cat in categories:
+        for item in grouped.get(cat, []):
+            label = _guardrail_text(_clean_line(item.get("label")), supported_injury=True)
+            if not label:
+                continue
+            key = label.lower()
+            if key in seen:
+                continue
+            refs = _refs_from_citation_ids([str(c) for c in (item.get("citation_ids") or [])], citation_by_id)
+            if not refs:
+                continue
+            seen.add(key)
+            row_anchor = chron_anchor(str(item.get("source_event_id") or f"mf_{cat}_{len(rows)+len(secondary)}"))
+            if manifest:
+                manifest.add_chron_anchor(row_anchor)
+            _links, cite_text = _citation_links_and_text(refs, row_anchor=row_anchor, manifest=manifest)
+            para = Paragraph(
+                f'<a name="{escape(row_anchor)}"/>- {escape(label)}<br/><font size="8">{escape(cite_text)}</font>',
+                bullet,
+            )
+            if not item.get("headline_eligible", True) or str(item.get("severity") or "").lower() == "low":
+                secondary.append(para)
+            else:
+                rows.append(para)
+            if len(rows) >= limit:
+                break
+        if len(rows) >= limit:
+            break
+    if include_secondary and secondary and len(rows) < limit:
+        rows.extend(secondary[: max(0, limit - len(rows))])
+    return rows
+
+
 def _build_timeline_table(
     projection: ChronologyProjection,
     styles: Any,
     manifest: RenderManifest | None,
     citation_refs_by_event: dict[str, list[dict[str, Any]]],
+    by_page: dict[int, list[dict[str, Any]]] | None = None,
+    single_doc_id: str | None = None,
 ) -> list:
     normal = styles["Normal"]
     small = ParagraphStyle("TimelineSmall", parent=normal, fontSize=8.5, leading=10.5)
@@ -502,7 +588,13 @@ def _build_timeline_table(
         if manifest:
             manifest.add_chron_anchor(row_anchor)
         refs = citation_refs_by_event.get(str(entry.event_id), [])
+        if not refs and getattr(entry, "citation_display", "") and by_page is not None:
+            refs = _claim_row_citation_refs({"citations": [c.strip() for c in str(entry.citation_display).split(",")]}, by_page, single_doc_id)
+        if not refs:
+            continue
         _links, cite_text = _citation_links_and_text(refs, row_anchor=row_anchor, manifest=manifest)
+        if "Not available" in cite_text:
+            continue
         rows.append([
             Paragraph(f'<a name="{escape(row_anchor)}"/>{escape(_clean_line(entry.date_display) or "Undated")}', small),
             Paragraph(escape(_clean_line(entry.provider_display) or "Provider not stated"), small),
@@ -629,6 +721,7 @@ def build_billing_specials_section(
     *,
     manifest: RenderManifest | None = None,
     citation_by_id: dict[str, dict[str, Any]] | None = None,
+    billing_completeness: str | None = None,
 ) -> list:
     """Page 5 billing/specials summary with incomplete-data safeguards."""
     title_style = styles["Heading1"]
@@ -640,7 +733,8 @@ def build_billing_specials_section(
         flowables.append(Paragraph("Billing extraction status: Not available in packet extraction.", normal))
         return flowables
 
-    complete = _billing_is_complete(specials_summary)
+    status = str(billing_completeness or ("complete" if _billing_is_complete(specials_summary) else "partial"))
+    complete = status == "complete"
     flags = [str(f) for f in (specials_summary.get("flags") or [])]
     coverage = specials_summary.get("coverage") or {}
     dedupe = specials_summary.get("dedupe") or {}
@@ -648,6 +742,8 @@ def build_billing_specials_section(
 
     if complete:
         flowables.append(Paragraph("Billing extraction status: Complete (record-supported totals available).", normal))
+    elif status == "none":
+        flowables.append(Paragraph("<b>Billing extraction status: No billing data extracted from packet.</b>", normal))
     else:
         flowables.append(Paragraph("<b>Billing extraction status: Incomplete.</b>", normal))
         flowables.append(Paragraph("Total billed is not shown as a case total because extracted billing appears partial or lacks complete EOB/adjustment coverage.", small))
@@ -697,12 +793,16 @@ def build_billing_specials_section(
             Paragraph("<b>Charges</b>", small),
             Paragraph("<b>Citations</b>", small),
         ]]
+        dropped_uncited_provider_rows = 0
         for item in sorted(by_provider, key=lambda x: float(x.get("charges") or 0), reverse=True)[:10]:
             refs: list[dict[str, Any]] = []
             for cid in (item.get("citation_ids_sample") or [])[:4]:
                 ref = (citation_by_id or {}).get(str(cid))
                 if ref:
                     refs.append(ref)
+            if not refs:
+                dropped_uncited_provider_rows += 1
+                continue
             row_anchor = chron_anchor(f"billing_{re.sub(r'[^a-zA-Z0-9]+', '_', str(item.get('provider_display_name') or 'provider'))[:24]}")
             if manifest:
                 manifest.add_chron_anchor(row_anchor)
@@ -710,18 +810,23 @@ def build_billing_specials_section(
             rows.append([
                 Paragraph(f'<a name="{escape(row_anchor)}"/>{escape(str(item.get("provider_display_name") or "Unknown provider"))}', small),
                 Paragraph(str(item.get("line_count") or 0), small),
-                Paragraph(_safe_money(item.get("charges")), small),
-                Paragraph(escape(cite_text if refs else "Citation(s): Not available"), small),
+                Paragraph((_safe_money(item.get("charges")) + (" (partial extracted charges)" if status == "partial" else "")), small),
+                Paragraph(escape(cite_text), small),
             ])
-        tbl = Table(rows, colWidths=[2.9 * inch, 0.9 * inch, 1.1 * inch, 1.9 * inch], repeatRows=1)
-        tbl.setStyle(TableStyle([
-            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#CBD5E1")),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EAF1FB")),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ]))
-        flowables.append(Paragraph("Known extracted billing line groups (record-supported):", normal))
-        flowables.append(Spacer(1, 0.05 * inch))
-        flowables.append(tbl)
+        if len(rows) > 1:
+            tbl = Table(rows, colWidths=[2.9 * inch, 0.9 * inch, 1.1 * inch, 1.9 * inch], repeatRows=1)
+            tbl.setStyle(TableStyle([
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#CBD5E1")),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EAF1FB")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]))
+            flowables.append(Paragraph("Known extracted billing line groups (record-supported):", normal))
+            flowables.append(Spacer(1, 0.05 * inch))
+            flowables.append(tbl)
+        else:
+            flowables.append(Paragraph("Known line items: Not available in packet extraction.", normal))
+        if dropped_uncited_provider_rows:
+            logger.info("billing provider rows dropped due to missing citations: %s", dropped_uncited_provider_rows)
     else:
         flowables.append(Paragraph("Known line items: Not available in packet extraction.", normal))
 
@@ -741,6 +846,7 @@ def generate_pdf_from_projection(
     missing_records_payload: dict | None = None,
     evidence_graph_payload: dict | None = None,
     specials_summary: dict | None = None,
+    renderer_manifest: dict | None = None,
     run_id: str | None = None,
 ) -> bytes:
     buffer = BytesIO()
@@ -755,6 +861,7 @@ def generate_pdf_from_projection(
 
     manifest = RenderManifest()
     ext = _ext_payload(evidence_graph_payload)
+    rm = _renderer_manifest_payload(evidence_graph_payload, renderer_manifest)
     citation_by_id, citations_by_page, _doc_pages, single_doc_id = _build_citation_maps(all_citations, page_map)
     raw_events = raw_events or []
     projection_by_event = {str(e.event_id): e for e in projection.entries}
@@ -792,11 +899,20 @@ def generate_pdf_from_projection(
             break
         if "fall" in blob:
             mechanism = "fall"
+    rm_doi = ((rm.get("doi") or {}).get("value") if isinstance(rm, dict) else None)
+    rm_doi_source = ((rm.get("doi") or {}).get("source") if isinstance(rm, dict) else None)
+    if rm_doi and not is_sentinel_date(rm_doi) and str(rm_doi_source or "").lower() != "not_found":
+        doi_display = str(rm_doi)
+    else:
+        doi_display = doi if doi and not is_sentinel_date(doi) else "Not clearly extracted from packet"
+    rm_mechanism = ((rm.get("mechanism") or {}).get("value") if isinstance(rm, dict) else None)
+    mechanism_display = str(rm_mechanism) if rm_mechanism else (mechanism or "Not clearly extracted from packet")
+
     header_rows = [
         ["Case", matter_title],
         ["Patient", patient_label],
-        ["DOI", doi or "Not extracted"],
-        ["Mechanism", mechanism or "Not clearly extracted from packet"],
+        ["DOI", doi_display],
+        ["Mechanism", mechanism_display],
     ]
     header_tbl = Table(header_rows, colWidths=[1.1 * inch, 5.7 * inch])
     header_tbl.setStyle(TableStyle([
@@ -840,6 +956,37 @@ def generate_pdf_from_projection(
                 bullet_style
             ))
 
+    # Promoted findings from renderer manifest (pipeline-ranked, citation-backed)
+    promoted_by_cat = _manifest_promoted_by_category(rm)
+    promoted_page1_considered = 0
+    promoted_page1_rendered = 0
+    for cat in ("objective_deficit", "imaging", "diagnosis", "procedure"):
+        for item in promoted_by_cat.get(cat, []):
+            promoted_page1_considered += 1
+            if not item.get("headline_eligible", True):
+                logger.info("page1 promoted finding omitted: reason=filtered category=%s label=%s", cat, _clean_line(item.get("label")))
+                continue
+            refs = _refs_from_citation_ids([str(c) for c in (item.get("citation_ids") or [])], citation_by_id)
+            if not refs:
+                logger.info("page1 promoted finding omitted: reason=uncited category=%s label=%s", cat, _clean_line(item.get("label")))
+                continue
+            row_anchor = chron_anchor(str(item.get("source_event_id") or f"pf_{cat}_{len(settlement_driver_rows)}"))
+            manifest.add_chron_anchor(row_anchor)
+            _links, cite_text = _citation_links_and_text(refs, row_anchor=row_anchor, manifest=manifest)
+            label = _guardrail_text(_clean_line(item.get("label")), supported_injury=supported_injury)
+            if not label:
+                logger.info("page1 promoted finding omitted: reason=guardrail category=%s", cat)
+                continue
+            pretty_cat = cat.replace("_", " ").title()
+            settlement_driver_rows.append(Paragraph(
+                f'<a name="{escape(row_anchor)}"/>- {escape(pretty_cat + ": " + label)} <font size="8">{escape(cite_text)}</font>',
+                bullet_style,
+            ))
+            promoted_page1_rendered += 1
+            break
+    if promoted_page1_considered and promoted_page1_rendered == 0:
+        logger.warning("page1 promoted findings parity issue: considered=%s rendered=%s", promoted_page1_considered, promoted_page1_rendered)
+
     # Objective findings / diagnoses / imaging from claim rows
     claim_rows = list(ext.get("claim_rows") or [])
     def _pick_claim(patterns: list[str], claim_types: set[str] | None = None, exclude_negative: bool = False) -> dict | None:
@@ -872,12 +1019,22 @@ def generate_pdf_from_projection(
         if txt:
             settlement_driver_rows.append(Paragraph(f'<a name="{escape(a)}"/>{escape(txt)} <font size="8">{escape(cite_text)}</font>', bullet_style))
 
+    rm_pt = rm.get("pt_summary") if isinstance(rm, dict) else {}
     pt_summary = _pt_intensity_summary(raw_events)
+    if isinstance(rm_pt, dict) and rm_pt.get("total_encounters") is not None:
+        pt_summary = {
+            "visits": int(rm_pt.get("total_encounters") or 0),
+            "start": None if is_sentinel_date(rm_pt.get("date_start")) else rm_pt.get("date_start"),
+            "end": None if is_sentinel_date(rm_pt.get("date_end")) else rm_pt.get("date_end"),
+            "count_source": rm_pt.get("count_source"),
+        }
     if pt_summary.get("visits"):
         pt_evt = next((e for e in raw_events if str(getattr(getattr(e, "event_type", None), "value", getattr(e, "event_type", ""))) == "pt_visit"), None)
         row_anchor = chron_anchor("pt_intensity")
         manifest.add_chron_anchor(row_anchor)
-        refs = event_citations_by_event.get(str(pt_evt.event_id), []) if pt_evt else []
+        refs = _refs_from_citation_ids([str(c) for c in (rm_pt.get("citation_ids") or [])], citation_by_id) if isinstance(rm_pt, dict) else []
+        if not refs:
+            refs = event_citations_by_event.get(str(pt_evt.event_id), []) if pt_evt else []
         _links, cite_text = _citation_links_and_text(refs, row_anchor=row_anchor, manifest=manifest)
         duration_txt = ""
         if pt_summary.get("start") and pt_summary.get("end"):
@@ -895,8 +1052,33 @@ def generate_pdf_from_projection(
     flowables.append(Paragraph("Top Record Anchors", h2_style))
     top_anchor_rows: list[Paragraph] = []
     top_seen = set()
+    manifest_driver_ids = [str(x) for x in (rm.get("top_case_drivers") or [])] if isinstance(rm, dict) else []
+    if manifest_driver_ids:
+        projection_entries_by_id = {str(e.event_id): e for e in projection.entries}
+        for eid in manifest_driver_ids:
+            refs = event_citations_by_event.get(eid, [])
+            entry = projection_entries_by_id.get(eid)
+            if not refs or not entry:
+                continue
+            facts = [f for f in (getattr(entry, "facts", []) or []) if _clean_line(f)]
+            key_finding = _guardrail_text(_clean_line(next((f for f in facts if not _is_meta_language(f)), facts[0] if facts else "")), supported_injury=supported_injury)
+            if not key_finding or key_finding.lower() in top_seen:
+                continue
+            top_seen.add(key_finding.lower())
+            a = chron_anchor(str(eid))
+            manifest.add_chron_anchor(a)
+            _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
+            date_prefix = f"{entry.date_display}: " if _clean_line(getattr(entry, "date_display", "")) and not is_sentinel_date(str(getattr(entry, "date_display", ""))) else ""
+            top_anchor_rows.append(Paragraph(
+                f'<a name="{escape(a)}"/>- {escape(date_prefix + key_finding)} <font size="8">{escape(cite_text)}</font>',
+                bullet_style,
+            ))
+            if len(top_anchor_rows) >= 6:
+                break
     prioritized_claims = sorted(claim_rows, key=lambda r: (-(int(r.get("selection_score") or 0)), str(r.get("date") or "9999-99-99")))
     for row in prioritized_claims:
+        if len(top_anchor_rows) >= 6:
+            break
         assertion = _guardrail_text(_clean_line(row.get("assertion")), supported_injury=supported_injury)
         if not assertion or assertion.lower() in top_seen:
             continue
@@ -914,8 +1096,6 @@ def generate_pdf_from_projection(
             f'<a name="{escape(a)}"/>- {escape(date_prefix + assertion)} <font size="8">{escape(cite_text)}</font>',
             bullet_style,
         ))
-        if len(top_anchor_rows) >= 6:
-            break
     if not top_anchor_rows:
         top_anchor_rows.append(Paragraph("- Not available in packet extraction (no citation-supported anchor rows).", bullet_style))
     flowables.extend(top_anchor_rows)
@@ -923,14 +1103,40 @@ def generate_pdf_from_projection(
     # Page 2 - Timeline table
     flowables.append(PageBreak())
     flowables.append(Paragraph('<a name="chronology_section_header"/>Medical Timeline (Litigation Ready)', h1_style))
-    flowables.extend(_build_timeline_table(projection, styles, manifest, event_citations_by_event))
+    flowables.extend(_build_timeline_table(
+        projection,
+        styles,
+        manifest,
+        event_citations_by_event,
+        citations_by_page,
+        single_doc_id,
+    ))
 
     # Page 3 - Imaging / Objective / Diagnoses
     flowables.append(PageBreak())
     flowables.append(Paragraph("Imaging & Objective Findings", h1_style))
-    img_rows = _build_claim_row_sections(ext, styles, manifest, citations_by_page, single_doc_id, section_kind="imaging")
+    img_rows = _manifest_finding_paragraphs(
+        rm,
+        categories=("imaging",),
+        styles=styles,
+        manifest=manifest,
+        citation_by_id=citation_by_id,
+        limit=8,
+        include_secondary=True,
+    )
+    if not img_rows:
+        img_rows = _build_claim_row_sections(ext, styles, manifest, citations_by_page, single_doc_id, section_kind="imaging")
     flowables.extend(_paragraph_list_section("Imaging Summary", img_rows, h2_style) or [Paragraph("Imaging Summary", h2_style), Paragraph("Not available in packet extraction.", normal_style)])
-    obj_rows = _build_claim_row_sections(ext, styles, manifest, citations_by_page, single_doc_id, section_kind="objective")
+    obj_rows = _manifest_finding_paragraphs(
+        rm,
+        categories=("objective_deficit",),
+        styles=styles,
+        manifest=manifest,
+        citation_by_id=citation_by_id,
+        limit=8,
+    )
+    if not obj_rows:
+        obj_rows = _build_claim_row_sections(ext, styles, manifest, citations_by_page, single_doc_id, section_kind="objective")
     if not obj_rows and raw_events:
         fallback: list[Paragraph] = []
         for evt in raw_events:
@@ -948,26 +1154,45 @@ def generate_pdf_from_projection(
                 break
         obj_rows = fallback
     flowables.extend(_paragraph_list_section("Objective Exam Findings", obj_rows, h2_style) or [Paragraph("Objective Exam Findings", h2_style), Paragraph("Not available in packet extraction.", normal_style)])
-    dx_rows = _build_claim_row_sections(ext, styles, manifest, citations_by_page, single_doc_id, section_kind="dx")
+    dx_rows = _manifest_finding_paragraphs(
+        rm,
+        categories=("diagnosis", "procedure"),
+        styles=styles,
+        manifest=manifest,
+        citation_by_id=citation_by_id,
+        limit=10,
+    )
+    if not dx_rows:
+        dx_rows = _build_claim_row_sections(ext, styles, manifest, citations_by_page, single_doc_id, section_kind="dx")
     flowables.extend(_paragraph_list_section("Diagnoses / Assessment", dx_rows, h2_style) or [Paragraph("Diagnoses / Assessment", h2_style), Paragraph("Not available in packet extraction.", normal_style)])
 
     # Page 4 - Treatment course & compliance
     flowables.append(PageBreak())
     flowables.append(Paragraph("Treatment Course & Compliance", h1_style))
-    care_lines: list[str] = []
+    care_lines: list[tuple[str, list[dict[str, Any]]]] = []
     if care_window:
-        care_lines.append(f"Care duration (export window): {care_window[0].isoformat()} to {care_window[1].isoformat()}")
+        care_lines.append((f"Care duration (export window): {care_window[0].isoformat()} to {care_window[1].isoformat()}", []))
     if pt_summary.get("visits"):
         visits_line = f"PT visits: {pt_summary['visits']} encounters"
         if pt_summary.get("start") and pt_summary.get("end"):
             visits_line += f" ({pt_summary['start']} to {pt_summary['end']})"
-        care_lines.append(visits_line)
+        rm_pt_refs = _refs_from_citation_ids([str(c) for c in (rm_pt.get("citation_ids") or [])], citation_by_id) if isinstance(rm_pt, dict) else []
+        care_lines.append((visits_line, rm_pt_refs))
     if global_gaps:
-        care_lines.append(f"Treatment gaps >45 days identified: {len(global_gaps)} (see chronology and appendices)")
+        care_lines.append((f"Treatment gaps >45 days identified: {len(global_gaps)} (see chronology and appendices)", []))
     else:
-        care_lines.append("No computed global treatment gaps >45 days in extracted records")
-    for line in care_lines:
-        flowables.append(Paragraph(f"- {escape(line)}", normal_style))
+        refs = []
+        if dated_events:
+            refs = (event_citations_by_event.get(str(dated_events[0].event_id), []) + event_citations_by_event.get(str(dated_events[-1].event_id), []))[:6]
+        care_lines.append(("No computed global treatment gaps >45 days in extracted records", refs))
+    for idx, (line, refs) in enumerate(care_lines):
+        if refs:
+            a = chron_anchor(f"careline_{idx}")
+            manifest.add_chron_anchor(a)
+            _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
+            flowables.append(Paragraph(f'<a name="{escape(a)}"/>- {escape(line)} <font size="8">{escape(cite_text)}</font>', normal_style))
+        else:
+            flowables.append(Paragraph(f"- {escape(line)}", normal_style))
     flowables.append(Spacer(1, 0.08 * inch))
 
     discharge_rows = []
@@ -995,7 +1220,13 @@ def generate_pdf_from_projection(
 
     # Page 5 - Billing / Specials
     flowables.append(PageBreak())
-    flowables.extend(build_billing_specials_section(specials_summary, styles, manifest=manifest, citation_by_id=citation_by_id))
+    flowables.extend(build_billing_specials_section(
+        specials_summary,
+        styles,
+        manifest=manifest,
+        citation_by_id=citation_by_id,
+        billing_completeness=(str(rm.get("billing_completeness")) if isinstance(rm, dict) and rm.get("billing_completeness") else None),
+    ))
 
     # Appendix
     flowables.append(PageBreak())

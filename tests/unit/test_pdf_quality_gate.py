@@ -177,3 +177,70 @@ def test_billing_incomplete_avoids_misleading_total() -> None:
     text = _pdf_text(pdf_bytes)
     assert "Billing extraction status: Incomplete" in text
     assert "Not available from extracted records (incomplete billing extraction)" in text
+
+
+def test_renderer_manifest_suppresses_sentinel_doi_display() -> None:
+    projection = ChronologyProjection(generated_at=datetime.now(timezone.utc), entries=[])
+    pdf_bytes = generate_pdf_from_projection(
+        matter_title="DOI Guard Case",
+        projection=projection,
+        gaps=[],
+        appendix_entries=[],
+        raw_events=[],
+        all_citations=[],
+        renderer_manifest={"doi": {"value": "1900-01-01", "source": "inferred", "citation_ids": []}},
+        evidence_graph_payload={},
+        run_id=None,
+    )
+    text = _pdf_text(pdf_bytes)
+    assert "1900-01-01" not in text
+    assert "Not clearly extracted from packet" in text
+
+
+def test_timeline_omits_uncited_rows() -> None:
+    projection = ChronologyProjection(
+        generated_at=datetime.now(timezone.utc),
+        entries=[
+            ChronologyProjectionEntry(
+                event_id="evt-good",
+                date_display="2024-01-02",
+                event_type_display="Office Visit",
+                provider_display="Clinic",
+                facts=["Objective weakness 4/5 documented"],
+                citation_display="records.pdf p. 5",
+            ),
+            ChronologyProjectionEntry(
+                event_id="evt-bad",
+                date_display="2024-01-03",
+                event_type_display="Office Visit",
+                provider_display="Clinic",
+                facts=["Unsupported row should be omitted"],
+                citation_display="Citation(s): Not available",
+            ),
+        ],
+    )
+    citations = [Citation(citation_id="cit-1", source_document_id="doc-1", page_number=5, snippet="Objective weakness 4/5", bbox=BBox(x=1, y=1, w=1, h=1))]
+    raw_events = [
+        Event(
+            event_id="evt-good",
+            provider_id="prov-1",
+            event_type=EventType.OFFICE_VISIT,
+            facts=[Fact(text="Objective weakness 4/5 documented", kind=FactKind.OTHER, verbatim=True, citation_ids=["cit-1"])],
+            confidence=80,
+            citation_ids=["cit-1"],
+        )
+    ]
+    pdf_bytes = generate_pdf_from_projection(
+        matter_title="Timeline Citation Case",
+        projection=projection,
+        gaps=[],
+        appendix_entries=projection.entries,
+        raw_events=raw_events,
+        all_citations=citations,
+        page_map={5: ("records.pdf", 5)},
+        evidence_graph_payload={},
+        run_id=None,
+    )
+    text = _pdf_text(pdf_bytes)
+    assert "Objective weakness 4/5 documented" in text
+    assert "Unsupported row should be omitted" not in text

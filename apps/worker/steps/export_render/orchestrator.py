@@ -64,6 +64,7 @@ def render_exports(
     patient_partitions_payload: dict | None = None,
     missing_records_payload: dict | None = None,
     specials_summary: dict | None = None,
+    renderer_manifest: dict | None = None,
     config = None,
 ) -> ChronologyOutput:
     """
@@ -138,6 +139,7 @@ def render_exports(
         missing_records_payload=missing_records_payload,
         evidence_graph_payload=evidence_graph_payload,
         specials_summary=specials_summary,
+        renderer_manifest=renderer_manifest,
         run_id=run_id,
     )
     pdf_path = save_artifact(run_id, "chronology.pdf", pdf_bytes)

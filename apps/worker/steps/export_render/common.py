@@ -19,6 +19,16 @@ if TYPE_CHECKING:
     from packages.shared.models import Event, Provider
 
 
+_SENTINEL_DATE_VALUES = {"1900-01-01", "0001-01-01", "unknown", "undated", ""}
+
+
+def is_sentinel_date(value: Any) -> bool:
+    if value is None:
+        return True
+    s = str(value).strip().lower()
+    return s in _SENTINEL_DATE_VALUES
+
+
 def _date_str(event: Event) -> str:
     """Format event date for display."""
     if not event.date:

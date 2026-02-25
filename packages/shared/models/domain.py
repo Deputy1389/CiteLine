@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, Literal
 
 from pydantic import BaseModel, Field
 
@@ -258,6 +258,46 @@ class NarrativeChronology(BaseModel):
     generated_at: datetime
     entries: list[NarrativeEntry] = Field(default_factory=list)
     model_name: Optional[str] = None
+
+
+class RendererCitationValue(BaseModel):
+    value: Optional[str] = None
+    citation_ids: list[str] = Field(default_factory=list)
+
+
+class RendererDoiField(RendererCitationValue):
+    source: Literal["explicit", "inferred", "not_found"] = "not_found"
+
+
+class RendererPtSummary(BaseModel):
+    total_encounters: Optional[int] = None
+    date_start: Optional[str] = None
+    date_end: Optional[str] = None
+    discharge_status: Optional[str] = None
+    citation_ids: list[str] = Field(default_factory=list)
+    count_source: Literal["structured", "aggregate_snippet", "event_count", "not_found"] = "not_found"
+
+
+class PromotedFinding(BaseModel):
+    category: Literal["objective_deficit", "imaging", "diagnosis", "procedure", "treatment", "visit_count", "symptom"]
+    label: str = Field(min_length=1, max_length=500)
+    body_region: Optional[str] = Field(default=None, max_length=80)
+    severity: Optional[Literal["high", "medium", "low"]] = None
+    headline_eligible: bool = True
+    finding_polarity: Optional[Literal["positive", "negative", "neutral"]] = None
+    citation_ids: list[str] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    source_event_id: Optional[str] = None
+
+
+class RendererManifest(BaseModel):
+    manifest_version: str = "1.0"
+    doi: RendererDoiField = Field(default_factory=RendererDoiField)
+    mechanism: RendererCitationValue = Field(default_factory=RendererCitationValue)
+    pt_summary: RendererPtSummary = Field(default_factory=RendererPtSummary)
+    promoted_findings: list[PromotedFinding] = Field(default_factory=list)
+    top_case_drivers: list[str] = Field(default_factory=list)
+    billing_completeness: Literal["complete", "partial", "none"] = "none"
 
 
 class Event(BaseModel):
