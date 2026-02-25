@@ -274,6 +274,7 @@ def run_pipeline(run_id: str) -> None:
         run_record = create_run_record(run_id, started_at, source_documents, evidence_graph, chronology, all_warnings, processing_seconds)
         full_result = ChronologyResult(schema_version="0.1.0", generated_at=datetime.now(timezone.utc), case=case_info, inputs=PipelineInputs(source_documents=source_documents, run_config=config), outputs=PipelineOutputs(run=run_record, evidence_graph=evidence_graph, chronology=chronology))
 
+        full_output_dict = json.loads(full_result.model_dump_json())
         eg_dict = json.loads(evidence_graph.model_dump_json())
         json_bytes = json.dumps(eg_dict, indent=2, default=str).encode()
         json_path = save_artifact(run_id, "evidence_graph.json", json_bytes)
