@@ -28,6 +28,18 @@ _CATEGORY_ORDER = {
 _GENERIC_PLACEHOLDER_PATTERNS = [
     re.compile(r"\b(?:impression|assessment|consultation)\s+(?:documented|reviewed|noted)\b", re.I),
     re.compile(r"\bfollow-?up and treatment planning noted\b", re.I),
+    re.compile(r"\bfax id\b", re.I),
+    re.compile(r"\bpage\s+\d+\b", re.I),
+]
+
+_NEGATIVE_IMAGING_PATTERNS = [
+    re.compile(r"\bno acute\b", re.I),
+    re.compile(r"\bunremarkable\b", re.I),
+    re.compile(r"\bno fracture\b", re.I),
+    re.compile(r"\bno dislocation\b", re.I),
+    re.compile(r"\bnormal disc signal\b", re.I),
+    re.compile(r"\bno canal stenosis\b", re.I),
+    re.compile(r"\bno significant degenerative\b", re.I),
 ]
 
 
@@ -245,6 +257,8 @@ def _promoted_findings_from_citations(
         sn = str(getattr(c, "snippet", "") or "").strip()
         if not sn:
             continue
+        if any(p.search(sn) for p in _GENERIC_PLACEHOLDER_PATTERNS):
+            continue
         # Generic diagnosis fallback: ICD-coded diagnosis lines
         if need_dx and re.search(r"\bICD-10\b", sn, re.I):
             if re.search(r"\b([A-TV-Z]\d{1,2}(?:\.\d+)?)\b", sn):
@@ -254,15 +268,22 @@ def _promoted_findings_from_citations(
         if need_proc and re.search(r"\b(injection|epidural|surgery|operative|arthroscop|fusion|procedure performed)\b", sn, re.I):
             add("procedure", sn, str(c.citation_id), severity="high", headline=True, polarity="positive")
             continue
+        # PT aggregate counts belong in visit_count, not objective findings.
+        if re.search(r"\b(?:aggregated pt sessions?|pt sessions documented)\b", sn, re.I):
+            if re.search(r"\b\d+\s+encounters?\b", sn, re.I):
+                add("visit_count", sn, str(c.citation_id), severity="medium", headline=True, polarity="neutral")
+            continue
         # Generic objective-deficit fallback
         if need_obj and re.search(r"\b(weakness|strength|reflex|diminished|range of motion|rom|spasm|lordosis|[0-5]/5)\b", sn, re.I):
+            if re.search(r"\b(normal|maintained)\b", sn, re.I) and not re.search(r"\b(weakness|diminished|spasm|straightening|loss of lordosis|[0-5]/5)\b", sn, re.I):
+                continue
             # avoid pure headers/labels
             if not re.fullmatch(r"[A-Za-z0-9 /:+().-]{1,40}", sn.strip()):
                 add("objective_deficit", sn, str(c.citation_id), severity="high", headline=True, polarity="positive")
                 continue
         # Generic imaging pathology fallback (positive structural findings only)
         if need_img and re.search(r"\b(disc|foramen|foraminal|stenosis|herniat|protrusion|tear|edema|compression|fracture|displacement)\b", sn, re.I):
-            negative = bool(re.search(r"\b(no acute|unremarkable|no fracture|normal)\b", sn, re.I))
+            negative = bool(any(p.search(sn) for p in _NEGATIVE_IMAGING_PATTERNS))
             add("imaging", sn, str(c.citation_id), severity=("low" if negative else "high"), headline=(not negative), polarity=("negative" if negative else "positive"))
             continue
 
@@ -287,12 +308,11 @@ def _claim_to_category(claim_type: str) -> str:
 def _claim_to_polarity_and_headline(assertion: str, flags: list[str], category: str) -> tuple[str | None, bool]:
     flags_l = {str(f).lower() for f in (flags or [])}
     a = (assertion or "").lower()
+    if any(p.search(a) for p in _GENERIC_PLACEHOLDER_PATTERNS):
+        return ("neutral", False)
     negative = bool(
         ("degenerative_language" in flags_l)
-        or "no acute" in a
-        or "unremarkable" in a
-        or "no fracture" in a
-        or "no dislocation" in a
+        or any(p.search(a) for p in _NEGATIVE_IMAGING_PATTERNS)
     )
     if negative:
         return ("negative", False)
@@ -314,7 +334,7 @@ def _promoted_findings_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list
         claim_type = str(row.get("claim_type") or "")
         category = _claim_to_category(claim_type)
         # Promote clear objective deficits separately when claim rows call them dx/symptom.
-        if re.search(r"\b(?:4/5|weakness|strength|range of motion|rom)\b", assertion, re.I):
+        if re.search(r"\b(?:4/5|weakness|strength|range of motion|rom)\b", assertion, re.I) and not re.search(r"\b(?:aggregated pt sessions?|encounters?)\b", assertion, re.I):
             category = "objective_deficit"
         if re.search(r"\bvisits?\b|\bencounters?\b", assertion, re.I):
             category = "visit_count"
@@ -360,24 +380,33 @@ def _promoted_findings_from_events(events: list[Event], existing: list[PromotedF
             pools.append(("imaging", list(getattr(imaging, "impression", []) or []), body_part))
         for category, facts, body_region in pools:
             for fact in facts:
+                fact_category = category
                 txt = str(getattr(fact, "text", "") or "").strip()
                 if not txt or getattr(fact, "technical_noise", False):
                     continue
                 citation_ids = [str(c) for c in (getattr(fact, "citation_ids", []) or []) if str(c).strip()] or event_cids
                 if not citation_ids:
                     continue
+                if any(p.search(txt) for p in _GENERIC_PLACEHOLDER_PATTERNS):
+                    continue
+                if re.search(r"\b(?:aggregated pt sessions?|pt sessions documented)\b", txt, re.I):
+                    fact_category = "visit_count"
                 # objective deficits are elevated by source field; generic pain-only exam items are not headline-worthy
-                polarity, headline = _claim_to_polarity_and_headline(txt, list(getattr(e, "flags", []) or []), category)
-                if category == "objective_deficit" and re.search(r"\bpain\b", txt, re.I) and not re.search(r"\b(weakness|strength|reflex|rom|lordosis|spasm|4/5)\b", txt, re.I):
-                    headline = False
-                key = f"{category}|{txt.lower()}"
+                polarity, headline = _claim_to_polarity_and_headline(txt, list(getattr(e, "flags", []) or []), fact_category)
+                if fact_category == "objective_deficit":
+                    if re.search(r"\bpain\b", txt, re.I) and not re.search(r"\b(weakness|strength|reflex|rom|lordosis|spasm|4/5|diminished)\b", txt, re.I):
+                        headline = False
+                    if re.search(r"\b(normal|maintained)\b", txt, re.I) and not re.search(r"\b(weakness|diminished|spasm|straightening|loss of lordosis|4/5)\b", txt, re.I):
+                        headline = False
+                        polarity = "neutral"
+                key = f"{fact_category}|{txt.lower()}"
                 if key in seen:
                     continue
                 seen.add(key)
-                severity = "high" if category in {"objective_deficit", "imaging", "diagnosis", "procedure"} and headline else ("low" if not headline else "medium")
+                severity = "high" if fact_category in {"objective_deficit", "imaging", "diagnosis", "procedure"} and headline else ("low" if not headline else "medium")
                 eid = str(getattr(e, "event_id", "") or "").strip() or None
                 out.append(PromotedFinding(
-                    category=category,
+                    category=fact_category,
                     label=txt,
                     body_region=body_region,
                     severity=severity,
@@ -392,6 +421,17 @@ def _promoted_findings_from_events(events: list[Event], existing: list[PromotedF
 
 
 def _top_case_drivers_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list[str]:
+    def _is_low_value_top_driver(assertion: str, claim_type: str) -> bool:
+        if any(p.search(assertion) for p in _GENERIC_PLACEHOLDER_PATTERNS):
+            return True
+        if claim_type == "TREATMENT_VISIT" and re.search(r"\baggregated pt sessions?\b", assertion, re.I):
+            return True
+        if claim_type == "TREATMENT_VISIT" and re.search(r"\btotal amount:\s*[$]?\d", assertion, re.I):
+            return True
+        if claim_type == "IMAGING_FINDING" and any(p.search(assertion) for p in _NEGATIVE_IMAGING_PATTERNS):
+            return True
+        return False
+
     def _row_rank(r: dict[str, Any]) -> tuple:
         ctype = str(r.get("claim_type") or "")
         cat = _claim_to_category(ctype)
@@ -413,7 +453,9 @@ def _top_case_drivers_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list[
     ranked = sorted(
         [
             r for r in (claim_rows or [])
-            if r.get("event_id") and (r.get("citations") or []) and not any(p.search(str(r.get("assertion") or "")) for p in _GENERIC_PLACEHOLDER_PATTERNS)
+            if r.get("event_id")
+            and (r.get("citations") or [])
+            and not _is_low_value_top_driver(str(r.get("assertion") or ""), str(r.get("claim_type") or ""))
         ],
         key=_row_rank,
     )

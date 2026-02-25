@@ -1085,10 +1085,33 @@ def generate_pdf_from_projection(
     flowables.append(Paragraph("Top Record Anchors", h2_style))
     top_anchor_rows: list[Paragraph] = []
     top_seen = set()
+    # Prefer manifest-promoted findings first (pipeline-ranked, citation-backed), then event/claim fallbacks.
+    for cat in ("objective_deficit", "diagnosis", "imaging", "procedure", "visit_count", "symptom"):
+        for item in promoted_by_cat.get(cat, []):
+            if len(top_anchor_rows) >= 6:
+                break
+            if not item.get("headline_eligible", True) and cat in {"objective_deficit", "diagnosis", "imaging", "procedure"}:
+                continue
+            assertion = _guardrail_text(_clean_line(item.get("label")), supported_injury=supported_injury)
+            if not assertion or assertion.lower() in top_seen or _is_undermining_or_noise(assertion):
+                continue
+            refs = _refs_from_citation_ids([str(c) for c in (item.get("citation_ids") or [])], citation_by_id)
+            if not refs:
+                continue
+            top_seen.add(assertion.lower())
+            a = chron_anchor(str(item.get("source_event_id") or f"top_pf_{len(top_anchor_rows)}"))
+            manifest.add_chron_anchor(a)
+            _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
+            top_anchor_rows.append(Paragraph(
+                f'<a name="{escape(a)}"/>- {escape(assertion)} <font size="8">{escape(cite_text)}</font>',
+                bullet_style,
+            ))
     manifest_driver_ids = [str(x) for x in (rm.get("top_case_drivers") or [])] if isinstance(rm, dict) else []
-    if manifest_driver_ids:
+    if manifest_driver_ids and len(top_anchor_rows) < 6:
         projection_entries_by_id = {str(e.event_id): e for e in projection.entries}
         for eid in manifest_driver_ids:
+            if len(top_anchor_rows) >= 6:
+                break
             refs = event_citations_by_event.get(eid, [])
             entry = projection_entries_by_id.get(eid)
             if not refs or not entry:
@@ -1106,29 +1129,6 @@ def generate_pdf_from_projection(
                 f'<a name="{escape(a)}"/>- {escape(date_prefix + key_finding)} <font size="8">{escape(cite_text)}</font>',
                 bullet_style,
             ))
-            if len(top_anchor_rows) >= 6:
-                break
-    if len(top_anchor_rows) < 6:
-        for cat in ("objective_deficit", "imaging", "diagnosis", "procedure", "visit_count", "symptom"):
-            for item in promoted_by_cat.get(cat, []):
-                if len(top_anchor_rows) >= 6:
-                    break
-                if not item.get("headline_eligible", True) and cat in {"imaging", "diagnosis", "objective_deficit", "procedure"}:
-                    continue
-                assertion = _guardrail_text(_clean_line(item.get("label")), supported_injury=supported_injury)
-                if not assertion or assertion.lower() in top_seen or _is_undermining_or_noise(assertion):
-                    continue
-                refs = _refs_from_citation_ids([str(c) for c in (item.get("citation_ids") or [])], citation_by_id)
-                if not refs:
-                    continue
-                top_seen.add(assertion.lower())
-                a = chron_anchor(str(item.get("source_event_id") or f"top_pf_{len(top_anchor_rows)}"))
-                manifest.add_chron_anchor(a)
-                _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
-                top_anchor_rows.append(Paragraph(
-                    f'<a name="{escape(a)}"/>- {escape(assertion)} <font size="8">{escape(cite_text)}</font>',
-                    bullet_style,
-                ))
     prioritized_claims = sorted(claim_rows, key=lambda r: (-(int(r.get("selection_score") or 0)), str(r.get("date") or "9999-99-99")))
     for row in prioritized_claims:
         if len(top_anchor_rows) >= 6:

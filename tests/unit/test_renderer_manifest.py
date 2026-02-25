@@ -129,3 +129,21 @@ def test_renderer_manifest_falls_back_to_citation_snippets_for_mechanism_dx_and_
     cats = [f.category for f in manifest.promoted_findings]
     assert "diagnosis" in cats
     assert "imaging" in cats
+    assert any(f.category == "visit_count" and "141 encounters" in f.label for f in manifest.promoted_findings)
+    assert not any(f.category == "objective_deficit" and "141 encounters" in f.label for f in manifest.promoted_findings)
+
+
+def test_negative_and_junk_imaging_are_not_headline_promoted() -> None:
+    citations = [
+        Citation(citation_id="c1", source_document_id="doc-1", page_number=39, snippet="No fracture or dislocation.", bbox=BBox(x=1, y=1, w=1, h=1)),
+        Citation(citation_id="c2", source_document_id="doc-1", page_number=39, snippet="Fax ID: 975207 | 10/20/2024 16:22 | Page 2", bbox=BBox(x=1, y=1, w=1, h=1)),
+        Citation(citation_id="c3", source_document_id="doc-1", page_number=108, snippet="The MRI shows significant disc material extending into the neural foramen on the left side at the C5-C6 level.", bbox=BBox(x=1, y=1, w=1, h=1)),
+    ]
+    manifest = build_renderer_manifest(events=[], evidence_graph_extensions={}, specials_summary=None, citations=citations)
+    found_pathology = next(f for f in manifest.promoted_findings if "neural foramen" in f.label)
+    assert found_pathology.category == "imaging"
+    assert found_pathology.headline_eligible is True
+    assert found_pathology.finding_polarity == "positive"
+    neg = [f for f in manifest.promoted_findings if "No fracture or dislocation." in f.label]
+    assert neg and all(f.headline_eligible is False for f in neg)
+    assert not any("Fax ID" in f.label for f in manifest.promoted_findings)
