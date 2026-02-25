@@ -247,6 +247,7 @@ def generate_pdf_from_projection(
     care_window: tuple[date, date] | None = None,
     missing_records_payload: dict | None = None,
     evidence_graph_payload: dict | None = None,
+    specials_summary: dict | None = None,
     run_id: str | None = None,
 ) -> bytes:
     buffer = BytesIO()
