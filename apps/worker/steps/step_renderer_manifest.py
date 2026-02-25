@@ -233,6 +233,11 @@ def _promoted_findings_from_citations(
     seen = {f"{pf.category}|{pf.label.strip().lower()}" for pf in existing}
     have_categories = {pf.category for pf in existing if pf.headline_eligible}
     out = list(existing)
+    have_positive_imaging = any(
+        pf.category == "imaging" and pf.headline_eligible and (pf.finding_polarity != "negative")
+        and re.search(r"\b(disc|foramen|foraminal|radicul|stenosis|herniat|protrusion|compression|displacement)\b", pf.label, re.I)
+        for pf in existing
+    )
 
     def add(category: str, label: str, citation_id: str, *, severity: str = "high", headline: bool = True, polarity: str | None = None):
         key = f"{category}|{label.strip().lower()}"
@@ -282,9 +287,11 @@ def _promoted_findings_from_citations(
                 add("objective_deficit", sn, str(c.citation_id), severity="high", headline=True, polarity="positive")
                 continue
         # Generic imaging pathology fallback (positive structural findings only)
-        if need_img and re.search(r"\b(disc|foramen|foraminal|stenosis|herniat|protrusion|tear|edema|compression|fracture|displacement)\b", sn, re.I):
+        if (need_img or not have_positive_imaging) and re.search(r"\b(disc|foramen|foraminal|stenosis|herniat|protrusion|tear|edema|compression|fracture|displacement)\b", sn, re.I):
             negative = bool(any(p.search(sn) for p in _NEGATIVE_IMAGING_PATTERNS))
             add("imaging", sn, str(c.citation_id), severity=("low" if negative else "high"), headline=(not negative), polarity=("negative" if negative else "positive"))
+            if not negative:
+                have_positive_imaging = True
             continue
 
     out.sort(key=lambda f: (_CATEGORY_ORDER.get(f.category, 99), 0 if f.headline_eligible else 1, {"high": 0, "medium": 1, "low": 2}.get(f.severity or "low", 2), -f.confidence))
@@ -330,6 +337,8 @@ def _promoted_findings_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list
             continue
         assertion = str(row.get("assertion") or "").strip()
         if not assertion:
+            continue
+        if any(p.search(assertion) for p in _GENERIC_PLACEHOLDER_PATTERNS):
             continue
         claim_type = str(row.get("claim_type") or "")
         category = _claim_to_category(claim_type)
@@ -396,6 +405,9 @@ def _promoted_findings_from_events(events: list[Event], existing: list[PromotedF
                 if fact_category == "objective_deficit":
                     if re.search(r"\bpain\b", txt, re.I) and not re.search(r"\b(weakness|strength|reflex|rom|lordosis|spasm|4/5|diminished)\b", txt, re.I):
                         headline = False
+                    if re.search(r"\bnormal\b", txt, re.I) and re.search(r"\bno evidence\b", txt, re.I):
+                        headline = False
+                        polarity = "neutral"
                     if re.search(r"\b(normal|maintained)\b", txt, re.I) and not re.search(r"\b(weakness|diminished|spasm|straightening|loss of lordosis|4/5)\b", txt, re.I):
                         headline = False
                         polarity = "neutral"

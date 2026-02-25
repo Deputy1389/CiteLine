@@ -973,6 +973,7 @@ def generate_pdf_from_projection(
     promoted_by_cat = _manifest_promoted_by_category(rm)
     promoted_page1_considered = 0
     promoted_page1_rendered = 0
+    settlement_seen_labels: set[str] = set()
     for cat in ("objective_deficit", "imaging", "diagnosis", "procedure"):
         for item in promoted_by_cat.get(cat, []):
             promoted_page1_considered += 1
@@ -990,11 +991,15 @@ def generate_pdf_from_projection(
             if not label:
                 logger.info("page1 promoted finding omitted: reason=guardrail category=%s", cat)
                 continue
+            if label.lower() in settlement_seen_labels:
+                logger.info("page1 promoted finding omitted: reason=duplicate category=%s label=%s", cat, label)
+                continue
             pretty_cat = cat.replace("_", " ").title()
             settlement_driver_rows.append(Paragraph(
                 f'<a name="{escape(row_anchor)}"/>- {escape(pretty_cat + ": " + label)} <font size="8">{escape(cite_text)}</font>',
                 bullet_style,
             ))
+            settlement_seen_labels.add(label.lower())
             promoted_page1_rendered += 1
             break
     if promoted_page1_considered and promoted_page1_rendered == 0:
@@ -1085,6 +1090,12 @@ def generate_pdf_from_projection(
     flowables.append(Paragraph("Top Record Anchors", h2_style))
     top_anchor_rows: list[Paragraph] = []
     top_seen = set()
+    visit_count_max: int | None = None
+    for item in promoted_by_cat.get("visit_count", []):
+        m = re.search(r"\b(\d+)\s+encounters?\b", str(item.get("label") or ""), re.I)
+        if m:
+            n = int(m.group(1))
+            visit_count_max = n if visit_count_max is None else max(visit_count_max, n)
     # Prefer manifest-promoted findings first (pipeline-ranked, citation-backed), then event/claim fallbacks.
     for cat in ("objective_deficit", "diagnosis", "imaging", "procedure", "visit_count", "symptom"):
         for item in promoted_by_cat.get(cat, []):
@@ -1092,6 +1103,10 @@ def generate_pdf_from_projection(
                 break
             if not item.get("headline_eligible", True) and cat in {"objective_deficit", "diagnosis", "imaging", "procedure"}:
                 continue
+            if cat == "visit_count" and visit_count_max is not None:
+                m = re.search(r"\b(\d+)\s+encounters?\b", str(item.get("label") or ""), re.I)
+                if m and int(m.group(1)) < visit_count_max:
+                    continue
             assertion = _guardrail_text(_clean_line(item.get("label")), supported_injury=supported_injury)
             if not assertion or assertion.lower() in top_seen or _is_undermining_or_noise(assertion):
                 continue
