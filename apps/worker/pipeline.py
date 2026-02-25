@@ -327,7 +327,7 @@ def run_pipeline(run_id: str) -> None:
             
             # Write fail cover PDF if gates failed
             try:
-                pdf_uri = getattr(getattr(chronology, 'exports', None), 'pdf_export', None)
+                pdf_uri = getattr(getattr(chronology, 'exports', None), 'pdf', None)
                 if pdf_uri and hasattr(pdf_uri, 'uri'):
                     pdf_path = str(pdf_uri.uri)
                     write_fail_cover_pdf(pdf_path, gate_results)
@@ -359,7 +359,7 @@ def _run_production_quality_gates(
     
     try:
         # Get PDF path from chronology exports
-        pdf_uri = getattr(getattr(chronology, 'exports', None), 'pdf_export', None)
+        pdf_uri = getattr(getattr(chronology, 'exports', None), 'pdf', None)
         if not pdf_uri:
             logger.warning("No PDF export found in chronology, skipping quality gates")
             return {"overall_pass": True, "skipped": True}
