@@ -64,11 +64,11 @@ class Run(Base):
 
     id = Column(String(120), primary_key=True, default=_uuid)
     matter_id = Column(String(120), ForeignKey("matters.id"), nullable=False)
-    status = Column(String(20), default="pending")  # pending | running | success | partial | failed
-    created_at = Column(DateTime, default=utcnow)
+    status = Column(String(20), default="pending")  # pending | running | success | partial | failed | needs_review
     config_json = Column(JSON, nullable=True)
     metrics_json = Column(JSON, nullable=True)
     warnings_json = Column(JSON, nullable=True)
+    quality_gate_json = Column(JSON, nullable=True)  # Stores quality gate results
     error_message = Column(Text, nullable=True)
     processing_seconds = Column(Float, nullable=True)
     started_at = Column(DateTime, nullable=True)

@@ -64,6 +64,7 @@ from apps.worker.steps.step12_export import render_exports, render_patient_chron
 from apps.worker.steps.step12b_litigation_review import run_litigation_review
 from apps.worker.steps.step13_receipt import create_run_record
 from apps.worker.lib.provider_normalize import normalize_provider_entities, compute_coverage_spans
+from apps.worker.lib.quality_gates import run_quality_gates, write_fail_cover_pdf
 from apps.worker.lib.claim_ledger_lite import build_claim_edges, select_top_claim_rows
 from apps.worker.lib.causation_ladder import build_causation_ladders
 from apps.worker.steps.case_collapse import (
@@ -139,7 +140,7 @@ def run_pipeline(run_id: str) -> None:
             if not run_row: return
             run_row.status = "running"; run_row.started_at = started_at; session.flush()
             matter = run_row.matter; matter_title = matter.title; matter_id = matter.id; firm_id = matter.firm_id; tz = matter.timezone or "America/Los_Angeles"
-            config_dict = json.loads(run_row.config_json) if run_row.config_json else {}
+            config_dict = run_row.config_json if isinstance(run_row.config_json, dict) else (json.loads(run_row.config_json) if run_row.config_json else {})
             config = RunConfig(**config_dict)
             doc_rows = session.query(SourceDocORM).filter_by(matter_id=matter_id).all()
             source_documents = [SourceDocument(document_id=d.id, filename=d.filename, mime_type=d.mime_type, sha256=d.sha256, bytes=d.bytes, uploaded_at=d.uploaded_at) for d in doc_rows]
@@ -166,7 +167,16 @@ def run_pipeline(run_id: str) -> None:
             doc_pages = [p for p in all_pages if p.source_document_id == doc.document_id]
             docs, _ = segment_documents(doc_pages, doc.document_id); all_documents.extend(docs)
 
-        providers, page_provider_map, _ = detect_providers(all_pages, all_documents)
+        # Quality check on pages BEFORE provider detection
+        # This is the CRITICAL fix: catch bad text BEFORE it pollutes providers/events
+        page_quality = _assess_page_quality(all_pages)
+        low_quality_pages = {pn for pn, is_bad in page_quality.items() if is_bad}
+        logger.info(f"[{run_id}] Page quality: {len(low_quality_pages)}/{len(all_pages)} pages flagged as low quality")
+
+        # Filter pages for provider detection - skip garbage pages
+        quality_filtered_pages = [p for p in all_pages if p.page_number not in low_quality_pages]
+        
+        providers, page_provider_map, _ = detect_providers(quality_filtered_pages, all_documents)
 
         # Filter out the Unknown Provider sentinel from page_provider_map
         # so events on those pages show "Provider Not Stated" rather than a bogus entity
@@ -215,6 +225,13 @@ def run_pipeline(run_id: str) -> None:
 
         evidence_graph = EvidenceGraph(documents=all_documents, pages=all_pages, providers=providers, events=all_events, citations=all_citations, gaps=gaps, skipped_events=all_skipped)
         evidence_graph.extensions["patient_partitions"] = patient_partitions_payload
+
+        # Page quality assessment results (early gate)
+        evidence_graph.extensions["page_quality_assessment"] = {
+            "total_pages": len(all_pages),
+            "low_quality_pages": len(low_quality_pages),
+            "low_quality_page_numbers": sorted(low_quality_pages),
+        }
 
         # Ã¢â€â‚¬Ã¢â€â‚¬ Metrics Ã¢â€â‚¬Ã¢â€â‚¬
         page_type_counts = {}
@@ -286,15 +303,149 @@ def run_pipeline(run_id: str) -> None:
 
         is_valid, errors = validate_output(full_output_dict)
         status = "success" if is_valid else "partial"
+
+        # Run quality gates before finalizing
+        gate_results = _run_production_quality_gates(
+            chronology=chronology,
+            page_text_by_number={p.page_number: (p.text or "") for p in all_pages},
+            chronology_events=chronology_events,
+        )
+
+        # Update status based on quality gates
+        if not gate_results.get("overall_pass", True):
+            status = "needs_review"
+            all_warnings.append(type('Warning', (), {
+                'code': 'QUALITY_GATE_FAILED',
+                'message': f"Quality gates failed: attorney={gate_results.get('attorney_ready_pass')}, luqa={gate_results.get('luqa_pass')}",
+                'severity': 'high'
+            })())
+            
+            # Write fail cover PDF if gates failed
+            try:
+                from apps.worker.lib.quality_gates import write_fail_cover_pdf
+                pdf_uri = getattr(getattr(chronology, 'exports', None), 'pdf_export', None)
+                if pdf_uri and hasattr(pdf_uri, 'uri'):
+                    pdf_path = str(pdf_uri.uri)
+                    write_fail_cover_pdf(pdf_path, gate_results)
+                    logger.warning(f"[{run_id}] Written fail cover page due to quality gate failures")
+            except Exception as e:
+                logger.error(f"Failed to write fail cover PDF: {e}")
+
         artifact_entries = build_artifact_ref_entries(chronology, prov_csv_ref, prov_json_ref, mr_csv_ref, mr_json_ref, mrr_csv_ref, mrr_json_ref, mrr_md_ref, bl_csv_ref, bl_json_ref, ss_csv_ref, ss_json_ref, ss_pdf_ref, paralegal_chronology_md_ref, extraction_notes_md_ref, patient_chronologies_json_ref, patient_partitions_json_ref)
 
-        persist_pipeline_state(run_id, status, processing_seconds, run_record, all_warnings, evidence_graph, artifact_entries)
+        persist_pipeline_state(run_id, status, processing_seconds, run_record, all_warnings, evidence_graph, artifact_entries, gate_results)
         logger.info(f"[{run_id}] Pipeline complete: {status}")
 
     except Exception as exc:
         logger.exception(f"[{run_id}] Pipeline failed: {exc}"); _fail_run(run_id, str(exc))
 
+def _run_production_quality_gates(
+    chronology,
+    page_text_by_number: dict[int, str],
+    chronology_events,
+) -> dict:
+    """
+    Run quality gates on the production pipeline output.
+    
+    Extracts text from the rendered PDF and runs attorney readiness
+    and LUQA checks to ensure quality before export.
+    """
+    from apps.worker.lib.quality_gates import run_quality_gates
+    import fitz
+    
+    try:
+        # Get PDF path from chronology exports
+        pdf_uri = getattr(getattr(chronology, 'exports', None), 'pdf_export', None)
+        if not pdf_uri:
+            logger.warning("No PDF export found in chronology, skipping quality gates")
+            return {"overall_pass": True, "skipped": True}
+        
+        pdf_path = getattr(pdf_uri, 'uri', None)
+        if not pdf_path:
+            logger.warning("No PDF path found, skipping quality gates")
+            return {"overall_pass": True, "skipped": True}
+        
+        # Convert Path to string if needed
+        pdf_path_str = str(pdf_path)
+        
+        # Extract text from PDF
+        try:
+            doc = fitz.open(pdf_path_str)
+            report_text = "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
+            doc.close()
+        except Exception as e:
+            logger.warning(f"Failed to extract text from PDF for quality gates: {e}")
+            return {"overall_pass": True, "skipped": True}
+        
+        # Build projection entries from events (simplified - same as eval does)
+        projection_entries = []
+        try:
+            from apps.worker.project.chronology import build_chronology_projection
+            from apps.worker.project.models import ChronologyProjection
+            from packages.shared.models import Provider
+            
+            # Get providers for projection (simplified - pass empty list)
+            providers = []
+            
+            projection: ChronologyProjection = build_chronology_projection(
+                chronology_events,
+                providers,
+                page_map=None,
+                page_patient_labels={},
+                page_text_by_number=page_text_by_number,
+            )
+            projection_entries = list(projection.entries)
+        except Exception as e:
+            logger.warning(f"Failed to build projection for quality gates: {e}")
+            projection_entries = []
+        
+        # Run quality gates
+        results = run_quality_gates(
+            report_text=report_text,
+            page_text_by_number=page_text_by_number,
+            projection_entries=projection_entries,
+            chronology_events=chronology_events,
+        )
+        
+        logger.info(f"Quality gates: overall_pass={results.get('overall_pass')}, "
+                   f"attorney={results.get('attorney_ready_pass')}({results.get('attorney_ready_score')}), "
+                   f"luqa={results.get('luqa_pass')}({results.get('luqa_score')})")
+        
+        return results
+        
+    except Exception as e:
+        logger.exception(f"Quality gates failed with error: {e}")
+        return {"overall_pass": True, "skipped": True, "error": str(e)}
+
+
 def _fail_run(run_id: str, error: str) -> None:
     with get_session() as session:
         run_row = session.query(RunORM).filter_by(id=run_id).first()
         if run_row: run_row.status = "failed"; run_row.finished_at = datetime.now(timezone.utc); run_row.error_message = error[:ERROR_MESSAGE_MAX_LEN]
+
+
+def _assess_page_quality(pages) -> dict[int, bool]:
+    """
+    Assess quality of each page's text to identify garbage before extraction.
+    
+    Returns dict mapping page_number -> is_low_quality (True if garbage)
+    """
+    from apps.worker.quality.text_quality import is_garbage, quality_score
+    
+    page_quality = {}
+    for page in pages:
+        text = page.text or ""
+        if not text or len(text.strip()) < 50:
+            page_quality[page.page_number] = True  # Too short = low quality
+            continue
+        if is_garbage(text):
+            page_quality[page.page_number] = True  # Garbage detected
+            continue
+        # Also flag pages with very low quality scores
+        score = quality_score(text)
+        if score < 0.2:
+            page_quality[page.page_number] = True
+            continue
+        page_quality[page.page_number] = False
+    
+    return page_quality

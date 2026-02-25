@@ -34,18 +34,25 @@ def _coerce_json_value(value, expected: type):
 
 
 class CreateRunRequest(BaseModel):
-    max_pages: int = 500
+    # Use shared defaults from RunConfig to ensure consistency
+    max_pages: int = 1000
     include_billing_events_in_timeline: bool = False
-    pt_mode: str = "aggregate"
-    gap_threshold_days: int = 45
-    event_confidence_min_export: int = 40
+    pt_mode: str = "per_visit"  # Must match RunConfig default
+    pt_aggregate_window_days: int = 7
+    gap_threshold_days: int = 60
+    event_confidence_min_export: int = 30  # Must match RunConfig default
     low_confidence_event_behavior: str = "exclude_from_export"
+    enable_llm_reasoning: bool = False
+    gemini_model: str = "gemini-1.5-flash"
+    llm_reasoning_min_confidence: int = 30
+    narrative_min_confidence: int = 30
+    chronology_min_score: float = 0.3
 
 
 class RunResponse(BaseModel):
     id: str
     matter_id: str
-    status: str
+    status: str  # pending | running | success | partial | failed | needs_review
     started_at: str | None
     heartbeat_at: str | None
     finished_at: str | None
@@ -53,6 +60,8 @@ class RunResponse(BaseModel):
     warnings: list | None
     error_message: str | None
     processing_seconds: float | None
+    quality_gate_passed: bool | None = None
+    quality_gate_score: int | None = None
 
 
 @router.post("/matters/{matter_id}/runs", response_model=RunResponse, status_code=202)

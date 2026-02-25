@@ -32,6 +32,7 @@ def persist_pipeline_state(
     all_warnings: list[Warning],
     evidence_graph: EvidenceGraph,
     artifact_entries: list[tuple[str, Optional[ArtifactRef]]],
+    gate_results: dict | None = None,
 ) -> None:
     try:
         with get_session() as session:
@@ -42,9 +43,11 @@ def persist_pipeline_state(
             run_row.status = status
             run_row.finished_at = datetime.now(timezone.utc)
             run_row.processing_seconds = processing_seconds
-            run_row.metrics_json = run_record.metrics.model_dump_json()
-            run_row.warnings_json = json.dumps([w.model_dump() for w in all_warnings])
-            run_row.provenance_json = run_record.provenance.model_dump_json()
+            run_row.metrics_json = run_record.metrics.model_dump()
+            run_row.warnings_json = [w.model_dump() for w in all_warnings]
+            run_row.provenance_json = run_record.provenance.model_dump()
+            if gate_results:
+                run_row.quality_gate_json = gate_results
 
             # Idempotency: clear prior rows for this run.
             session.query(PageORM).filter_by(run_id=run_id).delete()
