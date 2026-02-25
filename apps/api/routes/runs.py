@@ -19,6 +19,20 @@ from packages.shared.artifacts import artifact_extension, is_valid_artifact_type
 router = APIRouter(tags=["runs"])
 
 
+def _coerce_json_value(value, expected: type):
+    if value is None:
+        return None
+    if isinstance(value, expected):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return None
+        return parsed if isinstance(parsed, expected) else None
+    return None
+
+
 class CreateRunRequest(BaseModel):
     max_pages: int = 500
     include_billing_events_in_timeline: bool = False
@@ -107,8 +121,8 @@ def list_runs(
 
     response = []
     for r in runs:
-        metrics = r.metrics_json
-        warnings = r.warnings_json
+        metrics = _coerce_json_value(r.metrics_json, dict)
+        warnings = _coerce_json_value(r.warnings_json, list)
 
         response.append(
             RunResponse(
@@ -143,8 +157,8 @@ def get_run(
         raise HTTPException(status_code=404, detail="Matter not found")
     assert_firm_access(identity, matter.firm_id)
 
-    metrics = run.metrics_json
-    warnings = run.warnings_json
+    metrics = _coerce_json_value(run.metrics_json, dict)
+    warnings = _coerce_json_value(run.warnings_json, list)
 
     return RunResponse(
         id=run.id,
@@ -183,8 +197,8 @@ def cancel_run(
     run.finished_at = datetime.now(timezone.utc)
     run.error_message = "Cancelled by user"
 
-    metrics = run.metrics_json
-    warnings = run.warnings_json
+    metrics = _coerce_json_value(run.metrics_json, dict)
+    warnings = _coerce_json_value(run.warnings_json, list)
 
     return RunResponse(
         id=run.id,
@@ -220,8 +234,8 @@ def force_fail_run(
     run.finished_at = datetime.now(timezone.utc)
     run.error_message = "Force-failed by user"
 
-    metrics = run.metrics_json
-    warnings = run.warnings_json
+    metrics = _coerce_json_value(run.metrics_json, dict)
+    warnings = _coerce_json_value(run.warnings_json, list)
 
     return RunResponse(
         id=run.id,
