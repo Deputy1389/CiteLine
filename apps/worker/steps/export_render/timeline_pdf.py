@@ -8,6 +8,7 @@ import logging
 from datetime import date
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -20,6 +21,8 @@ from reportlab.platypus import (
     Paragraph,
     PageBreak,
     Spacer,
+    Table,
+    TableStyle,
 )
 logger = logging.getLogger(__name__)
 
@@ -86,14 +89,14 @@ def generate_executive_summary(events: list[Event], matter_title: str, case_info
         refined = _refine_primary_injuries(detected_injuries, events)
         summary += f"Key Clinical Findings: {', '.join(refined[:8])}\n"
     else:
-        summary += "No specific high-signal injuries isolated.\n"
+        summary += "Specific injury diagnosis not clearly labeled in extracted problem list.\n"
 
     summary += "\n--- BILLING SUMMARY ---\n"
     if total_charges > 0:
         summary += f"Total Identified Medical Charges: ${total_charges:,.2f}\n"
         summary += "See 'Specials & Medical Billing Summary' section for detailed breakdown.\n"
     else:
-        summary += "No medical billing totals identified.\n"
+        summary += "Medical billing totals not available from extracted records.\n"
 
     summary += f"\nTotal encounters analyzed: {len(events)}\n"
     return summary
@@ -177,60 +180,550 @@ def generate_pdf(run_id: str, matter_title: str, events: list[Event], gaps: list
     return buffer.getvalue()
 
 
-def build_billing_specials_section(specials_summary: dict | None) -> list:
-    """Build a summary of medical billing and specials."""
-    if not specials_summary:
-        return []
+_FRONT_PAGE_BANNED_PHRASES = (
+    "no specific traumatic injuries isolated",
+    "soft tissue only",
+    "no injury",
+)
 
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        "SpecialsTitle",
-        parent=styles["Heading2"],
-        fontSize=14,
-        spaceAfter=12,
-        textColor=colors.HexColor("#2E5077"),
-    )
 
-    flowables = [
-        PageBreak(),
-        Paragraph("Specials & Medical Billing Summary", title_style),
-        Spacer(1, 0.1 * inch),
+def _ext_payload(evidence_graph_payload: dict | None) -> dict:
+    if not isinstance(evidence_graph_payload, dict):
+        return {}
+    if isinstance(evidence_graph_payload.get("extensions"), dict):
+        return evidence_graph_payload.get("extensions") or {}
+    eg = (((evidence_graph_payload.get("outputs") or {}).get("evidence_graph")) or {})
+    if isinstance(eg, dict) and isinstance(eg.get("extensions"), dict):
+        return eg.get("extensions") or {}
+    return {}
+
+
+def _clean_line(text: str | None) -> str:
+    if not text:
+        return ""
+    text = re.sub(r"\s+", " ", str(text)).strip()
+    text = re.sub(r"^\W+", "", text)
+    return text[:500]
+
+
+def _is_undermining_or_noise(text: str) -> bool:
+    blob = (text or "").lower()
+    if not blob:
+        return True
+    if any(p in blob for p in _FRONT_PAGE_BANNED_PHRASES):
+        return True
+    if "(cid:" in blob:
+        return True
+    if len(blob.split()) < 3:
+        return True
+    return False
+
+
+def _has_supported_disc_injury(ext: dict, raw_events: list[Event] | None) -> bool:
+    patterns = re.compile(r"\b(disc|radiculopathy|foramen|foraminal|herniat|protrusion|stenosis)\b", re.I)
+    for row in (ext.get("claim_rows") or []):
+        if patterns.search(str(row.get("assertion") or "")):
+            return True
+    for evt in raw_events or []:
+        for fact in list(getattr(evt, "facts", []) or []) + list(getattr(evt, "diagnoses", []) or []) + list(getattr(evt, "exam_findings", []) or []):
+            if patterns.search(str(getattr(fact, "text", "") or "")):
+                return True
+    return False
+
+
+def _guardrail_text(text: str, *, supported_injury: bool) -> str:
+    out = text or ""
+    low = out.lower()
+    for banned in _FRONT_PAGE_BANNED_PHRASES:
+        if banned in low:
+            if supported_injury:
+                return "Injury characterization varies across notes; objective findings are summarized below."
+            return ""
+    return out
+
+
+def _event_date_label(event: Event) -> str:
+    try:
+        label = _date_str(event)
+    except Exception:
+        return "Undated"
+    label = re.sub(r"\s*\(time not documented\)\s*", "", label or "").strip()
+    return label or "Undated"
+
+
+def _event_date_bounds(event: Event) -> tuple[date | None, date | None]:
+    d = getattr(event, "date", None)
+    if not d:
+        return (None, None)
+    val = getattr(d, "value", None)
+    if isinstance(val, date):
+        return (val, val)
+    start = getattr(val, "start", None)
+    end = getattr(val, "end", None)
+    return (start if isinstance(start, date) else None, end if isinstance(end, date) else None)
+
+
+def _first_supported_fact(event: Event) -> str:
+    pools = [
+        getattr(event, "exam_findings", []) or [],
+        getattr(event, "diagnoses", []) or [],
+        getattr(event, "facts", []) or [],
+        getattr(event, "procedures", []) or [],
     ]
+    for pool in pools:
+        for fact in pool:
+            txt = _clean_line(getattr(fact, "text", ""))
+            if not txt or _is_meta_language(txt):
+                continue
+            if getattr(fact, "technical_noise", False):
+                continue
+            return txt
+    return "See cited record excerpt."
 
-    # Narrative summary if present
-    narrative = specials_summary.get("narrative_summary")
-    if narrative:
-        flowables.append(Paragraph(f"<b>Overview:</b> {narrative}", styles["Normal"]))
-        flowables.append(Spacer(1, 0.2 * inch))
 
-    # Provider breakdown table
-    breakdown = specials_summary.get("provider_breakdown", [])
-    if breakdown:
-        from reportlab.platypus import Table, TableStyle
-        data = [["Provider", "Service Count", "Total Charges"]]
-        total_all = 0.0
-        for item in breakdown:
-            total_all += item.get("total_amount", 0)
-            data.append([
-                item.get("provider_name", "Unknown"),
-                str(item.get("encounter_count", 0)),
-                f"${item.get('total_amount', 0):,.2f}"
+def _build_citation_maps(
+    all_citations: list[Citation] | None,
+    page_map: dict[int, tuple[str, int]] | None,
+) -> tuple[dict[str, dict[str, Any]], dict[int, list[dict[str, Any]]], dict[str, set[int]], str | None]:
+    by_id: dict[str, dict[str, Any]] = {}
+    by_page: dict[int, list[dict[str, Any]]] = {}
+    doc_pages: dict[str, set[int]] = {}
+    single_doc_id: str | None = None
+    if not all_citations:
+        return by_id, by_page, doc_pages, single_doc_id
+    doc_ids = set()
+    for cit in all_citations:
+        doc_id = str(cit.source_document_id)
+        doc_ids.add(doc_id)
+        filename = doc_id
+        local_page = int(cit.page_number)
+        if page_map and cit.page_number in page_map:
+            mapped_name, mapped_page = page_map[cit.page_number]
+            filename = mapped_name or filename
+            local_page = int(mapped_page)
+        row = {
+            "citation_id": str(cit.citation_id),
+            "doc_id": doc_id,
+            "filename": filename,
+            "global_page": int(cit.page_number),
+            "local_page": local_page,
+        }
+        by_id[str(cit.citation_id)] = row
+        by_page.setdefault(int(cit.page_number), []).append(row)
+        doc_pages.setdefault(doc_id, set()).add(local_page)
+    if len(doc_ids) == 1:
+        single_doc_id = next(iter(doc_ids))
+    return by_id, by_page, doc_pages, single_doc_id
+
+
+def _event_citation_refs(
+    event: Event,
+    citation_by_id: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    ids = list(getattr(event, "citation_ids", []) or [])
+    for fact in getattr(event, "facts", []) or []:
+        if getattr(fact, "citation_id", None):
+            ids.append(str(fact.citation_id))
+        for cid in getattr(fact, "citation_ids", []) or []:
+            ids.append(str(cid))
+    for cid in ids:
+        ref = citation_by_id.get(str(cid))
+        if not ref:
+            continue
+        key = f"{ref['doc_id']}|{ref['local_page']}"
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(ref)
+    return sorted(out, key=lambda r: (r["filename"], r["local_page"]))[:6]
+
+
+def _claim_row_citation_refs(
+    row: dict[str, Any],
+    by_page: dict[int, list[dict[str, Any]]],
+    single_doc_id: str | None,
+) -> list[dict[str, Any]]:
+    refs: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in (row.get("citations") or []):
+        s = str(raw or "").strip()
+        if not s:
+            continue
+        m = re.search(r"\bp\.\s*(\d+)\b", s, re.I)
+        if not m:
+            continue
+        page_no = int(m.group(1))
+        candidates = by_page.get(page_no, [])
+        if candidates:
+            ref = candidates[0]
+        elif single_doc_id:
+            ref = {"doc_id": single_doc_id, "filename": single_doc_id, "global_page": page_no, "local_page": page_no}
+        else:
+            ref = {"doc_id": "", "filename": "", "global_page": page_no, "local_page": page_no}
+        key = f"{ref.get('doc_id','')}|{ref.get('local_page', page_no)}"
+        if key in seen:
+            continue
+        seen.add(key)
+        refs.append(ref)
+    return refs[:6]
+
+
+def _citation_links_and_text(
+    refs: list[dict[str, Any]],
+    *,
+    row_anchor: str | None,
+    manifest: RenderManifest | None,
+) -> tuple[list[dict[str, str]], str]:
+    links: list[dict[str, str]] = []
+    labels: list[str] = []
+    for ref in refs:
+        page_no = int(ref.get("local_page") or ref.get("global_page") or 0)
+        if page_no <= 0:
+            continue
+        label = f"p. {page_no}"
+        labels.append(label)
+        doc_id = str(ref.get("doc_id") or "")
+        if doc_id:
+            anchor = appendix_anchor(doc_id, page_no)
+            links.append({"anchor": anchor, "label": label})
+            if manifest and row_anchor:
+                manifest.add_link(row_anchor, anchor)
+    if not labels:
+        return links, "Citation(s): Not available"
+    return links, "Citation(s): " + " ".join(f"[{l}]" for l in labels)
+
+
+def _paragraph_list_section(title: str, rows: list[Paragraph], title_style: Any) -> list:
+    if not rows:
+        return []
+    return [Paragraph(title, title_style), Spacer(1, 0.06 * inch), *rows, Spacer(1, 0.08 * inch)]
+
+
+def _safe_money(v: Any) -> str:
+    try:
+        if v is None or str(v).strip() == "":
+            return "Not available"
+        return f"${float(v):,.2f}"
+    except Exception:
+        return "Not available"
+
+
+def _pt_intensity_summary(raw_events: list[Event] | None) -> dict[str, Any]:
+    pt_events = [e for e in (raw_events or []) if str(getattr(getattr(e, "event_type", None), "value", getattr(e, "event_type", ""))) == "pt_visit"]
+    if not pt_events:
+        return {}
+    visit_candidates: list[int] = []
+    start_dates: list[date] = []
+    end_dates: list[date] = []
+    citations: list[str] = []
+    for e in pt_events:
+        for fact in (getattr(e, "facts", []) or []):
+            txt = str(getattr(fact, "text", "") or "")
+            m = re.search(r"\bPT sessions documented:\s*(\d+)\b", txt, re.I)
+            if m:
+                visit_candidates.append(int(m.group(1)))
+        s, e_date = _event_date_bounds(e)
+        if s:
+            start_dates.append(s)
+        if e_date:
+            end_dates.append(e_date)
+    visits = max(visit_candidates) if visit_candidates else len(pt_events)
+    return {
+        "visits": visits,
+        "start": min(start_dates).isoformat() if start_dates else None,
+        "end": max(end_dates).isoformat() if end_dates else None,
+        "event_count": len(pt_events),
+    }
+
+
+def _billing_is_complete(summary: dict | None) -> bool:
+    if not isinstance(summary, dict):
+        return False
+    flags = {str(f) for f in (summary.get("flags") or [])}
+    if flags & {"NO_BILLING_DATA", "PARTIAL_BILLING_ONLY", "MISSING_EOB_DATA"}:
+        return False
+    try:
+        conf = float(summary.get("confidence") or 0)
+    except Exception:
+        conf = 0.0
+    if conf < 0.85:
+        return False
+    totals = summary.get("totals") or {}
+    return bool(totals.get("total_charges"))
+
+
+def _build_timeline_table(
+    projection: ChronologyProjection,
+    styles: Any,
+    manifest: RenderManifest | None,
+    citation_refs_by_event: dict[str, list[dict[str, Any]]],
+) -> list:
+    normal = styles["Normal"]
+    small = ParagraphStyle("TimelineSmall", parent=normal, fontSize=8.5, leading=10.5)
+    cell = ParagraphStyle("TimelineCell", parent=normal, fontSize=9, leading=11)
+    header = [
+        Paragraph("<b>Date</b>", cell),
+        Paragraph("<b>Provider</b>", cell),
+        Paragraph("<b>Event Type</b>", cell),
+        Paragraph("<b>Key Finding</b>", cell),
+        Paragraph("<b>Citations</b>", cell),
+    ]
+    rows = [header]
+    seen = set()
+    pt_rows = 0
+    scored = sorted(
+        list(projection.entries),
+        key=lambda e: (
+            parse_date_string(getattr(e, "date_display", "") or "") or date.max,
+            -len(getattr(e, "citation_display", "") or ""),
+            str(getattr(e, "event_id", "")),
+        ),
+    )
+    for entry in scored:
+        if not getattr(entry, "citation_display", ""):
+            continue
+        facts = [f for f in (getattr(entry, "facts", []) or []) if _clean_line(f)]
+        key_finding = _clean_line(next((f for f in facts if not _is_meta_language(f)), facts[0] if facts else ""))
+        if not key_finding:
+            continue
+        row_key = (entry.date_display, entry.provider_display, entry.event_type_display, key_finding[:120])
+        if row_key in seen:
+            continue
+        seen.add(row_key)
+        etype_low = str(entry.event_type_display or "").lower()
+        if ("therapy" in etype_low or "pt" in etype_low) and pt_rows >= 6:
+            continue
+        if "therapy" in etype_low or "pt" in etype_low:
+            pt_rows += 1
+
+        row_anchor = chron_anchor(str(entry.event_id))
+        if manifest:
+            manifest.add_chron_anchor(row_anchor)
+        refs = citation_refs_by_event.get(str(entry.event_id), [])
+        _links, cite_text = _citation_links_and_text(refs, row_anchor=row_anchor, manifest=manifest)
+        rows.append([
+            Paragraph(f'<a name="{escape(row_anchor)}"/>{escape(_clean_line(entry.date_display) or "Undated")}', small),
+            Paragraph(escape(_clean_line(entry.provider_display) or "Provider not stated"), small),
+            Paragraph(escape(_clean_line(entry.event_type_display) or "Event"), small),
+            Paragraph(escape(key_finding), small),
+            Paragraph(escape(cite_text), small),
+        ])
+        if len(rows) >= 38:
+            break
+
+    if len(rows) == 1:
+        return [Paragraph("No citation-anchored timeline rows were available for export.", normal)]
+
+    tbl = Table(rows, colWidths=[1.0 * inch, 1.4 * inch, 1.0 * inch, 2.9 * inch, 1.2 * inch], repeatRows=1)
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EAF1FB")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#1E3A5F")),
+        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#CBD5E1")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    return [tbl]
+
+
+def _build_claim_row_sections(
+    ext: dict,
+    styles: Any,
+    manifest: RenderManifest | None,
+    by_page: dict[int, list[dict[str, Any]]],
+    single_doc_id: str | None,
+    *,
+    section_kind: str,
+) -> list:
+    normal = styles["Normal"]
+    bullet = ParagraphStyle(f"{section_kind}Bullet", parent=normal, leftIndent=12, bulletIndent=0, spaceAfter=2)
+    rows: list[dict[str, Any]] = list(ext.get("claim_rows") or [])
+    selected: list[tuple[str, list[dict[str, Any]]]] = []
+    seen = set()
+
+    def include_row(r: dict[str, Any]) -> bool:
+        ctype = str(r.get("claim_type") or "")
+        assertion = _clean_line(r.get("assertion"))
+        if not assertion or _is_undermining_or_noise(assertion):
+            return False
+        if not (r.get("citations") or []):
+            return False
+        low = assertion.lower()
+        if section_kind == "imaging":
+            if ctype != "IMAGING_FINDING":
+                return False
+            if "compare." in low or "vitals check" in low:
+                return False
+            return True
+        if section_kind == "objective":
+            return any(k in low for k in ["4/5", "strength", "weakness", "spasm", "lordosis", "rom", "reflex"])
+        if section_kind == "dx":
+            if ctype != "INJURY_DX":
+                return False
+            return True
+        return False
+
+    ordered = sorted(rows, key=lambda r: (str(r.get("date") or "9999-99-99"), -(int(r.get("selection_score") or 0))))
+    for r in ordered:
+        if not include_row(r):
+            continue
+        assertion = _clean_line(r.get("assertion"))
+        low = assertion.lower()
+        if section_kind == "imaging" and re.search(r"\b(no acute|unremarkable|no significant degenerative)\b", low):
+            pri = "secondary"
+        else:
+            pri = "primary"
+        key = assertion.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        refs = _claim_row_citation_refs(r, by_page, single_doc_id)
+        if not refs:
+            continue
+        selected.append((pri, refs))
+        if len(selected) >= 10:
+            break
+
+    primary_rows: list[Paragraph] = []
+    secondary_rows: list[Paragraph] = []
+    used_assertions = set()
+    for r in ordered:
+        if not include_row(r):
+            continue
+        assertion = _clean_line(r.get("assertion"))
+        if assertion.lower() in used_assertions:
+            continue
+        used_assertions.add(assertion.lower())
+        refs = _claim_row_citation_refs(r, by_page, single_doc_id)
+        if not refs:
+            continue
+        row_anchor = chron_anchor(str(r.get("event_id") or f"{section_kind}_{len(used_assertions)}"))
+        if manifest:
+            manifest.add_chron_anchor(row_anchor)
+        _links, cite_text = _citation_links_and_text(refs, row_anchor=row_anchor, manifest=manifest)
+        para = Paragraph(
+            f'<a name="{escape(row_anchor)}"/>- {escape(assertion)}<br/><font size="8">{escape(cite_text)}</font>',
+            bullet,
+        )
+        if section_kind == "imaging" and re.search(r"\b(no acute|unremarkable|no significant degenerative)\b", assertion.lower()):
+            secondary_rows.append(para)
+        else:
+            primary_rows.append(para)
+        if len(primary_rows) >= 8:
+            break
+    out: list = []
+    out.extend(primary_rows)
+    if secondary_rows:
+        out.append(Paragraph("<i>Secondary / non-headline imaging observations:</i>", normal))
+        out.extend(secondary_rows[:3])
+    return out
+
+
+def build_billing_specials_section(
+    specials_summary: dict | None,
+    styles: Any,
+    *,
+    manifest: RenderManifest | None = None,
+    citation_by_id: dict[str, dict[str, Any]] | None = None,
+) -> list:
+    """Page 5 billing/specials summary with incomplete-data safeguards."""
+    title_style = styles["Heading1"]
+    normal = styles["Normal"]
+    small = ParagraphStyle("BillingSmall", parent=normal, fontSize=9, leading=11)
+    flowables: list = [Paragraph("Billing / Specials", title_style), Spacer(1, 0.08 * inch)]
+
+    if not isinstance(specials_summary, dict):
+        flowables.append(Paragraph("Billing extraction status: Not available in packet extraction.", normal))
+        return flowables
+
+    complete = _billing_is_complete(specials_summary)
+    flags = [str(f) for f in (specials_summary.get("flags") or [])]
+    coverage = specials_summary.get("coverage") or {}
+    dedupe = specials_summary.get("dedupe") or {}
+    totals = specials_summary.get("totals") or {}
+
+    if complete:
+        flowables.append(Paragraph("Billing extraction status: Complete (record-supported totals available).", normal))
+    else:
+        flowables.append(Paragraph("<b>Billing extraction status: Incomplete.</b>", normal))
+        flowables.append(Paragraph("Total billed is not shown as a case total because extracted billing appears partial or lacks complete EOB/adjustment coverage.", small))
+
+    meta_bits = []
+    if coverage.get("billing_pages_count") is not None:
+        meta_bits.append(f"Billing pages detected: {coverage.get('billing_pages_count')}")
+    if coverage.get("earliest_service_date") or coverage.get("latest_service_date"):
+        meta_bits.append(
+            f"Coverage window: {coverage.get('earliest_service_date') or 'unknown'} to {coverage.get('latest_service_date') or 'unknown'}"
+        )
+    if dedupe.get("lines_deduped") is not None:
+        meta_bits.append(
+            f"Billing lines: {dedupe.get('lines_deduped')} deduped"
+            + (f" ({dedupe.get('lines_raw')} raw)" if dedupe.get("lines_raw") is not None else "")
+        )
+    if meta_bits:
+        flowables.append(Paragraph(" | ".join(meta_bits), small))
+    if flags:
+        flowables.append(Paragraph(f"Flags: {', '.join(flags)}", small))
+    flowables.append(Spacer(1, 0.08 * inch))
+
+    if complete:
+        data = [
+            ["Total billed", _safe_money(totals.get("total_charges"))],
+            ["Total paid", _safe_money(totals.get("total_payments"))],
+            ["Total adjustments", _safe_money(totals.get("total_adjustments"))],
+            ["Total balance", _safe_money(totals.get("total_balance"))],
+        ]
+    else:
+        data = [["Total billed", "Not available from extracted records (incomplete billing extraction)"]]
+    totals_tbl = Table(data, colWidths=[2.0 * inch, 4.8 * inch])
+    totals_tbl.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#CBD5E1")),
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8FAFC")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+    ]))
+    flowables.append(totals_tbl)
+    flowables.append(Spacer(1, 0.12 * inch))
+
+    by_provider = list(specials_summary.get("by_provider") or [])
+    if by_provider:
+        rows = [[
+            Paragraph("<b>Provider</b>", small),
+            Paragraph("<b>Line Items</b>", small),
+            Paragraph("<b>Charges</b>", small),
+            Paragraph("<b>Citations</b>", small),
+        ]]
+        for item in sorted(by_provider, key=lambda x: float(x.get("charges") or 0), reverse=True)[:10]:
+            refs: list[dict[str, Any]] = []
+            for cid in (item.get("citation_ids_sample") or [])[:4]:
+                ref = (citation_by_id or {}).get(str(cid))
+                if ref:
+                    refs.append(ref)
+            row_anchor = chron_anchor(f"billing_{re.sub(r'[^a-zA-Z0-9]+', '_', str(item.get('provider_display_name') or 'provider'))[:24]}")
+            if manifest:
+                manifest.add_chron_anchor(row_anchor)
+            _links, cite_text = _citation_links_and_text(refs, row_anchor=row_anchor, manifest=manifest)
+            rows.append([
+                Paragraph(f'<a name="{escape(row_anchor)}"/>{escape(str(item.get("provider_display_name") or "Unknown provider"))}', small),
+                Paragraph(str(item.get("line_count") or 0), small),
+                Paragraph(_safe_money(item.get("charges")), small),
+                Paragraph(escape(cite_text if refs else "Citation(s): Not available"), small),
             ])
-        data.append(["<b>TOTAL</b>", "", f"<b>${total_all:,.2f}</b>"])
-
-        t = Table(data, colWidths=[3.5 * inch, 1.2 * inch, 1.5 * inch])
-        t.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#F0F4F8")),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor("#2E5077")),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        tbl = Table(rows, colWidths=[2.9 * inch, 0.9 * inch, 1.1 * inch, 1.9 * inch], repeatRows=1)
+        tbl.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#CBD5E1")),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EAF1FB")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ]))
-        flowables.append(t)
-        flowables.append(Spacer(1, 0.2 * inch))
+        flowables.append(Paragraph("Known extracted billing line groups (record-supported):", normal))
+        flowables.append(Spacer(1, 0.05 * inch))
+        flowables.append(tbl)
+    else:
+        flowables.append(Paragraph("Known line items: Not available in packet extraction.", normal))
 
     return flowables
 
@@ -254,77 +747,259 @@ def generate_pdf_from_projection(
     doc = BaseDocTemplate(buffer, pagesize=letter, leftMargin=0.75 * inch, rightMargin=0.75 * inch, topMargin=0.75 * inch, bottomMargin=0.75 * inch)
     styles = getSampleStyleSheet()
 
-    title_style = ParagraphStyle("TitleStyle", parent=styles["Title"], fontSize=18, spaceAfter=12)
-    h1_style = ParagraphStyle("H1Style", parent=styles["Heading1"], fontSize=14, spaceBefore=12, spaceAfter=6, textColor=colors.HexColor("#2E548A"))
+    title_style = ParagraphStyle("TitleStyle", parent=styles["Title"], fontSize=18, spaceAfter=10)
+    h1_style = ParagraphStyle("H1Style", parent=styles["Heading1"], fontSize=14, spaceBefore=8, spaceAfter=5, textColor=colors.HexColor("#2E548A"))
+    h2_style = ParagraphStyle("H2StyleLit", parent=styles["Heading2"], fontSize=11, spaceBefore=6, spaceAfter=4, textColor=colors.HexColor("#1F3B63"))
     normal_style = styles["Normal"]
+    normal_style.leading = 12
 
     manifest = RenderManifest()
+    ext = _ext_payload(evidence_graph_payload)
+    citation_by_id, citations_by_page, _doc_pages, single_doc_id = _build_citation_maps(all_citations, page_map)
+    raw_events = raw_events or []
+    projection_by_event = {str(e.event_id): e for e in projection.entries}
+    event_citations_by_event = {str(e.event_id): _event_citation_refs(e, citation_by_id) for e in raw_events}
+    supported_injury = _has_supported_disc_injury(ext, raw_events)
+    moat_stats: dict = {}
 
+    def _event_or_entry_provider(evt: Event) -> str:
+        entry = projection_by_event.get(str(evt.event_id))
+        if entry and getattr(entry, "provider_display", None):
+            return _clean_line(entry.provider_display)
+        return "Provider not stated"
+
+    def _event_or_entry_citation_text(evt: Event, row_anchor: str) -> str:
+        refs = event_citations_by_event.get(str(evt.event_id), [])
+        _links, cite_text = _citation_links_and_text(refs, row_anchor=row_anchor, manifest=manifest)
+        return cite_text
+
+    # Page 1 - Case Snapshot
     flowables = [Paragraph(f"Medical Chronology: {matter_title}", title_style)]
+    flowables.append(Paragraph("CASE SNAPSHOT (30-SECOND READ)", h1_style))
 
-    # Moat section (top of document)
-    flowables.append(Paragraph("Medical Chronology Analysis", h1_style))
-    moat_flowables, moat_stats = build_moat_section_flowables(
-        projection_entries=projection.entries,
-        evidence_graph_payload=evidence_graph_payload,
-        missing_records_payload=missing_records_payload,
-        styles=styles,
-    )
-    flowables.extend(moat_flowables)
+    patient_label = next((str(getattr(e, "patient_label", "")).strip() for e in projection.entries if str(getattr(e, "patient_label", "")).strip() and "unknown" not in str(getattr(e, "patient_label", "")).lower()), "Not clearly identified")
+    dated_events = [e for e in raw_events if _event_date_bounds(e)[0]]
+    dated_events.sort(key=lambda e: _event_date_bounds(e)[0] or date.max)
+    doi = (_event_date_bounds(dated_events[0])[0].isoformat() if dated_events else None)
+    mechanism = None
+    for evt in raw_events:
+        blob = " ".join([str(getattr(f, "text", "") or "") for f in (getattr(evt, "facts", []) or [])]).lower()
+        if "rear-end" in blob or "rear end" in blob:
+            mechanism = "rear-end motor vehicle collision"
+            break
+        if "mva" in blob or "mvc" in blob or "motor vehicle" in blob or "collision" in blob:
+            mechanism = "motor vehicle collision"
+            break
+        if "fall" in blob:
+            mechanism = "fall"
+    header_rows = [
+        ["Case", matter_title],
+        ["Patient", patient_label],
+        ["DOI", doi or "Not extracted"],
+        ["Mechanism", mechanism or "Not clearly extracted from packet"],
+    ]
+    header_tbl = Table(header_rows, colWidths=[1.1 * inch, 5.7 * inch])
+    header_tbl.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#CBD5E1")),
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8FAFC")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    flowables.append(header_tbl)
+    flowables.append(Spacer(1, 0.12 * inch))
 
-    # Executive Summary (after moat)
-    flowables.append(PageBreak())
+    flowables.append(Paragraph("Settlement Drivers (record-supported)", h2_style))
+    settlement_driver_rows: list[Paragraph] = []
+    bullet_style = ParagraphStyle("SnapshotBullet", parent=normal_style, leftIndent=12, bulletIndent=0, spaceAfter=2)
 
-    # DEMAND LETTER INSERT (High Impact)
-    demand_style = ParagraphStyle("DemandStyle", parent=styles["Normal"], fontSize=11, leading=14, borderPadding=10, backColor=colors.HexColor("#F8F9FA"), borderSide="l", borderWidth=3, borderColor=colors.HexColor("#2E548A"))
-    flowables.append(Paragraph("DEMAND LETTER SUMMARY (READY-TO-USE)", h1_style))
+    # Early care / ER on DOI
+    first_er = next((e for e in dated_events if str(getattr(getattr(e, "event_type", None), "value", getattr(e, "event_type", ""))) in {"er_visit", "hospital_admission", "hospital_discharge", "inpatient_daily_note"}), None)
+    if first_er:
+        a = chron_anchor(str(first_er.event_id))
+        manifest.add_chron_anchor(a)
+        cite_text = _event_or_entry_citation_text(first_er, a)
+        settlement_driver_rows.append(Paragraph(
+            f'<a name="{escape(a)}"/>- Early care documented: {escape(_event_date_label(first_er))} acute/initial treatment encounter. <font size="8">{escape(cite_text)}</font>',
+            bullet_style
+        ))
+
+    # Continuous care if no global gap >45
+    mr_payload = missing_records_payload or ext.get("missing_records") or {}
+    global_gaps = [g for g in (mr_payload.get("gaps") or []) if str(g.get("rule_name") or "") == "global_gap" and int(g.get("gap_days") or 0) > 45]
+    if not global_gaps:
+        # cite first and last dated events if available
+        if dated_events:
+            start_evt = dated_events[0]
+            end_evt = dated_events[-1]
+            a = chron_anchor(f"continuity_{start_evt.event_id}")
+            manifest.add_chron_anchor(a)
+            refs = (event_citations_by_event.get(str(start_evt.event_id), []) + event_citations_by_event.get(str(end_evt.event_id), []))[:6]
+            _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
+            settlement_driver_rows.append(Paragraph(
+                f'<a name="{escape(a)}"/>- Continuous care signal: no computed global treatment gaps >45 days in extracted record activity. <font size="8">{escape(cite_text)}</font>',
+                bullet_style
+            ))
+
+    # Objective findings / diagnoses / imaging from claim rows
+    claim_rows = list(ext.get("claim_rows") or [])
+    def _pick_claim(patterns: list[str], claim_types: set[str] | None = None, exclude_negative: bool = False) -> dict | None:
+        for row in sorted(claim_rows, key=lambda r: (str(r.get("date") or "9999-99-99"), -(int(r.get("selection_score") or 0)))):
+            assertion = _clean_line(row.get("assertion"))
+            low = assertion.lower()
+            if claim_types and str(row.get("claim_type") or "") not in claim_types:
+                continue
+            if exclude_negative and re.search(r"\b(no acute|unremarkable|no significant degenerative)\b", low):
+                continue
+            if any(re.search(p, low, re.I) for p in patterns) and (row.get("citations") or []):
+                return row
+        return None
+
+    for label, patterns, claim_types in [
+        ("Objective findings", [r"4/5", r"weakness", r"spasm", r"lordosis"], None),
+        ("Imaging findings", [r"disc", r"foramen", r"foraminal", r"c5-?c6", r"radiculopathy", r"herniat", r"protrusion"], {"IMAGING_FINDING"}),
+        ("Diagnoses", [r"disc", r"radiculopathy", r"displacement", r"strain", r"sprain"], {"INJURY_DX"}),
+    ]:
+        row = _pick_claim(patterns, claim_types, exclude_negative=True)
+        if not row:
+            continue
+        refs = _claim_row_citation_refs(row, citations_by_page, single_doc_id)
+        if not refs:
+            continue
+        a = chron_anchor(str(row.get("event_id") or f"claim_{label.lower()}"))
+        manifest.add_chron_anchor(a)
+        _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
+        txt = _guardrail_text(f"- {label}: {_clean_line(row.get('assertion'))}.", supported_injury=supported_injury)
+        if txt:
+            settlement_driver_rows.append(Paragraph(f'<a name="{escape(a)}"/>{escape(txt)} <font size="8">{escape(cite_text)}</font>', bullet_style))
+
+    pt_summary = _pt_intensity_summary(raw_events)
+    if pt_summary.get("visits"):
+        pt_evt = next((e for e in raw_events if str(getattr(getattr(e, "event_type", None), "value", getattr(e, "event_type", ""))) == "pt_visit"), None)
+        row_anchor = chron_anchor("pt_intensity")
+        manifest.add_chron_anchor(row_anchor)
+        refs = event_citations_by_event.get(str(pt_evt.event_id), []) if pt_evt else []
+        _links, cite_text = _citation_links_and_text(refs, row_anchor=row_anchor, manifest=manifest)
+        duration_txt = ""
+        if pt_summary.get("start") and pt_summary.get("end"):
+            duration_txt = f"; care duration {pt_summary['start']} to {pt_summary['end']}"
+        settlement_driver_rows.append(Paragraph(
+            f'<a name="{escape(row_anchor)}"/>- Treatment intensity: PT visits {pt_summary["visits"]} encounters{duration_txt}. <font size="8">{escape(cite_text)}</font>',
+            bullet_style,
+        ))
+
+    if not settlement_driver_rows:
+        settlement_driver_rows.append(Paragraph("- No fully citation-supported settlement drivers were available for front-page display.", bullet_style))
+    flowables.extend(settlement_driver_rows[:8])
     flowables.append(Spacer(1, 0.1 * inch))
 
-    if narrative_synthesis:
-        flowables.append(Paragraph("The following summary is synthesized from the record set for immediate inclusion in demand correspondence:", styles["Italic"]))
-        flowables.append(Spacer(1, 0.1 * inch))
+    flowables.append(Paragraph("Top Record Anchors", h2_style))
+    top_anchor_rows: list[Paragraph] = []
+    top_seen = set()
+    prioritized_claims = sorted(claim_rows, key=lambda r: (-(int(r.get("selection_score") or 0)), str(r.get("date") or "9999-99-99")))
+    for row in prioritized_claims:
+        assertion = _guardrail_text(_clean_line(row.get("assertion")), supported_injury=supported_injury)
+        if not assertion or assertion.lower() in top_seen:
+            continue
+        if _is_undermining_or_noise(assertion):
+            continue
+        refs = _claim_row_citation_refs(row, citations_by_page, single_doc_id)
+        if not refs:
+            continue
+        top_seen.add(assertion.lower())
+        a = chron_anchor(str(row.get("event_id") or f"top_{len(top_anchor_rows)}"))
+        manifest.add_chron_anchor(a)
+        _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
+        date_prefix = f"{row.get('date')}: " if row.get("date") and str(row.get("date")).lower() != "unknown" else ""
+        top_anchor_rows.append(Paragraph(
+            f'<a name="{escape(a)}"/>- {escape(date_prefix + assertion)} <font size="8">{escape(cite_text)}</font>',
+            bullet_style,
+        ))
+        if len(top_anchor_rows) >= 6:
+            break
+    if not top_anchor_rows:
+        top_anchor_rows.append(Paragraph("- Not available in packet extraction (no citation-supported anchor rows).", bullet_style))
+    flowables.extend(top_anchor_rows)
 
-        # Use first 2 paragraphs of narrative as the 'Lead' for the demand
-        for p_text in narrative_synthesis.split("\n\n")[:3]:
-            if p_text.strip():
-                flowables.append(Paragraph(p_text.strip(), demand_style))
-                flowables.append(Spacer(1, 0.1 * inch))
-
+    # Page 2 - Timeline table
     flowables.append(PageBreak())
-    flowables.append(Paragraph("Executive Summary", h1_style))
-    if narrative_synthesis:
-        from apps.worker.quality.text_quality import clean_text
-        clean_narrative = _clean_narrative_text(clean_text(narrative_synthesis))
-        for p_text in clean_narrative.split("\n\n"):
-            if p_text.strip():
-                flowables.append(Paragraph(p_text.strip().replace("\n", "<br/>"), normal_style))
-                flowables.append(Spacer(1, 0.1 * inch))
-    else:
-        flowables.append(Paragraph("No executive summary available.", normal_style))
-        flowables.append(Spacer(1, 0.1 * inch))
+    flowables.append(Paragraph('<a name="chronology_section_header"/>Medical Timeline (Litigation Ready)', h1_style))
+    flowables.extend(_build_timeline_table(projection, styles, manifest, event_citations_by_event))
 
-    # Specials & Billing
-    flowables.extend(build_billing_specials_section(specials_summary))
-
-    # Timeline
+    # Page 3 - Imaging / Objective / Diagnoses
     flowables.append(PageBreak())
-    flowables.append(Paragraph('<a name="chronology_section_header"/>Chronological Medical Timeline', h1_style))
-    timeline_flowables = _build_projection_flowables(
-        projection,
-        raw_events,
-        page_map,
-        styles,
-        manifest=manifest,
-        all_citations=all_citations,
-    )
-    if not timeline_flowables:
-        flowables.append(Paragraph("No timeline events met the criteria for inclusion in this view.", normal_style))
+    flowables.append(Paragraph("Imaging & Objective Findings", h1_style))
+    img_rows = _build_claim_row_sections(ext, styles, manifest, citations_by_page, single_doc_id, section_kind="imaging")
+    flowables.extend(_paragraph_list_section("Imaging Summary", img_rows, h2_style) or [Paragraph("Imaging Summary", h2_style), Paragraph("Not available in packet extraction.", normal_style)])
+    obj_rows = _build_claim_row_sections(ext, styles, manifest, citations_by_page, single_doc_id, section_kind="objective")
+    if not obj_rows and raw_events:
+        fallback: list[Paragraph] = []
+        for evt in raw_events:
+            text = " ".join(str(getattr(f, "text", "") or "") for f in (getattr(evt, "exam_findings", []) or []) + (getattr(evt, "facts", []) or []))
+            if not re.search(r"\b(4/5|weakness|strength|spasm|lordosis|rom|reflex)\b", text, re.I):
+                continue
+            refs = event_citations_by_event.get(str(evt.event_id), [])
+            if not refs:
+                continue
+            a = chron_anchor(str(evt.event_id))
+            manifest.add_chron_anchor(a)
+            _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
+            fallback.append(Paragraph(f'<a name="{escape(a)}"/>- {escape(_first_supported_fact(evt))}<br/><font size="8">{escape(cite_text)}</font>', bullet_style))
+            if len(fallback) >= 6:
+                break
+        obj_rows = fallback
+    flowables.extend(_paragraph_list_section("Objective Exam Findings", obj_rows, h2_style) or [Paragraph("Objective Exam Findings", h2_style), Paragraph("Not available in packet extraction.", normal_style)])
+    dx_rows = _build_claim_row_sections(ext, styles, manifest, citations_by_page, single_doc_id, section_kind="dx")
+    flowables.extend(_paragraph_list_section("Diagnoses / Assessment", dx_rows, h2_style) or [Paragraph("Diagnoses / Assessment", h2_style), Paragraph("Not available in packet extraction.", normal_style)])
+
+    # Page 4 - Treatment course & compliance
+    flowables.append(PageBreak())
+    flowables.append(Paragraph("Treatment Course & Compliance", h1_style))
+    care_lines: list[str] = []
+    if care_window:
+        care_lines.append(f"Care duration (export window): {care_window[0].isoformat()} to {care_window[1].isoformat()}")
+    if pt_summary.get("visits"):
+        visits_line = f"PT visits: {pt_summary['visits']} encounters"
+        if pt_summary.get("start") and pt_summary.get("end"):
+            visits_line += f" ({pt_summary['start']} to {pt_summary['end']})"
+        care_lines.append(visits_line)
+    if global_gaps:
+        care_lines.append(f"Treatment gaps >45 days identified: {len(global_gaps)} (see chronology and appendices)")
     else:
-        flowables.extend(timeline_flowables)
+        care_lines.append("No computed global treatment gaps >45 days in extracted records")
+    for line in care_lines:
+        flowables.append(Paragraph(f"- {escape(line)}", normal_style))
+    flowables.append(Spacer(1, 0.08 * inch))
+
+    discharge_rows = []
+    for evt in raw_events:
+        evtype = str(getattr(getattr(evt, "event_type", None), "value", getattr(evt, "event_type", "")))
+        if evtype not in {"discharge", "hospital_discharge"}:
+            continue
+        refs = event_citations_by_event.get(str(evt.event_id), [])
+        if not refs:
+            continue
+        a = chron_anchor(str(evt.event_id))
+        manifest.add_chron_anchor(a)
+        _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
+        discharge_rows.append(Paragraph(
+            f'<a name="{escape(a)}"/>- {_event_date_label(evt)} | {_first_supported_fact(evt)} <font size="8">{escape(cite_text)}</font>',
+            bullet_style,
+        ))
+        if len(discharge_rows) >= 4:
+            break
+    flowables.append(Paragraph("Discharge / Outcome Notes", h2_style))
+    if discharge_rows:
+        flowables.extend(discharge_rows)
+    else:
+        flowables.append(Paragraph("Not available in packet extraction.", normal_style))
+
+    # Page 5 - Billing / Specials
+    flowables.append(PageBreak())
+    flowables.extend(build_billing_specials_section(specials_summary, styles, manifest=manifest, citation_by_id=citation_by_id))
 
     # Appendix
     flowables.append(PageBreak())
-    flowables.append(Paragraph("Medical Record Appendix", h1_style))
+    flowables.append(Paragraph("Citation Index & Record Appendix", h1_style))
     flowables.extend(build_projection_appendix_sections(
         appendix_entries or projection.entries,
         gaps,
@@ -347,23 +1022,26 @@ def generate_pdf_from_projection(
     template = PageTemplate(id="test", frames=[frame], onPage=footer)
     doc.addPageTemplates([template])
     doc.build(flowables)
-    if run_id:
+    manifest_bytes: bytes | None = None
+    if run_id or manifest.forward_links:
         from dataclasses import asdict
-        from packages.shared.storage import save_artifact
         import json
         manifest_payload = asdict(manifest)
         if evidence_graph_payload and isinstance(evidence_graph_payload, dict):
-            ext = evidence_graph_payload.get("extensions", {}) or {}
-            if "quality_gate" in ext:
-                manifest_payload["quality_gate"] = ext.get("quality_gate")
+            ext_for_manifest = _ext_payload(evidence_graph_payload)
+            if "quality_gate" in ext_for_manifest:
+                manifest_payload["quality_gate"] = ext_for_manifest.get("quality_gate")
         if moat_stats:
             manifest_payload["moat_quality_stats"] = moat_stats
         manifest_bytes = json.dumps(manifest_payload, indent=2).encode("utf-8")
-        save_artifact(run_id, "render_manifest.json", manifest_bytes)
+        if run_id:
+            from packages.shared.storage import save_artifact
+            save_artifact(run_id, "render_manifest.json", manifest_bytes)
     pdf_bytes = buffer.getvalue()
     try:
         from apps.worker.steps.export_render.pdf_linker import add_internal_links
-        if manifest.forward_links:
+        if manifest.forward_links and manifest_bytes:
+            import json
             pdf_bytes = add_internal_links(pdf_bytes, json.loads(manifest_bytes.decode("utf-8")))
     except Exception as exc:
         logger.warning(f"PDF link post-process failed: {exc}")
