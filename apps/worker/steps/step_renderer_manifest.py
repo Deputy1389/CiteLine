@@ -25,6 +25,11 @@ _CATEGORY_ORDER = {
     "symptom": 6,
 }
 
+_GENERIC_PLACEHOLDER_PATTERNS = [
+    re.compile(r"\b(?:impression|assessment|consultation)\s+(?:documented|reviewed|noted)\b", re.I),
+    re.compile(r"\bfollow-?up and treatment planning noted\b", re.I),
+]
+
 
 def _iso_from_event(event: Event) -> tuple[str | None, str | None]:
     d = getattr(event, "date", None)
@@ -57,6 +62,25 @@ def _collect_fact_text(event: Event) -> str:
     return " ".join(parts)
 
 
+def _event_text_blobs(event: Event) -> list[str]:
+    blobs: list[str] = []
+    for val in (getattr(event, "reason_for_visit", None), getattr(event, "chief_complaint", None)):
+        txt = str(val or "").strip()
+        if txt:
+            blobs.append(txt)
+    for pool_name in ("facts", "diagnoses", "exam_findings", "procedures", "treatment_plan"):
+        for fact in getattr(event, pool_name, []) or []:
+            txt = str(getattr(fact, "text", "") or "").strip()
+            if txt and not getattr(fact, "technical_noise", False):
+                blobs.append(txt)
+    imaging = getattr(event, "imaging", None)
+    for fact in getattr(imaging, "impression", []) or []:
+        txt = str(getattr(fact, "text", "") or "").strip()
+        if txt and not getattr(fact, "technical_noise", False):
+            blobs.append(txt)
+    return blobs
+
+
 def _build_doi(events: list[Event]) -> RendererDoiField:
     dated: list[tuple[str, Event]] = []
     for e in events:
@@ -71,31 +95,46 @@ def _build_doi(events: list[Event]) -> RendererDoiField:
 
 
 def _build_mechanism(events: list[Event]) -> RendererCitationValue:
-    for e in events:
-        blob = _collect_fact_text(e).lower()
+    patterns = [
+        (re.compile(r"\b(rear[- ]end)\b", re.I), "rear-end motor vehicle collision"),
+        (re.compile(r"\b(motor vehicle collision|motor vehicle accident|mvc|mva|auto accident|car accident)\b", re.I), "motor vehicle collision"),
+        (re.compile(r"\b(slip and fall|trip and fall|fall)\b", re.I), "fall"),
+        (re.compile(r"\b(pedestrian (?:struck|hit)|struck by vehicle)\b", re.I), "pedestrian struck"),
+        (re.compile(r"\b(motorcycle|bike accident|bicycle accident)\b", re.I), "vehicle collision"),
+        (re.compile(r"\b(work(?:place)? injury|on the job|lifting injury)\b", re.I), "work injury"),
+    ]
+    # Prefer earlier events because mechanism is usually documented near DOI.
+    ordered = sorted(events, key=lambda e: (_iso_from_event(e)[0] or "9999-99-99", str(getattr(e, "event_id", ""))))
+    for e in ordered:
+        blob = " ".join(_event_text_blobs(e)).lower()
         if not blob:
             continue
-        if "rear-end" in blob or "rear end" in blob:
-            return RendererCitationValue(value="rear-end motor vehicle collision", citation_ids=list(e.citation_ids or []))
-        if "motor vehicle" in blob or " mva " in f" {blob} " or " mvc " in f" {blob} " or "collision" in blob:
-            return RendererCitationValue(value="motor vehicle collision", citation_ids=list(e.citation_ids or []))
-        if "fall" in blob:
-            return RendererCitationValue(value="fall", citation_ids=list(e.citation_ids or []))
+        for pat, label in patterns:
+            if pat.search(blob):
+                cids = [str(c) for c in (getattr(e, "citation_ids", []) or []) if str(c).strip()]
+                if cids:
+                    return RendererCitationValue(value=label, citation_ids=cids[:8])
     return RendererCitationValue(value=None, citation_ids=[])
 
 
 def _build_pt_summary(events: list[Event]) -> RendererPtSummary:
-    pt_events = [e for e in events if str(getattr(getattr(e, "event_type", None), "value", getattr(e, "event_type", ""))) == "pt_visit"]
-    if not pt_events:
+    pt_evidence_events: list[Event] = []
+    for e in events:
+        etype = str(getattr(getattr(e, "event_type", None), "value", getattr(e, "event_type", "")))
+        blobs = _event_text_blobs(e)
+        joined = " ".join(blobs).lower()
+        if etype == "pt_visit" or ("physical therapy" in joined or re.search(r"\bpt\b", joined)):
+            pt_evidence_events.append(e)
+    if not pt_evidence_events:
         return RendererPtSummary(count_source="not_found")
 
-    count_from_snippet: int | None = None
+    aggregate_counts: list[int] = []
     citations: list[str] = []
     starts: list[str] = []
     ends: list[str] = []
     discharge_status: str | None = None
 
-    for e in pt_events:
+    for e in pt_evidence_events:
         for cid in list(getattr(e, "citation_ids", []) or []):
             if cid not in citations:
                 citations.append(cid)
@@ -105,28 +144,37 @@ def _build_pt_summary(events: list[Event]) -> RendererPtSummary:
         if en:
             ends.append(en)
 
-        for fact in getattr(e, "facts", []) or []:
-            txt = str(getattr(fact, "text", "") or "")
+        for txt in _event_text_blobs(e):
             m = re.search(r"\b(?:PT sessions documented|Aggregated PT sessions)\D+(\d+)\s+encounters?\b", txt, re.I)
             if m:
-                count_from_snippet = max(count_from_snippet or 0, int(m.group(1)))
+                aggregate_counts.append(int(m.group(1)))
             elif (m2 := re.search(r"\bPT sessions documented:\s*(\d+)\b", txt, re.I)):
-                count_from_snippet = max(count_from_snippet or 0, int(m2.group(1)))
+                aggregate_counts.append(int(m2.group(1)))
             if "discharge" in txt.lower() and not discharge_status:
                 discharge_status = txt[:180]
 
-    if count_from_snippet is not None:
-        total = count_from_snippet
+    if aggregate_counts:
+        total = max(aggregate_counts)
         source = "aggregate_snippet"
     else:
-        total = len(pt_events)
+        total = sum(1 for e in pt_evidence_events if str(getattr(getattr(e, "event_type", None), "value", getattr(e, "event_type", ""))) == "pt_visit")
+        total = total or len(pt_evidence_events)
         source = "event_count"
+    unique_counts = sorted({c for c in aggregate_counts if c > 0})
+    note = None
+    cmin = min(unique_counts) if unique_counts else None
+    cmax = max(unique_counts) if unique_counts else None
+    if cmin is not None and cmax is not None and cmin != cmax:
+        note = f"PT volume summaries vary across records ({cmin}-{cmax} encounters); displayed count uses the highest citation-backed aggregate."
 
     return RendererPtSummary(
         total_encounters=total,
+        encounter_count_min=cmin,
+        encounter_count_max=cmax,
         date_start=min(starts) if starts else None,
         date_end=max(ends) if ends else None,
         discharge_status=discharge_status,
+        reconciliation_note=note,
         citation_ids=citations[:12],
         count_source=source,
     )
@@ -203,10 +251,81 @@ def _promoted_findings_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list
     return out
 
 
+def _promoted_findings_from_events(events: list[Event], existing: list[PromotedFinding]) -> list[PromotedFinding]:
+    seen = {f"{pf.category}|{pf.label.strip().lower()}" for pf in existing}
+    out: list[PromotedFinding] = list(existing)
+    for e in events:
+        event_cids = [str(c) for c in (getattr(e, "citation_ids", []) or []) if str(c).strip()]
+        if not event_cids:
+            continue
+        pools: list[tuple[str, list[Any], str | None]] = [
+            ("diagnosis", list(getattr(e, "diagnoses", []) or []), None),
+            ("objective_deficit", list(getattr(e, "exam_findings", []) or []), None),
+            ("procedure", list(getattr(e, "procedures", []) or []), None),
+            ("treatment", list(getattr(e, "treatment_plan", []) or []), None),
+        ]
+        imaging = getattr(e, "imaging", None)
+        if imaging and getattr(imaging, "impression", None):
+            body_part = str(getattr(imaging, "body_part", "") or "").strip() or None
+            pools.append(("imaging", list(getattr(imaging, "impression", []) or []), body_part))
+        for category, facts, body_region in pools:
+            for fact in facts:
+                txt = str(getattr(fact, "text", "") or "").strip()
+                if not txt or getattr(fact, "technical_noise", False):
+                    continue
+                citation_ids = [str(c) for c in (getattr(fact, "citation_ids", []) or []) if str(c).strip()] or event_cids
+                if not citation_ids:
+                    continue
+                # objective deficits are elevated by source field; generic pain-only exam items are not headline-worthy
+                polarity, headline = _claim_to_polarity_and_headline(txt, list(getattr(e, "flags", []) or []), category)
+                if category == "objective_deficit" and re.search(r"\bpain\b", txt, re.I) and not re.search(r"\b(weakness|strength|reflex|rom|lordosis|spasm|4/5)\b", txt, re.I):
+                    headline = False
+                key = f"{category}|{txt.lower()}"
+                if key in seen:
+                    continue
+                seen.add(key)
+                severity = "high" if category in {"objective_deficit", "imaging", "diagnosis", "procedure"} and headline else ("low" if not headline else "medium")
+                eid = str(getattr(e, "event_id", "") or "").strip() or None
+                out.append(PromotedFinding(
+                    category=category,
+                    label=txt,
+                    body_region=body_region,
+                    severity=severity,
+                    headline_eligible=headline,
+                    finding_polarity=polarity,
+                    citation_ids=citation_ids[:8],
+                    confidence=min(1.0, float(getattr(e, "confidence", 0) or 0) / 100.0),
+                    source_event_id=eid,
+                ))
+    out.sort(key=lambda f: (_CATEGORY_ORDER.get(f.category, 99), 0 if f.headline_eligible else 1, {"high": 0, "medium": 1, "low": 2}.get(f.severity or "low", 2), -f.confidence))
+    return out
+
+
 def _top_case_drivers_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list[str]:
+    def _row_rank(r: dict[str, Any]) -> tuple:
+        ctype = str(r.get("claim_type") or "")
+        cat = _claim_to_category(ctype)
+        assertion = str(r.get("assertion") or "")
+        if re.search(r"\b(?:4/5|weakness|strength|reflex|rom)\b", assertion, re.I):
+            cat = "objective_deficit"
+        pol, headline = _claim_to_polarity_and_headline(assertion, list(r.get("flags") or []), cat)
+        generic = any(p.search(assertion) for p in _GENERIC_PLACEHOLDER_PATTERNS)
+        return (
+            _CATEGORY_ORDER.get(cat, 99),
+            0 if headline else 1,
+            1 if generic else 0,
+            -(int(r.get("selection_score") or 0)),
+            -(int(r.get("support_score") or 0)),
+            str(r.get("date") or "9999-99-99"),
+            1 if pol == "negative" else 0,
+        )
+
     ranked = sorted(
-        [r for r in (claim_rows or []) if r.get("event_id") and (r.get("citations") or [])],
-        key=lambda r: (-(int(r.get("selection_score") or 0)), -(int(r.get("support_score") or 0)), str(r.get("date") or "9999-99-99")),
+        [
+            r for r in (claim_rows or [])
+            if r.get("event_id") and (r.get("citations") or []) and not any(p.search(str(r.get("assertion") or "")) for p in _GENERIC_PLACEHOLDER_PATTERNS)
+        ],
+        key=_row_rank,
     )
     out: list[str] = []
     seen: set[str] = set()
@@ -243,6 +362,7 @@ def build_renderer_manifest(
     ext = evidence_graph_extensions or {}
     claim_rows = list(ext.get("claim_rows") or [])
     promoted = _promoted_findings_from_claim_rows(claim_rows)
+    promoted = _promoted_findings_from_events(events, promoted)
     return RendererManifest(
         doi=_build_doi(events),
         mechanism=_build_mechanism(events),
@@ -251,4 +371,3 @@ def build_renderer_manifest(
         top_case_drivers=_top_case_drivers_from_claim_rows(claim_rows),
         billing_completeness=_billing_completeness(specials_summary),
     )
-

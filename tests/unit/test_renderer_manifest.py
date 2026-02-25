@@ -37,6 +37,18 @@ def test_renderer_manifest_prefers_aggregate_pt_count_and_sanitizes_dates() -> N
     assert manifest.pt_summary.date_end == "2025-11-13"
 
 
+def test_renderer_manifest_pt_conflict_adds_reconciliation_note() -> None:
+    events = [
+        _pt_event("pt-1", date(2024, 10, 17), date(2025, 11, 13), "PT sessions documented: 117", ["c1"]),
+        _pt_event("pt-2", date(2024, 10, 20), date(2025, 11, 13), "Aggregated PT sessions (141 encounters)", ["c2"]),
+    ]
+    manifest = build_renderer_manifest(events=events, evidence_graph_extensions={}, specials_summary=None)
+    assert manifest.pt_summary.total_encounters == 141
+    assert manifest.pt_summary.encounter_count_min == 117
+    assert manifest.pt_summary.encounter_count_max == 141
+    assert manifest.pt_summary.reconciliation_note
+
+
 def test_renderer_manifest_promotes_claim_rows_with_priority_categories() -> None:
     claim_rows = [
         {
@@ -83,3 +95,18 @@ def test_renderer_manifest_promotes_claim_rows_with_priority_categories() -> Non
     assert low_img.finding_polarity == "negative"
     assert manifest.billing_completeness == "partial"
     assert manifest.top_case_drivers
+
+
+def test_renderer_manifest_extracts_mechanism_from_cited_event_text() -> None:
+    evt = Event(
+        event_id="er-1",
+        provider_id="prov-er",
+        event_type=EventType.ER_VISIT,
+        reason_for_visit="Rear-end MVC with neck and back pain",
+        facts=[Fact(text="Patient presents after rear-end motor vehicle collision", kind=FactKind.OTHER, verbatim=True, citation_ids=["c-mvc"])],
+        confidence=90,
+        citation_ids=["c-mvc"],
+    )
+    manifest = build_renderer_manifest(events=[evt], evidence_graph_extensions={}, specials_summary=None)
+    assert manifest.mechanism.value == "rear-end motor vehicle collision"
+    assert "c-mvc" in manifest.mechanism.citation_ids

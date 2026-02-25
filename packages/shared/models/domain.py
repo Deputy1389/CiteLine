@@ -271,9 +271,12 @@ class RendererDoiField(RendererCitationValue):
 
 class RendererPtSummary(BaseModel):
     total_encounters: Optional[int] = None
+    encounter_count_min: Optional[int] = None
+    encounter_count_max: Optional[int] = None
     date_start: Optional[str] = None
     date_end: Optional[str] = None
     discharge_status: Optional[str] = None
+    reconciliation_note: Optional[str] = None
     citation_ids: list[str] = Field(default_factory=list)
     count_source: Literal["structured", "aggregate_snippet", "event_count", "not_found"] = "not_found"
 

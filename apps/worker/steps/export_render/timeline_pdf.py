@@ -925,6 +925,7 @@ def generate_pdf_from_projection(
     flowables.append(Spacer(1, 0.12 * inch))
 
     flowables.append(Paragraph("Settlement Drivers (record-supported)", h2_style))
+    flowables.append(Paragraph("Record-supported highlights selected from citation-anchored findings; not a legal conclusion.", ParagraphStyle("SnapshotMeta", parent=normal_style, fontSize=8.5, textColor=colors.HexColor("#475569"), spaceAfter=4)))
     settlement_driver_rows: list[Paragraph] = []
     bullet_style = ParagraphStyle("SnapshotBullet", parent=normal_style, leftIndent=12, bulletIndent=0, spaceAfter=2)
 
@@ -938,6 +939,18 @@ def generate_pdf_from_projection(
             f'<a name="{escape(a)}"/>- Early care documented: {escape(_event_date_label(first_er))} acute/initial treatment encounter. <font size="8">{escape(cite_text)}</font>',
             bullet_style
         ))
+
+    rm_mech = rm.get("mechanism") if isinstance(rm, dict) else {}
+    if isinstance(rm_mech, dict) and _clean_line(rm_mech.get("value")) and (rm_mech.get("citation_ids") or []):
+        refs = _refs_from_citation_ids([str(c) for c in (rm_mech.get("citation_ids") or [])], citation_by_id)
+        if refs:
+            a = chron_anchor("mechanism")
+            manifest.add_chron_anchor(a)
+            _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
+            settlement_driver_rows.append(Paragraph(
+                f'<a name="{escape(a)}"/>- Mechanism documented: {escape(_clean_line(rm_mech.get("value")))}. <font size="8">{escape(cite_text)}</font>',
+                bullet_style,
+            ))
 
     # Continuous care if no global gap >45
     mr_payload = missing_records_payload or ext.get("missing_records") or {}
@@ -1043,6 +1056,26 @@ def generate_pdf_from_projection(
             f'<a name="{escape(row_anchor)}"/>- Treatment intensity: PT visits {pt_summary["visits"]} encounters{duration_txt}. <font size="8">{escape(cite_text)}</font>',
             bullet_style,
         ))
+        if isinstance(rm_pt, dict) and _clean_line(rm_pt.get("reconciliation_note")):
+            settlement_driver_rows.append(Paragraph(
+                f"- PT count reconciliation: {escape(_clean_line(rm_pt.get('reconciliation_note')))}",
+                bullet_style,
+            ))
+
+    snapshot_warnings: list[str] = []
+    if mechanism_display == "Not clearly extracted from packet":
+        snapshot_warnings.append("Mechanism not clearly extracted into summary; review timeline and appendix for causation anchors.")
+    has_img = bool(promoted_by_cat.get("imaging"))
+    has_dx = bool(promoted_by_cat.get("diagnosis"))
+    if not has_img:
+        snapshot_warnings.append("Imaging findings were not promoted into the snapshot summary.")
+    if not has_dx:
+        snapshot_warnings.append("Diagnoses were not promoted into the snapshot summary.")
+    if isinstance(rm, dict) and str(rm.get("billing_completeness") or "") == "partial":
+        snapshot_warnings.append("Billing extraction is partial; specials totals are not complete.")
+    if snapshot_warnings:
+        warn_style = ParagraphStyle("SnapshotWarn", parent=normal_style, backColor=colors.HexColor("#FFF7ED"), borderColor=colors.HexColor("#FDBA74"), borderWidth=0.5, borderPadding=4, spaceAfter=6)
+        flowables.append(Paragraph("<b>Snapshot completeness notes</b>: " + " ".join(snapshot_warnings), warn_style))
 
     if not settlement_driver_rows:
         settlement_driver_rows.append(Paragraph("- No fully citation-supported settlement drivers were available for front-page display.", bullet_style))
@@ -1126,7 +1159,7 @@ def generate_pdf_from_projection(
     )
     if not img_rows:
         img_rows = _build_claim_row_sections(ext, styles, manifest, citations_by_page, single_doc_id, section_kind="imaging")
-    flowables.extend(_paragraph_list_section("Imaging Summary", img_rows, h2_style) or [Paragraph("Imaging Summary", h2_style), Paragraph("Not available in packet extraction.", normal_style)])
+    flowables.extend(_paragraph_list_section("Imaging Summary", img_rows, h2_style) or [Paragraph("Imaging Summary", h2_style), Paragraph("No citation-anchored imaging item qualified for summary display.", normal_style)])
     obj_rows = _manifest_finding_paragraphs(
         rm,
         categories=("objective_deficit",),
@@ -1153,7 +1186,7 @@ def generate_pdf_from_projection(
             if len(fallback) >= 6:
                 break
         obj_rows = fallback
-    flowables.extend(_paragraph_list_section("Objective Exam Findings", obj_rows, h2_style) or [Paragraph("Objective Exam Findings", h2_style), Paragraph("Not available in packet extraction.", normal_style)])
+    flowables.extend(_paragraph_list_section("Objective Exam Findings", obj_rows, h2_style) or [Paragraph("Objective Exam Findings", h2_style), Paragraph("No citation-anchored objective finding qualified for summary display.", normal_style)])
     dx_rows = _manifest_finding_paragraphs(
         rm,
         categories=("diagnosis", "procedure"),
@@ -1164,7 +1197,7 @@ def generate_pdf_from_projection(
     )
     if not dx_rows:
         dx_rows = _build_claim_row_sections(ext, styles, manifest, citations_by_page, single_doc_id, section_kind="dx")
-    flowables.extend(_paragraph_list_section("Diagnoses / Assessment", dx_rows, h2_style) or [Paragraph("Diagnoses / Assessment", h2_style), Paragraph("Not available in packet extraction.", normal_style)])
+    flowables.extend(_paragraph_list_section("Diagnoses / Assessment", dx_rows, h2_style) or [Paragraph("Diagnoses / Assessment", h2_style), Paragraph("No citation-anchored diagnosis/assessment item qualified for summary display.", normal_style)])
 
     # Page 4 - Treatment course & compliance
     flowables.append(PageBreak())
@@ -1178,6 +1211,8 @@ def generate_pdf_from_projection(
             visits_line += f" ({pt_summary['start']} to {pt_summary['end']})"
         rm_pt_refs = _refs_from_citation_ids([str(c) for c in (rm_pt.get("citation_ids") or [])], citation_by_id) if isinstance(rm_pt, dict) else []
         care_lines.append((visits_line, rm_pt_refs))
+    if isinstance(rm_pt, dict) and _clean_line(rm_pt.get("reconciliation_note")):
+        care_lines.append((f"PT count reconciliation: {_clean_line(rm_pt.get('reconciliation_note'))}", _refs_from_citation_ids([str(c) for c in (rm_pt.get('citation_ids') or [])], citation_by_id)))
     if global_gaps:
         care_lines.append((f"Treatment gaps >45 days identified: {len(global_gaps)} (see chronology and appendices)", []))
     else:
