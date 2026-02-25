@@ -15,8 +15,10 @@ from apps.api.authz import RequestIdentity, assert_firm_access, get_request_iden
 from packages.db.database import get_db
 from packages.db.models import Artifact, Matter, Run, SourceDocument
 from packages.shared.artifacts import artifact_extension, is_valid_artifact_type
+from packages.shared.models import RunConfig
 
 router = APIRouter(tags=["runs"])
+_RUNCFG_DEFAULTS = RunConfig()
 
 
 def _coerce_json_value(value, expected: type):
@@ -34,19 +36,18 @@ def _coerce_json_value(value, expected: type):
 
 
 class CreateRunRequest(BaseModel):
-    # Use shared defaults from RunConfig to ensure consistency
-    max_pages: int = 1000
+    max_pages: int = _RUNCFG_DEFAULTS.max_pages
     include_billing_events_in_timeline: bool = False
-    pt_mode: str = "per_visit"  # Must match RunConfig default
-    pt_aggregate_window_days: int = 7
-    gap_threshold_days: int = 60
-    event_confidence_min_export: int = 30  # Must match RunConfig default
-    low_confidence_event_behavior: str = "exclude_from_export"
-    enable_llm_reasoning: bool = False
-    gemini_model: str = "gemini-1.5-flash"
-    llm_reasoning_min_confidence: int = 30
-    narrative_min_confidence: int = 30
-    chronology_min_score: float = 0.3
+    pt_mode: str = str(_RUNCFG_DEFAULTS.pt_mode)
+    pt_aggregate_window_days: int = _RUNCFG_DEFAULTS.pt_aggregate_window_days
+    gap_threshold_days: int = _RUNCFG_DEFAULTS.gap_threshold_days
+    event_confidence_min_export: int = _RUNCFG_DEFAULTS.event_confidence_min_export
+    low_confidence_event_behavior: str = str(_RUNCFG_DEFAULTS.low_confidence_event_behavior)
+    enable_llm_reasoning: bool = _RUNCFG_DEFAULTS.enable_llm_reasoning
+    gemini_model: str = _RUNCFG_DEFAULTS.gemini_model
+    llm_reasoning_min_confidence: int = _RUNCFG_DEFAULTS.llm_reasoning_min_confidence
+    narrative_min_confidence: int = _RUNCFG_DEFAULTS.narrative_min_confidence
+    chronology_min_score: int = _RUNCFG_DEFAULTS.chronology_min_score
 
 
 class RunResponse(BaseModel):
@@ -84,11 +85,16 @@ def start_run(
 
     config = {
         "max_pages": req.max_pages,
-        "include_billing_events_in_timeline": req.include_billing_events_in_timeline,
         "pt_mode": req.pt_mode,
+        "pt_aggregate_window_days": req.pt_aggregate_window_days,
         "gap_threshold_days": req.gap_threshold_days,
         "event_confidence_min_export": req.event_confidence_min_export,
         "low_confidence_event_behavior": req.low_confidence_event_behavior,
+        "enable_llm_reasoning": req.enable_llm_reasoning,
+        "gemini_model": req.gemini_model,
+        "llm_reasoning_min_confidence": req.llm_reasoning_min_confidence,
+        "narrative_min_confidence": req.narrative_min_confidence,
+        "chronology_min_score": req.chronology_min_score,
     }
 
     run = Run(

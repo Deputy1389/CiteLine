@@ -46,7 +46,7 @@ def persist_pipeline_state(
             run_row.metrics_json = run_record.metrics.model_dump()
             run_row.warnings_json = [w.model_dump() for w in all_warnings]
             run_row.provenance_json = run_record.provenance.model_dump()
-            if gate_results:
+            if gate_results and hasattr(run_row, "quality_gate_json"):
                 run_row.quality_gate_json = gate_results
 
             # Idempotency: clear prior rows for this run.

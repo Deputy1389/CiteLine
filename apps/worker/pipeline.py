@@ -314,15 +314,19 @@ def run_pipeline(run_id: str) -> None:
         # Update status based on quality gates
         if not gate_results.get("overall_pass", True):
             status = "needs_review"
-            all_warnings.append(type('Warning', (), {
-                'code': 'QUALITY_GATE_FAILED',
-                'message': f"Quality gates failed: attorney={gate_results.get('attorney_ready_pass')}, luqa={gate_results.get('luqa_pass')}",
-                'severity': 'high'
-            })())
+            all_warnings.append(
+                Warning(
+                    code="QUALITY_GATE_FAILED",
+                    message=(
+                        "Quality gates failed: "
+                        f"attorney={gate_results.get('attorney_ready_pass')}, "
+                        f"luqa={gate_results.get('luqa_pass')}"
+                    ),
+                )
+            )
             
             # Write fail cover PDF if gates failed
             try:
-                from apps.worker.lib.quality_gates import write_fail_cover_pdf
                 pdf_uri = getattr(getattr(chronology, 'exports', None), 'pdf_export', None)
                 if pdf_uri and hasattr(pdf_uri, 'uri'):
                     pdf_path = str(pdf_uri.uri)
