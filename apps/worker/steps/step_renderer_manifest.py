@@ -403,7 +403,47 @@ def _build_mechanism_from_citations(citations: list[Citation] | None) -> Rendere
     return RendererCitationValue(value=None, citation_ids=[])
 
 
-def _build_pt_summary(events: list[Event], citations: list[Citation] | None = None) -> RendererPtSummary:
+def _build_pt_summary(events: list[Event], citations: list[Citation] | None = None, ext: dict[str, Any] | None = None) -> RendererPtSummary:
+    ext = ext or {}
+    pt_encounters = [r for r in (ext.get("pt_encounters") or []) if isinstance(r, dict) and str(r.get("source") or "primary") == "primary"]
+    pt_reported = [r for r in (ext.get("pt_count_reported") or []) if isinstance(r, dict)]
+    if pt_encounters or pt_reported:
+        verified_count = len(pt_encounters)
+        starts = [str(r.get("encounter_date") or "") for r in pt_encounters if str(r.get("encounter_date") or "").strip() and str(r.get("encounter_date")) not in _SENTINEL_DATES]
+        ends = list(starts)
+        citation_ids_collected: list[str] = []
+        for row in pt_encounters + pt_reported:
+            for cid in list(row.get("evidence_citation_ids") or []):
+                scid = str(cid).strip()
+                if scid and scid not in citation_ids_collected:
+                    citation_ids_collected.append(scid)
+        reported_vals = sorted({int(r.get("reported_count") or 0) for r in pt_reported if int(r.get("reported_count") or 0) > 0})
+        cmin = min(reported_vals) if reported_vals else None
+        cmax = max(reported_vals) if reported_vals else None
+        note = None
+        if cmin is not None and cmax is not None and (cmin != verified_count or cmax != verified_count):
+            if cmin != cmax:
+                note = (
+                    f"Reported PT totals in records vary ({cmin}-{cmax}). "
+                    f"Verified PT count is {verified_count} based on enumerated dated encounters in this packet."
+                )
+            else:
+                note = (
+                    f"Reported PT total in records: {cmax}. "
+                    f"Verified PT count is {verified_count} based on enumerated dated encounters in this packet."
+                )
+        return RendererPtSummary(
+            total_encounters=verified_count,
+            encounter_count_min=cmin,
+            encounter_count_max=cmax,
+            date_start=min(starts) if starts else None,
+            date_end=max(ends) if ends else None,
+            discharge_status=None,
+            reconciliation_note=note,
+            citation_ids=citation_ids_collected[:12],
+            count_source="event_count",
+        )
+
     pt_evidence_events: list[Event] = []
     for e in events:
         etype = str(getattr(getattr(e, "event_type", None), "value", getattr(e, "event_type", "")))
@@ -824,7 +864,7 @@ def build_renderer_manifest(
     return RendererManifest(
         doi=_build_doi(events),
         mechanism=mechanism,
-        pt_summary=_build_pt_summary(events, citations),
+        pt_summary=_build_pt_summary(events, citations, ext),
         promoted_findings=promoted,
         top_case_drivers=_top_case_drivers_from_claim_rows(claim_rows),
         billing_completeness=_billing_completeness(specials_summary),

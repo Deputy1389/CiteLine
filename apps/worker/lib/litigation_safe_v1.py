@@ -69,8 +69,22 @@ def validate_litigation_safe_v1(snapshot: dict | None, events: list[Event] | lis
     if contradictions:
         _add_failure(failures, failure_codes, "INTERNAL_CONTRADICTION")
 
+    pt_ev = ctx.get("ptEvidence") or ctx.get("pt_evidence") or {}
+    pt_verified = None
+    pt_reported_max = None
+    try:
+        if isinstance(pt_ev, dict):
+            pt_verified = int(pt_ev.get("verified_pt_count")) if pt_ev.get("verified_pt_count") is not None else None
+            pt_reported_max = int(pt_ev.get("reported_pt_count_max")) if pt_ev.get("reported_pt_count_max") is not None else None
+    except Exception:
+        pt_verified, pt_reported_max = None, None
+
     if failures:
         status = "BLOCKED"
+    elif pt_verified == 0 and (pt_reported_max or 0) > 0:
+        status = "BLOCKED"
+    elif pt_reported_max is not None and pt_reported_max >= 10 and (pt_verified or 0) < 3:
+        status = "REVIEW_RECOMMENDED"
     elif billing_partial:
         status = "REVIEW_RECOMMENDED"
     else:
@@ -94,6 +108,8 @@ def validate_litigation_safe_v1(snapshot: dict | None, events: list[Event] | lis
             "reported_max_gap_days": reported_gap,
             "pt_count_candidates": _pt_count_candidates(snapshot, evs, ctx),
             "contradiction_details": contradictions,
+            "pt_verified_count": pt_verified,
+            "pt_reported_count_max": pt_reported_max,
         },
     }
 

@@ -494,6 +494,19 @@ def _export_status_label(ext: dict, rm: dict) -> str:
     if isinstance(lsv1, dict):
         status = str(lsv1.get("status") or "").strip().upper()
         if status in {"VERIFIED", "REVIEW_RECOMMENDED", "BLOCKED"}:
+            # PT ledger variance is a deterministic review trigger even if other litigation checks pass.
+            pt_recon = ext.get("pt_reconciliation") if isinstance(ext, dict) else None
+            if isinstance(pt_recon, dict):
+                verified = int(pt_recon.get("verified_pt_count") or 0)
+                reported_max = pt_recon.get("reported_pt_count_max")
+                try:
+                    reported_max_i = int(reported_max) if reported_max is not None else None
+                except Exception:
+                    reported_max_i = None
+                if verified == 0 and reported_max_i and reported_max_i > 0:
+                    return "BLOCKED"
+                if reported_max_i is not None and reported_max_i >= 10 and verified < 3 and status == "VERIFIED":
+                    return "REVIEW_RECOMMENDED"
             return status
     qg = ext.get("quality_gate") if isinstance(ext, dict) else None
     if isinstance(qg, dict):
@@ -519,6 +532,107 @@ def _litigation_gap_summary(lsv1: dict[str, Any]) -> tuple[bool, int]:
     except Exception:
         max_gap_days = 0
     return (max_gap_days > 45, max_gap_days)
+
+
+def _pt_evidence_payload(ext: dict) -> dict[str, Any]:
+    pt_encounters = [r for r in (ext.get("pt_encounters") or []) if isinstance(r, dict)]
+    pt_reported = [r for r in (ext.get("pt_count_reported") or []) if isinstance(r, dict)]
+    pt_recon = ext.get("pt_reconciliation") if isinstance(ext.get("pt_reconciliation"), dict) else {}
+    reported_vals = sorted({int(r.get("reported_count") or 0) for r in pt_reported if int(r.get("reported_count") or 0) > 0})
+    return {
+        "encounters": sorted(
+            pt_encounters,
+            key=lambda r: (
+                str(r.get("encounter_date") or "9999-99-99"),
+                int(r.get("page_number") or 0),
+                str(r.get("provider_name") or ""),
+            ),
+        ),
+        "reported": pt_reported,
+        "verified_count": int(pt_recon.get("verified_pt_count") or len(pt_encounters) or 0),
+        "reported_vals": reported_vals,
+        "reported_min": (min(reported_vals) if reported_vals else None),
+        "reported_max": (max(reported_vals) if reported_vals else None),
+        "variance_flag": bool(pt_recon.get("variance_flag")),
+        "severe_variance_flag": bool(pt_recon.get("severe_variance_flag")),
+    }
+
+
+def _pt_ledger_refs(row: dict[str, Any], citation_by_id: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    return _refs_from_citation_ids([str(c) for c in (row.get("evidence_citation_ids") or [])], citation_by_id)
+
+
+def _build_pt_reconciliation_table(pt_payload: dict[str, Any], styles: Any) -> list:
+    verified = int(pt_payload.get("verified_count") or 0)
+    reported_min = pt_payload.get("reported_min")
+    reported_max = pt_payload.get("reported_max")
+    if reported_min is None and reported_max is None:
+        return []
+    normal = styles["Normal"]
+    small = ParagraphStyle("PtReconSmall", parent=normal, fontSize=8.5, leading=10.5)
+    if reported_min == reported_max:
+        reported_label = str(reported_max)
+    else:
+        reported_label = f"{reported_min}-{reported_max}"
+    delta = None
+    if reported_max is not None:
+        try:
+            delta = int(reported_max) - verified
+        except Exception:
+            delta = None
+    rows = [
+        [Paragraph("<b>PT Count Reconciliation</b>", small), Paragraph("", small)],
+        [Paragraph("Verified (enumerated dated encounters)", small), Paragraph(f"{verified}", small)],
+        [Paragraph("Reported in records (summary counts)", small), Paragraph(reported_label, small)],
+        [Paragraph("Variance (reported max - verified)", small), Paragraph(str(delta) if delta is not None else "n/a", small)],
+    ]
+    tbl = Table(rows, colWidths=[3.9 * inch, 2.1 * inch])
+    tbl.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#CBD5E1")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EAF1FB")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+    ]))
+    return [tbl]
+
+
+def _build_pt_visit_ledger_section(
+    pt_payload: dict[str, Any],
+    *,
+    styles: Any,
+    manifest: RenderManifest | None,
+    citation_by_id: dict[str, dict[str, Any]],
+) -> list:
+    encounters = list(pt_payload.get("encounters") or [])
+    if not encounters:
+        return []
+    normal = styles["Normal"]
+    small = ParagraphStyle("PtLedgerSmall", parent=normal, fontSize=8.5, leading=10)
+    rows = [[
+        Paragraph("<b>Date</b>", small),
+        Paragraph("<b>Provider</b>", small),
+        Paragraph("<b>Facility</b>", small),
+        Paragraph("<b>Citation</b>", small),
+    ]]
+    for idx, row in enumerate(encounters):
+        refs = _pt_ledger_refs(row, citation_by_id)
+        row_anchor = chron_anchor(f"pt_ledger_{idx}")
+        if manifest:
+            manifest.add_chron_anchor(row_anchor)
+        _links, cite_text = _citation_links_and_text(refs, row_anchor=row_anchor, manifest=manifest)
+        rows.append([
+            Paragraph(f'<a name="{escape(row_anchor)}"/>{escape(str(row.get("encounter_date") or "Undated"))}', small),
+            Paragraph(escape(_clean_line(row.get("provider_name")) or "Unknown Provider"), small),
+            Paragraph(escape(_clean_line(row.get("facility_name")) or "Unknown Facility"), small),
+            Paragraph(escape(cite_text), small),
+        ])
+    tbl = Table(rows, colWidths=[1.0 * inch, 2.0 * inch, 2.0 * inch, 1.5 * inch], repeatRows=1)
+    tbl.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#CBD5E1")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EAF1FB")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    return [Paragraph("PT Visit Ledger", styles["Heading2"]), Paragraph("Enumerated dated PT encounters (primary evidence in this packet).", normal), Spacer(1, 0.04 * inch), tbl]
 
 
 def _build_litigation_safety_check_flowables(lsv1: dict[str, Any], styles: Any) -> list:
@@ -764,6 +878,9 @@ def _build_timeline_table(
         candidates = [f for f in facts if not _is_meta_language(f)]
         key_finding = _clean_line(next((f for f in candidates if not _is_generic_timeline_fact(f)), candidates[0] if candidates else ""))
         if not key_finding:
+            continue
+        if re.search(r"\bAggregated PT sessions\b", key_finding, re.I):
+            # Aggregated PT counts are secondary evidence and should not appear as unlabeled timeline facts.
             continue
         if _is_generic_timeline_fact(key_finding):
             continue
@@ -1073,6 +1190,7 @@ def generate_pdf_from_projection(
     manifest = RenderManifest()
     ext = _ext_payload(evidence_graph_payload)
     lsv1 = _litigation_safe_payload(ext)
+    pt_payload = _pt_evidence_payload(ext)
     rm = _renderer_manifest_payload(evidence_graph_payload, renderer_manifest)
     citation_by_id, citations_by_page, _doc_pages, single_doc_id = _build_citation_maps(all_citations, page_map)
     raw_events = raw_events or []
@@ -1279,14 +1397,21 @@ def generate_pdf_from_projection(
 
     rm_pt = rm.get("pt_summary") if isinstance(rm, dict) else {}
     pt_summary = _pt_intensity_summary(raw_events)
-    if isinstance(rm_pt, dict) and rm_pt.get("total_encounters") is not None:
+    if pt_payload.get("verified_count") is not None and (pt_payload.get("verified_count") or pt_payload.get("reported_vals")):
+        pt_summary = {
+            "visits": int(pt_payload.get("verified_count") or 0),
+            "start": (pt_payload.get("encounters")[0].get("encounter_date") if pt_payload.get("encounters") else None),
+            "end": (pt_payload.get("encounters")[-1].get("encounter_date") if pt_payload.get("encounters") else None),
+            "count_source": "event_count",
+        }
+    elif isinstance(rm_pt, dict) and rm_pt.get("total_encounters") is not None:
         pt_summary = {
             "visits": int(rm_pt.get("total_encounters") or 0),
             "start": None if is_sentinel_date(rm_pt.get("date_start")) else rm_pt.get("date_start"),
             "end": None if is_sentinel_date(rm_pt.get("date_end")) else rm_pt.get("date_end"),
             "count_source": rm_pt.get("count_source"),
         }
-    if pt_summary.get("visits"):
+    if pt_summary.get("visits") is not None:
         pt_evt = next((e for e in raw_events if str(getattr(getattr(e, "event_type", None), "value", getattr(e, "event_type", ""))) == "pt_visit"), None)
         row_anchor = chron_anchor("pt_intensity")
         manifest.add_chron_anchor(row_anchor)
@@ -1298,9 +1423,17 @@ def generate_pdf_from_projection(
         if pt_summary.get("start") and pt_summary.get("end"):
             duration_txt = f"; care duration {pt_summary['start']} to {pt_summary['end']}"
         settlement_driver_rows.append(Paragraph(
-            f'<a name="{escape(row_anchor)}"/>- Treatment intensity: PT visits {pt_summary["visits"]} encounters{duration_txt}. <font size="8">{escape(cite_text)}</font>',
+            f'<a name="{escape(row_anchor)}"/>- Treatment intensity: PT visits (Verified) {pt_summary["visits"]} encounters{duration_txt}. <font size="8">{escape(cite_text)}</font>',
             bullet_style,
         ))
+        if pt_payload.get("reported_max") is not None:
+            rep_min = pt_payload.get("reported_min")
+            rep_max = pt_payload.get("reported_max")
+            rep_label = str(rep_max) if rep_min == rep_max else f"{rep_min}-{rep_max}"
+            settlement_driver_rows.append(Paragraph(
+                f"- PT visits (Reported in records): {escape(rep_label)} encounters.",
+                bullet_style,
+            ))
         if isinstance(rm_pt, dict) and _clean_line(rm_pt.get("reconciliation_note")):
             settlement_driver_rows.append(Paragraph(
                 f"- PT count reconciliation: {escape(_clean_line(rm_pt.get('reconciliation_note')))}",
@@ -1530,12 +1663,34 @@ def generate_pdf_from_projection(
     care_lines: list[tuple[str, list[dict[str, Any]]]] = []
     if care_window:
         care_lines.append((f"Care duration (export window): {care_window[0].isoformat()} to {care_window[1].isoformat()}", []))
-    if pt_summary.get("visits"):
-        visits_line = f"PT visits: {pt_summary['visits']} encounters"
+    if pt_summary.get("visits") is not None:
+        visits_line = f"PT visits (Verified): {pt_summary['visits']} encounters"
         if pt_summary.get("start") and pt_summary.get("end"):
             visits_line += f" ({pt_summary['start']} to {pt_summary['end']})"
         rm_pt_refs = _refs_from_citation_ids([str(c) for c in (rm_pt.get("citation_ids") or [])], citation_by_id) if isinstance(rm_pt, dict) else []
+        if not rm_pt_refs and pt_payload.get("encounters"):
+            for row in (pt_payload.get("encounters") or [])[:4]:
+                rm_pt_refs.extend(_pt_ledger_refs(row, citation_by_id))
+            # keep unique refs by citation label target
+            seen_keys: set[str] = set()
+            deduped_refs = []
+            for ref in rm_pt_refs:
+                key = f"{ref.get('doc_id')}|{ref.get('local_page')}"
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+                deduped_refs.append(ref)
+            rm_pt_refs = deduped_refs[:8]
         care_lines.append((visits_line, rm_pt_refs))
+    if pt_payload.get("reported_max") is not None:
+        rep_min = pt_payload.get("reported_min")
+        rep_max = pt_payload.get("reported_max")
+        rep_label = str(rep_max) if rep_min == rep_max else f"{rep_min}-{rep_max}"
+        rep_refs: list[dict[str, Any]] = []
+        for row in (pt_payload.get("reported") or [])[:6]:
+            rep_refs.extend(_pt_ledger_refs(row, citation_by_id))
+        care_lines.append((f"PT visits (Reported in records): {rep_label}", rep_refs[:8]))
+        care_lines.append(("Reported totals are summaries; verified counts are enumerated dated encounters present in this packet.", []))
     if isinstance(rm_pt, dict) and _clean_line(rm_pt.get("reconciliation_note")):
         care_lines.append((f"PT count reconciliation: {_clean_line(rm_pt.get('reconciliation_note'))}", _refs_from_citation_ids([str(c) for c in (rm_pt.get('citation_ids') or [])], citation_by_id)))
     if lsv1_gap_gt45:
@@ -1556,6 +1711,25 @@ def generate_pdf_from_projection(
             flowables.append(Paragraph(f'<a name="{escape(a)}"/>- {escape(line)} <font size="8">{escape(cite_text)}</font>', normal_style))
         else:
             flowables.append(Paragraph(f"- {escape(line)}", normal_style))
+    if pt_payload.get("reported_max") is not None:
+        flowables.append(Spacer(1, 0.05 * inch))
+        flowables.extend(_build_pt_reconciliation_table(pt_payload, styles))
+        if pt_payload.get("severe_variance_flag"):
+            redflag = ParagraphStyle(
+                "PTVarianceRedFlag",
+                parent=normal_style,
+                backColor=colors.HexColor("#FEF2F2"),
+                borderColor=colors.HexColor("#EF4444"),
+                borderWidth=0.6,
+                borderPadding=5,
+                textColor=colors.HexColor("#991B1B"),
+                spaceBefore=4,
+                spaceAfter=6,
+            )
+            flowables.append(Paragraph(
+                f"<b>PT count variance:</b> reported {int(pt_payload.get('reported_max') or 0)}, verified {int(pt_payload.get('verified_count') or 0)}. Review packet completeness and PT ledger reconciliation before attorney use.",
+                redflag,
+            ))
     flowables.append(Spacer(1, 0.08 * inch))
 
     discharge_rows = []
@@ -1594,6 +1768,15 @@ def generate_pdf_from_projection(
     # Appendix
     flowables.append(PageBreak())
     flowables.append(Paragraph("Citation Index & Record Appendix", h1_style))
+    pt_ledger_flowables = _build_pt_visit_ledger_section(
+        pt_payload,
+        styles=styles,
+        manifest=manifest,
+        citation_by_id=citation_by_id,
+    )
+    if pt_ledger_flowables:
+        flowables.extend(pt_ledger_flowables)
+        flowables.append(Spacer(1, 0.08 * inch))
     flowables.extend(build_projection_appendix_sections(
         appendix_entries or projection.entries,
         gaps,

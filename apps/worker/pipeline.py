@@ -93,6 +93,7 @@ from apps.worker.steps.step19_llm_reasoning import run_llm_reasoning
 from apps.worker.steps.step20_chronology_narrative import run_chronology_narrative
 from apps.worker.lib.litigation_integrity import run_litigation_integrity_pass
 from apps.worker.quality.text_quality import clean_text, is_garbage
+from apps.worker.lib.pt_enumeration import build_pt_evidence_extensions
 
 logger = logging.getLogger(__name__)
 RUN_TIMEOUT_SECONDS = int(os.getenv("RUN_TIMEOUT_SECONDS", "1800"))
@@ -230,6 +231,13 @@ def run_pipeline(run_id: str) -> None:
         assign_patient_scope_to_events(all_events, page_to_patient_scope)
         enforce_event_patient_scope(all_events, all_citations, page_to_patient_scope)
         all_citations, _ = post_process_citations(all_citations)
+        pt_evidence_ext = build_pt_evidence_extensions(
+            pages=quality_filtered_pages,
+            dates_by_page=dates,
+            providers=providers,
+            page_provider_map=page_provider_map,
+            citations=all_citations,
+        )
         all_events, _ = deduplicate_events(all_events)
         all_events, _ = apply_confidence_scoring(all_events, config)
         weight_summary = annotate_event_weights(all_events)
@@ -243,6 +251,7 @@ def run_pipeline(run_id: str) -> None:
 
         evidence_graph = EvidenceGraph(documents=all_documents, pages=all_pages, providers=providers, events=all_events, citations=all_citations, gaps=gaps, skipped_events=all_skipped)
         evidence_graph.extensions["patient_partitions"] = patient_partitions_payload
+        evidence_graph.extensions.update(pt_evidence_ext)
 
         # Page quality assessment results (early gate)
         evidence_graph.extensions["page_quality_assessment"] = {

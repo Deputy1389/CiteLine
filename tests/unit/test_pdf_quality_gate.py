@@ -150,7 +150,7 @@ def test_pt_encounter_count_is_shown_when_extracted() -> None:
         run_id=None,
     )
     text = _pdf_text(pdf_bytes)
-    assert "PT visits: 117 encounters" in text
+    assert "PT visits (Verified): 117 encounters" in text
 
 
 def test_billing_incomplete_avoids_misleading_total() -> None:
@@ -286,3 +286,70 @@ def test_timeline_suppresses_sentinel_date_display() -> None:
     text = _pdf_text(pdf_bytes)
     pre_appendix = text.split("Citation Index & Record Appendix")[0]
     assert "1900-01-01" not in pre_appendix
+
+
+def test_pdf_pt_verified_reported_reconciliation_and_ledger() -> None:
+    projection = ChronologyProjection(generated_at=datetime.now(timezone.utc), entries=[])
+    citations = [
+        Citation(citation_id="cit-pt1", source_document_id="doc-1", page_number=52, snippet="PT daily note 11/19/2024", bbox=BBox(x=1, y=1, w=1, h=1)),
+        Citation(citation_id="cit-pt2", source_document_id="doc-1", page_number=53, snippet="PT progress note 11/21/2024", bbox=BBox(x=1, y=1, w=1, h=1)),
+        Citation(citation_id="cit-rpt", source_document_id="doc-1", page_number=88, snippet="PT discharge summary total visits 141", bbox=BBox(x=1, y=1, w=1, h=1)),
+    ]
+    pdf_bytes = generate_pdf_from_projection(
+        matter_title="PT Reconciliation Case",
+        projection=projection,
+        gaps=[],
+        appendix_entries=[],
+        raw_events=[],
+        all_citations=citations,
+        page_map={52: ("packet.pdf", 52), 53: ("packet.pdf", 53), 88: ("packet.pdf", 88)},
+        evidence_graph_payload={
+            "extensions": {
+                "pt_encounters": [
+                    {
+                        "encounter_date": "2024-11-19",
+                        "provider_name": "Elite Physical Therapy",
+                        "facility_name": "Elite Physical Therapy",
+                        "encounter_kind": "PT",
+                        "source": "primary",
+                        "evidence_citation_ids": ["cit-pt1"],
+                        "page_number": 52,
+                        "dedupe_key": "a",
+                    },
+                    {
+                        "encounter_date": "2024-11-21",
+                        "provider_name": "Elite Physical Therapy",
+                        "facility_name": "Elite Physical Therapy",
+                        "encounter_kind": "PT",
+                        "source": "primary",
+                        "evidence_citation_ids": ["cit-pt2"],
+                        "page_number": 53,
+                        "dedupe_key": "b",
+                    },
+                ],
+                "pt_count_reported": [
+                    {
+                        "reported_count": 141,
+                        "report_source_type": "discharge_summary",
+                        "evidence_citation_ids": ["cit-rpt"],
+                        "page_number": 88,
+                    }
+                ],
+                "pt_reconciliation": {
+                    "verified_pt_count": 2,
+                    "reported_pt_counts": [141],
+                    "reported_pt_count_min": 141,
+                    "reported_pt_count_max": 141,
+                    "variance_flag": True,
+                    "severe_variance_flag": True,
+                },
+                "litigation_safe_v1": {"status": "REVIEW_RECOMMENDED", "failure_reasons": [], "computed": {"max_gap_days": 0}},
+            }
+        },
+        run_id=None,
+    )
+    text = _pdf_text(pdf_bytes)
+    assert "PT visits (Verified): 2 encounters" in text
+    assert "PT visits (Reported in records): 141" in text
+    assert "PT Visit Ledger" in text
+    assert "Dated PT encounters verified: 1" not in text

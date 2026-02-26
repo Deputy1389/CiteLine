@@ -123,6 +123,14 @@ def render_exports(
         billing_status = None
         if isinstance(renderer_manifest, dict):
             billing_status = str(renderer_manifest.get("billing_completeness") or "").strip().upper() or None
+        pt_recon = ext.get("pt_reconciliation") if isinstance(ext.get("pt_reconciliation"), dict) else {}
+        reported_pt_counts = list(pt_recon.get("reported_pt_counts") or []) if isinstance(pt_recon, dict) else []
+        numeric_pt_counts = [
+            ((renderer_manifest or {}).get("pt_summary") or {}).get("total_encounters")
+            if isinstance(renderer_manifest, dict)
+            else None
+        ]
+        numeric_pt_counts.extend(reported_pt_counts)
         ext["litigation_safe_v1"] = validate_litigation_safe_v1(
             build_litigation_safe_v1_snapshot(renderer_manifest),
             events,
@@ -136,12 +144,9 @@ def render_exports(
                     "noGlobalTotalSpecials": True,
                     "partialTotalsLabeled": True,
                 },
+                "ptEvidence": pt_recon or {},
                 "numericAggregates": {
-                    "pt_total_encounters": [
-                        ((renderer_manifest or {}).get("pt_summary") or {}).get("total_encounters")
-                        if isinstance(renderer_manifest, dict)
-                        else None,
-                    ],
+                    "pt_total_encounters": numeric_pt_counts,
                 },
             },
         )
