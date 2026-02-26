@@ -614,6 +614,23 @@ def _build_timeline_table(
             str(getattr(e, "event_id", "")),
         ),
     )
+    def _timeline_provider_display(entry: Any, key_finding: str) -> str:
+        provider = _clean_line(getattr(entry, "provider_display", "") or "")
+        etype = _clean_line(getattr(entry, "event_type_display", "") or "").lower()
+        finding_low = (key_finding or "").lower()
+        provider_low = provider.lower()
+        if "general hospital" in finding_low:
+            return "General Hospital & Trauma Center"
+        if provider_low in {"unknown", "provider not stated"}:
+            return "Provider not clearly identified"
+        # Do not present PT provider names as if they authored imaging/ER/procedure records.
+        if re.search(r"\b(physical therapy|\\bpt\\b)\b", provider_low):
+            if any(x in etype for x in ("imaging", "emergency", "procedure")):
+                return "Provider not clearly identified"
+            if "clinical note" in etype and "physical therapy" not in finding_low and "pt " not in f" {finding_low} ":
+                return "Provider not clearly identified"
+        return provider or "Provider not clearly identified"
+
     for entry in scored:
         if not getattr(entry, "citation_display", ""):
             continue
@@ -647,9 +664,10 @@ def _build_timeline_table(
         _links, cite_text = _citation_links_and_text(refs, row_anchor=row_anchor, manifest=manifest)
         if "Not available" in cite_text:
             continue
+        provider_display = _timeline_provider_display(entry, key_finding)
         rows.append([
             Paragraph(f'<a name="{escape(row_anchor)}"/>{escape(_clean_line(entry.date_display) or "Undated")}', small),
-            Paragraph(escape(_clean_line(entry.provider_display) or "Provider not stated"), small),
+            Paragraph(escape(provider_display), small),
             Paragraph(escape(_clean_line(entry.event_type_display) or "Event"), small),
             Paragraph(escape(key_finding), small),
             Paragraph(escape(cite_text), small),
@@ -1156,7 +1174,17 @@ def generate_pdf_from_projection(
             n = int(m.group(1))
             visit_count_max = n if visit_count_max is None else max(visit_count_max, n)
     # Prefer manifest-promoted findings first (pipeline-ranked, citation-backed), then event/claim fallbacks.
-    for cat in ("objective_deficit", "imaging", "diagnosis", "procedure", "visit_count", "symptom"):
+    strong_objective_headline = any(
+        re.search(r"\b(weakness|diminished|reflex|[0-5]/5)\b", str(item.get("label") or ""), re.I)
+        and bool(item.get("headline_eligible", True))
+        for item in promoted_by_cat.get("objective_deficit", [])
+    )
+    anchor_cat_order = (
+        ("objective_deficit", "imaging", "diagnosis", "procedure", "visit_count", "symptom")
+        if strong_objective_headline
+        else ("imaging", "diagnosis", "objective_deficit", "procedure", "visit_count", "symptom")
+    )
+    for cat in anchor_cat_order:
         for item in promoted_by_cat.get(cat, []):
             if len(top_anchor_rows) >= 6:
                 break
