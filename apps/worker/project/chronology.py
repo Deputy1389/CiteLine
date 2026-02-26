@@ -364,6 +364,11 @@ def _propagate_pt_provider_labels(rows: list[ChronologyProjectionEntry]) -> list
         return False
 
     counts: dict[str, int] = {}
+    canonical_display: dict[str, str] = {}
+
+    def _provider_key(name: str) -> str:
+        return re.sub(r"\s+", " ", (name or "").strip().lower())
+
     for row in rows:
         if not _therapy_like_row(row):
             continue
@@ -372,17 +377,23 @@ def _propagate_pt_provider_labels(rows: list[ChronologyProjectionEntry]) -> list
             continue
         if not _looks_like_pt_provider(provider):
             continue
-        counts[provider] = counts.get(provider, 0) + 1
+        key = _provider_key(provider)
+        counts[key] = counts.get(key, 0) + 1
+        # Prefer title-cased / longer display variants for output.
+        best = canonical_display.get(key)
+        if best is None or (provider != provider.lower() and best == best.lower()) or len(provider) > len(best):
+            canonical_display[key] = provider
 
     if not counts:
         return rows
     ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
-    dominant_provider, dominant_count = ranked[0]
+    dominant_key, dominant_count = ranked[0]
     if dominant_count < 2:
         return rows
     # If multiple PT providers appear, prefer ambiguity over a bad propagation.
     if len(ranked) > 1 and ranked[1][1] >= 1:
         return rows
+    dominant_provider = canonical_display.get(dominant_key, dominant_key)
 
     out: list[ChronologyProjectionEntry] = []
     for row in rows:
