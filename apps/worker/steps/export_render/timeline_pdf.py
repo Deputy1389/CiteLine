@@ -692,6 +692,22 @@ def _build_litigation_safety_check_flowables(lsv1: dict[str, Any], styles: Any) 
             msg = str(f.get("message") or "").strip()
             line = f"- {code}" + (f": {msg}" if msg else "")
             rows.append(Paragraph(escape(line), bullet))
+            if code == "MECHANISM_OR_DIAGNOSIS_UNSUPPORTED":
+                claim_failures = [x for x in (f.get("claim_failures") or []) if isinstance(x, dict)]
+                for idx, cf in enumerate(claim_failures[:5]):
+                    claim_type = str(cf.get("claim_type") or "claim").strip()
+                    reason = str(cf.get("reason_code") or "unknown").strip()
+                    cites = [f"p. {int(p)}" for p in (cf.get("citations") or []) if str(p).isdigit()]
+                    cite_text = ", ".join(cites[:4]) if cites else "no mapped citation page"
+                    claim_text = str(cf.get("claim_text") or "").strip()
+                    claim_text = (claim_text[:100] + "...") if len(claim_text) > 100 else claim_text
+                    detail = f"- CLAIM_CONTEXT_ALIGNMENT: {claim_type} unsupported/misaligned ({reason}). Citations: [{cite_text}]"
+                    if claim_text:
+                        detail += f" | {claim_text}"
+                    rows.append(Paragraph(escape(detail), bullet))
+                extra_count = max(0, len(claim_failures) - 5)
+                if extra_count:
+                    rows.append(Paragraph(escape(f"- CLAIM_CONTEXT_ALIGNMENT: +{extra_count} more claim failures"), bullet))
     else:
         rows.append(Paragraph("No litigation-safe invariant failures detected.", normal))
     return rows

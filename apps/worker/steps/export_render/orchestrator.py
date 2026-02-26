@@ -43,6 +43,7 @@ from apps.worker.lib.litigation_safe_v1 import (
     validate_litigation_safe_v1,
 )
 from apps.worker.lib.provider_resolution_v1 import augment_provider_resolution_quality
+from apps.worker.lib.claim_context_alignment import run_claim_context_alignment
 from apps.worker.steps.export_render.projection_enrichment import (
     _enrich_projection_procedure_entries,
     _ensure_mri_bucket_entry,
@@ -124,6 +125,10 @@ def render_exports(
             compute_provider_resolution_quality(projection.entries),
             pt_encounters=list(ext.get("pt_encounters") or []),
         )
+        ext["claim_context_alignment"] = run_claim_context_alignment(
+            evidence_graph_payload=evidence_graph_payload,
+            renderer_manifest=renderer_manifest,
+        )
         billing_status = None
         if isinstance(renderer_manifest, dict):
             billing_status = str(renderer_manifest.get("billing_completeness") or "").strip().upper() or None
@@ -149,6 +154,7 @@ def render_exports(
                     "partialTotalsLabeled": True,
                 },
                 "ptEvidence": pt_recon or {},
+                "claimContextAlignment": ext.get("claim_context_alignment") or {},
                 "numericAggregates": {
                     "pt_total_encounters": numeric_pt_counts,
                 },

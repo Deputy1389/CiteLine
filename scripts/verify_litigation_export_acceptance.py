@@ -250,6 +250,33 @@ def _check_provider_resolution_quality(eg: dict[str, Any], pdf_text: str) -> dic
     }
 
 
+def _check_claim_context_alignment(eg: dict[str, Any], pdf_text: str) -> dict[str, Any]:
+    ext = eg.get("extensions") or {}
+    cca = ext.get("claim_context_alignment") or {}
+    status = _export_status_from_pdf(pdf_text)
+    failures = [f for f in (cca.get("failures") or []) if isinstance(f, dict)]
+    blocked = [f for f in failures if str(f.get("severity") or "").upper() == "BLOCKED"]
+    review = [f for f in failures if str(f.get("severity") or "").upper() == "REVIEW_REQUIRED"]
+    visible_specific = bool(re.search(r"CLAIM_CONTEXT_ALIGNMENT:", pdf_text, re.I))
+    pass_status = True
+    if blocked:
+        pass_status = status == "BLOCKED" and visible_specific
+    elif review:
+        pass_status = status in {"REVIEW_RECOMMENDED", "BLOCKED"} and visible_specific
+    return {
+        "name": "claim_context_alignment",
+        "present": bool(isinstance(cca, dict) and cca),
+        "claims_total": int(cca.get("claims_total") or 0) if isinstance(cca, dict) else 0,
+        "claims_fail": int(cca.get("claims_fail") or 0) if isinstance(cca, dict) else 0,
+        "export_status_claim_context": str(cca.get("export_status") or "PASS") if isinstance(cca, dict) else "MISSING",
+        "blocked_failures": blocked[:5],
+        "review_failures": review[:5],
+        "pdf_has_specific_claim_context_lines": visible_specific,
+        "export_status": status,
+        "PASS": bool(isinstance(cca, dict) and cca) and pass_status,
+    }
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--evidence-graph", required=True, type=Path)
@@ -270,6 +297,7 @@ def main() -> None:
         _check_e_no_garbage_text(eg, pdf_text),
         _provider_resolution_marker(eg),
         _check_provider_resolution_quality(eg, pdf_text),
+        _check_claim_context_alignment(eg, pdf_text),
     ]
     payload = {
         "evidence_graph": str(args.evidence_graph),

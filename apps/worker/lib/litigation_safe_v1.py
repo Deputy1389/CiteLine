@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import date
-from typing import Any
+from typing import Any, cast
 
 from packages.shared.models import Event, Gap
 
@@ -43,14 +43,32 @@ def validate_litigation_safe_v1(snapshot: dict | None, events: list[Event] | lis
     snapshot = snapshot if isinstance(snapshot, dict) else {}
     ctx = extractionContext if isinstance(extractionContext, dict) else {}
     evs = list(events or [])
-    failures: list[dict[str, str]] = []
+    failures: list[dict[str, Any]] = []
     failure_codes: set[str] = set()
 
     computed_gap = _compute_max_gap_days(evs)
     reported_gap = _max_reported_gap_days(ctx)
     gap_inconsistent = reported_gap is not None and reported_gap != computed_gap
 
-    if not _mechanism_and_diagnoses_supported(snapshot, evs):
+    claim_alignment = _claim_context_alignment_payload(ctx)
+    claim_alignment_status = "PASS"
+    if claim_alignment:
+        claim_alignment_status = str(claim_alignment.get("export_status") or "PASS").upper()
+        blocked_claims = [
+            f for f in (claim_alignment.get("failures") or [])
+            if isinstance(f, dict) and str(f.get("severity") or "").upper() == "BLOCKED"
+        ]
+        if blocked_claims:
+            _add_failure(
+                failures,
+                failure_codes,
+                "MECHANISM_OR_DIAGNOSIS_UNSUPPORTED",
+                extra={
+                    "message": "Snapshot claim context alignment failed for one or more claims.",
+                    "claim_failures": blocked_claims[:10],
+                },
+            )
+    elif not _mechanism_and_diagnoses_supported(snapshot, evs):
         _add_failure(failures, failure_codes, "MECHANISM_OR_DIAGNOSIS_UNSUPPORTED")
 
     if _has_missing_required_procedure_date(evs):
@@ -85,6 +103,8 @@ def validate_litigation_safe_v1(snapshot: dict | None, events: list[Event] | lis
         status = "BLOCKED"
     elif pt_reported_max is not None and pt_reported_max >= 10 and (pt_verified or 0) < 3:
         status = "REVIEW_RECOMMENDED"
+    elif claim_alignment_status == "REVIEW_REQUIRED":
+        status = "REVIEW_RECOMMENDED"
     elif billing_partial:
         status = "REVIEW_RECOMMENDED"
     else:
@@ -101,6 +121,7 @@ def validate_litigation_safe_v1(snapshot: dict | None, events: list[Event] | lis
             "gap_statement_consistent": "GAP_STATEMENT_INCONSISTENT" not in failure_codes,
             "billing_not_implied_complete": "BILLING_IMPLIED_COMPLETE" not in failure_codes,
             "no_internal_contradictions": "INTERNAL_CONTRADICTION" not in failure_codes,
+            "claim_context_alignment_pass": claim_alignment_status == "PASS",
         },
         "computed": {
             "max_gap_days": computed_gap,
@@ -110,15 +131,30 @@ def validate_litigation_safe_v1(snapshot: dict | None, events: list[Event] | lis
             "contradiction_details": contradictions,
             "pt_verified_count": pt_verified,
             "pt_reported_count_max": pt_reported_max,
+            "claim_context_alignment": claim_alignment or None,
         },
     }
 
 
-def _add_failure(out: list[dict[str, str]], seen: set[str], code: str) -> None:
+def _add_failure(out: list[dict[str, Any]], seen: set[str], code: str, extra: dict[str, Any] | None = None) -> None:
     if code in seen:
         return
     seen.add(code)
-    out.append({"code": code, "message": _REASON_MESSAGES.get(code, code)})
+    payload: dict[str, Any] = {"code": code, "message": _REASON_MESSAGES.get(code, code)}
+    if isinstance(extra, dict):
+        payload.update(extra)
+        payload["code"] = code
+        payload.setdefault("message", _REASON_MESSAGES.get(code, code))
+    out.append(payload)
+
+
+def _claim_context_alignment_payload(ctx: dict[str, Any]) -> dict[str, Any] | None:
+    cand = ctx.get("claimContextAlignment") or ctx.get("claim_context_alignment")
+    if not isinstance(cand, dict):
+        return None
+    if str(cand.get("name") or "") != "claim_context_alignment":
+        return None
+    return cast(dict[str, Any], cand)
 
 
 def _event_text(event: Event | dict) -> str:
