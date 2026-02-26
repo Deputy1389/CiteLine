@@ -38,6 +38,10 @@ from apps.worker.steps.export_render.orchestrator_utils import (
     _merge_projection_entries_same_day,
     _compute_care_window_from_projection,
 )
+from apps.worker.lib.litigation_safe_v1 import (
+    build_litigation_safe_v1_snapshot,
+    validate_litigation_safe_v1,
+)
 from apps.worker.steps.export_render.projection_enrichment import (
     _enrich_projection_procedure_entries,
     _ensure_mri_bucket_entry,
@@ -116,6 +120,31 @@ def render_exports(
             ext = {}
             evidence_graph_payload["extensions"] = ext
         ext["provider_resolution_quality"] = compute_provider_resolution_quality(projection.entries)
+        billing_status = None
+        if isinstance(renderer_manifest, dict):
+            billing_status = str(renderer_manifest.get("billing_completeness") or "").strip().upper() or None
+        ext["litigation_safe_v1"] = validate_litigation_safe_v1(
+            build_litigation_safe_v1_snapshot(renderer_manifest),
+            events,
+            {
+                "billingStatus": billing_status or "NONE",
+                "gaps": gaps,
+                "missing_records": missing_records_payload or ext.get("missing_records") or {},
+                "renderer_manifest": renderer_manifest or {},
+                "billingPresentation": {
+                    "visibleIncompleteDisclosure": True,
+                    "noGlobalTotalSpecials": True,
+                    "partialTotalsLabeled": True,
+                },
+                "numericAggregates": {
+                    "pt_total_encounters": [
+                        ((renderer_manifest or {}).get("pt_summary") or {}).get("total_encounters")
+                        if isinstance(renderer_manifest, dict)
+                        else None,
+                    ],
+                },
+            },
+        )
     save_artifact(run_id, "selection_debug.json", json.dumps(selection_debug_payload, indent=2).encode("utf-8"))
     save_artifact(run_id, "claim_guard_report.json", json.dumps(claim_guard_report, indent=2).encode("utf-8"))
     

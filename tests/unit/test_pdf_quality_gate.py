@@ -175,7 +175,7 @@ def test_billing_incomplete_avoids_misleading_total() -> None:
         run_id=None,
     )
     text = _pdf_text(pdf_bytes)
-    assert "Billing extraction status: Incomplete" in text
+    assert "Billing extraction incomplete." in text
     assert "Not available from extracted records (incomplete billing extraction)" in text
 
 
@@ -193,7 +193,8 @@ def test_renderer_manifest_suppresses_sentinel_doi_display() -> None:
         run_id=None,
     )
     text = _pdf_text(pdf_bytes)
-    assert "1900-01-01" not in text
+    pre_appendix = text.split("Citation Index & Record Appendix")[0]
+    assert "1900-01-01" not in pre_appendix
     assert "Not clearly extracted from packet" in text
 
 
@@ -244,3 +245,44 @@ def test_timeline_omits_uncited_rows() -> None:
     text = _pdf_text(pdf_bytes)
     assert "weakness 4/5" in text.lower()
     assert "Unsupported row should be omitted" not in text
+
+
+def test_timeline_suppresses_sentinel_date_display() -> None:
+    projection = ChronologyProjection(
+        generated_at=datetime.now(timezone.utc),
+        entries=[
+            ChronologyProjectionEntry(
+                event_id="evt-sentinel",
+                date_display="1900-01-01 (time not documented)",
+                event_type_display="Office Visit",
+                provider_display="Clinic",
+                facts=["Objective weakness 4/5 documented"],
+                citation_display="records.pdf p. 5",
+            ),
+        ],
+    )
+    citations = [Citation(citation_id="cit-1", source_document_id="doc-1", page_number=5, snippet="Objective weakness 4/5", bbox=BBox(x=1, y=1, w=1, h=1))]
+    raw_events = [
+        Event(
+            event_id="evt-sentinel",
+            provider_id="prov-1",
+            event_type=EventType.OFFICE_VISIT,
+            facts=[Fact(text="Objective weakness 4/5 documented", kind=FactKind.OTHER, verbatim=True, citation_ids=["cit-1"])],
+            confidence=80,
+            citation_ids=["cit-1"],
+        )
+    ]
+    pdf_bytes = generate_pdf_from_projection(
+        matter_title="Sentinel Date Case",
+        projection=projection,
+        gaps=[],
+        appendix_entries=projection.entries,
+        raw_events=raw_events,
+        all_citations=citations,
+        page_map={5: ("records.pdf", 5)},
+        evidence_graph_payload={},
+        run_id=None,
+    )
+    text = _pdf_text(pdf_bytes)
+    pre_appendix = text.split("Citation Index & Record Appendix")[0]
+    assert "1900-01-01" not in pre_appendix

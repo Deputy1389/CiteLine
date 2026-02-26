@@ -490,6 +490,11 @@ def _export_status_label(ext: dict, rm: dict) -> str:
     Render runs before final run-row status persistence in some paths, so default to
     REVIEW_RECOMMENDED unless we have strong evidence the export is clean.
     """
+    lsv1 = ext.get("litigation_safe_v1") if isinstance(ext, dict) else None
+    if isinstance(lsv1, dict):
+        status = str(lsv1.get("status") or "").strip().upper()
+        if status in {"VERIFIED", "REVIEW_RECOMMENDED", "BLOCKED"}:
+            return status
     qg = ext.get("quality_gate") if isinstance(ext, dict) else None
     if isinstance(qg, dict):
         if qg.get("overall_pass") is False:
@@ -500,6 +505,63 @@ def _export_status_label(ext: dict, rm: dict) -> str:
                 return "REVIEW_RECOMMENDED"
             return "VERIFIED"
     return "REVIEW_RECOMMENDED"
+
+
+def _litigation_safe_payload(ext: dict) -> dict[str, Any]:
+    payload = ext.get("litigation_safe_v1") if isinstance(ext, dict) else None
+    return payload if isinstance(payload, dict) else {}
+
+
+def _litigation_gap_summary(lsv1: dict[str, Any]) -> tuple[bool, int]:
+    computed = lsv1.get("computed") if isinstance(lsv1.get("computed"), dict) else {}
+    try:
+        max_gap_days = int(computed.get("max_gap_days") or 0)
+    except Exception:
+        max_gap_days = 0
+    return (max_gap_days > 45, max_gap_days)
+
+
+def _build_litigation_safety_check_flowables(lsv1: dict[str, Any], styles: Any) -> list:
+    if not lsv1:
+        return []
+    h2 = ParagraphStyle("LitigationSafeH2", parent=styles["Heading2"], fontSize=10.5, textColor=colors.HexColor("#7C2D12"), spaceBefore=4, spaceAfter=3)
+    normal = styles["Normal"]
+    label = str(lsv1.get("status") or "REVIEW_RECOMMENDED").strip().upper() or "REVIEW_RECOMMENDED"
+    if label == "BLOCKED":
+        bg = "#FEF2F2"
+        fg = "#991B1B"
+        border = "#FCA5A5"
+    elif label == "VERIFIED":
+        bg = "#ECFDF5"
+        fg = "#065F46"
+        border = "#6EE7B7"
+    else:
+        bg = "#FFFBEB"
+        fg = "#92400E"
+        border = "#FCD34D"
+    badge = ParagraphStyle(
+        "LitigationSafeBadge",
+        parent=normal,
+        backColor=colors.HexColor(bg),
+        borderColor=colors.HexColor(border),
+        borderWidth=0.6,
+        borderPadding=5,
+        textColor=colors.HexColor(fg),
+        spaceAfter=4,
+    )
+    bullet = ParagraphStyle("LitigationSafeBullet", parent=normal, leftIndent=12, bulletIndent=0, spaceAfter=2)
+    rows: list = [Paragraph("Litigation Safety Check", h2), Paragraph(f"<b>Status:</b> {escape(label)}", badge)]
+    failures = [f for f in (lsv1.get("failure_reasons") or []) if isinstance(f, dict)]
+    if failures:
+        rows.append(Paragraph("<b>Failure reasons</b>:", normal))
+        for f in failures:
+            code = str(f.get("code") or "").strip()
+            msg = str(f.get("message") or "").strip()
+            line = f"- {code}" + (f": {msg}" if msg else "")
+            rows.append(Paragraph(escape(line), bullet))
+    else:
+        rows.append(Paragraph("No litigation-safe invariant failures detected.", normal))
+    return rows
 
 
 def _refs_from_citation_ids(citation_ids: list[str] | None, citation_by_id: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
@@ -877,7 +939,7 @@ def build_billing_specials_section(
     elif status == "none":
         flowables.append(Paragraph("<b>Billing extraction status: No billing data extracted from packet.</b>", normal))
     else:
-        flowables.append(Paragraph("<b>Billing extraction status: Incomplete.</b>", normal))
+        flowables.append(Paragraph("<b>Billing extraction incomplete.</b>", normal))
         warn = ParagraphStyle(
             "BillingPartialWarn",
             parent=normal,
@@ -917,7 +979,7 @@ def build_billing_specials_section(
             ["Total balance", _safe_money(totals.get("total_balance"))],
         ]
     else:
-        data = [["Total billed", "Not available from extracted records (incomplete billing extraction)"]]
+        data = [["Partial Extracted Charges", "Not available from extracted records (incomplete billing extraction)"]]
     totals_tbl = Table(data, colWidths=[2.0 * inch, 4.8 * inch])
     totals_tbl.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#CBD5E1")),
@@ -933,7 +995,7 @@ def build_billing_specials_section(
         rows = [[
             Paragraph("<b>Provider</b>", small),
             Paragraph("<b>Line Items</b>", small),
-            Paragraph("<b>Charges</b>", small),
+            Paragraph(f"<b>{'Partial Extracted Charges' if status == 'partial' else 'Charges'}</b>", small),
             Paragraph("<b>Citations</b>", small),
         ]]
         dropped_uncited_provider_rows = 0
@@ -1010,6 +1072,7 @@ def generate_pdf_from_projection(
 
     manifest = RenderManifest()
     ext = _ext_payload(evidence_graph_payload)
+    lsv1 = _litigation_safe_payload(ext)
     rm = _renderer_manifest_payload(evidence_graph_payload, renderer_manifest)
     citation_by_id, citations_by_page, _doc_pages, single_doc_id = _build_citation_maps(all_citations, page_map)
     raw_events = raw_events or []
@@ -1077,6 +1140,9 @@ def generate_pdf_from_projection(
     flowables.append(header_tbl)
     flowables.append(Spacer(1, 0.12 * inch))
     flowables.append(Paragraph(f"Export Status = {export_status}", ParagraphStyle("ExportStatusLine", parent=normal_style, fontSize=8.5, textColor=colors.HexColor('#334155'), spaceAfter=4)))
+    flowables.extend(_build_litigation_safety_check_flowables(lsv1, styles))
+    if lsv1:
+        flowables.append(Spacer(1, 0.05 * inch))
 
     flowables.append(Paragraph("Case Highlights (Record-Supported)", h2_style))
     flowables.append(Paragraph("Record-supported highlights selected from citation-anchored findings; not a legal conclusion.", ParagraphStyle("SnapshotMeta", parent=normal_style, fontSize=8.5, textColor=colors.HexColor("#475569"), spaceAfter=4)))
@@ -1111,7 +1177,8 @@ def generate_pdf_from_projection(
     mr_payload = missing_records_payload or ext.get("missing_records") or {}
     global_gaps = [g for g in (mr_payload.get("gaps") or []) if str(g.get("rule_name") or "") == "global_gap" and int(g.get("gap_days") or 0) > 45]
     raw_gaps_gt45 = [g for g in (gaps or []) if int(getattr(g, "duration_days", 0) or 0) > 45]
-    if not global_gaps and not raw_gaps_gt45:
+    lsv1_gap_gt45, lsv1_max_gap_days = _litigation_gap_summary(lsv1)
+    if not lsv1_gap_gt45 and not global_gaps and not raw_gaps_gt45:
         # cite first and last dated events if available
         if dated_events:
             start_evt = dated_events[0]
@@ -1471,14 +1538,16 @@ def generate_pdf_from_projection(
         care_lines.append((visits_line, rm_pt_refs))
     if isinstance(rm_pt, dict) and _clean_line(rm_pt.get("reconciliation_note")):
         care_lines.append((f"PT count reconciliation: {_clean_line(rm_pt.get('reconciliation_note'))}", _refs_from_citation_ids([str(c) for c in (rm_pt.get('citation_ids') or [])], citation_by_id)))
-    if global_gaps or raw_gaps_gt45:
+    if lsv1_gap_gt45:
+        care_lines.append((f"Treatment gaps detected (max gap: {lsv1_max_gap_days} days)", []))
+    elif global_gaps or raw_gaps_gt45:
         gap_count_display = max(len(global_gaps), len(raw_gaps_gt45))
         care_lines.append((f"Treatment gaps >45 days identified: {gap_count_display} (see chronology and appendices)", []))
     else:
         refs = []
         if dated_events:
             refs = (event_citations_by_event.get(str(dated_events[0].event_id), []) + event_citations_by_event.get(str(dated_events[-1].event_id), []))[:6]
-        care_lines.append(("No computed global treatment gaps >45 days in extracted medical encounter chronology", refs))
+        care_lines.append(("No treatment gaps >45 days detected.", refs))
     for idx, (line, refs) in enumerate(care_lines):
         if refs:
             a = chron_anchor(f"careline_{idx}")
