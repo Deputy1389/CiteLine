@@ -757,6 +757,13 @@ def _is_generic_timeline_fact(text: str) -> bool:
     return any(re.search(p, t, re.I) for p in generic_patterns)
 
 
+def _is_pt_aggregate_count_label(text: str | None) -> bool:
+    s = _clean_line(text or "")
+    if not s:
+        return False
+    return bool(re.search(r"\b(?:Aggregated PT sessions|PT sessions documented)\b", s, re.I) and re.search(r"\b\d+\s+encounters?\b", s, re.I))
+
+
 def _manifest_finding_paragraphs(
     rm: dict,
     *,
@@ -788,6 +795,8 @@ def _manifest_finding_paragraphs(
                 continue
             label = _guardrail_text(_clean_line(item.get("label")), supported_injury=True)
             if not label:
+                continue
+            if _is_pt_aggregate_count_label(label):
                 continue
             key = label.lower()
             if key in seen:
@@ -976,6 +985,8 @@ def _build_claim_row_sections(
             continue
         assertion = _clean_line(r.get("assertion"))
         low = assertion.lower()
+        if _is_pt_aggregate_count_label(assertion):
+            return False
         if section_kind == "imaging" and re.search(r"\b(no acute|unremarkable|no significant degenerative)\b", low):
             pri = "secondary"
         else:
@@ -1345,6 +1356,9 @@ def generate_pdf_from_projection(
             if not label:
                 logger.info("page1 promoted finding omitted: reason=guardrail category=%s", cat)
                 continue
+            if _is_pt_aggregate_count_label(label):
+                logger.info("page1 promoted finding omitted: reason=pt_aggregate_count category=%s", cat)
+                continue
             label_dedupe = _dedupe_key(label)
             if _near_duplicate_seen(label_dedupe, settlement_seen_labels):
                 logger.info("page1 promoted finding omitted: reason=duplicate category=%s label=%s", cat, label)
@@ -1493,7 +1507,7 @@ def generate_pdf_from_projection(
                     continue
             assertion = _guardrail_text(_clean_line(item.get("label")), supported_injury=supported_injury)
             dedupe = _dedupe_key(assertion)
-            if not assertion or _near_duplicate_seen(dedupe, top_seen) or _is_undermining_or_noise(assertion):
+            if not assertion or _is_pt_aggregate_count_label(assertion) or _near_duplicate_seen(dedupe, top_seen) or _is_undermining_or_noise(assertion):
                 continue
             raw_cits = [str(c) for c in (item.get("citation_ids") or [])]
             refs = _refs_from_citation_ids(raw_cits, citation_by_id)
@@ -1527,7 +1541,7 @@ def generate_pdf_from_projection(
             facts = [f for f in (getattr(entry, "facts", []) or []) if _clean_line(f)]
             key_finding = _guardrail_text(_clean_line(next((f for f in facts if not _is_meta_language(f)), facts[0] if facts else "")), supported_injury=supported_injury)
             dedupe = _dedupe_key(key_finding)
-            if not key_finding or _near_duplicate_seen(dedupe, top_seen):
+            if not key_finding or _is_pt_aggregate_count_label(key_finding) or _near_duplicate_seen(dedupe, top_seen):
                 continue
             top_seen.add(dedupe)
             a = chron_anchor(str(eid))
@@ -1545,7 +1559,7 @@ def generate_pdf_from_projection(
             break
         assertion = _guardrail_text(_clean_line(row.get("assertion")), supported_injury=supported_injury)
         dedupe = _dedupe_key(assertion)
-        if not assertion or _near_duplicate_seen(dedupe, top_seen):
+        if not assertion or _is_pt_aggregate_count_label(assertion) or _near_duplicate_seen(dedupe, top_seen):
             continue
         if _is_undermining_or_noise(assertion):
             continue
