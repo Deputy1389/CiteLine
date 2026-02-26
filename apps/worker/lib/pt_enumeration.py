@@ -12,10 +12,22 @@ _PT_MARKER_RE = re.compile(
     r"\b(physical therapy|\bpt\b|therapy visit|therapeutic exercise|manual therapy|home exercise|hep\b|range of motion|\brom\b|plan of care)\b",
     re.I,
 )
+_PT_KEYWORD_REQUIRED_RE = re.compile(
+    r"\b(physical therapy|elite physical therapy|pt visit|therapy visit|therapy session)\b",
+    re.I,
+)
 _PT_ENCOUNTER_MARKER_RE = re.compile(
     r"\b(subjective|objective|assessment|plan|manual therapy|therapeutic exercise|neuromuscular re-?education|gait training|pain\s*(?:level|score)|repetitions|sets?|therapist)\b",
     re.I,
 )
+_PT_STRONG_STRUCTURE_PATTERNS = [
+    re.compile(r"\b(plan of care|\bPOC\b)\b", re.I),
+    re.compile(r"\bHEP\b|home exercise program", re.I),
+    re.compile(r"\b(oswestry|ndi|lefs|quickdash)\b", re.I),
+    re.compile(r"\b(therapist signature|treating therapist|\bDPT\b|\bPTA\b)\b", re.I),
+    re.compile(r"\b(therapeutic exercise|manual therapy|neuromuscular re-?education|gait training)\b", re.I),
+    re.compile(r"\b(flexion|extension|rotation|sidebend)\b.{0,40}\b(deg|degrees|left|right)\b", re.I),
+]
 _PT_SUMMARY_COUNT_RE = re.compile(
     r"\b(?:total\s+)?(?:pt\s+)?(?:visits?|encounters?|sessions?)\b[^\n]{0,40}?\b(\d{1,4})\b|\b(\d{1,4})\s+(?:pt\s+)?(?:visits?|encounters?|sessions?)\b",
     re.I,
@@ -56,10 +68,16 @@ def build_pt_evidence_extensions(
             continue
 
         page_type = str(getattr(page, "page_type", PageType.OTHER) or "other")
-        is_pt_typed = page_type.lower().endswith("pt_note") or page_type.lower() == "PageType.PT_NOTE".lower()
-        is_clinical = "clinical_note" in page_type.lower()
+        low_page_type = page_type.lower()
+        is_pt_typed = low_page_type.endswith("pt_note") or low_page_type == "pagetype.pt_note"
+        is_clinical = "clinical_note" in low_page_type
         has_pt_marker = bool(_PT_MARKER_RE.search(text))
-        if not (is_pt_typed or (is_clinical and has_pt_marker)):
+        if is_clinical:
+            # Hard exclusion: clinical notes (including ED/nursing flowsheets) never count as verified PT encounters.
+            if has_pt_marker:
+                _extract_reported_counts_for_page(pt_reported, page, citations_by_page.get(page_no, []), text)
+            continue
+        if not (is_pt_typed or has_pt_marker):
             # still allow summary count extraction from non-PT pages if clearly PT-related summaries
             if has_pt_marker:
                 _extract_reported_counts_for_page(pt_reported, page, citations_by_page.get(page_no, []), text)
@@ -68,7 +86,7 @@ def build_pt_evidence_extensions(
         page_citations = citations_by_page.get(page_no, [])
         citation_ids = [str(c.citation_id) for c in page_citations if getattr(c, "citation_id", None)]
 
-        ev_date = _resolve_page_date(page_no, text, dates_by_page)
+        ev_date, ev_date_ambiguous = _resolve_page_date(page_no, text, dates_by_page)
         provider_name, facility_name = _resolve_provider_facility(page_no, page_provider_map, provider_by_id)
         page_identity = page_identity_map.get(page_no) or {}
         provider_name, facility_name, provider_meta, facility_meta = _apply_identity_resolution(
@@ -104,7 +122,9 @@ def build_pt_evidence_extensions(
             )
         )
 
-        if ev_date and has_pt_marker and not summary_only and citation_ids:
+        fallback_allowed = _allow_non_pt_note_primary(page_type=low_page_type, text=text, has_pt_marker=has_pt_marker)
+        is_primary_page = is_pt_typed or fallback_allowed
+        if ev_date and (not ev_date_ambiguous) and has_pt_marker and not summary_only and is_primary_page and citation_ids:
             snippet_hash = _snippet_hash(text)
             dedupe_key = hashlib.sha1(
                 f"{ev_date}|{provider_name}|{facility_name}|{page_no}|{snippet_hash}".encode("utf-8")
@@ -120,12 +140,15 @@ def build_pt_evidence_extensions(
                         "source": "primary",
                         "evidence_citation_ids": citation_ids[:8],
                         "page_number": page_no,
+                        "source_document_id": str(getattr(page, "source_document_id", "") or ""),
+                        "source_page_type": low_page_type,
                         "dedupe_key": dedupe_key,
                         "provider_resolution": provider_meta,
                         "facility_resolution": facility_meta,
                     }
                 )
 
+    pt_encounters = _dedupe_same_day_pt_encounters(pt_encounters)
     pt_encounters.sort(key=lambda x: (str(x.get("encounter_date") or "9999-99-99"), int(x.get("page_number") or 0), str(x.get("provider_name") or "")))
     pt_reported = _dedupe_reported_counts(pt_reported)
     pt_reported.sort(key=lambda x: (int(x.get("page_number") or 0), int(x.get("reported_count") or 0)))
@@ -136,6 +159,7 @@ def build_pt_evidence_extensions(
     reported_max = max(reported_vals) if reported_vals else None
     severe_variance = bool(reported_max is not None and reported_max >= 10 and verified_count < 3)
     mismatch = bool(reported_vals and any(v != verified_count for v in reported_vals))
+    date_anomaly = _pt_date_concentration_anomaly(pt_encounters)
 
     return {
         "pt_encounters": pt_encounters,
@@ -148,6 +172,7 @@ def build_pt_evidence_extensions(
             "variance_flag": mismatch,
             "severe_variance_flag": severe_variance,
             "variance_delta_max_minus_verified": (reported_max - verified_count) if reported_max is not None else None,
+            "date_concentration_anomaly": date_anomaly,
         },
         "page_identity_resolution": {
             str(k): v for k, v in sorted(page_identity_map.items())
@@ -155,21 +180,31 @@ def build_pt_evidence_extensions(
     }
 
 
-def _resolve_page_date(page_no: int, text: str, dates_by_page: dict[int, list[EventDate]]) -> str | None:
+def _resolve_page_date(page_no: int, text: str, dates_by_page: dict[int, list[EventDate]]) -> tuple[str | None, bool]:
+    explicit_hits: list[str] = []
     for m in _DATE_LABEL_RE.finditer(text or ""):
         iso = _coerce_date_string(m.group(1))
         if iso:
-            return iso
+            explicit_hits.append(iso)
+    if len(set(explicit_hits)) > 1:
+        return (sorted(set(explicit_hits))[0], True)
+    if explicit_hits:
+        return (explicit_hits[0], False)
     page_dates = dates_by_page.get(int(page_no), []) or []
+    page_date_hits: list[str] = []
     for d in page_dates:
         iso = _event_date_to_iso(d)
         if iso:
-            return iso
+            page_date_hits.append(iso)
+    if len(set(page_date_hits)) > 1:
+        return (sorted(set(page_date_hits))[0], True)
+    if page_date_hits:
+        return (page_date_hits[0], False)
     for m in _INLINE_DATE_RE.finditer(text or ""):
         iso = _coerce_date_string(m.group(1))
         if iso:
-            return iso
-    return None
+            return (iso, False)
+    return (None, False)
 
 
 def _event_date_to_iso(d: EventDate | Any) -> str | None:
@@ -221,6 +256,21 @@ def _resolve_provider_facility(page_no: int, page_provider_map: dict[int, str], 
             if any(tok in low for tok in ["therapy", "rehab", "clinic", "hospital", "center", "centre"]):
                 facility_name = norm
     return provider_name, facility_name
+
+
+def _allow_non_pt_note_primary(*, page_type: str, text: str, has_pt_marker: bool) -> bool:
+    forbidden = {"clinical_note", "imaging_report", "billing", "billing_page", "lab_report", "discharge_summary", "other"}
+    normalized = str(page_type or "").lower()
+    for token in forbidden:
+        if token in normalized:
+            return False
+    if not has_pt_marker or not _PT_KEYWORD_REQUIRED_RE.search(text or ""):
+        return False
+    structure_hits = 0
+    for pat in _PT_STRONG_STRUCTURE_PATTERNS:
+        if pat.search(text or ""):
+            structure_hits += 1
+    return structure_hits >= 2
 
 
 def _apply_identity_resolution(
@@ -343,3 +393,73 @@ def _dedupe_reported_counts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         seen.add(key)
         out.append(r)
     return out
+
+
+def _norm_name_for_dedupe(v: Any) -> str:
+    s = re.sub(r"[^a-z0-9]+", " ", str(v or "").strip().lower())
+    s = re.sub(r"\s+", " ", s).strip()
+    if s in {"", "unknown provider", "unknown facility", "unknown"}:
+        return ""
+    return s
+
+
+def _dedupe_same_day_pt_encounters(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for row in rows:
+        d = str(row.get("encounter_date") or "")
+        prov = _norm_name_for_dedupe(row.get("provider_name"))
+        fac = _norm_name_for_dedupe(row.get("facility_name"))
+        doc_id = str(row.get("source_document_id") or "")
+        if prov or fac:
+            key = (d, fac or "__nofac__", prov or "__noprov__")
+        else:
+            key = (d, f"doc:{doc_id}", "__unknown__")
+        grouped.setdefault(key, []).append(row)
+    out: list[dict[str, Any]] = []
+    for _key, group in grouped.items():
+        group_sorted = sorted(group, key=lambda r: (int(r.get("page_number") or 0), str(r.get("dedupe_key") or "")))
+        rep = dict(group_sorted[0])
+        all_cids: list[str] = []
+        seen_c: set[str] = set()
+        all_pages: list[int] = []
+        for r in group_sorted:
+            pg = int(r.get("page_number") or 0)
+            if pg and pg not in all_pages:
+                all_pages.append(pg)
+            for cid in (r.get("evidence_citation_ids") or []):
+                sc = str(cid).strip()
+                if sc and sc not in seen_c:
+                    seen_c.add(sc)
+                    all_cids.append(sc)
+        rep["evidence_citation_ids"] = all_cids[:24]
+        rep["contributing_page_numbers"] = sorted(all_pages)
+        rep["dedupe_pages_count"] = len(all_pages)
+        out.append(rep)
+    return out
+
+
+def _pt_date_concentration_anomaly(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    counts: dict[str, int] = {}
+    for r in rows or []:
+        d = str(r.get("encounter_date") or "").strip()
+        if d:
+            counts[d] = counts.get(d, 0) + 1
+    total = len(rows or [])
+    if not counts:
+        return {
+            "triggered": False,
+            "max_date": None,
+            "max_date_count": 0,
+            "max_date_ratio": 0.0,
+            "reason": None,
+        }
+    max_date, max_count = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[0]
+    ratio = (max_count / total) if total else 0.0
+    triggered = bool(total >= 6 and (max_count >= 4 or ratio >= 0.50))
+    return {
+        "triggered": triggered,
+        "max_date": max_date,
+        "max_date_count": max_count,
+        "max_date_ratio": round(ratio, 4),
+        "reason": ("PT_date_concentration_anomaly" if triggered else None),
+    }

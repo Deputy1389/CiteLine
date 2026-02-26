@@ -4,10 +4,10 @@ from apps.worker.lib.pt_enumeration import build_pt_evidence_extensions
 from packages.shared.models import BBox, Citation, DateKind, DateSource, EventDate, Page, PageType, Provider, ProviderType
 
 
-def _page(page_no: int, text: str, page_type: PageType) -> Page:
+def _page(page_no: int, text: str, page_type: PageType, doc: str = "doc-1") -> Page:
     return Page(
         page_id=f"p-{page_no}",
-        source_document_id="doc-1",
+        source_document_id=doc,
         page_number=page_no,
         text=text,
         text_source="ocr",
@@ -15,10 +15,10 @@ def _page(page_no: int, text: str, page_type: PageType) -> Page:
     )
 
 
-def _cit(page_no: int, cid: str, snippet: str) -> Citation:
+def _cit(page_no: int, cid: str, snippet: str, doc: str = "doc-1") -> Citation:
     return Citation(
         citation_id=cid,
-        source_document_id="doc-1",
+        source_document_id=doc,
         page_number=page_no,
         snippet=snippet,
         bbox=BBox(x=1, y=1, w=1, h=1),
@@ -103,3 +103,76 @@ def test_reconciliation_flags_variance_when_reported_exceeds_verified() -> None:
     assert ext["pt_reconciliation"]["reported_pt_count_max"] == 12
     assert ext["pt_reconciliation"]["variance_flag"] is True
     assert ext["pt_reconciliation"]["severe_variance_flag"] is True
+
+
+def test_clinical_note_ed_flowsheet_does_not_create_pt_encounter() -> None:
+    pages = [
+        _page(
+            31,
+            "ED Clinical Note\nDate: 10/11/2024\nPT Request received\n15:10 Rounded on patient\n15:45 Toileting assistance\n16:20 RN note",
+            PageType.CLINICAL_NOTE,
+        )
+    ]
+    dates = {31: [_dt(date(2024, 10, 11))]}
+    citations = [_cit(31, "c31", "ED nursing flowsheet with PT Request")]
+    ext = build_pt_evidence_extensions(
+        pages=pages,
+        dates_by_page=dates,
+        providers=[_provider()],
+        page_provider_map={31: "prov-pt"},
+        citations=citations,
+    )
+    assert ext["pt_encounters"] == []
+
+
+def test_same_day_pt_note_pages_dedupe_to_single_encounter_same_document() -> None:
+    pages = [
+        _page(40, "Physical Therapy\nDate: 11/19/2024\nPlan of Care\nTherapeutic Exercise\nHEP", PageType.PT_NOTE),
+        _page(41, "Physical Therapy\nDate: 11/19/2024\nPlan of Care continued\nManual Therapy\nHEP", PageType.PT_NOTE),
+    ]
+    dates = {40: [_dt(date(2024, 11, 19))], 41: [_dt(date(2024, 11, 19))]}
+    citations = [_cit(40, "c40", "PT note page 1"), _cit(41, "c41", "PT note page 2")]
+    ext = build_pt_evidence_extensions(
+        pages=pages,
+        dates_by_page=dates,
+        providers=[_provider()],
+        page_provider_map={40: "prov-pt", 41: "prov-pt"},
+        citations=citations,
+    )
+    rows = ext["pt_encounters"]
+    assert len(rows) == 1
+    assert rows[0]["dedupe_pages_count"] == 2
+    assert sorted(rows[0]["contributing_page_numbers"]) == [40, 41]
+    assert set(rows[0]["evidence_citation_ids"]) == {"c40", "c41"}
+
+
+def test_pt_date_concentration_anomaly_triggers() -> None:
+    pages = []
+    dates = {}
+    citations = []
+    # 5 on one date, 3 on other dates => 8 total, anomaly should trigger
+    for idx, (pg, ds, doc_id, clinic_name) in enumerate([
+        (50, date(2024, 11, 19), "doc-a", "Alpha Physical Therapy"),
+        (51, date(2024, 11, 19), "doc-b", "Bravo Physical Therapy"),
+        (52, date(2024, 11, 19), "doc-c", "Charlie Physical Therapy"),
+        (53, date(2024, 11, 19), "doc-d", "Delta Physical Therapy"),
+        (54, date(2024, 11, 19), "doc-e", "Echo Physical Therapy"),
+        (55, date(2024, 11, 21), "doc-f", "Foxtrot Physical Therapy"),
+        (56, date(2024, 11, 23), "doc-g", "Golf Physical Therapy"),
+        (57, date(2024, 11, 25), "doc-h", "Hotel Physical Therapy"),
+    ]):
+        pages.append(_page(pg, f"{clinic_name}\nDate: {ds.month}/{ds.day}/{ds.year}\nPlan of Care\nHEP\nTherapeutic Exercise", PageType.PT_NOTE, doc=doc_id))
+        dates[pg] = [_dt(ds)]
+        citations.append(_cit(pg, f"c{pg}", f"PT note {idx}", doc=doc_id))
+    ext = build_pt_evidence_extensions(
+        pages=pages,
+        dates_by_page=dates,
+        providers=[],
+        page_provider_map={},
+        citations=citations,
+    )
+    an = ext["pt_reconciliation"]["date_concentration_anomaly"]
+    assert ext["pt_reconciliation"]["verified_pt_count"] == 8
+    assert an["triggered"] is True
+    assert an["max_date_count"] == 5
+    assert an["max_date"] == "2024-11-19"

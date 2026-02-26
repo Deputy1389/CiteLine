@@ -77,6 +77,23 @@ def _check_pt_count_defensible(eg: dict[str, Any], pdf_text: str) -> dict[str, A
     has_ledger_section = bool(re.search(r"\bPT Visit Ledger\b", pdf_text, re.I))
     status = _export_status_from_pdf(pdf_text)
     reported_vals = sorted({int(r.get("reported_count") or 0) for r in pt_reported if int(r.get("reported_count") or 0) > 0})
+    pages_by_num: dict[int, str] = {}
+    for p in (eg.get("pages") or []):
+        if not isinstance(p, dict):
+            continue
+        try:
+            pages_by_num[int(p.get("page_number") or 0)] = str(p.get("page_type") or "")
+        except Exception:
+            continue
+    clinical_note_rows = []
+    for row in pt_ledger:
+        try:
+            pg = int(row.get("page_number") or 0)
+        except Exception:
+            continue
+        ptype = pages_by_num.get(pg, "")
+        if "clinical_note" in ptype.lower():
+            clinical_note_rows.append({"page_number": pg, "page_type": ptype, "encounter_date": row.get("encounter_date")})
 
     verified_ok = (not verified_matches) or all(v == ledger_rows for v in verified_matches)
     ledger_backs_verified = (not verified_matches) or (has_ledger_section and ledger_rows >= max(verified_matches))
@@ -84,7 +101,8 @@ def _check_pt_count_defensible(eg: dict[str, Any], pdf_text: str) -> dict[str, A
     severe_variance = bool(reported_vals and ledger_rows < 3 and max(reported_vals) >= 10)
     severe_variance_status_ok = (not severe_variance) or status in {"REVIEW_RECOMMENDED", "BLOCKED"}
     zero_verified_block = not (ledger_rows == 0 and verified_matches)
-    passed = verified_ok and ledger_backs_verified and reported_ok and severe_variance_status_ok and zero_verified_block
+    no_clinical_note_pt = len(clinical_note_rows) == 0
+    passed = verified_ok and ledger_backs_verified and reported_ok and severe_variance_status_ok and zero_verified_block and no_clinical_note_pt
     return {
         "name": "PT_count_defensible",
         "pdf_verified_pt_count": (verified_matches[0] if verified_matches else None),
@@ -94,7 +112,33 @@ def _check_pt_count_defensible(eg: dict[str, Any], pdf_text: str) -> dict[str, A
         "reported_counts_evidence_graph": reported_vals,
         "has_pt_visit_ledger": has_ledger_section,
         "severe_variance_flag": severe_variance,
+        "pt_encounter_clinical_note_rows": clinical_note_rows[:10],
         "export_status": status,
+        "PASS": passed,
+    }
+
+
+def _check_pt_same_day_inflation_guard(eg: dict[str, Any], pdf_text: str) -> dict[str, Any]:
+    ext = eg.get("extensions") or {}
+    recon = (ext.get("pt_reconciliation") or {}) if isinstance(ext.get("pt_reconciliation"), dict) else {}
+    anomaly = (recon.get("date_concentration_anomaly") or {}) if isinstance(recon.get("date_concentration_anomaly"), dict) else {}
+    triggered = bool(anomaly.get("triggered"))
+    verified = int(recon.get("verified_pt_count") or 0)
+    max_date = anomaly.get("max_date")
+    max_count = int(anomaly.get("max_date_count") or 0)
+    max_ratio = float(anomaly.get("max_date_ratio") or 0.0)
+    export_status = _export_status_from_pdf(pdf_text)
+    visible_warning = bool(re.search(r"PT date concentration anomaly:", pdf_text, re.I))
+    passed = (not triggered) or (export_status in {"REVIEW_RECOMMENDED", "BLOCKED"} and visible_warning)
+    return {
+        "name": "PT_same_day_inflation_guard",
+        "pt_verified_count": verified,
+        "max_date": max_date,
+        "max_date_count": max_count,
+        "max_date_ratio": round(max_ratio, 4),
+        "anomaly_triggered": triggered,
+        "export_status": export_status,
+        "visible_pdf_warning": visible_warning,
         "PASS": passed,
     }
 
@@ -220,6 +264,7 @@ def main() -> None:
         _check_a_gap_statement_truth(eg, pdf_text),
         _check_b_pt_count_consistency(eg, pdf_text),
         _check_pt_count_defensible(eg, pdf_text),
+        _check_pt_same_day_inflation_guard(eg, pdf_text),
         _check_c_high_volume_provider_requirement(pdf_text),
         _check_d_procedure_date_requirement(eg, pdf_text),
         _check_e_no_garbage_text(eg, pdf_text),

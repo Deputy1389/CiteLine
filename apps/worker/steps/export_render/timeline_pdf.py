@@ -504,6 +504,9 @@ def _export_status_label(ext: dict, rm: dict) -> str:
             # PT ledger variance is a deterministic review trigger even if other litigation checks pass.
             pt_recon = ext.get("pt_reconciliation") if isinstance(ext, dict) else None
             if isinstance(pt_recon, dict):
+                date_anom = pt_recon.get("date_concentration_anomaly") if isinstance(pt_recon.get("date_concentration_anomaly"), dict) else {}
+                if bool(date_anom.get("triggered")) and status == "VERIFIED":
+                    status = "REVIEW_RECOMMENDED"
                 verified = int(pt_recon.get("verified_pt_count") or 0)
                 reported_max = pt_recon.get("reported_pt_count_max")
                 try:
@@ -1726,6 +1729,12 @@ def generate_pdf_from_projection(
         care_lines.append(("Reported totals are summaries; verified counts are enumerated dated encounters present in this packet.", []))
     if isinstance(rm_pt, dict) and _clean_line(rm_pt.get("reconciliation_note")):
         care_lines.append((f"PT count reconciliation: {_clean_line(rm_pt.get('reconciliation_note'))}", _refs_from_citation_ids([str(c) for c in (rm_pt.get('citation_ids') or [])], citation_by_id)))
+    pt_date_anomaly = ((ext.get("pt_reconciliation") or {}).get("date_concentration_anomaly") or {}) if isinstance(ext.get("pt_reconciliation"), dict) else {}
+    if isinstance(pt_date_anomaly, dict) and bool(pt_date_anomaly.get("triggered")):
+        max_date = str(pt_date_anomaly.get("max_date") or "unknown date")
+        max_count = int(pt_date_anomaly.get("max_date_count") or 0)
+        total_pt = int(pt_payload.get("verified_count") or 0)
+        care_lines.append((f"PT date concentration anomaly: {max_date} has {max_count} of {total_pt} verified PT encounters (review recommended).", []))
     if lsv1_gap_gt45:
         care_lines.append((f"Treatment gaps detected (max gap: {lsv1_max_gap_days} days)", []))
     elif global_gaps or raw_gaps_gt45:
