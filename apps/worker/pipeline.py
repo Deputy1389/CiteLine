@@ -502,10 +502,17 @@ def _assess_page_quality(pages) -> dict[int, dict]:
         elif score < 0.2:
             reasons.append("low_medical_signal")
 
-        # obvious junk gets excluded from provider detection and event extraction
-        exclude_reasons = {"empty_text", "fax_header", "template_noise", "ocr_garbage"}
+        # v1 safety: only hard-exclude obvious junk. OCR garbage is noisy and can overfire,
+        # so exclude it only when also extremely low quality; otherwise downgrade.
+        exclude_reasons = {"empty_text", "fax_header", "template_noise"}
         is_low = bool(reasons)
-        action = "exclude" if any(r in exclude_reasons for r in reasons) else ("downgrade" if is_low else "allow")
+        action = "allow"
+        if any(r in exclude_reasons for r in reasons):
+            action = "exclude"
+        elif "ocr_garbage" in reasons and score < 0.1:
+            action = "exclude"
+        elif is_low:
+            action = "downgrade"
         page_quality[page.page_number] = {
             "is_low_quality": is_low,
             "action": action,
