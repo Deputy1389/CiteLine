@@ -340,7 +340,23 @@ def run_pipeline(run_id: str) -> None:
         # Ã¢â€â‚¬Ã¢â€â‚¬ Final Export Ã¢â€â‚¬Ã¢â€â‚¬
         processing_seconds = time.time() - start_time
         case_info = CaseInfo(case_id=matter_id, firm_id=firm_id, title=matter_title, timezone=tz, patient=patient)
-        chronology = render_exports(run_id, matter_title, chronology_events, gaps, providers, page_map=page_map, page_provider_map=page_provider_map, case_info=case_info, all_citations=all_citations, narrative_synthesis=narrative_synthesis, page_text_by_number={p.page_number: (p.text or "") for p in all_pages}, specials_summary=specials_payload, config=config, renderer_manifest=renderer_manifest.model_dump(mode="json"))
+        chronology = render_exports(
+            run_id,
+            matter_title,
+            chronology_events,
+            gaps,
+            providers,
+            page_map=page_map,
+            page_provider_map=page_provider_map,
+            case_info=case_info,
+            all_citations=all_citations,
+            narrative_synthesis=narrative_synthesis,
+            page_text_by_number={p.page_number: (p.text or "") for p in all_pages},
+            evidence_graph_payload=evidence_graph.model_dump(mode="json"),
+            specials_summary=specials_payload,
+            config=config,
+            renderer_manifest=renderer_manifest.model_dump(mode="json"),
+        )
         patient_chronologies_json_ref = render_patient_chronology_reports(
             run_id=run_id,
             matter_title=matter_title,
