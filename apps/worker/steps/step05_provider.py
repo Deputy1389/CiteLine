@@ -14,6 +14,7 @@ from packages.shared.models import (
     Provider,
     ProviderEvidence,
     ProviderType,
+    PageType,
     Warning,
 )
 
@@ -111,6 +112,51 @@ def _detect_provider_type(text: str) -> ProviderType:
     return ProviderType.UNKNOWN
 
 
+def _provider_type_from_candidate(raw_name: str, page_text: str) -> ProviderType:
+    """Infer provider type from candidate text first, then page context."""
+    ptype = _detect_provider_type(raw_name or "")
+    if ptype != ProviderType.UNKNOWN:
+        return ptype
+    return _detect_provider_type(page_text or "")
+
+
+def _page_provider_assignment_score(page: Page | None, provider: Provider, raw_name: str, confidence: int) -> int:
+    """
+    Conservative page->provider assignment scoring.
+    Prefer missing provider over obviously wrong provider (e.g., PT provider on imaging/ER pages).
+    """
+    score = int(confidence)
+    if page is None:
+        return score
+    page_type = getattr(page, "page_type", None)
+    page_text = str(getattr(page, "text", "") or "")
+    low_page = page_text.lower()
+    qmeta = dict((getattr(page, "extensions", None) or {}).get("page_quality") or {})
+    provider_type = getattr(provider, "provider_type", ProviderType.UNKNOWN)
+    raw_low = (raw_name or "").lower()
+
+    # Quality-downgraded pages should require stronger fit to assign a provider.
+    if qmeta.get("action") == "downgrade":
+        score -= 10
+
+    if page_type == PageType.IMAGING_REPORT and provider_type == ProviderType.PT:
+        score -= 35
+    if page_type in {PageType.OPERATIVE_REPORT, PageType.LAB_REPORT, PageType.BILLING, PageType.ADMINISTRATIVE} and provider_type == ProviderType.PT:
+        score -= 25
+    if page_type == PageType.CLINICAL_NOTE and provider_type == ProviderType.PT:
+        # ER/hospital-style pages frequently pick up PT fax headers; avoid false certainty.
+        if any(tok in low_page for tok in ["emergency", "trauma center", "hospital", "er visit", "chief complaint"]):
+            score -= 30
+    if page_type == PageType.PT_NOTE and provider_type != ProviderType.PT and provider_type != ProviderType.UNKNOWN:
+        score -= 15
+
+    # Candidate text itself can strongly signal mismatch.
+    if provider_type == ProviderType.PT and any(tok in low_page for tok in ["mri", "radiology", "x-ray", "fluoroscopy"]) and "therapy" not in raw_low:
+        score -= 20
+
+    return score
+
+
 def _extract_candidates_from_page(page: Page) -> list[tuple[str, int]]:
     """
     Extract provider name candidates from a page.
@@ -175,6 +221,7 @@ def detect_providers(
     """
     warnings: list[Warning] = []
     raw_candidates: list[tuple[str, int, int]] = []  # (raw_name, confidence, page_number)
+    page_by_num = {p.page_number: p for p in pages}
 
     for page in pages:
         for raw_name, conf in _extract_candidates_from_page(page):
@@ -225,7 +272,7 @@ def detect_providers(
                 provider_id=uuid.uuid4().hex[:16],
                 detected_name_raw=raw_name[:200],
                 normalized_name=normalized[:200],
-                provider_type=_detect_provider_type(page_text),
+                provider_type=_provider_type_from_candidate(raw_name, page_text),
                 confidence=conf,
                 evidence=[ProviderEvidence(
                     page_number=page_num,
@@ -250,24 +297,27 @@ def detect_providers(
         page_candidates[pnum].append((raw, conf))
         
     for pnum, cands in page_candidates.items():
-        # Find best candidate on this page
-        best_cand = max(cands, key=lambda x: x[1]) # max by confidence
-        raw_name = best_cand[0]
-        norm = _normalize_name(raw_name)
-        
-        # Find which provider cluster this belongs to
-        # (Re-use the same fuzzy logic or just direct lookup if we can)
-        # Since we already clustered everyone in `providers`, we can try to find the match.
-        
-        # Optimization: fast lookup first
-        if norm in norm_to_provider:
-            page_provider_map[pnum] = norm_to_provider[norm].provider_id
-            continue
-            
-        # Fallback fuzzy lookup (same as above loop)
-        for key, prov in seen_normalized.items():
-             if _simple_fuzzy_match(norm, key) >= 0.6:
-                 page_provider_map[pnum] = prov.provider_id
-                 break
+        page = page_by_num.get(pnum)
+        best_provider_id: str | None = None
+        best_score = -10_000
+        for raw_name, conf in cands:
+            norm = _normalize_name(raw_name)
+            if not norm:
+                continue
+            prov = norm_to_provider.get(norm)
+            if prov is None:
+                for key, candidate_prov in seen_normalized.items():
+                    if _simple_fuzzy_match(norm, key) >= 0.6:
+                        prov = candidate_prov
+                        break
+            if prov is None:
+                continue
+            adjusted = _page_provider_assignment_score(page, prov, raw_name, conf)
+            if adjusted > best_score:
+                best_score = adjusted
+                best_provider_id = prov.provider_id
+        # Prefer neutral fallback over low-confidence/mismatched assignment.
+        if best_provider_id and best_score >= 55:
+            page_provider_map[pnum] = best_provider_id
 
     return providers, page_provider_map, warnings

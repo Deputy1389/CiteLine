@@ -2,7 +2,13 @@
 Unit tests for provider normalization (Step 5).
 """
 import pytest
-from apps.worker.steps.step05_provider import _normalize_name, _simple_fuzzy_match, _is_valid_candidate
+from apps.worker.steps.step05_provider import (
+    _normalize_name,
+    _simple_fuzzy_match,
+    _is_valid_candidate,
+    _page_provider_assignment_score,
+)
+from packages.shared.models import Page, Provider, ProviderType, PageType
 
 
 class TestProviderNormalization:
@@ -99,4 +105,44 @@ class TestProviderFiltering:
 
     def test_accept_labeled_provider(self):
         assert _is_valid_candidate("John Smith MD") is True
+
+
+class TestProviderAssignmentScoring:
+    def _page(self, page_type: PageType, text: str, *, downgraded: bool = False) -> Page:
+        return Page(
+            page_id="p1",
+            source_document_id="doc1",
+            page_number=1,
+            text=text,
+            text_source="embedded_pdf_text",
+            page_type=page_type,
+            extensions={"page_quality": {"action": "downgrade" if downgraded else "allow"}},
+        )
+
+    def _provider(self, ptype: ProviderType, name: str = "Elite Physical Therapy") -> Provider:
+        return Provider(
+            provider_id="prov1",
+            detected_name_raw=name,
+            normalized_name=name.lower(),
+            provider_type=ptype,
+            confidence=80,
+        )
+
+    def test_penalizes_pt_provider_on_imaging_page(self):
+        page = self._page(PageType.IMAGING_REPORT, "MRI cervical spine radiology report")
+        pt = self._provider(ProviderType.PT)
+        score = _page_provider_assignment_score(page, pt, "Elite Physical Therapy", 80)
+        assert score < 55
+
+    def test_penalizes_pt_provider_on_hospital_clinical_page(self):
+        page = self._page(PageType.CLINICAL_NOTE, "Emergency department note General Hospital Trauma Center chief complaint neck pain")
+        pt = self._provider(ProviderType.PT)
+        score = _page_provider_assignment_score(page, pt, "Elite Physical Therapy", 80)
+        assert score < 55
+
+    def test_allows_pt_provider_on_pt_page(self):
+        page = self._page(PageType.PT_NOTE, "Physical therapy treatment note ROM strength gait")
+        pt = self._provider(ProviderType.PT)
+        score = _page_provider_assignment_score(page, pt, "Elite Physical Therapy", 80)
+        assert score >= 55
 
