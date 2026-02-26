@@ -7,6 +7,7 @@ It does not run new extraction.
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from datetime import date
 from typing import Any
 
@@ -187,6 +188,29 @@ def _build_pt_summary(events: list[Event], citations: list[Citation] | None = No
                 aggregate_counts.append(int(m2.group(1)))
             if "discharge" in txt.lower() and not discharge_status:
                 discharge_status = txt[:180]
+
+    # Expand PT date span using PT-event citation snippets when event dates are missing/sentinel.
+    if citations and citation_ids_collected:
+        cit_by_id = {str(c.citation_id): c for c in citations}
+        for cid in citation_ids_collected:
+            c = cit_by_id.get(str(cid))
+            if not c:
+                continue
+            sn = str(getattr(c, "snippet", "") or "")
+            if not sn:
+                continue
+            for mm, dd, yyyy in re.findall(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b", sn):
+                try:
+                    d = datetime(int(yyyy), int(mm), int(dd)).date().isoformat()
+                except Exception:
+                    continue
+                if d not in _SENTINEL_DATES:
+                    starts.append(d)
+                    ends.append(d)
+            for iso in re.findall(r"\b(20\d{2}-\d{2}-\d{2})\b", sn):
+                if iso not in _SENTINEL_DATES:
+                    starts.append(iso)
+                    ends.append(iso)
 
     # Citation-backed fallback for aggregate summaries that were not promoted into event facts.
     if citations:

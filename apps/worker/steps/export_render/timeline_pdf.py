@@ -489,6 +489,25 @@ def _manifest_promoted_by_category(rm: dict) -> dict[str, list[dict]]:
     return grouped
 
 
+def _dedupe_key(text: str | None) -> str:
+    s = _clean_line(text or "")
+    s = re.sub(r"^[\s\-•*]+", "", s)
+    return s.lower()
+
+
+def _is_generic_timeline_fact(text: str) -> bool:
+    t = _dedupe_key(text)
+    if not t:
+        return True
+    generic_patterns = [
+        r"\bmri report reviewed; impression documented\b",
+        r"\borthopedic consultation documented\b",
+        r"\bfollow-?up and treatment planning noted\b",
+        r"\bassessment: .*documented\b",
+    ]
+    return any(re.search(p, t, re.I) for p in generic_patterns)
+
+
 def _manifest_finding_paragraphs(
     rm: dict,
     *,
@@ -570,15 +589,20 @@ def _build_timeline_table(
     for entry in scored:
         if not getattr(entry, "citation_display", ""):
             continue
+        etype_low = str(entry.event_type_display or "").lower()
+        if "billing" in etype_low:
+            continue
         facts = [f for f in (getattr(entry, "facts", []) or []) if _clean_line(f)]
-        key_finding = _clean_line(next((f for f in facts if not _is_meta_language(f)), facts[0] if facts else ""))
+        candidates = [f for f in facts if not _is_meta_language(f)]
+        key_finding = _clean_line(next((f for f in candidates if not _is_generic_timeline_fact(f)), candidates[0] if candidates else ""))
         if not key_finding:
+            continue
+        if _is_generic_timeline_fact(key_finding):
             continue
         row_key = (entry.date_display, entry.provider_display, entry.event_type_display, key_finding[:120])
         if row_key in seen:
             continue
         seen.add(row_key)
-        etype_low = str(entry.event_type_display or "").lower()
         if ("therapy" in etype_low or "pt" in etype_low) and pt_rows >= 6:
             continue
         if "therapy" in etype_low or "pt" in etype_low:
@@ -1109,12 +1133,13 @@ def generate_pdf_from_projection(
                 if m and int(m.group(1)) < visit_count_max:
                     continue
             assertion = _guardrail_text(_clean_line(item.get("label")), supported_injury=supported_injury)
-            if not assertion or assertion.lower() in top_seen or _is_undermining_or_noise(assertion):
+            dedupe = _dedupe_key(assertion)
+            if not assertion or dedupe in top_seen or _is_undermining_or_noise(assertion):
                 continue
             refs = _refs_from_citation_ids([str(c) for c in (item.get("citation_ids") or [])], citation_by_id)
             if not refs:
                 continue
-            top_seen.add(assertion.lower())
+            top_seen.add(dedupe)
             a = chron_anchor(str(item.get("source_event_id") or f"top_pf_{len(top_anchor_rows)}"))
             manifest.add_chron_anchor(a)
             _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
@@ -1134,9 +1159,10 @@ def generate_pdf_from_projection(
                 continue
             facts = [f for f in (getattr(entry, "facts", []) or []) if _clean_line(f)]
             key_finding = _guardrail_text(_clean_line(next((f for f in facts if not _is_meta_language(f)), facts[0] if facts else "")), supported_injury=supported_injury)
-            if not key_finding or key_finding.lower() in top_seen:
+            dedupe = _dedupe_key(key_finding)
+            if not key_finding or dedupe in top_seen:
                 continue
-            top_seen.add(key_finding.lower())
+            top_seen.add(dedupe)
             a = chron_anchor(str(eid))
             manifest.add_chron_anchor(a)
             _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
@@ -1150,14 +1176,15 @@ def generate_pdf_from_projection(
         if len(top_anchor_rows) >= 6:
             break
         assertion = _guardrail_text(_clean_line(row.get("assertion")), supported_injury=supported_injury)
-        if not assertion or assertion.lower() in top_seen:
+        dedupe = _dedupe_key(assertion)
+        if not assertion or dedupe in top_seen:
             continue
         if _is_undermining_or_noise(assertion):
             continue
         refs = _claim_row_citation_refs(row, citations_by_page, single_doc_id)
         if not refs:
             continue
-        top_seen.add(assertion.lower())
+        top_seen.add(dedupe)
         a = chron_anchor(str(row.get("event_id") or f"top_{len(top_anchor_rows)}"))
         manifest.add_chron_anchor(a)
         _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)

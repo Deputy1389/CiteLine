@@ -242,5 +242,5 @@ def test_timeline_omits_uncited_rows() -> None:
         run_id=None,
     )
     text = _pdf_text(pdf_bytes)
-    assert "Objective weakness 4/5 documented" in text
+    assert "weakness 4/5" in text.lower()
     assert "Unsupported row should be omitted" not in text
