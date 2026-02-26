@@ -147,6 +147,9 @@ def _clean_citation_snippet_for_finding(text: str) -> str:
 def _clean_finding_label(text: str) -> str:
     s = _clean_citation_snippet_for_finding(text or "")
     s = re.sub(r"^\s*The MRI shows\s+", "", s, flags=re.I).strip()
+    s = re.sub(r"^\s*ASSESSMENT\s+AND\s+TREATMENT\s+PLAN\s*", "", s, flags=re.I).strip()
+    s = re.sub(r"^\s*(assessment|impression|diagnosis(?:es)?|treatment plan)\s*[:\-]\s*", "", s, flags=re.I).strip()
+    s = re.sub(r"^\s*(?:\d+\.)\s*(?=[A-Za-z])", "", s).strip()
     s = re.sub(r"\s{2,}", " ", s).strip()
     return s
 

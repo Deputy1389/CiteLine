@@ -177,3 +177,19 @@ def test_normal_lordotic_curvature_not_promoted_as_objective_headline() -> None:
     ]
     manifest = build_renderer_manifest(events=[], evidence_graph_extensions={}, specials_summary=None, citations=citations)
     assert not any(f.category == "objective_deficit" and "normal lordotic curvature" in f.label.lower() for f in manifest.promoted_findings)
+
+
+def test_diagnosis_label_cleanup_strips_assessment_prefixes() -> None:
+    citations = [
+        Citation(
+            citation_id="c1",
+            source_document_id="doc-1",
+            page_number=112,
+            snippet="ASSESSMENT AND TREATMENT PLAN 1. Cervical Disc Displacement (ICD-10 M50.20) with Radiculopathy (M54.12)",
+            bbox=BBox(x=1, y=1, w=1, h=1),
+        )
+    ]
+    manifest = build_renderer_manifest(events=[], evidence_graph_extensions={}, specials_summary=None, citations=citations)
+    dx = next(f for f in manifest.promoted_findings if f.category == "diagnosis")
+    assert not dx.label.upper().startswith("ASSESSMENT AND TREATMENT PLAN")
+    assert dx.label.startswith("Cervical Disc Displacement")

@@ -149,6 +149,11 @@ def _page_provider_assignment_score(page: Page | None, provider: Provider, raw_n
             score -= 30
     if page_type == PageType.PT_NOTE and provider_type != ProviderType.PT and provider_type != ProviderType.UNKNOWN:
         score -= 15
+    if page_type == PageType.PT_NOTE and provider_type == ProviderType.PT:
+        score += 10
+        # Downgraded PT pages often still contain usable provider letterhead; avoid over-suppressing.
+        if qmeta.get("action") == "downgrade":
+            score += 8
 
     # Candidate text itself can strongly signal mismatch.
     if provider_type == ProviderType.PT and any(tok in low_page for tok in ["mri", "radiology", "x-ray", "fluoroscopy"]) and "therapy" not in raw_low:

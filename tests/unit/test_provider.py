@@ -146,3 +146,9 @@ class TestProviderAssignmentScoring:
         score = _page_provider_assignment_score(page, pt, "Elite Physical Therapy", 80)
         assert score >= 55
 
+    def test_downgraded_pt_page_still_allows_pt_provider(self):
+        page = self._page(PageType.PT_NOTE, "Physical therapy daily note ROM strength gait", downgraded=True)
+        pt = self._provider(ProviderType.PT)
+        score = _page_provider_assignment_score(page, pt, "Elite Physical Therapy", 80)
+        assert score >= 55
+
