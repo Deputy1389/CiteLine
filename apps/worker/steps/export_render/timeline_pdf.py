@@ -252,6 +252,14 @@ def _event_date_label(event: Event) -> str:
     return label or "Undated"
 
 
+def _attorney_date_display(label: str | None) -> str:
+    s = _clean_line(label)
+    if not s:
+        return "Undated"
+    s = re.sub(r"\s*\(time not documented\)\s*", "", s, flags=re.I).strip()
+    return s or "Undated"
+
+
 def _event_date_bounds(event: Event) -> tuple[date | None, date | None]:
     d = getattr(event, "date", None)
     if not d:
@@ -672,8 +680,9 @@ def _build_timeline_table(
         if "Not available" in cite_text:
             continue
         provider_display = _timeline_provider_display(entry, key_finding)
+        date_cell = _attorney_date_display(getattr(entry, "date_display", ""))
         rows.append([
-            Paragraph(f'<a name="{escape(row_anchor)}"/>{escape(_clean_line(entry.date_display) or "Undated")}', small),
+            Paragraph(f'<a name="{escape(row_anchor)}"/>{escape(date_cell)}', small),
             Paragraph(escape(provider_display), small),
             Paragraph(escape(_clean_line(entry.event_type_display) or "Event"), small),
             Paragraph(escape(key_finding), small),
@@ -823,6 +832,17 @@ def build_billing_specials_section(
         flowables.append(Paragraph("<b>Billing extraction status: No billing data extracted from packet.</b>", normal))
     else:
         flowables.append(Paragraph("<b>Billing extraction status: Incomplete.</b>", normal))
+        warn = ParagraphStyle(
+            "BillingPartialWarn",
+            parent=normal,
+            backColor=colors.HexColor("#FEF2F2"),
+            borderColor=colors.HexColor("#FCA5A5"),
+            borderWidth=0.6,
+            borderPadding=5,
+            textColor=colors.HexColor("#7F1D1D"),
+            spaceAfter=4,
+        )
+        flowables.append(Paragraph("<b>Partial Billing Extract Only - Not Total Specials.</b>", warn))
         flowables.append(Paragraph("Total billed is not shown as a case total because extracted billing appears partial or lacks complete EOB/adjustment coverage.", small))
 
     meta_bits = []
@@ -890,7 +910,7 @@ def build_billing_specials_section(
             rows.append([
                 Paragraph(f'<a name="{escape(row_anchor)}"/>{escape(provider_label)}', small),
                 Paragraph(str(item.get("line_count") or 0), small),
-                Paragraph((_safe_money(item.get("charges")) + (" (partial extracted charges)" if status == "partial" else "")), small),
+                Paragraph((_safe_money(item.get("charges")) + (" <font color='#64748B'>(partial extracted charges)</font>" if status == "partial" else "")), small),
                 Paragraph(escape(cite_text), small),
             ])
         if len(rows) > 1:
@@ -967,7 +987,9 @@ def generate_pdf_from_projection(
     flowables = [Paragraph(f"Medical Chronology: {matter_title}", title_style)]
     flowables.append(Paragraph("CASE SNAPSHOT (30-SECOND READ)", h1_style))
 
-    patient_label = next((str(getattr(e, "patient_label", "")).strip() for e in projection.entries if str(getattr(e, "patient_label", "")).strip() and "unknown" not in str(getattr(e, "patient_label", "")).lower()), "Not clearly identified")
+    patient_label = next((str(getattr(e, "patient_label", "")).strip() for e in projection.entries if str(getattr(e, "patient_label", "")).strip() and "unknown" not in str(getattr(e, "patient_label", "")).lower()), "Patient name not reliably extracted from packet")
+    if patient_label.strip().lower() == "see patient header":
+        patient_label = "Patient name not reliably extracted from packet"
     dated_events = [e for e in raw_events if _event_date_bounds(e)[0]]
     dated_events.sort(key=lambda e: _event_date_bounds(e)[0] or date.max)
     doi = (_event_date_bounds(dated_events[0])[0].isoformat() if dated_events else None)
@@ -1048,7 +1070,7 @@ def generate_pdf_from_projection(
             refs = (event_citations_by_event.get(str(start_evt.event_id), []) + event_citations_by_event.get(str(end_evt.event_id), []))[:6]
             _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
             settlement_driver_rows.append(Paragraph(
-                f'<a name="{escape(a)}"/>- Continuous care signal: no computed global treatment gaps >45 days in extracted record activity. <font size="8">{escape(cite_text)}</font>',
+                f'<a name="{escape(a)}"/>- Continuous care signal: no computed global treatment gaps >45 days in extracted encounter chronology. <font size="8">{escape(cite_text)}</font>',
                 bullet_style
             ))
 
@@ -1251,7 +1273,8 @@ def generate_pdf_from_projection(
             a = chron_anchor(str(eid))
             manifest.add_chron_anchor(a)
             _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
-            date_prefix = f"{entry.date_display}: " if _clean_line(getattr(entry, "date_display", "")) and not is_sentinel_date(str(getattr(entry, "date_display", ""))) else ""
+            pretty_date = _attorney_date_display(getattr(entry, "date_display", ""))
+            date_prefix = f"{pretty_date}: " if pretty_date and pretty_date not in {"Undated", "Date not documented"} and not is_sentinel_date(str(getattr(entry, "date_display", ""))) else ""
             top_anchor_rows.append(Paragraph(
                 f'<a name="{escape(a)}"/>- {escape(date_prefix + key_finding)} <font size="8">{escape(cite_text)}</font>',
                 bullet_style,
@@ -1273,7 +1296,8 @@ def generate_pdf_from_projection(
         a = chron_anchor(str(row.get("event_id") or f"top_{len(top_anchor_rows)}"))
         manifest.add_chron_anchor(a)
         _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
-        date_prefix = f"{row.get('date')}: " if row.get("date") and str(row.get("date")).lower() != "unknown" else ""
+        row_date = _attorney_date_display(str(row.get("date") or ""))
+        date_prefix = f"{row_date}: " if row_date and row_date not in {"Undated", "Date not documented"} and str(row.get("date") or "").lower() != "unknown" else ""
         top_anchor_rows.append(Paragraph(
             f'<a name="{escape(a)}"/>- {escape(date_prefix + assertion)} <font size="8">{escape(cite_text)}</font>',
             bullet_style,

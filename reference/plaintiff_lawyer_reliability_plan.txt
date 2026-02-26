@@ -1,0 +1,163 @@
+Goal
+Produce a chronology export a plaintiff PI lawyer can use in mediation/depo prep without being undermined by wrong attribution, overconfident wording, hidden uncertainty, placeholder-looking output, or misleading billing display.
+
+Design Rule (Non-Negotiable)
+- Plaintiff-friendly means strategically framed and citation-anchored.
+- It never means hiding defense facts, overstating certainty, or inventing completeness.
+
+Success Standard (Lawyer Lens)
+For any packet:
+- If evidence is strong: produce a strong, organized, citation-anchored plaintiff-facing export.
+- If evidence is incomplete/noisy: produce a safe, explicit, still-useful export with needs_review signals and clear limitations.
+
+Plan (Execution Order)
+
+1. Provider Reliability First (Highest Credibility Risk)
+- Reduce Provider not clearly identified on timeline rows.
+- Add safe provider propagation rules by event family (PT, imaging, facility clusters), only when evidence is consistent.
+- Never replace unknown with a low-confidence guess.
+- Add provider-resolution quality metric per export.
+
+Acceptance:
+- Wrong-provider smearing stays low.
+- Unknown-provider rows materially decrease.
+- Unresolved provider rows are explicitly marked as extraction limits (not sloppy placeholders).
+
+2. Plaintiff-Safe Identity + Placeholder Cleanup
+- Replace See Patient Header with:
+  - extracted patient name, or
+  - Patient name not reliably extracted from packet.
+- Remove internal-sounding placeholders from attorney-facing pages.
+- Improve date/time display:
+  - show date only when time unavailable
+  - avoid (time not documented) repetition unless legally useful
+
+Acceptance:
+- No placeholder-style language on Pages 1-5.
+- Output reads intentional, not internal/debug-like.
+
+3. Finding Consolidation / Redundancy Control
+- Deduplicate repeated findings across Snapshot + Imaging/Objectives.
+- Keep strongest phrasing once, then support in appendix/timeline.
+- Prevent same finding family (e.g., spasm/lordosis) from crowding out stronger pathology.
+
+Acceptance:
+- No obvious repeated finding clutter on Pages 1 and 3.
+- Strongest pathology/diagnosis remains prominent.
+
+4. Defensibility Wording Hardening (Global)
+- Rewrite potentially overconfident computed statements to extraction-aware phrasing.
+- Example: No computed global treatment gaps >45 days in extracted encounter chronology.
+- Apply this systematically to gaps, continuity, counts/ranges, and completeness statements.
+
+Acceptance:
+- No overconfident computed claim without scope qualifier.
+- Defense cannot easily attack wording as pretending full-record certainty.
+
+5. Billing Display (Plaintiff-Safe + Defense-Resistant)
+- Keep incomplete-billing safe mode.
+- De-emphasize partial subtotals visually (not headline-sized).
+- Add prominent banner: Partial Billing Extract Only - Not Total Specials.
+- Make partial provider subtotals collapsible/secondary in PDF layout.
+
+Acceptance:
+- No reader can mistake partial extracted amounts for total specials.
+- Billing page remains useful without creating damages confusion.
+
+6. Extraction Confidence Summary (Attorney Trust Layer)
+Add a compact block (front page or final page summary) with:
+- Billing completeness: partial / complete / none
+- Provider resolution quality: % rows resolved
+- Page-quality exclusions/downgrades: counts
+- Timeline unresolved rows: count
+- Run quality status: needs_review + key reasons
+
+Purpose:
+- Gives plaintiff lawyers a fast can-I-rely-on-this / where-should-I-verify signal.
+
+Acceptance:
+- Confidence summary is citation-agnostic (metadata) and not misleading.
+- Improves trust without weakening the case narrative.
+
+7. Defense Vulnerability Framing (Plaintiff Strategy Mode, Citation-Anchored)
+Add a short section or callout:
+- Defense-anticipated anchors in packet (for counsel review)
+- Include known defense points (e.g., unremarkable imaging, low discharge pain).
+- Pair each with countervailing record-supported facts (duration, objective findings, cervical pathology, treatment intensity).
+
+Rules:
+- factual only
+- no legal argument language
+- all claims cited
+
+Acceptance:
+- No defense-significant fact appears uncontextualized in the export.
+- Section reads like trial prep, not AI spin.
+
+8. Empty Appendix Policy (Intentional Output)
+- Hide/collapse empty appendix categories.
+- If shown, label clearly: No citation-anchored findings extracted for this category.
+- Do not imply factual absence if it is an extraction limitation.
+
+Acceptance:
+- Report feels intentional, not thin/padded.
+- Empty sections no longer distract or reduce trust.
+
+9. Revenue-Critical Invariants -> needs_review Enforcement
+Make these hard gates:
+- unresolved provider rate above threshold on timeline
+- placeholder/polish violations on Pages 1-5
+- snapshot contradictions vs manifest/promoted findings
+- undisclosed count conflicts
+- overconfident computed language without qualifiers
+
+Acceptance:
+- Violations degrade to needs_review with explicit reason codes.
+- UI/API warnings expose the exact reasons.
+
+10. Universal Packet Coverage (Proof It Works for Plaintiff Firms)
+Build/expand golden packet suite across plaintiff PI reality:
+- MVA spine (current)
+- shoulder/knee ortho
+- injection/procedure-heavy
+- surgery-heavy
+- PT-heavy conservative care
+- ER-only + sparse follow-up
+- billing-heavy packet
+- noisy OCR/fax-heavy packet
+- mixed-provider packet
+
+Per-packet checks:
+- no uncited attorney-facing claims
+- no placeholders on Pages 1-5
+- provider labeling quality acceptable
+- billing safe mode correct
+- snapshot reflects strongest plaintiff-supportive cited facts when present
+- limitations are disclosed when extraction is incomplete
+
+Implementation Sequence (Practical)
+1. Provider reliability + patient/placeholder cleanup
+2. Wording hardening + finding dedupe
+3. Billing display redesign + appendix collapse
+4. Confidence summary block
+5. Defense vulnerability framing
+6. needs_review invariants
+7. Golden packet expansion + regression automation (in parallel after step 2)
+
+Safety Constraints (to keep it plaintiff-lawyer safe)
+- Never hide adverse facts; contextualize them.
+- Never upgrade uncertain data into certainty.
+- Prefer explicit limitation over silent omission.
+- Prefer Provider not clearly identified over wrong provider.
+- Every substantive claim on Pages 1-5 must remain citation-anchored.
+
+What Done Looks Like (Plaintiff Lawyer Standard)
+- A plaintiff lawyer can use it in mediation prep immediately.
+- A defense lawyer cannot easily attack it for fake totals, hidden uncertainty, placeholder language, obvious attribution errors, or uncited claims.
+- Remaining uncertainty is disclosed, not disguised.
+
+Implementation Risks / Guardrails
+- Extraction-aware phrasing should be implemented as deterministic pipeline/renderer wording rules for computed statements (gaps, counts, completeness), not primarily by LLM prompt tuning.
+- Defense vulnerability framing must be generated in a dedicated pipeline synthesis step (typed, citation-backed extensions/manifest field), not inferred in the renderer.
+- Provider propagation must be event-family-scoped, confidence-gated, and non-overriding to avoid provider smearing.
+- Partial extraction can create false confidence if not disclosed; mitigate with explicit scope qualifiers, confidence summary metadata, and needs_review invariants.
