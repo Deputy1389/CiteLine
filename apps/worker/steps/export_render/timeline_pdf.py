@@ -1648,10 +1648,13 @@ def generate_pdf_from_projection(
             refs = event_citations_by_event.get(str(evt.event_id), [])
             if not refs:
                 continue
+            first_fact = _first_supported_fact(evt)
+            if _is_pt_aggregate_count_label(first_fact):
+                continue
             a = chron_anchor(str(evt.event_id))
             manifest.add_chron_anchor(a)
             _links, cite_text = _citation_links_and_text(refs, row_anchor=a, manifest=manifest)
-            fallback.append(Paragraph(f'<a name="{escape(a)}"/>- {escape(_first_supported_fact(evt))}<br/><font size="8">{escape(cite_text)}</font>', bullet_style))
+            fallback.append(Paragraph(f'<a name="{escape(a)}"/>- {escape(first_fact)}<br/><font size="8">{escape(cite_text)}</font>', bullet_style))
             if len(fallback) >= 6:
                 break
         obj_rows = fallback

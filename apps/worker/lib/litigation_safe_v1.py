@@ -275,6 +275,8 @@ def _treatment_events_for_gap(events: list[Event] | list[dict]) -> list[tuple[da
         s, _e = _event_dates(ev)
         if s is None:
             continue
+        if s.year < 2000:
+            continue
         rows.append((s, et))
     rows.sort(key=lambda x: x[0])
     return rows
