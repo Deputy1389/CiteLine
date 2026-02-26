@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from apps.worker.project.chronology import build_chronology_projection, infer_page_patient_labels
+from apps.worker.project.chronology import build_chronology_projection, infer_page_patient_labels, _propagate_pt_provider_labels
+from apps.worker.project.models import ChronologyProjectionEntry
 from packages.shared.models import (
     DateKind,
     DateSource,
@@ -149,3 +150,54 @@ def test_projection_strips_conflicting_embedded_timestamp():
     projection = build_chronology_projection([event], providers=[])
     assert projection.entries
     assert "2017-02-05T11:31:13Z" not in " ".join(projection.entries[0].facts)
+
+
+def test_safe_pt_provider_propagation_fills_unknown_therapy_rows_when_single_consistent_provider():
+    rows = [
+        ChronologyProjectionEntry(
+            event_id="d1", date_display="2025-11-16", provider_display="Elite Physical Therapy",
+            event_type_display="Discharge", patient_label="See Patient Header",
+            facts=["Elite Physical Therapy DISCHARGE SUMMARY"], citation_display="p. 348", confidence=80
+        ),
+        ChronologyProjectionEntry(
+            event_id="d1b", date_display="2025-11-16", provider_display="Elite Physical Therapy",
+            event_type_display="Therapy Visit", patient_label="See Patient Header",
+            facts=["Elite Physical Therapy DISCHARGE SUMMARY"], citation_display="p. 348", confidence=80
+        ),
+        ChronologyProjectionEntry(
+            event_id="t1", date_display="Date not documented", provider_display="Unknown",
+            event_type_display="Therapy Visit", patient_label="See Patient Header",
+            facts=["Aggregated PT sessions (117 encounters) (ROM, Strength)"], citation_display="p. 230", confidence=80
+        ),
+        ChronologyProjectionEntry(
+            event_id="t2", date_display="Date not documented", provider_display="Provider not stated",
+            event_type_display="Therapy Visit", patient_label="See Patient Header",
+            facts=["Aggregated PT sessions (6 encounters) (ROM, Strength)"], citation_display="p. 52", confidence=80
+        ),
+    ]
+    out = _propagate_pt_provider_labels(rows)
+    therapy_rows = [r for r in out if r.event_type_display == "Therapy Visit"]
+    assert all(r.provider_display == "Elite Physical Therapy" for r in therapy_rows)
+
+
+def test_safe_pt_provider_propagation_keeps_unknown_when_multiple_pt_providers():
+    rows = [
+        ChronologyProjectionEntry(
+            event_id="d1", date_display="2025-11-16", provider_display="Elite Physical Therapy",
+            event_type_display="Discharge", patient_label="See Patient Header",
+            facts=["Elite Physical Therapy DISCHARGE SUMMARY"], citation_display="p. 348", confidence=80
+        ),
+        ChronologyProjectionEntry(
+            event_id="d2", date_display="2025-10-01", provider_display="Pinnacle Rehab",
+            event_type_display="Discharge", patient_label="See Patient Header",
+            facts=["Pinnacle Rehab discharge"], citation_display="p. 200", confidence=80
+        ),
+        ChronologyProjectionEntry(
+            event_id="t1", date_display="Date not documented", provider_display="Unknown",
+            event_type_display="Therapy Visit", patient_label="See Patient Header",
+            facts=["Aggregated PT sessions (117 encounters)"], citation_display="p. 230", confidence=80
+        ),
+    ]
+    out = _propagate_pt_provider_labels(rows)
+    t1 = next(r for r in out if r.event_id == "t1")
+    assert t1.provider_display == "Unknown"

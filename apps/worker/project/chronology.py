@@ -334,10 +334,70 @@ def _aggregate_pt_weekly_rows(rows: list[ChronologyProjectionEntry], total_pages
         ))
     return passthrough + aggregated
 
+
+def _propagate_pt_provider_labels(rows: list[ChronologyProjectionEntry]) -> list[ChronologyProjectionEntry]:
+    """
+    Safe PT-only fallback for provider labels.
+
+    If PT/therapy rows are missing providers but the packet consistently contains a single
+    PT facility/provider across therapy/discharge rows, propagate that provider only to
+    therapy rows with unknown providers. Never used for non-therapy rows.
+    """
+    if not rows:
+        return rows
+
+    def _is_unknown_provider(name: str) -> bool:
+        low = (name or "").strip().lower()
+        return low in {"", "unknown", "provider not stated", "provider not clearly identified"}
+
+    def _looks_like_pt_provider(name: str) -> bool:
+        low = (name or "").strip().lower()
+        return any(tok in low for tok in ["physical therapy", "therapy", "rehab", "rehabilitation", "physiotherapy", "chiropractic"])
+
+    def _therapy_like_row(row: ChronologyProjectionEntry) -> bool:
+        et = (row.event_type_display or "").strip().lower()
+        if et == "therapy visit":
+            return True
+        if et == "discharge":
+            blob = " ".join(row.facts or []).lower()
+            return "physical therapy" in blob or "discharge summary" in blob
+        return False
+
+    counts: dict[str, int] = {}
+    for row in rows:
+        if not _therapy_like_row(row):
+            continue
+        provider = (row.provider_display or "").strip()
+        if _is_unknown_provider(provider):
+            continue
+        if not _looks_like_pt_provider(provider):
+            continue
+        counts[provider] = counts.get(provider, 0) + 1
+
+    if not counts:
+        return rows
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    dominant_provider, dominant_count = ranked[0]
+    if dominant_count < 2:
+        return rows
+    # If multiple PT providers appear, prefer ambiguity over a bad propagation.
+    if len(ranked) > 1 and ranked[1][1] >= 1:
+        return rows
+
+    out: list[ChronologyProjectionEntry] = []
+    for row in rows:
+        if (row.event_type_display or "").strip().lower() == "therapy visit" and _is_unknown_provider(row.provider_display):
+            facts_blob = " ".join(row.facts or []).lower()
+            if re.search(r"\b(aggregated pt sessions|physical therapy|pt eval|range of motion|rom|strength)\b", facts_blob):
+                row = row.model_copy(update={"provider_display": dominant_provider})
+        out.append(row)
+    return out
+
 def _apply_timeline_selection(entries: list[ChronologyProjectionEntry], *, total_pages: int = 0, selection_meta: dict[str, Any] | None = None, config: RunConfig) -> list[ChronologyProjectionEntry]:
     if not entries: return entries
     entries = _split_composite_entries(entries, total_pages)
     entries = _aggregate_pt_weekly_rows(entries, total_pages)
+    entries = _propagate_pt_provider_labels(entries)
     entries = _collapse_repetitive_entries(entries, config)
     grouped: dict[str, list[ChronologyProjectionEntry]] = defaultdict(list)
     for entry in entries: grouped[entry.patient_label].append(entry)
