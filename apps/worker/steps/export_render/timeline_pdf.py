@@ -629,6 +629,8 @@ def _build_timeline_table(
                 return "Provider not clearly identified"
             if "clinical note" in etype and "physical therapy" not in finding_low and "pt " not in f" {finding_low} ":
                 return "Provider not clearly identified"
+        if provider and provider == provider.lower() and re.fullmatch(r"[a-z0-9&'./ -]+", provider):
+            provider = " ".join(w.capitalize() if w not in {"of", "and", "the"} else w for w in provider.split())
         return provider or "Provider not clearly identified"
 
     for entry in scored:
