@@ -28,7 +28,8 @@ from packages.shared.models import (
     RunConfig,
     SourceDocument,
     Warning,
-    ArtifactRef
+    ArtifactRef,
+    PageType,
 )
 from packages.shared.schema_validator import validate_output
 from packages.shared.storage import get_upload_path, UPLOADS_DIR, ensure_dirs, save_artifact
@@ -159,7 +160,28 @@ def run_pipeline(run_id: str) -> None:
             total_ocr += ocr_count; all_pages.extend(pages); page_offset += len(pages)
         if not all_pages: _fail_run(run_id, "No pages extracted"); return
 
+        # Assess page text quality before classification/extraction so obvious junk can be
+        # downgraded and excluded from contributing substantive events.
+        page_quality = _assess_page_quality(all_pages)
+        low_quality_pages = {pn for pn, meta in page_quality.items() if meta.get("is_low_quality")}
+        extraction_excluded_pages = {pn for pn, meta in page_quality.items() if meta.get("action") == "exclude"}
+        logger.info(
+            f"[{run_id}] Page quality: {len(low_quality_pages)}/{len(all_pages)} flagged, "
+            f"{len(extraction_excluded_pages)} excluded from extraction"
+        )
+
         all_pages, _ = classify_pages(all_pages)
+        # Downgrade obvious junk pages so they do not masquerade as substantive page types.
+        for p in all_pages:
+            meta = page_quality.get(p.page_number) or {}
+            if meta.get("action") == "exclude":
+                p.page_type = PageType.OTHER
+                p.extensions = dict(p.extensions or {})
+                p.extensions["page_quality"] = meta
+                p.extensions["page_type_downgraded_by_quality"] = True
+            elif meta:
+                p.extensions = dict(p.extensions or {})
+                p.extensions["page_quality"] = meta
         patient, _ = extract_demographics(all_pages)
         patient_partitions_payload, page_to_patient_scope = build_patient_partitions(all_pages)
 
@@ -168,14 +190,8 @@ def run_pipeline(run_id: str) -> None:
             doc_pages = [p for p in all_pages if p.source_document_id == doc.document_id]
             docs, _ = segment_documents(doc_pages, doc.document_id); all_documents.extend(docs)
 
-        # Quality check on pages BEFORE provider detection
-        # This is the CRITICAL fix: catch bad text BEFORE it pollutes providers/events
-        page_quality = _assess_page_quality(all_pages)
-        low_quality_pages = {pn for pn, is_bad in page_quality.items() if is_bad}
-        logger.info(f"[{run_id}] Page quality: {len(low_quality_pages)}/{len(all_pages)} pages flagged as low quality")
-
-        # Filter pages for provider detection - skip garbage pages
-        quality_filtered_pages = [p for p in all_pages if p.page_number not in low_quality_pages]
+        # Filter pages for provider detection / extraction - skip only pages marked hard-exclude.
+        quality_filtered_pages = [p for p in all_pages if p.page_number not in extraction_excluded_pages]
         
         providers, page_provider_map, _ = detect_providers(quality_filtered_pages, all_documents)
 
@@ -184,17 +200,17 @@ def run_pipeline(run_id: str) -> None:
         UNKNOWN_SENTINEL_IDS = {p.provider_id for p in providers if p.confidence == 0 and (p.normalized_name or "").lower() == "unknown provider"}
         page_provider_map = {pg: pid for pg, pid in page_provider_map.items() if pid not in UNKNOWN_SENTINEL_IDS}
 
-        dates = extract_dates_for_pages(all_pages, page_provider_map=page_provider_map)
+        dates = extract_dates_for_pages(quality_filtered_pages, page_provider_map=page_provider_map)
 
         all_events, all_citations, all_skipped = [], [], []
         # Extraction logic
-        e, c, w, s = extract_clinical_events(all_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
-        e, c, w, s = extract_imaging_events(all_pages, dates, providers, config, page_provider_map, page_text_by_number={p.page_number: (p.text or "") for p in all_pages}); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
-        e, c, w, s = extract_pt_events(all_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
-        e, c, w, s = extract_billing_events(all_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
-        e, c, w, s = extract_lab_events(all_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
-        e, c, w, s = extract_discharge_events(all_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
-        e, c, w, s = extract_operative_events(all_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_clinical_events(quality_filtered_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_imaging_events(quality_filtered_pages, dates, providers, config, page_provider_map, page_text_by_number={p.page_number: (p.text or "") for p in quality_filtered_pages}); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_pt_events(quality_filtered_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_billing_events(quality_filtered_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_lab_events(quality_filtered_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_discharge_events(quality_filtered_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
+        e, c, w, s = extract_operative_events(quality_filtered_pages, dates, providers, config, page_provider_map); all_events.extend(e); all_citations.extend(c); all_skipped.extend(s)
 
         # Quality Gate
         quality_stats = {"num_snippets_filtered": 0, "num_snippets_cleaned": 0}
@@ -232,6 +248,18 @@ def run_pipeline(run_id: str) -> None:
             "total_pages": len(all_pages),
             "low_quality_pages": len(low_quality_pages),
             "low_quality_page_numbers": sorted(low_quality_pages),
+            "extraction_excluded_pages": len(extraction_excluded_pages),
+            "extraction_excluded_page_numbers": sorted(extraction_excluded_pages),
+            "reason_counts": _page_quality_reason_counts(page_quality),
+            "details": [
+                {
+                    "page_number": int(p.page_number),
+                    "page_type": str(p.page_type or "other"),
+                    "text_source": str(getattr(p, "text_source", "") or ""),
+                    **(page_quality.get(p.page_number) or {}),
+                }
+                for p in all_pages
+            ],
         }
 
         # Ã¢â€â‚¬Ã¢â€â‚¬ Metrics Ã¢â€â‚¬Ã¢â€â‚¬
@@ -437,28 +465,60 @@ def _fail_run(run_id: str, error: str) -> None:
         if run_row: run_row.status = "failed"; run_row.finished_at = datetime.now(timezone.utc); run_row.error_message = error[:ERROR_MESSAGE_MAX_LEN]
 
 
-def _assess_page_quality(pages) -> dict[int, bool]:
+def _assess_page_quality(pages) -> dict[int, dict]:
     """
-    Assess quality of each page's text to identify garbage before extraction.
-    
-    Returns dict mapping page_number -> is_low_quality (True if garbage)
+    Assess quality of each page's text to identify garbage before extraction/classification.
+
+    Returns dict mapping page_number -> metadata:
+    {
+      "is_low_quality": bool,
+      "action": "exclude" | "downgrade" | "allow",
+      "score": float,
+      "reason_codes": list[str],
+    }
     """
-    from apps.worker.quality.text_quality import is_garbage, quality_score
-    
-    page_quality = {}
+    from apps.worker.quality.text_quality import is_garbage, quality_score, explain_flags
+
+    page_quality: dict[int, dict] = {}
     for page in pages:
         text = page.text or ""
-        if not text or len(text.strip()) < 50:
-            page_quality[page.page_number] = True  # Too short = low quality
-            continue
-        if is_garbage(text):
-            page_quality[page.page_number] = True  # Garbage detected
-            continue
-        # Also flag pages with very low quality scores
-        score = quality_score(text)
-        if score < 0.2:
-            page_quality[page.page_number] = True
-            continue
-        page_quality[page.page_number] = False
-    
+        stripped = text.strip()
+        score = float(quality_score(text)) if stripped else 0.0
+        reasons: list[str] = []
+
+        if not stripped:
+            reasons.append("empty_text")
+        elif len(stripped) < 50:
+            reasons.append("too_short")
+
+        flags = set(explain_flags(text))
+        if "fax_artifact" in flags:
+            reasons.append("fax_header")
+        if "repeated_labels" in flags:
+            reasons.append("template_noise")
+
+        if stripped and is_garbage(text):
+            reasons.append("ocr_garbage")
+        elif score < 0.2:
+            reasons.append("low_medical_signal")
+
+        # obvious junk gets excluded from provider detection and event extraction
+        exclude_reasons = {"empty_text", "fax_header", "template_noise", "ocr_garbage"}
+        is_low = bool(reasons)
+        action = "exclude" if any(r in exclude_reasons for r in reasons) else ("downgrade" if is_low else "allow")
+        page_quality[page.page_number] = {
+            "is_low_quality": is_low,
+            "action": action,
+            "score": round(score, 4),
+            "reason_codes": sorted(set(reasons)),
+        }
+
     return page_quality
+
+
+def _page_quality_reason_counts(page_quality: dict[int, dict]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for meta in (page_quality or {}).values():
+        for reason in list(meta.get("reason_codes") or []):
+            counts[reason] = counts.get(reason, 0) + 1
+    return counts
