@@ -859,8 +859,11 @@ def build_billing_specials_section(
             if manifest:
                 manifest.add_chron_anchor(row_anchor)
             _links, cite_text = _citation_links_and_text(refs, row_anchor=row_anchor, manifest=manifest)
+            provider_label = str(item.get("provider_display_name") or "Unknown provider")
+            if provider_label.strip().lower() == "unresolved provider":
+                provider_label = "Provider name unresolved (partial billing extraction)"
             rows.append([
-                Paragraph(f'<a name="{escape(row_anchor)}"/>{escape(str(item.get("provider_display_name") or "Unknown provider"))}', small),
+                Paragraph(f'<a name="{escape(row_anchor)}"/>{escape(provider_label)}', small),
                 Paragraph(str(item.get("line_count") or 0), small),
                 Paragraph((_safe_money(item.get("charges")) + (" (partial extracted charges)" if status == "partial" else "")), small),
                 Paragraph(escape(cite_text), small),
@@ -875,6 +878,9 @@ def build_billing_specials_section(
             flowables.append(Paragraph("Known extracted billing line groups (record-supported):", normal))
             flowables.append(Spacer(1, 0.05 * inch))
             flowables.append(tbl)
+            if status == "partial":
+                flowables.append(Spacer(1, 0.05 * inch))
+                flowables.append(Paragraph("Provider charge amounts above are partial extracted subtotals and should not be treated as complete specials totals or completeness ratios.", small))
         else:
             flowables.append(Paragraph("Known line items: Not available in packet extraction.", normal))
         if dropped_uncited_provider_rows:
@@ -1325,7 +1331,7 @@ def generate_pdf_from_projection(
         refs = []
         if dated_events:
             refs = (event_citations_by_event.get(str(dated_events[0].event_id), []) + event_citations_by_event.get(str(dated_events[-1].event_id), []))[:6]
-        care_lines.append(("No computed global treatment gaps >45 days in extracted records", refs))
+        care_lines.append(("No computed global treatment gaps >45 days in extracted medical encounter chronology", refs))
     for idx, (line, refs) in enumerate(care_lines):
         if refs:
             a = chron_anchor(f"careline_{idx}")

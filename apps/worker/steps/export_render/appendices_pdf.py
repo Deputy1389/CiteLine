@@ -90,7 +90,7 @@ def _build_record_packet_rows(
                 "source_document_id": str(cit.source_document_id),
                 "filename": filename,
                 "local_page": str(local_page),
-                "snippet": snippet or "(No snippet available)",
+                "snippet": snippet or "(Snippet preview unavailable; see cited page)",
             }
         )
     return rows
@@ -162,7 +162,7 @@ def build_projection_appendix_sections(
     def _render_list_appendix(title: str, items: list[str], flow: list) -> None:
         flow.append(Paragraph(title, h1_style))
         if not items:
-            flow.append(Paragraph("No findings available for this category.", normal_style))
+            flow.append(Paragraph("No citation-anchored findings extracted for this category.", normal_style))
         else:
             for item in items:
                 flow.append(Paragraph(f"- {item}", normal_style))

@@ -120,6 +120,20 @@ def _best_objective_clause(text: str) -> str:
     return text
 
 
+def _clean_citation_snippet_for_finding(text: str) -> str:
+    s = re.sub(r"\s+", " ", (text or "").strip())
+    s = re.sub(r"^[\s\-•*\d\.\)]+", "", s)
+    # Prefer a complete sentence/statement to avoid truncated tails like "This directly"
+    if len(s) > 140:
+        # Keep up to the last punctuation before the limit if available.
+        cutoff = max(s.rfind(".", 0, 170), s.rfind(";", 0, 170))
+        if cutoff >= 40:
+            s = s[: cutoff + 1]
+    # Remove obvious truncated tail fragments.
+    s = re.sub(r"\bThis directly\s*$", "", s, flags=re.I).strip()
+    return s
+
+
 def _finding_priority_rank(f: PromotedFinding) -> tuple[int, int]:
     """
     Lower is better. Adds within-category priority so plaintiff-useful structural findings beat generic variants.
@@ -190,7 +204,7 @@ def _build_mechanism_from_citations(citations: list[Citation] | None) -> Rendere
         (re.compile(r"\b(work(?:place)? injury|on the job|lifting injury)\b", re.I), "work injury"),
     ]
     for c in sorted(citations, key=lambda x: int(getattr(x, "page_number", 999999) or 999999)):
-        sn = str(getattr(c, "snippet", "") or "").strip()
+        sn = _clean_citation_snippet_for_finding(str(getattr(c, "snippet", "") or "").strip())
         if not sn:
             continue
         low = sn.lower()
@@ -282,7 +296,10 @@ def _build_pt_summary(events: list[Event], citations: list[Citation] | None = No
     cmin = min(unique_counts) if unique_counts else None
     cmax = max(unique_counts) if unique_counts else None
     if cmin is not None and cmax is not None and cmin != cmax:
-        note = f"PT volume summaries vary across records ({cmin}-{cmax} encounters); displayed count uses the highest citation-backed aggregate."
+        note = (
+            f"PT volume summaries vary across records ({cmin}-{cmax} encounters); "
+            f"this report displays the observed range and uses {cmax} as the maximum reported aggregate for treatment-intensity reference."
+        )
 
     return RendererPtSummary(
         total_encounters=total,
@@ -587,9 +604,13 @@ def build_renderer_manifest(
     promoted = _promoted_findings_from_claim_rows(claim_rows)
     promoted = _promoted_findings_from_events(events, promoted)
     promoted = _promoted_findings_from_citations(citations, promoted)
+    mechanism_from_citations = _build_mechanism_from_citations(citations)
     mechanism = _build_mechanism(events)
-    if not mechanism.value:
-        mechanism = _build_mechanism_from_citations(citations)
+    # Prefer citation-snippet mechanism when available so the citation index preview visibly supports the label.
+    if mechanism_from_citations.value:
+        mechanism = mechanism_from_citations
+    elif not mechanism.value:
+        mechanism = mechanism_from_citations
     return RendererManifest(
         doi=_build_doi(events),
         mechanism=mechanism,
