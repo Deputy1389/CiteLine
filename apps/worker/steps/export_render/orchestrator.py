@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 from packages.shared.models import ArtifactRef, ChronologyExports, ChronologyOutput
 from packages.shared.storage import save_artifact
-from apps.worker.project.chronology import build_chronology_projection
+from apps.worker.project.chronology import build_chronology_projection, compute_provider_resolution_quality
 from packages.shared.utils.render_utils import infer_page_patient_labels
 from apps.worker.project.models import ChronologyProjection
 from apps.worker.lib.claim_guard import apply_claim_guard_to_narrative
@@ -56,6 +56,7 @@ def render_exports(
     gaps: list[Gap],
     providers: list[Provider],
     page_map: dict[int, tuple[str, int]] | None = None,
+    page_provider_map: dict[int, str] | None = None,
     case_info: CaseInfo | None = None,
     all_citations: list[Citation] | None = None,
     narrative_synthesis: str | None = None,
@@ -77,6 +78,7 @@ def render_exports(
         events=events,
         providers=providers,
         page_map=page_map,
+        page_provider_map=page_provider_map,
         page_text_by_number=page_text_by_number,
         narrative_synthesis=narrative_synthesis,
         missing_records_payload=missing_records_payload,
@@ -108,6 +110,12 @@ def render_exports(
         events=events,
         projection_debug=projection_debug,
     )
+    if isinstance(evidence_graph_payload, dict):
+        ext = evidence_graph_payload.get("extensions")
+        if not isinstance(ext, dict):
+            ext = {}
+            evidence_graph_payload["extensions"] = ext
+        ext["provider_resolution_quality"] = compute_provider_resolution_quality(projection.entries)
     save_artifact(run_id, "selection_debug.json", json.dumps(selection_debug_payload, indent=2).encode("utf-8"))
     save_artifact(run_id, "claim_guard_report.json", json.dumps(claim_guard_report, indent=2).encode("utf-8"))
     
@@ -191,6 +199,7 @@ def render_patient_chronology_reports(
     events: list[Event],
     providers: list[Provider],
     page_map: dict[int, tuple[str, int]] | None = None,
+    page_provider_map: dict[int, str] | None = None,
     page_text_by_number: dict[int, str] | None = None,
     config = None,
 ) -> ArtifactRef | None:
@@ -200,6 +209,7 @@ def render_patient_chronology_reports(
         events=events,
         providers=providers,
         page_map=page_map,
+        page_provider_map=page_provider_map,
         page_patient_labels=page_patient_labels,
         page_text_by_number=page_text_by_number,
         config=config,

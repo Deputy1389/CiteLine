@@ -17,7 +17,7 @@ from apps.worker.steps.events.report_quality import (
     surgery_classifier_guard,
 )
 from apps.worker.lib.noise_filter import is_noise_span
-from packages.shared.models import Event, Provider, RunConfig
+from packages.shared.models import Event, Provider, ProviderType, RunConfig
 
 # New Utility Imports
 from packages.shared.utils.render_utils import (
@@ -78,6 +78,97 @@ def _event_type_display(event: Event) -> str:
     }
     key = event.event_type.value
     return mapping.get(key, key.replace("_", " ").title())
+
+
+_UNKNOWN_PROVIDER_LABELS = {
+    "",
+    "unknown",
+    "provider not stated",
+    "provider not clearly identified",
+}
+
+
+def _is_unknown_provider_label(name: str) -> bool:
+    return (name or "").strip().lower() in _UNKNOWN_PROVIDER_LABELS
+
+
+def _provider_key(name: str) -> str:
+    return re.sub(r"\s+", " ", (name or "").strip().lower())
+
+
+def _provider_display_for_inference(provider: Provider | None) -> str | None:
+    if provider is None:
+        return None
+    raw = provider.normalized_name or provider.detected_name_raw
+    clean = sanitize_for_report(raw or "").strip()
+    if not clean:
+        return None
+    if provider.confidence < 60:
+        return None
+    low_clean = clean.lower()
+    if _is_unknown_provider_label(low_clean):
+        return None
+    if any(token in low_clean for token in ("medical record summary", "stress test", "chronology eval", "sample 172", "pdf", "page")):
+        return None
+    if re.search(r"[a-f0-9]{8,}", low_clean):
+        return None
+    return clean
+
+
+def _choose_consistent_provider_from_pages(
+    page_numbers: list[int],
+    providers: list[Provider],
+    page_provider_map: dict[int, str] | None,
+    *,
+    allowed_types: set[ProviderType] | None = None,
+    disallowed_types: set[ProviderType] | None = None,
+) -> str | None:
+    if not page_numbers or not page_provider_map or not providers:
+        return None
+    providers_by_id = {p.provider_id: p for p in providers}
+    counts: dict[str, int] = {}
+    canonical: dict[str, str] = {}
+    for pnum in sorted(set(page_numbers)):
+        pid = page_provider_map.get(pnum)
+        if not pid:
+            continue
+        prov = providers_by_id.get(pid)
+        if not prov:
+            continue
+        ptype = getattr(prov, "provider_type", ProviderType.UNKNOWN)
+        if allowed_types is not None and ptype not in allowed_types:
+            continue
+        if disallowed_types is not None and ptype in disallowed_types:
+            continue
+        label = _provider_display_for_inference(prov)
+        if not label:
+            continue
+        key = _provider_key(label)
+        counts[key] = counts.get(key, 0) + 1
+        best = canonical.get(key)
+        if best is None or (label != label.lower() and best == best.lower()) or len(label) > len(best):
+            canonical[key] = label
+    if not counts:
+        return None
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    if len(ranked) > 1:
+        return None
+    return canonical.get(ranked[0][0], ranked[0][0])
+
+
+def _citation_page_numbers(citation_display: str) -> list[int]:
+    pages: list[int] = []
+    seen: set[int] = set()
+    for m in re.finditer(r"\bp\.\s*(\d{1,5})\b", citation_display or "", re.IGNORECASE):
+        try:
+            pnum = int(m.group(1))
+        except ValueError:
+            continue
+        if pnum <= 0 or pnum in seen:
+            continue
+        seen.add(pnum)
+        pages.append(pnum)
+    return pages
 
 def _is_substantive_event(event: Event) -> bool:
     joined_facts = " ".join(f.text for f in event.facts).lower()
@@ -335,7 +426,12 @@ def _aggregate_pt_weekly_rows(rows: list[ChronologyProjectionEntry], total_pages
     return passthrough + aggregated
 
 
-def _propagate_pt_provider_labels(rows: list[ChronologyProjectionEntry]) -> list[ChronologyProjectionEntry]:
+def _propagate_pt_provider_labels(
+    rows: list[ChronologyProjectionEntry],
+    *,
+    providers: list[Provider] | None = None,
+    page_provider_map: dict[int, str] | None = None,
+) -> list[ChronologyProjectionEntry]:
     """
     Safe PT-only fallback for provider labels.
 
@@ -345,10 +441,6 @@ def _propagate_pt_provider_labels(rows: list[ChronologyProjectionEntry]) -> list
     """
     if not rows:
         return rows
-
-    def _is_unknown_provider(name: str) -> bool:
-        low = (name or "").strip().lower()
-        return low in {"", "unknown", "provider not stated", "provider not clearly identified"}
 
     def _looks_like_pt_provider(name: str) -> bool:
         low = (name or "").strip().lower()
@@ -365,24 +457,44 @@ def _propagate_pt_provider_labels(rows: list[ChronologyProjectionEntry]) -> list
 
     counts: dict[str, int] = {}
     canonical_display: dict[str, str] = {}
+    providers_by_id = {p.provider_id: p for p in (providers or [])}
 
-    def _provider_key(name: str) -> str:
-        return re.sub(r"\s+", " ", (name or "").strip().lower())
+    def _add_candidate(provider_name: str) -> None:
+        provider_name = (provider_name or "").strip()
+        if _is_unknown_provider_label(provider_name):
+            return
+        if not _looks_like_pt_provider(provider_name):
+            return
+        key = _provider_key(provider_name)
+        counts[key] = counts.get(key, 0) + 1
+        best = canonical_display.get(key)
+        if best is None or (provider_name != provider_name.lower() and best == best.lower()) or len(provider_name) > len(best):
+            canonical_display[key] = provider_name
 
     for row in rows:
         if not _therapy_like_row(row):
             continue
         provider = (row.provider_display or "").strip()
-        if _is_unknown_provider(provider):
+        _add_candidate(provider)
+        if not page_provider_map:
             continue
-        if not _looks_like_pt_provider(provider):
-            continue
-        key = _provider_key(provider)
-        counts[key] = counts.get(key, 0) + 1
-        # Prefer title-cased / longer display variants for output.
-        best = canonical_display.get(key)
-        if best is None or (provider != provider.lower() and best == best.lower()) or len(provider) > len(best):
-            canonical_display[key] = provider
+        for pnum in _citation_page_numbers(row.citation_display):
+            pid = page_provider_map.get(pnum)
+            if not pid:
+                continue
+            prov = providers_by_id.get(pid)
+            if not prov:
+                continue
+            ptype = getattr(prov, "provider_type", ProviderType.UNKNOWN)
+            if ptype not in {ProviderType.PT, ProviderType.UNKNOWN}:
+                continue
+            label = _provider_display_for_inference(prov)
+            if not label:
+                continue
+            # For UNKNOWN provider_type, require PT-like text to avoid cross-family smearing.
+            if ptype == ProviderType.UNKNOWN and not _looks_like_pt_provider(label):
+                continue
+            _add_candidate(label)
 
     if not counts:
         return rows
@@ -397,18 +509,70 @@ def _propagate_pt_provider_labels(rows: list[ChronologyProjectionEntry]) -> list
 
     out: list[ChronologyProjectionEntry] = []
     for row in rows:
-        if (row.event_type_display or "").strip().lower() == "therapy visit" and _is_unknown_provider(row.provider_display):
-            facts_blob = " ".join(row.facts or []).lower()
-            if re.search(r"\b(aggregated pt sessions|physical therapy|pt eval|range of motion|rom|strength)\b", facts_blob):
-                row = row.model_copy(update={"provider_display": dominant_provider})
+        if (row.event_type_display or "").strip().lower() == "therapy visit" and _is_unknown_provider_label(row.provider_display):
+            row = row.model_copy(update={"provider_display": dominant_provider})
         out.append(row)
     return out
 
-def _apply_timeline_selection(entries: list[ChronologyProjectionEntry], *, total_pages: int = 0, selection_meta: dict[str, Any] | None = None, config: RunConfig) -> list[ChronologyProjectionEntry]:
+
+def compute_provider_resolution_quality(rows: list[ChronologyProjectionEntry]) -> dict[str, Any]:
+    """
+    Export-facing provider labeling quality summary from projected rows.
+
+    Measures provider resolution on citation-anchored chronology projection rows (the rows that can
+    reach attorney-facing export sections), with unresolved counts grouped by event family.
+    """
+    anchored_rows = [r for r in (rows or []) if (r.citation_display or "").strip()]
+    by_family: dict[str, dict[str, Any]] = {}
+    for row in anchored_rows:
+        family = _classify_projection_entry(row)
+        if not family:
+            family = "other"
+        fam = by_family.setdefault(
+            family,
+            {"rows_total": 0, "rows_resolved": 0, "rows_unresolved": 0},
+        )
+        fam["rows_total"] += 1
+        if _is_unknown_provider_label(row.provider_display):
+            fam["rows_unresolved"] += 1
+        else:
+            fam["rows_resolved"] += 1
+    for fam in by_family.values():
+        total = int(fam.get("rows_total") or 0)
+        resolved = int(fam.get("rows_resolved") or 0)
+        fam["resolved_ratio"] = round((resolved / total), 4) if total else 1.0
+    total_rows = len(anchored_rows)
+    resolved_rows = sum(int(v.get("rows_resolved") or 0) for v in by_family.values())
+    unresolved_rows = sum(int(v.get("rows_unresolved") or 0) for v in by_family.values())
+    unresolved_by_family = {
+        family: int(v.get("rows_unresolved") or 0)
+        for family, v in sorted(by_family.items())
+        if int(v.get("rows_unresolved") or 0) > 0
+    }
+    return {
+        "version": "1.0",
+        "scope": "export_projection_rows",
+        "rows_total": total_rows,
+        "rows_resolved": resolved_rows,
+        "rows_unresolved": unresolved_rows,
+        "resolved_ratio": round((resolved_rows / total_rows), 4) if total_rows else 1.0,
+        "unresolved_by_family": unresolved_by_family,
+        "by_family": {family: by_family[family] for family in sorted(by_family.keys())},
+    }
+
+def _apply_timeline_selection(
+    entries: list[ChronologyProjectionEntry],
+    *,
+    total_pages: int = 0,
+    selection_meta: dict[str, Any] | None = None,
+    providers: list[Provider] | None = None,
+    page_provider_map: dict[int, str] | None = None,
+    config: RunConfig,
+) -> list[ChronologyProjectionEntry]:
     if not entries: return entries
     entries = _split_composite_entries(entries, total_pages)
     entries = _aggregate_pt_weekly_rows(entries, total_pages)
-    entries = _propagate_pt_provider_labels(entries)
+    entries = _propagate_pt_provider_labels(entries, providers=providers, page_provider_map=page_provider_map)
     entries = _collapse_repetitive_entries(entries, config)
     grouped: dict[str, list[ChronologyProjectionEntry]] = defaultdict(list)
     for entry in entries: grouped[entry.patient_label].append(entry)
@@ -518,7 +682,18 @@ def _merge_projection_entries(entries: list[ChronologyProjectionEntry], select_t
     if select_timeline: merged = _apply_timeline_selection(merged, config=config)
     return sorted(merged, key=lambda e: (e.patient_label, _entry_date_key(e), e.event_id))
 
-def build_chronology_projection(events: list[Event], providers: list[Provider], page_map: dict[int, tuple[str, int]] | None = None, page_patient_labels: dict[int, str] | None = None, page_text_by_number: dict[int, str] | None = None, debug_sink: list[dict] | None = None, select_timeline: bool = True, selection_meta: dict | None = None, config: RunConfig | None = None) -> ChronologyProjection:
+def build_chronology_projection(
+    events: list[Event],
+    providers: list[Provider],
+    page_map: dict[int, tuple[str, int]] | None = None,
+    page_provider_map: dict[int, str] | None = None,
+    page_patient_labels: dict[int, str] | None = None,
+    page_text_by_number: dict[int, str] | None = None,
+    debug_sink: list[dict] | None = None,
+    select_timeline: bool = True,
+    selection_meta: dict | None = None,
+    config: RunConfig | None = None,
+) -> ChronologyProjection:
     config = _resolve_config(config)
     entries = []; sorted_events = sorted(events, key=lambda e: e.date.sort_key() if e.date else (99, "UNKNOWN"))
     provider_dated_pages = {}
@@ -685,10 +860,16 @@ def build_chronology_projection(events: list[Event], providers: list[Provider], 
                 proc_facts = []
                 for p in hit_pages[:5]:
                     proc_facts.extend(_line_snippets(page_text_by_number.get(p) or "", r"(interlaminar|transforaminal|epidural|fluoroscopy|depo-?medrol|lidocaine|complications?)", limit=3))
-                entries.append(ChronologyProjectionEntry(event_id=f"proc_anchor_{hashlib.sha1('|'.join(map(str, hit_pages)).encode('utf-8')).hexdigest()[:12]}", date_display=_iso_date_display(proc_date) if proc_date else "Date not documented", provider_display="Unknown", event_type_display="Procedure/Surgery", patient_label="See Patient Header", facts=proc_facts[:config.chronology_timeline_facts_max] or ["Epidural steroid injection documented."], citation_display=", ".join(f"p. {p}" for p in hit_pages[:5]), confidence=85))
+                proc_provider = _choose_consistent_provider_from_pages(
+                    hit_pages,
+                    providers,
+                    page_provider_map,
+                    disallowed_types={ProviderType.PT},
+                ) or "Provider not clearly identified"
+                entries.append(ChronologyProjectionEntry(event_id=f"proc_anchor_{hashlib.sha1('|'.join(map(str, hit_pages)).encode('utf-8')).hexdigest()[:12]}", date_display=_iso_date_display(proc_date) if proc_date else "Date not documented", provider_display=proc_provider, event_type_display="Procedure/Surgery", patient_label="See Patient Header", facts=proc_facts[:config.chronology_timeline_facts_max] or ["Epidural steroid injection documented."], citation_display=", ".join(f"p. {p}" for p in hit_pages[:5]), confidence=85))
 
     if select_timeline:
-        merged_entries = sorted(_apply_timeline_selection(entries, total_pages=len(page_text_by_number or {}), selection_meta=selection_meta, config=config), key=lambda e: (e.patient_label, (re.search(r"\b(\d{4}-\d{2}-\d{2})\b", e.date_display).group(1) if re.search(r"\b(\d{4}-\d{2}-\d{2})\b", e.date_display) else "9999-12-31"), e.event_id))
+        merged_entries = sorted(_apply_timeline_selection(entries, total_pages=len(page_text_by_number or {}), selection_meta=selection_meta, providers=providers, page_provider_map=page_provider_map, config=config), key=lambda e: (e.patient_label, (re.search(r"\b(\d{4}-\d{2}-\d{2})\b", e.date_display).group(1) if re.search(r"\b(\d{4}-\d{2}-\d{2})\b", e.date_display) else "9999-12-31"), e.event_id))
     else:
         merged_entries = _merge_projection_entries(entries, select_timeline=select_timeline, config=config)
 

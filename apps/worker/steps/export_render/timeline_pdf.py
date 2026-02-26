@@ -207,6 +207,16 @@ def _clean_line(text: str | None) -> str:
     return text[:500]
 
 
+def _attorney_placeholder_text(text: str | None) -> str:
+    s = _clean_line(text)
+    if not s:
+        return ""
+    low = s.lower()
+    if low == "see patient header":
+        return "Patient name not reliably extracted from packet"
+    return s
+
+
 def _is_undermining_or_noise(text: str) -> bool:
     blob = (text or "").lower()
     if not blob:
@@ -253,10 +263,12 @@ def _event_date_label(event: Event) -> str:
 
 
 def _attorney_date_display(label: str | None) -> str:
-    s = _clean_line(label)
+    s = _attorney_placeholder_text(label)
     if not s:
         return "Undated"
     s = re.sub(r"\s*\(time not documented\)\s*", "", s, flags=re.I).strip()
+    if is_sentinel_date(s):
+        return "Undated"
     return s or "Undated"
 
 
@@ -471,6 +483,25 @@ def _renderer_manifest_payload(evidence_graph_payload: dict | None, renderer_man
     return rm if isinstance(rm, dict) else {}
 
 
+def _export_status_label(ext: dict, rm: dict) -> str:
+    """
+    Conservative export status label for attorney-facing PDF header.
+
+    Render runs before final run-row status persistence in some paths, so default to
+    REVIEW_RECOMMENDED unless we have strong evidence the export is clean.
+    """
+    qg = ext.get("quality_gate") if isinstance(ext, dict) else None
+    if isinstance(qg, dict):
+        if qg.get("overall_pass") is False:
+            return "REVIEW_RECOMMENDED"
+        if qg.get("overall_pass") is True:
+            # Keep partial billing and explicit missing data in review mode for now.
+            if str((rm or {}).get("billing_completeness") or "").lower() == "partial":
+                return "REVIEW_RECOMMENDED"
+            return "VERIFIED"
+    return "REVIEW_RECOMMENDED"
+
+
 def _refs_from_citation_ids(citation_ids: list[str] | None, citation_by_id: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -495,6 +526,17 @@ def _manifest_promoted_by_category(rm: dict) -> dict[str, list[dict]]:
             continue
         grouped.setdefault(str(item.get("category") or "unknown"), []).append(item)
     return grouped
+
+
+def _manifest_semantic_family(item: dict[str, Any]) -> str:
+    fam = str(item.get("semantic_family") or "").strip().lower()
+    return fam
+
+
+def _allow_page3_reinforcement_for_item(item: dict[str, Any]) -> bool:
+    source_families = [str(x).strip().lower() for x in (item.get("source_families") or []) if str(x).strip()]
+    source_count = int(item.get("finding_source_count") or 0)
+    return source_count >= 2 and len(set(source_families)) >= 2
 
 
 def _dedupe_key(text: str | None) -> str:
@@ -551,6 +593,7 @@ def _manifest_finding_paragraphs(
     limit: int = 8,
     include_secondary: bool = False,
     headline_only: bool | None = None,
+    exclude_semantic_families: set[str] | None = None,
 ) -> list[Paragraph]:
     normal = styles["Normal"]
     bullet = ParagraphStyle("ManifestFindingBullet", parent=normal, leftIndent=12, bulletIndent=0, spaceAfter=2)
@@ -563,6 +606,9 @@ def _manifest_finding_paragraphs(
             if headline_only is True and not item.get("headline_eligible", True):
                 continue
             if headline_only is False and item.get("headline_eligible", True):
+                continue
+            fam = _manifest_semantic_family(item)
+            if exclude_semantic_families and fam and fam in exclude_semantic_families and not _allow_page3_reinforcement_for_item(item):
                 continue
             label = _guardrail_text(_clean_line(item.get("label")), supported_injury=True)
             if not label:
@@ -1012,12 +1058,14 @@ def generate_pdf_from_projection(
         doi_display = doi if doi and not is_sentinel_date(doi) else "Not clearly extracted from packet"
     rm_mechanism = ((rm.get("mechanism") or {}).get("value") if isinstance(rm, dict) else None)
     mechanism_display = str(rm_mechanism) if rm_mechanism else (mechanism or "Not clearly extracted from packet")
+    export_status = _export_status_label(ext, rm)
 
     header_rows = [
         ["Case", matter_title],
         ["Patient", patient_label],
         ["DOI", doi_display],
         ["Mechanism", mechanism_display],
+        ["Export Status", export_status],
     ]
     header_tbl = Table(header_rows, colWidths=[1.1 * inch, 5.7 * inch])
     header_tbl.setStyle(TableStyle([
@@ -1028,10 +1076,12 @@ def generate_pdf_from_projection(
     ]))
     flowables.append(header_tbl)
     flowables.append(Spacer(1, 0.12 * inch))
+    flowables.append(Paragraph(f"Export Status = {export_status}", ParagraphStyle("ExportStatusLine", parent=normal_style, fontSize=8.5, textColor=colors.HexColor('#334155'), spaceAfter=4)))
 
-    flowables.append(Paragraph("Settlement Drivers (record-supported)", h2_style))
+    flowables.append(Paragraph("Case Highlights (Record-Supported)", h2_style))
     flowables.append(Paragraph("Record-supported highlights selected from citation-anchored findings; not a legal conclusion.", ParagraphStyle("SnapshotMeta", parent=normal_style, fontSize=8.5, textColor=colors.HexColor("#475569"), spaceAfter=4)))
     settlement_driver_rows: list[Paragraph] = []
+    snapshot_promoted_semantic_families: set[str] = set()
     bullet_style = ParagraphStyle("SnapshotBullet", parent=normal_style, leftIndent=12, bulletIndent=0, spaceAfter=2)
 
     # Early care / ER on DOI
@@ -1119,6 +1169,9 @@ def generate_pdf_from_projection(
                 bullet_style,
             ))
             settlement_seen_labels.add(label_dedupe)
+            fam = _manifest_semantic_family(item)
+            if fam:
+                snapshot_promoted_semantic_families.add(fam)
             promoted_page1_rendered += 1
             break
     if promoted_page1_considered and promoted_page1_rendered == 0:
@@ -1209,6 +1262,7 @@ def generate_pdf_from_projection(
     flowables.append(Paragraph("Top Record Anchors", h2_style))
     top_anchor_rows: list[Paragraph] = []
     top_seen = set()
+    top_anchor_seen_families: set[str] = set()
     visit_count_max: int | None = None
     for item in promoted_by_cat.get("visit_count", []):
         m = re.search(r"\b(\d+)\s+encounters?\b", str(item.get("label") or ""), re.I)
@@ -1246,6 +1300,9 @@ def generate_pdf_from_projection(
                 refs = _claim_row_citation_refs({"citations": raw_cits}, citations_by_page, single_doc_id)
             if not refs:
                 continue
+            fam = _manifest_semantic_family(item)
+            if fam and fam in top_anchor_seen_families and not _allow_page3_reinforcement_for_item(item):
+                continue
             top_seen.add(dedupe)
             a = chron_anchor(str(item.get("source_event_id") or f"top_pf_{len(top_anchor_rows)}"))
             manifest.add_chron_anchor(a)
@@ -1254,6 +1311,8 @@ def generate_pdf_from_projection(
                 f'<a name="{escape(a)}"/>- {escape(assertion)} <font size="8">{escape(cite_text)}</font>',
                 bullet_style,
             ))
+            if fam:
+                top_anchor_seen_families.add(fam)
     manifest_driver_ids = [str(x) for x in (rm.get("top_case_drivers") or [])] if isinstance(rm, dict) else []
     if manifest_driver_ids and len(top_anchor_rows) < 6:
         projection_entries_by_id = {str(e.event_id): e for e in projection.entries}
@@ -1332,6 +1391,7 @@ def generate_pdf_from_projection(
         limit=8,
         include_secondary=False,
         headline_only=True,
+        exclude_semantic_families=snapshot_promoted_semantic_families,
     )
     if not img_rows:
         img_rows = _build_claim_row_sections(ext, styles, manifest, citations_by_page, single_doc_id, section_kind="imaging")
@@ -1360,6 +1420,7 @@ def generate_pdf_from_projection(
         by_page=citations_by_page,
         single_doc_id=single_doc_id,
         limit=8,
+        exclude_semantic_families=snapshot_promoted_semantic_families,
     )
     if not obj_rows:
         obj_rows = _build_claim_row_sections(ext, styles, manifest, citations_by_page, single_doc_id, section_kind="objective")
@@ -1389,6 +1450,7 @@ def generate_pdf_from_projection(
         by_page=citations_by_page,
         single_doc_id=single_doc_id,
         limit=10,
+        exclude_semantic_families=snapshot_promoted_semantic_families,
     )
     if not dx_rows:
         dx_rows = _build_claim_row_sections(ext, styles, manifest, citations_by_page, single_doc_id, section_kind="dx")

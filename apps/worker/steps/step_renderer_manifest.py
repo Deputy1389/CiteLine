@@ -7,6 +7,7 @@ It does not run new extraction.
 from __future__ import annotations
 
 import re
+from difflib import SequenceMatcher
 from datetime import datetime
 from datetime import date
 from typing import Any
@@ -192,6 +193,172 @@ def _sort_promoted_findings(items: list[PromotedFinding]) -> None:
     )
 
 
+def _norm_region(value: str | None) -> str:
+    return re.sub(r"\s+", " ", (value or "").strip().lower())
+
+
+def _norm_label(value: str) -> str:
+    s = re.sub(r"\b(?:left|right|bilateral)\b", "", (value or "").lower())
+    s = re.sub(r"\b(?:c\d-\s*c\d|c\d\d?|l\d-\s*l\d|l\d\d?)\b", "", s)
+    s = re.sub(r"\b(?:mri|x-?ray|radiograph|impression|assessment|diagnosis)\b", "", s)
+    s = re.sub(r"[^a-z0-9\s/]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def _semantic_finding_family_token(f: PromotedFinding) -> str:
+    label = (f.label or "").lower()
+    cat = f.category
+    if cat == "objective_deficit":
+        if re.search(r"\b(spasm|straightening|lordosis|loss of lordosis)\b", label):
+            return "spasm_lordosis"
+        if re.search(r"\b(weakness|strength|[0-5]/5)\b", label):
+            return "strength_deficit"
+        if re.search(r"\b(reflex|diminished reflex)\b", label):
+            return "reflex_deficit"
+        if re.search(r"\b(rom|range of motion)\b", label):
+            return "rom_deficit"
+        return "objective_other"
+    if cat == "imaging":
+        if any(p.search(label) for p in _NEGATIVE_IMAGING_PATTERNS):
+            return "negative_imaging"
+        if re.search(r"\b(spasm|straightening|lordosis|loss of lordosis)\b", label):
+            return "spasm_lordosis"
+        if re.search(r"\b(radicul)\b", label):
+            return "radiculopathy"
+        if re.search(r"\b(foramen|foraminal)\b", label):
+            return "foraminal_pathology"
+        if re.search(r"\b(stenosis)\b", label):
+            return "stenosis"
+        if re.search(r"\b(herniat|protrusion|bulg)\b", label):
+            return "disc_pathology"
+        if re.search(r"\b(disc)\b", label):
+            return "disc_related"
+        if re.search(r"\b(fracture|displacement|compression|tear)\b", label):
+            return "structural_injury"
+        return "imaging_other"
+    if cat == "procedure":
+        if re.search(r"\b(epidural|esi|injection)\b", label):
+            return "injection"
+        if re.search(r"\b(surgery|operative|arthroscop|fusion)\b", label):
+            return "surgery"
+        return "procedure_other"
+    if cat == "visit_count":
+        return "visit_count"
+    if cat == "diagnosis":
+        if re.search(r"\b(radicul)\b", label):
+            return "dx_radiculopathy"
+        if re.search(r"\b(strain|sprain)\b", label):
+            return "dx_sprain_strain"
+        if re.search(r"\b(disc|herniat|protrusion)\b", label):
+            return "dx_disc"
+        return "diagnosis_other"
+    return f"{cat}_other"
+
+
+def _finding_source_family(f: PromotedFinding) -> str:
+    label = (f.label or "").lower()
+    if not f.source_event_id:
+        return "citation_fallback"
+    if f.category == "imaging":
+        return "imaging"
+    if f.category == "procedure":
+        return "procedure"
+    if re.search(r"\b(physical therapy|pt\b|rom|range of motion|strength)\b", label):
+        return "pt"
+    return "clinical"
+
+
+def _semantic_family_key(f: PromotedFinding) -> tuple[str, str, str, str]:
+    return (
+        str(f.category),
+        _norm_region(f.body_region),
+        str(f.finding_polarity or "neutral"),
+        _semantic_finding_family_token(f),
+    )
+
+
+def _semantic_family_id(f: PromotedFinding) -> str:
+    cat, region, polarity, fam = _semantic_family_key(f)
+    return "|".join([cat or "unknown", region or "general", polarity or "neutral", fam or "other"])
+
+
+def _labels_similar_within_family(a: PromotedFinding, b: PromotedFinding) -> bool:
+    na = _norm_label(a.label)
+    nb = _norm_label(b.label)
+    if not na or not nb:
+        return False
+    if na == nb:
+        return True
+    ta = set(t for t in na.split() if len(t) >= 3)
+    tb = set(t for t in nb.split() if len(t) >= 3)
+    if ta and tb:
+        jacc = len(ta & tb) / max(1, len(ta | tb))
+        if jacc >= 0.78:
+            return True
+    return SequenceMatcher(None, na, nb).ratio() >= 0.88
+
+
+def _promoted_finding_pick_rank(f: PromotedFinding) -> tuple:
+    return (
+        0 if f.headline_eligible else 1,
+        _CATEGORY_ORDER.get(f.category, 99),
+        _finding_priority_rank(f)[0],
+        {"high": 0, "medium": 1, "low": 2}.get(f.severity or "low", 2),
+        -float(f.confidence or 0.0),
+        -len(list(f.citation_ids or [])),
+        len(f.label or ""),
+    )
+
+
+def _consolidate_promoted_findings(items: list[PromotedFinding]) -> list[PromotedFinding]:
+    if not items:
+        return []
+    groups: list[list[PromotedFinding]] = []
+    for f in items:
+        placed = False
+        fkey = _semantic_family_key(f)
+        for group in groups:
+            g0 = group[0]
+            gkey = _semantic_family_key(g0)
+            if gkey != fkey:
+                continue
+            # Some families (notably lordosis/spasm wording variants) should collapse on structured semantics
+            # to avoid repeated headline clutter from minor phrasing changes.
+            if gkey[3] != "spasm_lordosis" and not any(_labels_similar_within_family(f, g) for g in group):
+                continue
+            group.append(f)
+            placed = True
+            break
+        if not placed:
+            groups.append([f])
+
+    consolidated: list[PromotedFinding] = []
+    for group in groups:
+        best = sorted(group, key=_promoted_finding_pick_rank)[0]
+        citation_ids: list[str] = []
+        seen_cids: set[str] = set()
+        for g in group:
+            for cid in list(g.citation_ids or []):
+                scid = str(cid).strip()
+                if not scid or scid in seen_cids:
+                    continue
+                seen_cids.add(scid)
+                citation_ids.append(scid)
+        source_families = sorted({_finding_source_family(g) for g in group})
+        best = best.model_copy(update={
+            "citation_ids": citation_ids[:12] if citation_ids else list(best.citation_ids or []),
+            "confidence": max(float(g.confidence or 0.0) for g in group),
+            "semantic_family": _semantic_family_id(best),
+            "finding_source_count": len(group),
+            "source_families": source_families,
+        })
+        consolidated.append(best)
+
+    _sort_promoted_findings(consolidated)
+    return consolidated
+
+
 def _build_mechanism(events: list[Event]) -> RendererCitationValue:
     patterns = [
         (re.compile(r"\b(rear[- ]end)\b", re.I), "rear-end motor vehicle collision"),
@@ -317,10 +484,23 @@ def _build_pt_summary(events: list[Event], citations: list[Citation] | None = No
     note = None
     cmin = min(unique_counts) if unique_counts else None
     cmax = max(unique_counts) if unique_counts else None
+    dated_pt_count = sum(
+        1
+        for e in pt_evidence_events
+        if str(getattr(getattr(e, "event_type", None), "value", getattr(e, "event_type", ""))) == "pt_visit"
+        and _iso_from_event(e)[0] is not None
+    )
     if cmin is not None and cmax is not None and cmin != cmax:
         note = (
-            f"PT volume summaries vary across records ({cmin}-{cmax} encounters); "
-            f"this report displays the observed range and uses {cmax} as the maximum reported aggregate for treatment-intensity reference."
+            f"PT volume summaries vary across records ({cmin}-{cmax} encounters). "
+            f"Dated PT encounters verified in extracted chronology: {dated_pt_count}. "
+            f"This report displays the observed range and uses {cmax} as the maximum reported aggregate for treatment-intensity reference."
+        )
+    elif cmax is not None and dated_pt_count and dated_pt_count != cmax:
+        note = (
+            f"Dated PT encounters verified in extracted chronology: {dated_pt_count}; "
+            f"aggregate reported PT encounters in records: {cmax}. "
+            f"This report uses the aggregate-reported count for treatment-intensity reference and the dated chronology for timeline rows."
         )
 
     return RendererPtSummary(
@@ -633,6 +813,7 @@ def build_renderer_manifest(
     promoted = _promoted_findings_from_claim_rows(claim_rows)
     promoted = _promoted_findings_from_events(events, promoted)
     promoted = _promoted_findings_from_citations(citations, promoted)
+    promoted = _consolidate_promoted_findings(promoted)
     mechanism_from_citations = _build_mechanism_from_citations(citations)
     mechanism = _build_mechanism(events)
     # Prefer citation-snippet mechanism when available so the citation index preview visibly supports the label.

@@ -319,8 +319,17 @@ def run_pipeline(run_id: str) -> None:
         # Ã¢â€â‚¬Ã¢â€â‚¬ Final Export Ã¢â€â‚¬Ã¢â€â‚¬
         processing_seconds = time.time() - start_time
         case_info = CaseInfo(case_id=matter_id, firm_id=firm_id, title=matter_title, timezone=tz, patient=patient)
-        chronology = render_exports(run_id, matter_title, chronology_events, gaps, providers, page_map=page_map, case_info=case_info, all_citations=all_citations, narrative_synthesis=narrative_synthesis, page_text_by_number={p.page_number: (p.text or "") for p in all_pages}, specials_summary=specials_payload, config=config, renderer_manifest=renderer_manifest.model_dump(mode="json"))
-        patient_chronologies_json_ref = render_patient_chronology_reports(run_id, matter_title, chronology_events, providers, page_map, {p.page_number: (p.text or "") for p in all_pages}, config=config)
+        chronology = render_exports(run_id, matter_title, chronology_events, gaps, providers, page_map=page_map, page_provider_map=page_provider_map, case_info=case_info, all_citations=all_citations, narrative_synthesis=narrative_synthesis, page_text_by_number={p.page_number: (p.text or "") for p in all_pages}, specials_summary=specials_payload, config=config, renderer_manifest=renderer_manifest.model_dump(mode="json"))
+        patient_chronologies_json_ref = render_patient_chronology_reports(
+            run_id=run_id,
+            matter_title=matter_title,
+            events=chronology_events,
+            providers=providers,
+            page_map=page_map,
+            page_provider_map=page_provider_map,
+            page_text_by_number={p.page_number: (p.text or "") for p in all_pages},
+            config=config,
+        )
 
         litigation_checklist, review_warnings = run_litigation_review(run_id, chronology_events, {p.page_number: (p.text or "") for p in all_pages})
         all_warnings.extend(review_warnings)

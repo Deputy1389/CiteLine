@@ -10,10 +10,32 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+_ATTORNEY_PLACEHOLDER_PATTERNS: list[tuple[str, str]] = [
+    ("SEE_PATIENT_HEADER", r"\bSee Patient Header\b"),
+    ("SENTINEL_DATE_1900", r"\b1900-01-01\b"),
+    ("SENTINEL_DATE_0001", r"\b0001-01-01\b"),
+]
+
+
+def _placeholder_leak_findings(report_text: str) -> list[dict[str, Any]]:
+    text = str(report_text or "")
+    findings: list[dict[str, Any]] = []
+    for code, pattern in _ATTORNEY_PLACEHOLDER_PATTERNS:
+        if not re.search(pattern, text, re.IGNORECASE):
+            continue
+        findings.append({
+            "source": "placeholder_scan",
+            "code": code,
+            "message": f"Attorney-facing placeholder leak detected: {code}",
+        })
+    return findings
 
 
 def run_quality_gates(
@@ -92,6 +114,16 @@ def run_quality_gates(
     
     # Note: Litigation checklist requires source PDF and more context
     # For now, we'll skip it in the quick wrapper but could be added
+    placeholder_findings = _placeholder_leak_findings(report_text)
+    if placeholder_findings:
+        results["overall_pass"] = False
+        results["failures"].extend(placeholder_findings)
+        results["gate_report"]["placeholder_scan"] = {
+            "pass": False,
+            "failures": placeholder_findings,
+        }
+    else:
+        results["gate_report"]["placeholder_scan"] = {"pass": True, "failures": []}
     
     return results
 

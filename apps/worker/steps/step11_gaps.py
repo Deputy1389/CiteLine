@@ -8,6 +8,7 @@ import uuid
 from datetime import date
 
 from packages.shared.models import Event, EventType, Gap, RunConfig, Warning
+from apps.worker.steps.events.report_quality import date_sanity
 
 
 def detect_gaps(
@@ -25,7 +26,18 @@ def detect_gaps(
             return False
         # If it's already a date or DateRange object, it's a full date
         from packages.shared.models import DateRange
-        return isinstance(e.date.value, (date, DateRange))
+        val = e.date.value
+        if isinstance(val, date):
+            return date_sanity(val)
+        if isinstance(val, DateRange):
+            start = getattr(val, "start", None)
+            end = getattr(val, "end", None)
+            if isinstance(start, date) and not date_sanity(start):
+                return False
+            if isinstance(end, date) and not date_sanity(end):
+                return False
+            return isinstance(start, date)
+        return False
 
     # Sort events by date using the robust sort_key
     sorted_events = sorted(events, key=lambda e: e.date.sort_key() if e.date else (99, "UNKNOWN"))

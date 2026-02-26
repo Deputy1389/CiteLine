@@ -291,6 +291,9 @@ class PromotedFinding(BaseModel):
     citation_ids: list[str] = Field(default_factory=list)
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     source_event_id: Optional[str] = None
+    semantic_family: Optional[str] = None
+    finding_source_count: Optional[int] = None
+    source_families: list[str] = Field(default_factory=list)
 
 
 class RendererManifest(BaseModel):
