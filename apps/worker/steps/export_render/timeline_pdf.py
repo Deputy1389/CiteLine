@@ -538,6 +538,8 @@ def _manifest_finding_paragraphs(
     styles: Any,
     manifest: RenderManifest | None,
     citation_by_id: dict[str, dict[str, Any]],
+    by_page: dict[int, list[dict[str, Any]]] | None = None,
+    single_doc_id: str | None = None,
     limit: int = 8,
     include_secondary: bool = False,
     headline_only: bool | None = None,
@@ -560,7 +562,10 @@ def _manifest_finding_paragraphs(
             key = label.lower()
             if key in seen:
                 continue
-            refs = _refs_from_citation_ids([str(c) for c in (item.get("citation_ids") or [])], citation_by_id)
+            raw_cits = [str(c) for c in (item.get("citation_ids") or [])]
+            refs = _refs_from_citation_ids(raw_cits, citation_by_id)
+            if not refs and raw_cits and by_page is not None:
+                refs = _claim_row_citation_refs({"citations": raw_cits}, by_page, single_doc_id)
             if not refs:
                 continue
             seen.add(key)
@@ -1068,7 +1073,10 @@ def generate_pdf_from_projection(
             if not item.get("headline_eligible", True):
                 logger.info("page1 promoted finding omitted: reason=filtered category=%s label=%s", cat, _clean_line(item.get("label")))
                 continue
-            refs = _refs_from_citation_ids([str(c) for c in (item.get("citation_ids") or [])], citation_by_id)
+            raw_cits = [str(c) for c in (item.get("citation_ids") or [])]
+            refs = _refs_from_citation_ids(raw_cits, citation_by_id)
+            if not refs and raw_cits:
+                refs = _claim_row_citation_refs({"citations": raw_cits}, citations_by_page, single_doc_id)
             if not refs:
                 logger.info("page1 promoted finding omitted: reason=uncited category=%s label=%s", cat, _clean_line(item.get("label")))
                 continue
@@ -1210,7 +1218,10 @@ def generate_pdf_from_projection(
             dedupe = _dedupe_key(assertion)
             if not assertion or _near_duplicate_seen(dedupe, top_seen) or _is_undermining_or_noise(assertion):
                 continue
-            refs = _refs_from_citation_ids([str(c) for c in (item.get("citation_ids") or [])], citation_by_id)
+            raw_cits = [str(c) for c in (item.get("citation_ids") or [])]
+            refs = _refs_from_citation_ids(raw_cits, citation_by_id)
+            if not refs and raw_cits:
+                refs = _claim_row_citation_refs({"citations": raw_cits}, citations_by_page, single_doc_id)
             if not refs:
                 continue
             top_seen.add(dedupe)
@@ -1292,6 +1303,8 @@ def generate_pdf_from_projection(
         styles=styles,
         manifest=manifest,
         citation_by_id=citation_by_id,
+        by_page=citations_by_page,
+        single_doc_id=single_doc_id,
         limit=8,
         include_secondary=False,
         headline_only=True,
@@ -1305,6 +1318,8 @@ def generate_pdf_from_projection(
         styles=styles,
         manifest=manifest,
         citation_by_id=citation_by_id,
+        by_page=citations_by_page,
+        single_doc_id=single_doc_id,
         limit=4,
         include_secondary=False,
         headline_only=False,
@@ -1318,6 +1333,8 @@ def generate_pdf_from_projection(
         styles=styles,
         manifest=manifest,
         citation_by_id=citation_by_id,
+        by_page=citations_by_page,
+        single_doc_id=single_doc_id,
         limit=8,
     )
     if not obj_rows:
@@ -1345,6 +1362,8 @@ def generate_pdf_from_projection(
         styles=styles,
         manifest=manifest,
         citation_by_id=citation_by_id,
+        by_page=citations_by_page,
+        single_doc_id=single_doc_id,
         limit=10,
     )
     if not dx_rows:
