@@ -502,14 +502,18 @@ def _assess_page_quality(pages) -> dict[int, dict]:
         elif score < 0.2:
             reasons.append("low_medical_signal")
 
-        # v1 safety: only hard-exclude obvious junk. OCR garbage is noisy and can overfire,
-        # so exclude it only when also extremely low quality; otherwise downgrade.
-        exclude_reasons = {"empty_text", "fax_header", "template_noise"}
+        # v1 safety: only hard-exclude obvious junk. Fax/header and OCR garbage flags can appear
+        # on otherwise substantive pages, so gate them with score/length heuristics.
+        exclude_reasons = {"empty_text"}
         is_low = bool(reasons)
         action = "allow"
         if any(r in exclude_reasons for r in reasons):
             action = "exclude"
-        elif "ocr_garbage" in reasons and score < 0.1:
+        elif "template_noise" in reasons and score < 0.18:
+            action = "exclude"
+        elif "fax_header" in reasons and ("too_short" in reasons or score < 0.16):
+            action = "exclude"
+        elif "ocr_garbage" in reasons and score < 0.06 and ("too_short" in reasons or "low_medical_signal" in reasons):
             action = "exclude"
         elif is_low:
             action = "downgrade"
