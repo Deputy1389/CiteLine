@@ -61,6 +61,7 @@ def test_extracts_dated_pt_encounters_from_pt_note_pages() -> None:
     assert [r["encounter_date"] for r in rows] == ["2024-11-19", "2024-11-21"]
     assert all(r["source"] == "primary" for r in rows)
     assert all(r["evidence_citation_ids"] for r in rows)
+    assert all("elite physical therapy" in str(r["facility_name"]).lower() for r in rows)
 
 
 def test_ignores_total_visits_summary_as_primary_evidence() -> None:

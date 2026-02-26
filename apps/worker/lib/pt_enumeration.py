@@ -248,6 +248,10 @@ def _apply_identity_resolution(
     if ident_facility and provider_name.strip().lower() in {"unknown provider", "unknown", ""} and "therapy" in ident_facility.lower():
         # Facility-only PT letterhead is still useful attribution for the ledger.
         provider_name = ident_facility
+    if (not ident_facility) and facility_name.strip().lower() in {"unknown facility", "unknown", ""}:
+        prov_low = provider_name.strip().lower()
+        if provider_name and prov_low not in {"unknown provider", "unknown"} and any(tok in prov_low for tok in ["therapy", "rehab", "clinic", "hospital", "center", "centre"]):
+            facility_name = provider_name
 
     provider_meta = {
         "resolved_from": (resolved_from or ("page_provider_map" if provider_name and provider_name != "Unknown Provider" else None)),
@@ -258,11 +262,20 @@ def _apply_identity_resolution(
     }
     facility_meta = {
         "resolved_from": (resolved_from or ("page_provider_map" if facility_name and facility_name != "Unknown Facility" and base_facility_name != "Unknown Facility" else None)),
-        "confidence": round(conf if resolved_from else (0.6 if facility_name and facility_name != "Unknown Facility" and base_facility_name != "Unknown Facility" else 0.0), 3),
+        "confidence": round(
+            conf if resolved_from else (
+                0.65 if (facility_name and facility_name != "Unknown Facility" and base_facility_name == "Unknown Facility" and provider_name == facility_name)
+                else (0.6 if facility_name and facility_name != "Unknown Facility" and base_facility_name != "Unknown Facility" else 0.0)
+            ),
+            3,
+        ),
         "source_page_number": source_page if (resolved_from or (facility_name and facility_name != "Unknown Facility")) else None,
         "evidence_citation_ids": evidence_cids,
         "why_unresolved": (None if facility_name and facility_name != "Unknown Facility" else (reason or "no_facility_candidate")),
     }
+    if facility_name and facility_name != "Unknown Facility" and provider_name == facility_name and not facility_meta.get("resolved_from"):
+        facility_meta["resolved_from"] = "page_provider_map"
+        facility_meta["why_unresolved"] = None
     return provider_name, facility_name, provider_meta, facility_meta
 
 
