@@ -492,7 +492,22 @@ def _manifest_promoted_by_category(rm: dict) -> dict[str, list[dict]]:
 def _dedupe_key(text: str | None) -> str:
     s = _clean_line(text or "")
     s = re.sub(r"^[\s\-•*]+", "", s)
+    s = re.sub(r"[\"'`]+", "", s)
+    s = re.sub(r"[.:;,\s]+$", "", s)
+    s = re.sub(r"\s+", " ", s).strip()
     return s.lower()
+
+
+def _near_duplicate_seen(key: str, seen_keys: set[str]) -> bool:
+    if key in seen_keys:
+        return True
+    # Generic containment-based dedupe helps avoid repeating the same finding with extra prefix/suffix text.
+    for k in seen_keys:
+        if len(key) >= 28 and key in k:
+            return True
+        if len(k) >= 28 and k in key:
+            return True
+    return False
 
 
 def _is_generic_timeline_fact(text: str) -> bool:
@@ -517,6 +532,7 @@ def _manifest_finding_paragraphs(
     citation_by_id: dict[str, dict[str, Any]],
     limit: int = 8,
     include_secondary: bool = False,
+    headline_only: bool | None = None,
 ) -> list[Paragraph]:
     normal = styles["Normal"]
     bullet = ParagraphStyle("ManifestFindingBullet", parent=normal, leftIndent=12, bulletIndent=0, spaceAfter=2)
@@ -526,6 +542,10 @@ def _manifest_finding_paragraphs(
     seen: set[str] = set()
     for cat in categories:
         for item in grouped.get(cat, []):
+            if headline_only is True and not item.get("headline_eligible", True):
+                continue
+            if headline_only is False and item.get("headline_eligible", True):
+                continue
             label = _guardrail_text(_clean_line(item.get("label")), supported_injury=True)
             if not label:
                 continue
@@ -1015,8 +1035,8 @@ def generate_pdf_from_projection(
             if not label:
                 logger.info("page1 promoted finding omitted: reason=guardrail category=%s", cat)
                 continue
-            label_dedupe = re.sub(r"^[\\s\\-•*]+", "", label).lower()
-            if label_dedupe in settlement_seen_labels:
+            label_dedupe = _dedupe_key(label)
+            if _near_duplicate_seen(label_dedupe, settlement_seen_labels):
                 logger.info("page1 promoted finding omitted: reason=duplicate category=%s label=%s", cat, label)
                 continue
             pretty_cat = cat.replace("_", " ").title()
@@ -1134,7 +1154,7 @@ def generate_pdf_from_projection(
                     continue
             assertion = _guardrail_text(_clean_line(item.get("label")), supported_injury=supported_injury)
             dedupe = _dedupe_key(assertion)
-            if not assertion or dedupe in top_seen or _is_undermining_or_noise(assertion):
+            if not assertion or _near_duplicate_seen(dedupe, top_seen) or _is_undermining_or_noise(assertion):
                 continue
             refs = _refs_from_citation_ids([str(c) for c in (item.get("citation_ids") or [])], citation_by_id)
             if not refs:
@@ -1160,7 +1180,7 @@ def generate_pdf_from_projection(
             facts = [f for f in (getattr(entry, "facts", []) or []) if _clean_line(f)]
             key_finding = _guardrail_text(_clean_line(next((f for f in facts if not _is_meta_language(f)), facts[0] if facts else "")), supported_injury=supported_injury)
             dedupe = _dedupe_key(key_finding)
-            if not key_finding or dedupe in top_seen:
+            if not key_finding or _near_duplicate_seen(dedupe, top_seen):
                 continue
             top_seen.add(dedupe)
             a = chron_anchor(str(eid))
@@ -1177,7 +1197,7 @@ def generate_pdf_from_projection(
             break
         assertion = _guardrail_text(_clean_line(row.get("assertion")), supported_injury=supported_injury)
         dedupe = _dedupe_key(assertion)
-        if not assertion or dedupe in top_seen:
+        if not assertion or _near_duplicate_seen(dedupe, top_seen):
             continue
         if _is_undermining_or_noise(assertion):
             continue
@@ -1219,11 +1239,25 @@ def generate_pdf_from_projection(
         manifest=manifest,
         citation_by_id=citation_by_id,
         limit=8,
-        include_secondary=True,
+        include_secondary=False,
+        headline_only=True,
     )
     if not img_rows:
         img_rows = _build_claim_row_sections(ext, styles, manifest, citations_by_page, single_doc_id, section_kind="imaging")
     flowables.extend(_paragraph_list_section("Imaging Summary", img_rows, h2_style) or [Paragraph("Imaging Summary", h2_style), Paragraph("No citation-anchored imaging item qualified for summary display.", normal_style)])
+    img_secondary_rows = _manifest_finding_paragraphs(
+        rm,
+        categories=("imaging",),
+        styles=styles,
+        manifest=manifest,
+        citation_by_id=citation_by_id,
+        limit=4,
+        include_secondary=False,
+        headline_only=False,
+    )
+    if img_secondary_rows:
+        flowables.append(Paragraph("Secondary / Non-Headline Imaging Observations", h2_style))
+        flowables.extend(img_secondary_rows)
     obj_rows = _manifest_finding_paragraphs(
         rm,
         categories=("objective_deficit",),
