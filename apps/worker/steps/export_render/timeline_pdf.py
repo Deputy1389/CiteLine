@@ -1156,7 +1156,7 @@ def generate_pdf_from_projection(
             n = int(m.group(1))
             visit_count_max = n if visit_count_max is None else max(visit_count_max, n)
     # Prefer manifest-promoted findings first (pipeline-ranked, citation-backed), then event/claim fallbacks.
-    for cat in ("objective_deficit", "diagnosis", "imaging", "procedure", "visit_count", "symptom"):
+    for cat in ("objective_deficit", "imaging", "diagnosis", "procedure", "visit_count", "symptom"):
         for item in promoted_by_cat.get(cat, []):
             if len(top_anchor_rows) >= 6:
                 break

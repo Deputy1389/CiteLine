@@ -47,6 +47,11 @@ _NEGATIVE_IMAGING_PATTERNS = [
 
 _OBJECTIVE_DEFICIT_PAT = re.compile(r"\b(weakness|strength|reflex|diminished|range of motion|rom|spasm|lordosis|[0-5]/5)\b", re.I)
 _STRUCTURAL_IMAGING_PAT = re.compile(r"\b(disc|foramen|foraminal|radicul|stenosis|herniat|protrusion|compression|displacement|tear|fracture)\b", re.I)
+_TRAILING_FRAGMENT_PATTERNS = [
+    re.compile(r"\bThis directly\b.*$", re.I),
+    re.compile(r"\bThis indicates\b.*$", re.I),
+    re.compile(r"\bThis demonstrates\b.*$", re.I),
+]
 
 
 def _iso_from_event(event: Event) -> tuple[str | None, str | None]:
@@ -116,8 +121,10 @@ def _best_objective_clause(text: str) -> str:
     parts = [p.strip(" -•\t") for p in re.split(r"[.;]\s+", text or "") if p.strip()]
     for p in parts:
         if _OBJECTIVE_DEFICIT_PAT.search(p) and not re.search(r"\bno acute fracture\b", p, re.I):
+            p = re.sub(r"\bThere is no evidence\b.*$", "", p, flags=re.I).strip()
             return p
-    return text
+    out = re.sub(r"\bThere is no evidence\b.*$", "", text or "", flags=re.I).strip()
+    return out
 
 
 def _clean_citation_snippet_for_finding(text: str) -> str:
@@ -130,7 +137,17 @@ def _clean_citation_snippet_for_finding(text: str) -> str:
         if cutoff >= 40:
             s = s[: cutoff + 1]
     # Remove obvious truncated tail fragments.
-    s = re.sub(r"\bThis directly\s*$", "", s, flags=re.I).strip()
+    s = re.sub(r"\bThere is no evidence\b.*$", "", s, flags=re.I).strip()
+    for pat in _TRAILING_FRAGMENT_PATTERNS:
+        s = pat.sub("", s).strip()
+    s = re.sub(r"[,:;\\-]\s*$", "", s).strip()
+    return s
+
+
+def _clean_finding_label(text: str) -> str:
+    s = _clean_citation_snippet_for_finding(text or "")
+    s = re.sub(r"^\s*The MRI shows\s+", "", s, flags=re.I).strip()
+    s = re.sub(r"\s{2,}", " ", s).strip()
     return s
 
 
@@ -149,6 +166,8 @@ def _finding_priority_rank(f: PromotedFinding) -> tuple[int, int]:
             return (3, 0)
         return (2, 0)
     if cat == "objective_deficit":
+        if re.search(r"\bnormal lordotic curvature\b", label):
+            return (3, 0)
         if re.search(r"\b(weakness|diminished|[0-5]/5)\b", label):
             return (0, 0)
         if re.search(r"\b(spasm|straightening|lordosis)\b", label):
@@ -350,7 +369,7 @@ def _promoted_findings_from_citations(
     need_img = "imaging" not in have_categories
 
     for c in sorted(citations, key=lambda x: int(getattr(x, "page_number", 999999) or 999999)):
-        sn = str(getattr(c, "snippet", "") or "").strip()
+        sn = _clean_finding_label(str(getattr(c, "snippet", "") or "").strip())
         if not sn:
             continue
         if any(p.search(sn) for p in _GENERIC_PLACEHOLDER_PATTERNS):
@@ -372,6 +391,8 @@ def _promoted_findings_from_citations(
         # Generic objective-deficit fallback
         if need_obj and re.search(r"\b(weakness|strength|reflex|diminished|range of motion|rom|spasm|lordosis|[0-5]/5)\b", sn, re.I):
             sn = _best_objective_clause(sn)
+            if re.search(r"\bnormal lordotic curvature\b", sn, re.I):
+                continue
             if re.search(r"\bnormal\b", sn, re.I) and re.search(r"\bno evidence\b", sn, re.I):
                 continue
             if re.search(r"\b(normal|maintained)\b", sn, re.I) and not re.search(r"\b(weakness|diminished|spasm|straightening|loss of lordosis|[0-5]/5)\b", sn, re.I):
@@ -429,7 +450,7 @@ def _promoted_findings_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list
         citations = [str(c) for c in (row.get("citations") or []) if str(c).strip()]
         if not citations:
             continue
-        assertion = str(row.get("assertion") or "").strip()
+        assertion = _clean_finding_label(str(row.get("assertion") or "").strip())
         if not assertion:
             continue
         if any(p.search(assertion) for p in _GENERIC_PLACEHOLDER_PATTERNS):
@@ -437,6 +458,8 @@ def _promoted_findings_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list
         claim_type = str(row.get("claim_type") or "")
         category = _claim_to_category(claim_type)
         # Promote clear objective deficits separately when claim rows call them dx/symptom.
+        if re.search(r"\bnormal lordotic curvature\b", assertion, re.I):
+            category = "imaging"
         if re.search(r"\b(?:4/5|weakness|strength|range of motion|rom)\b", assertion, re.I) and not re.search(r"\b(?:aggregated pt sessions?|encounters?)\b", assertion, re.I):
             category = "objective_deficit"
             assertion = _best_objective_clause(assertion)
@@ -485,7 +508,7 @@ def _promoted_findings_from_events(events: list[Event], existing: list[PromotedF
         for category, facts, body_region in pools:
             for fact in facts:
                 fact_category = category
-                txt = str(getattr(fact, "text", "") or "").strip()
+                txt = _clean_finding_label(str(getattr(fact, "text", "") or "").strip())
                 if not txt or getattr(fact, "technical_noise", False):
                     continue
                 citation_ids = [str(c) for c in (getattr(fact, "citation_ids", []) or []) if str(c).strip()] or event_cids
@@ -498,6 +521,9 @@ def _promoted_findings_from_events(events: list[Event], existing: list[PromotedF
                 # objective deficits are elevated by source field; generic pain-only exam items are not headline-worthy
                 polarity, headline = _claim_to_polarity_and_headline(txt, list(getattr(e, "flags", []) or []), fact_category)
                 if fact_category == "objective_deficit":
+                    if re.search(r"\bnormal lordotic curvature\b", txt, re.I):
+                        headline = False
+                        polarity = "neutral"
                     if re.search(r"\bpain\b", txt, re.I) and not re.search(r"\b(weakness|strength|reflex|rom|lordosis|spasm|4/5|diminished)\b", txt, re.I):
                         headline = False
                     if re.search(r"\bnormal\b", txt, re.I) and re.search(r"\bno evidence\b", txt, re.I):

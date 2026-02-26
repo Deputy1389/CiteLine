@@ -147,3 +147,33 @@ def test_negative_and_junk_imaging_are_not_headline_promoted() -> None:
     neg = [f for f in manifest.promoted_findings if "No fracture or dislocation." in f.label]
     assert neg and all(f.headline_eligible is False for f in neg)
     assert not any("Fax ID" in f.label for f in manifest.promoted_findings)
+
+
+def test_imaging_snippet_trims_trailing_fragment_and_mri_leadin() -> None:
+    citations = [
+        Citation(
+            citation_id="c1",
+            source_document_id="doc-1",
+            page_number=108,
+            snippet="The MRI shows significant disc material extending into the neural foramen on the left side at the C5-C6 level. This directly",
+            bbox=BBox(x=1, y=1, w=1, h=1),
+        )
+    ]
+    manifest = build_renderer_manifest(events=[], evidence_graph_extensions={}, specials_summary=None, citations=citations)
+    img = next(f for f in manifest.promoted_findings if f.category == "imaging")
+    assert "This directly" not in img.label
+    assert not img.label.lower().startswith("the mri shows ")
+
+
+def test_normal_lordotic_curvature_not_promoted_as_objective_headline() -> None:
+    citations = [
+        Citation(
+            citation_id="c1",
+            source_document_id="doc-1",
+            page_number=109,
+            snippet="normal lordotic curvature, which is a common finding in the setting of acute or subacute muscle spasm",
+            bbox=BBox(x=1, y=1, w=1, h=1),
+        )
+    ]
+    manifest = build_renderer_manifest(events=[], evidence_graph_extensions={}, specials_summary=None, citations=citations)
+    assert not any(f.category == "objective_deficit" and "normal lordotic curvature" in f.label.lower() for f in manifest.promoted_findings)
