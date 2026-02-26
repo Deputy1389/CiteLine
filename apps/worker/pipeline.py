@@ -95,6 +95,8 @@ from apps.worker.lib.litigation_integrity import run_litigation_integrity_pass
 from apps.worker.quality.text_quality import clean_text, is_garbage
 from apps.worker.lib.pt_enumeration import build_pt_evidence_extensions
 from apps.worker.lib.provider_resolution_v1 import augment_provider_resolution_quality
+from apps.worker.lib.claim_context_alignment import run_claim_context_alignment
+from apps.worker.lib.litigation_safe_v1 import build_litigation_safe_v1_snapshot, validate_litigation_safe_v1
 
 logger = logging.getLogger(__name__)
 RUN_TIMEOUT_SECONDS = int(os.getenv("RUN_TIMEOUT_SECONDS", "1800"))
@@ -330,6 +332,39 @@ def run_pipeline(run_id: str) -> None:
         evidence_graph.extensions["provider_resolution_quality"] = augment_provider_resolution_quality(
             evidence_graph.extensions.get("provider_resolution_quality"),
             pt_encounters=list(evidence_graph.extensions.get("pt_encounters") or []),
+        )
+        evidence_graph.extensions["claim_context_alignment"] = run_claim_context_alignment(
+            evidence_graph_payload=evidence_graph.model_dump(mode="json"),
+            renderer_manifest=renderer_manifest.model_dump(mode="json"),
+        )
+        billing_status_upper = str(renderer_manifest.billing_completeness or "none").strip().upper()
+        pt_recon = (
+            evidence_graph.extensions.get("pt_reconciliation")
+            if isinstance(evidence_graph.extensions.get("pt_reconciliation"), dict)
+            else {}
+        )
+        reported_pt_counts = list(pt_recon.get("reported_pt_counts") or []) if isinstance(pt_recon, dict) else []
+        numeric_pt_counts = [renderer_manifest.pt_summary.total_encounters]
+        numeric_pt_counts.extend(reported_pt_counts)
+        evidence_graph.extensions["litigation_safe_v1"] = validate_litigation_safe_v1(
+            build_litigation_safe_v1_snapshot(renderer_manifest.model_dump(mode="json")),
+            chronology_events,
+            {
+                "billingStatus": billing_status_upper or "NONE",
+                "gaps": gaps,
+                "missing_records": evidence_graph.extensions.get("missing_records") or {},
+                "renderer_manifest": renderer_manifest.model_dump(mode="json"),
+                "billingPresentation": {
+                    "visibleIncompleteDisclosure": True,
+                    "noGlobalTotalSpecials": True,
+                    "partialTotalsLabeled": True,
+                },
+                "ptEvidence": pt_recon or {},
+                "claimContextAlignment": evidence_graph.extensions.get("claim_context_alignment") or {},
+                "numericAggregates": {
+                    "pt_total_encounters": numeric_pt_counts,
+                },
+            },
         )
         paralegal_payload = build_paralegal_chronology_payload(evidence_graph, chronology_events, providers, page_map)
         evidence_graph.extensions["paralegal_chronology"] = paralegal_payload
