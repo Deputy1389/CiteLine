@@ -45,6 +45,8 @@ _NEGATIVE_IMAGING_PATTERNS = [
     re.compile(r"\bpreserved\b", re.I),
 ]
 
+_OBJECTIVE_DEFICIT_PAT = re.compile(r"\b(weakness|strength|reflex|diminished|range of motion|rom|spasm|lordosis|[0-5]/5)\b", re.I)
+
 
 def _iso_from_event(event: Event) -> tuple[str | None, str | None]:
     d = getattr(event, "date", None)
@@ -107,6 +109,14 @@ def _build_doi(events: list[Event]) -> RendererDoiField:
     dated.sort(key=lambda x: x[0])
     doi, evt = dated[0]
     return RendererDoiField(value=doi, citation_ids=list(getattr(evt, "citation_ids", []) or []), source="inferred")
+
+
+def _best_objective_clause(text: str) -> str:
+    parts = [p.strip(" -•\t") for p in re.split(r"[.;]\s+", text or "") if p.strip()]
+    for p in parts:
+        if _OBJECTIVE_DEFICIT_PAT.search(p) and not re.search(r"\bno acute fracture\b", p, re.I):
+            return p
+    return text
 
 
 def _build_mechanism(events: list[Event]) -> RendererCitationValue:
@@ -307,6 +317,7 @@ def _promoted_findings_from_citations(
             continue
         # Generic objective-deficit fallback
         if need_obj and re.search(r"\b(weakness|strength|reflex|diminished|range of motion|rom|spasm|lordosis|[0-5]/5)\b", sn, re.I):
+            sn = _best_objective_clause(sn)
             if re.search(r"\bnormal\b", sn, re.I) and re.search(r"\bno evidence\b", sn, re.I):
                 continue
             if re.search(r"\b(normal|maintained)\b", sn, re.I) and not re.search(r"\b(weakness|diminished|spasm|straightening|loss of lordosis|[0-5]/5)\b", sn, re.I):
@@ -374,6 +385,7 @@ def _promoted_findings_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list
         # Promote clear objective deficits separately when claim rows call them dx/symptom.
         if re.search(r"\b(?:4/5|weakness|strength|range of motion|rom)\b", assertion, re.I) and not re.search(r"\b(?:aggregated pt sessions?|encounters?)\b", assertion, re.I):
             category = "objective_deficit"
+            assertion = _best_objective_clause(assertion)
         if re.search(r"\bvisits?\b|\bencounters?\b", assertion, re.I):
             category = "visit_count"
         polarity, headline = _claim_to_polarity_and_headline(assertion, list(row.get("flags") or []), category)

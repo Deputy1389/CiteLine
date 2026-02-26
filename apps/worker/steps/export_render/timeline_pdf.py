@@ -507,6 +507,14 @@ def _near_duplicate_seen(key: str, seen_keys: set[str]) -> bool:
             return True
         if len(k) >= 28 and k in key:
             return True
+        # Token overlap fallback for near-duplicate paraphrases.
+        toks_a = {t for t in re.findall(r"[a-z0-9]+", key) if len(t) > 2}
+        toks_b = {t for t in re.findall(r"[a-z0-9]+", k) if len(t) > 2}
+        if len(toks_a) >= 4 and len(toks_b) >= 4:
+            overlap = len(toks_a & toks_b)
+            denom = min(len(toks_a), len(toks_b))
+            if denom and (overlap / denom) >= 0.7:
+                return True
     return False
 
 
