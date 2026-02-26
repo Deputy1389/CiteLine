@@ -1050,7 +1050,17 @@ def generate_pdf_from_projection(
     promoted_page1_considered = 0
     promoted_page1_rendered = 0
     settlement_seen_labels: set[str] = set()
-    for cat in ("objective_deficit", "imaging", "diagnosis", "procedure"):
+    strong_objective_snapshot = any(
+        re.search(r"\b(weakness|diminished|reflex|[0-5]/5)\b", str(item.get("label") or ""), re.I)
+        and bool(item.get("headline_eligible", True))
+        for item in promoted_by_cat.get("objective_deficit", [])
+    )
+    snapshot_promoted_order = (
+        ("objective_deficit", "imaging", "diagnosis", "procedure")
+        if strong_objective_snapshot
+        else ("imaging", "diagnosis", "objective_deficit", "procedure")
+    )
+    for cat in snapshot_promoted_order:
         for item in promoted_by_cat.get(cat, []):
             promoted_page1_considered += 1
             if not item.get("headline_eligible", True):
