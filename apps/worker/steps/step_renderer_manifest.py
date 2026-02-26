@@ -40,6 +40,8 @@ _NEGATIVE_IMAGING_PATTERNS = [
     re.compile(r"\bnormal disc signal\b", re.I),
     re.compile(r"\bno canal stenosis\b", re.I),
     re.compile(r"\bno significant degenerative\b", re.I),
+    re.compile(r"\bdisc spaces?:\s*preserved\b", re.I),
+    re.compile(r"\bpreserved\b", re.I),
 ]
 
 
@@ -236,6 +238,7 @@ def _promoted_findings_from_citations(
     have_positive_imaging = any(
         pf.category == "imaging" and pf.headline_eligible and (pf.finding_polarity != "negative")
         and re.search(r"\b(disc|foramen|foraminal|radicul|stenosis|herniat|protrusion|compression|displacement)\b", pf.label, re.I)
+        and not any(p.search(pf.label) for p in _NEGATIVE_IMAGING_PATTERNS)
         for pf in existing
     )
 
@@ -280,6 +283,8 @@ def _promoted_findings_from_citations(
             continue
         # Generic objective-deficit fallback
         if need_obj and re.search(r"\b(weakness|strength|reflex|diminished|range of motion|rom|spasm|lordosis|[0-5]/5)\b", sn, re.I):
+            if re.search(r"\bnormal\b", sn, re.I) and re.search(r"\bno evidence\b", sn, re.I):
+                continue
             if re.search(r"\b(normal|maintained)\b", sn, re.I) and not re.search(r"\b(weakness|diminished|spasm|straightening|loss of lordosis|[0-5]/5)\b", sn, re.I):
                 continue
             # avoid pure headers/labels

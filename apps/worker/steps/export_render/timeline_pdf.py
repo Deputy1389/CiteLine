@@ -991,7 +991,8 @@ def generate_pdf_from_projection(
             if not label:
                 logger.info("page1 promoted finding omitted: reason=guardrail category=%s", cat)
                 continue
-            if label.lower() in settlement_seen_labels:
+            label_dedupe = re.sub(r"^[\\s\\-•*]+", "", label).lower()
+            if label_dedupe in settlement_seen_labels:
                 logger.info("page1 promoted finding omitted: reason=duplicate category=%s label=%s", cat, label)
                 continue
             pretty_cat = cat.replace("_", " ").title()
@@ -999,7 +1000,7 @@ def generate_pdf_from_projection(
                 f'<a name="{escape(row_anchor)}"/>- {escape(pretty_cat + ": " + label)} <font size="8">{escape(cite_text)}</font>',
                 bullet_style,
             ))
-            settlement_seen_labels.add(label.lower())
+            settlement_seen_labels.add(label_dedupe)
             promoted_page1_rendered += 1
             break
     if promoted_page1_considered and promoted_page1_rendered == 0:
