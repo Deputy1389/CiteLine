@@ -62,6 +62,7 @@ from apps.worker.steps.events.event_weighting import annotate_event_weights
 from apps.worker.steps.events.legal_usability import improve_legal_usability
 from apps.worker.steps.step12a_narrative_synthesis import synthesize_narrative
 from apps.worker.steps.step12_export import render_exports, render_patient_chronology_reports
+from apps.worker.project.chronology import build_chronology_projection, compute_provider_resolution_quality
 from apps.worker.steps.step12b_litigation_review import run_litigation_review
 from apps.worker.steps.step13_receipt import create_run_record
 from apps.worker.lib.provider_normalize import normalize_provider_entities, compute_coverage_spans
@@ -305,6 +306,17 @@ def run_pipeline(run_id: str) -> None:
 
         # Ã¢â€â‚¬Ã¢â€â‚¬ Step 18: Paralegal artifacts Ã¢â€â‚¬Ã¢â€â‚¬
         page_map = build_page_map(all_pages, source_documents)
+        projection_for_metrics = build_chronology_projection(
+            events=chronology_events,
+            providers=providers,
+            page_map=page_map,
+            page_provider_map=page_provider_map,
+            page_text_by_number={p.page_number: (p.text or "") for p in all_pages},
+            config=config,
+        )
+        evidence_graph.extensions["provider_resolution_quality"] = compute_provider_resolution_quality(
+            projection_for_metrics.entries
+        )
         paralegal_payload = build_paralegal_chronology_payload(evidence_graph, chronology_events, providers, page_map)
         evidence_graph.extensions["paralegal_chronology"] = paralegal_payload
         extraction_notes_md = generate_extraction_notes_md(evidence_graph, chronology_events, page_map)

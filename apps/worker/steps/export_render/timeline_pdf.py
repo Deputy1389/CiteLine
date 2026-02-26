@@ -1110,7 +1110,8 @@ def generate_pdf_from_projection(
     # Continuous care if no global gap >45
     mr_payload = missing_records_payload or ext.get("missing_records") or {}
     global_gaps = [g for g in (mr_payload.get("gaps") or []) if str(g.get("rule_name") or "") == "global_gap" and int(g.get("gap_days") or 0) > 45]
-    if not global_gaps:
+    raw_gaps_gt45 = [g for g in (gaps or []) if int(getattr(g, "duration_days", 0) or 0) > 45]
+    if not global_gaps and not raw_gaps_gt45:
         # cite first and last dated events if available
         if dated_events:
             start_evt = dated_events[0]
@@ -1470,8 +1471,9 @@ def generate_pdf_from_projection(
         care_lines.append((visits_line, rm_pt_refs))
     if isinstance(rm_pt, dict) and _clean_line(rm_pt.get("reconciliation_note")):
         care_lines.append((f"PT count reconciliation: {_clean_line(rm_pt.get('reconciliation_note'))}", _refs_from_citation_ids([str(c) for c in (rm_pt.get('citation_ids') or [])], citation_by_id)))
-    if global_gaps:
-        care_lines.append((f"Treatment gaps >45 days identified: {len(global_gaps)} (see chronology and appendices)", []))
+    if global_gaps or raw_gaps_gt45:
+        gap_count_display = max(len(global_gaps), len(raw_gaps_gt45))
+        care_lines.append((f"Treatment gaps >45 days identified: {gap_count_display} (see chronology and appendices)", []))
     else:
         refs = []
         if dated_events:
