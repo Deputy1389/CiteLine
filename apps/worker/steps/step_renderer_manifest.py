@@ -46,6 +46,7 @@ _NEGATIVE_IMAGING_PATTERNS = [
 ]
 
 _OBJECTIVE_DEFICIT_PAT = re.compile(r"\b(weakness|strength|reflex|diminished|range of motion|rom|spasm|lordosis|[0-5]/5)\b", re.I)
+_STRUCTURAL_IMAGING_PAT = re.compile(r"\b(disc|foramen|foraminal|radicul|stenosis|herniat|protrusion|compression|displacement|tear|fracture)\b", re.I)
 
 
 def _iso_from_event(event: Event) -> tuple[str | None, str | None]:
@@ -117,6 +118,42 @@ def _best_objective_clause(text: str) -> str:
         if _OBJECTIVE_DEFICIT_PAT.search(p) and not re.search(r"\bno acute fracture\b", p, re.I):
             return p
     return text
+
+
+def _finding_priority_rank(f: PromotedFinding) -> tuple[int, int]:
+    """
+    Lower is better. Adds within-category priority so plaintiff-useful structural findings beat generic variants.
+    """
+    label = (f.label or "").lower()
+    cat = f.category
+    if cat == "imaging":
+        if _STRUCTURAL_IMAGING_PAT.search(label) and not any(p.search(label) for p in _NEGATIVE_IMAGING_PATTERNS):
+            return (0, 0)
+        if re.search(r"\b(spasm|straightening|lordosis)\b", label):
+            return (1, 0)
+        if any(p.search(label) for p in _NEGATIVE_IMAGING_PATTERNS):
+            return (3, 0)
+        return (2, 0)
+    if cat == "objective_deficit":
+        if re.search(r"\b(weakness|diminished|[0-5]/5)\b", label):
+            return (0, 0)
+        if re.search(r"\b(spasm|straightening|lordosis)\b", label):
+            return (1, 0)
+        return (2, 0)
+    return (0, 0)
+
+
+def _sort_promoted_findings(items: list[PromotedFinding]) -> None:
+    items.sort(
+        key=lambda f: (
+            _CATEGORY_ORDER.get(f.category, 99),
+            0 if f.headline_eligible else 1,
+            _finding_priority_rank(f)[0],
+            {"high": 0, "medium": 1, "low": 2}.get(f.severity or "low", 2),
+            -f.confidence,
+            _finding_priority_rank(f)[1],
+        )
+    )
 
 
 def _build_mechanism(events: list[Event]) -> RendererCitationValue:
@@ -334,7 +371,7 @@ def _promoted_findings_from_citations(
                 have_positive_imaging = True
             continue
 
-    out.sort(key=lambda f: (_CATEGORY_ORDER.get(f.category, 99), 0 if f.headline_eligible else 1, {"high": 0, "medium": 1, "low": 2}.get(f.severity or "low", 2), -f.confidence))
+    _sort_promoted_findings(out)
     return out
 
 
@@ -407,7 +444,7 @@ def _promoted_findings_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list
             citation_ids=citations, confidence=conf, source_event_id=str(row.get("event_id") or "") or None
         ))
 
-    out.sort(key=lambda f: (_CATEGORY_ORDER.get(f.category, 99), 0 if f.headline_eligible else 1, {"high": 0, "medium": 1, "low": 2}.get(f.severity or "low", 2), -f.confidence))
+    _sort_promoted_findings(out)
     return out
 
 
@@ -469,7 +506,7 @@ def _promoted_findings_from_events(events: list[Event], existing: list[PromotedF
                     confidence=min(1.0, float(getattr(e, "confidence", 0) or 0) / 100.0),
                     source_event_id=eid,
                 ))
-    out.sort(key=lambda f: (_CATEGORY_ORDER.get(f.category, 99), 0 if f.headline_eligible else 1, {"high": 0, "medium": 1, "low": 2}.get(f.severity or "low", 2), -f.confidence))
+    _sort_promoted_findings(out)
     return out
 
 

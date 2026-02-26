@@ -491,7 +491,7 @@ def _manifest_promoted_by_category(rm: dict) -> dict[str, list[dict]]:
 
 def _dedupe_key(text: str | None) -> str:
     s = _clean_line(text or "")
-    s = re.sub(r"^[\s\-•*]+", "", s)
+    s = re.sub(r"^[^\w]+", "", s, flags=re.UNICODE)
     s = re.sub(r"[\"'`]+", "", s)
     s = re.sub(r"[.:;,\s]+$", "", s)
     s = re.sub(r"\s+", " ", s).strip()
