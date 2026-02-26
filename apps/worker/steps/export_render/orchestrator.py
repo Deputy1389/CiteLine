@@ -42,6 +42,7 @@ from apps.worker.lib.litigation_safe_v1 import (
     build_litigation_safe_v1_snapshot,
     validate_litigation_safe_v1,
 )
+from apps.worker.lib.provider_resolution_v1 import augment_provider_resolution_quality
 from apps.worker.steps.export_render.projection_enrichment import (
     _enrich_projection_procedure_entries,
     _ensure_mri_bucket_entry,
@@ -119,7 +120,10 @@ def render_exports(
         if not isinstance(ext, dict):
             ext = {}
             evidence_graph_payload["extensions"] = ext
-        ext["provider_resolution_quality"] = compute_provider_resolution_quality(projection.entries)
+        ext["provider_resolution_quality"] = augment_provider_resolution_quality(
+            compute_provider_resolution_quality(projection.entries),
+            pt_encounters=list(ext.get("pt_encounters") or []),
+        )
         billing_status = None
         if isinstance(renderer_manifest, dict):
             billing_status = str(renderer_manifest.get("billing_completeness") or "").strip().upper() or None

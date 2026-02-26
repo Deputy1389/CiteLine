@@ -6,6 +6,7 @@ from datetime import date
 from typing import Any
 
 from packages.shared.models import Citation, EventDate, Page, PageType, Provider
+from apps.worker.lib.provider_resolution_v1 import build_page_identity_map
 
 _PT_MARKER_RE = re.compile(
     r"\b(physical therapy|\bpt\b|therapy visit|therapeutic exercise|manual therapy|home exercise|hep\b|range of motion|\brom\b|plan of care)\b",
@@ -45,6 +46,7 @@ def build_pt_evidence_extensions(
     pt_reported: list[dict[str, Any]] = []
     seen_dedupe: set[str] = set()
     page_provider_map = page_provider_map or {}
+    page_identity_map = build_page_identity_map(pages=pages, citations=citations)
 
     for page in pages or []:
         page_no = int(getattr(page, "page_number", 0) or 0)
@@ -68,6 +70,14 @@ def build_pt_evidence_extensions(
 
         ev_date = _resolve_page_date(page_no, text, dates_by_page)
         provider_name, facility_name = _resolve_provider_facility(page_no, page_provider_map, provider_by_id)
+        page_identity = page_identity_map.get(page_no) or {}
+        provider_name, facility_name, provider_meta, facility_meta = _apply_identity_resolution(
+            page_no=page_no,
+            base_provider_name=provider_name,
+            base_facility_name=facility_name,
+            page_identity=page_identity,
+            citation_ids=citation_ids,
+        )
 
         summary_counts = _extract_reported_counts_for_page(pt_reported, page, page_citations, text)
         has_encounter_marker = bool(_PT_ENCOUNTER_MARKER_RE.search(text))
@@ -111,6 +121,8 @@ def build_pt_evidence_extensions(
                         "evidence_citation_ids": citation_ids[:8],
                         "page_number": page_no,
                         "dedupe_key": dedupe_key,
+                        "provider_resolution": provider_meta,
+                        "facility_resolution": facility_meta,
                     }
                 )
 
@@ -136,6 +148,9 @@ def build_pt_evidence_extensions(
             "variance_flag": mismatch,
             "severe_variance_flag": severe_variance,
             "variance_delta_max_minus_verified": (reported_max - verified_count) if reported_max is not None else None,
+        },
+        "page_identity_resolution": {
+            str(k): v for k, v in sorted(page_identity_map.items())
         },
     }
 
@@ -206,6 +221,49 @@ def _resolve_provider_facility(page_no: int, page_provider_map: dict[int, str], 
             if any(tok in low for tok in ["therapy", "rehab", "clinic", "hospital", "center", "centre"]):
                 facility_name = norm
     return provider_name, facility_name
+
+
+def _apply_identity_resolution(
+    *,
+    page_no: int,
+    base_provider_name: str,
+    base_facility_name: str,
+    page_identity: dict[str, Any],
+    citation_ids: list[str],
+) -> tuple[str, str, dict[str, Any], dict[str, Any]]:
+    provider_name = base_provider_name
+    facility_name = base_facility_name
+    conf = float(page_identity.get("confidence") or 0.0) if isinstance(page_identity, dict) else 0.0
+    resolved_from = str(page_identity.get("resolved_from") or "") if isinstance(page_identity, dict) else ""
+    source_page = int(page_identity.get("inherited_from_page") or page_identity.get("page_number") or page_no) if isinstance(page_identity, dict) else page_no
+    evidence_cids = [str(c) for c in (page_identity.get("evidence_citation_ids") or citation_ids or []) if str(c).strip()][:8] if isinstance(page_identity, dict) else [str(c) for c in (citation_ids or [])][:8]
+    reason = str(page_identity.get("resolution_reason") or "") if isinstance(page_identity, dict) else ""
+
+    ident_provider = str(page_identity.get("provider_name") or "").strip() if isinstance(page_identity, dict) else ""
+    ident_facility = str(page_identity.get("facility_name") or "").strip() if isinstance(page_identity, dict) else ""
+    if ident_provider and provider_name.strip().lower() in {"unknown provider", "unknown", ""}:
+        provider_name = ident_provider
+    if ident_facility and facility_name.strip().lower() in {"unknown facility", "unknown", ""}:
+        facility_name = ident_facility
+    if ident_facility and provider_name.strip().lower() in {"unknown provider", "unknown", ""} and "therapy" in ident_facility.lower():
+        # Facility-only PT letterhead is still useful attribution for the ledger.
+        provider_name = ident_facility
+
+    provider_meta = {
+        "resolved_from": (resolved_from or ("page_provider_map" if provider_name and provider_name != "Unknown Provider" else None)),
+        "confidence": round(conf if resolved_from else (0.7 if provider_name and provider_name != "Unknown Provider" and base_provider_name != "Unknown Provider" else 0.0), 3),
+        "source_page_number": source_page if (resolved_from or (provider_name and provider_name != "Unknown Provider")) else None,
+        "evidence_citation_ids": evidence_cids,
+        "why_unresolved": (None if provider_name and provider_name != "Unknown Provider" else (reason or "no_provider_candidate")),
+    }
+    facility_meta = {
+        "resolved_from": (resolved_from or ("page_provider_map" if facility_name and facility_name != "Unknown Facility" and base_facility_name != "Unknown Facility" else None)),
+        "confidence": round(conf if resolved_from else (0.6 if facility_name and facility_name != "Unknown Facility" and base_facility_name != "Unknown Facility" else 0.0), 3),
+        "source_page_number": source_page if (resolved_from or (facility_name and facility_name != "Unknown Facility")) else None,
+        "evidence_citation_ids": evidence_cids,
+        "why_unresolved": (None if facility_name and facility_name != "Unknown Facility" else (reason or "no_facility_candidate")),
+    }
+    return provider_name, facility_name, provider_meta, facility_meta
 
 
 def _extract_reported_counts_for_page(out: list[dict[str, Any]], page: Page, page_citations: list[Citation], text: str) -> list[int]:

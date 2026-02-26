@@ -94,6 +94,7 @@ from apps.worker.steps.step20_chronology_narrative import run_chronology_narrati
 from apps.worker.lib.litigation_integrity import run_litigation_integrity_pass
 from apps.worker.quality.text_quality import clean_text, is_garbage
 from apps.worker.lib.pt_enumeration import build_pt_evidence_extensions
+from apps.worker.lib.provider_resolution_v1 import augment_provider_resolution_quality
 
 logger = logging.getLogger(__name__)
 RUN_TIMEOUT_SECONDS = int(os.getenv("RUN_TIMEOUT_SECONDS", "1800"))
@@ -325,6 +326,10 @@ def run_pipeline(run_id: str) -> None:
         )
         evidence_graph.extensions["provider_resolution_quality"] = compute_provider_resolution_quality(
             projection_for_metrics.entries
+        )
+        evidence_graph.extensions["provider_resolution_quality"] = augment_provider_resolution_quality(
+            evidence_graph.extensions.get("provider_resolution_quality"),
+            pt_encounters=list(evidence_graph.extensions.get("pt_encounters") or []),
         )
         paralegal_payload = build_paralegal_chronology_payload(evidence_graph, chronology_events, providers, page_map)
         evidence_graph.extensions["paralegal_chronology"] = paralegal_payload

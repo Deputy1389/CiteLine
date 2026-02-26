@@ -176,6 +176,36 @@ def _provider_resolution_marker(eg: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _check_provider_resolution_quality(eg: dict[str, Any], pdf_text: str) -> dict[str, Any]:
+    ext = eg.get("extensions") or {}
+    marker = ext.get("provider_resolution_quality") or {}
+    pt = (marker.get("pt_ledger") or {}) if isinstance(marker, dict) else {}
+    verified_count = int(((ext.get("pt_reconciliation") or {}).get("verified_pt_count")) or 0)
+    facility_ratio = float(pt.get("pt_facility_resolved_ratio") or (1.0 if verified_count == 0 else 0.0))
+    provider_ratio = float(pt.get("pt_provider_resolved_ratio") or (1.0 if verified_count == 0 else 0.0))
+    gate = (pt.get("pt_provider_facility_gate") or {}) if isinstance(pt, dict) else {}
+    gate_status = str(gate.get("status") or "warn").upper()
+    export_status = _export_status_from_pdf(pdf_text)
+    pass_gate = True
+    if verified_count >= 10:
+        if facility_ratio < 0.50:
+            pass_gate = export_status == "BLOCKED"
+        elif facility_ratio < 0.90:
+            pass_gate = export_status in {"REVIEW_RECOMMENDED", "BLOCKED"}
+    return {
+        "name": "provider_resolution_quality",
+        "pt_ledger_rows_total": int(pt.get("pt_ledger_rows_total") or verified_count),
+        "pt_facility_resolved": int(pt.get("pt_facility_resolved") or 0),
+        "pt_provider_resolved": int(pt.get("pt_provider_resolved") or 0),
+        "pt_facility_resolved_ratio": round(facility_ratio, 4),
+        "pt_provider_resolved_ratio": round(provider_ratio, 4),
+        "gate_status": gate_status,
+        "export_status": export_status,
+        "top_unresolved_examples": list(pt.get("top_unresolved_examples") or [])[:3],
+        "PASS": bool(isinstance(marker, dict) and marker) and pass_gate,
+    }
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--evidence-graph", required=True, type=Path)
@@ -194,6 +224,7 @@ def main() -> None:
         _check_d_procedure_date_requirement(eg, pdf_text),
         _check_e_no_garbage_text(eg, pdf_text),
         _provider_resolution_marker(eg),
+        _check_provider_resolution_quality(eg, pdf_text),
     ]
     payload = {
         "evidence_graph": str(args.evidence_graph),

@@ -494,6 +494,13 @@ def _export_status_label(ext: dict, rm: dict) -> str:
     if isinstance(lsv1, dict):
         status = str(lsv1.get("status") or "").strip().upper()
         if status in {"VERIFIED", "REVIEW_RECOMMENDED", "BLOCKED"}:
+            prq = ext.get("provider_resolution_quality") if isinstance(ext, dict) else None
+            pt_gate = (((prq or {}).get("pt_ledger")) or {}).get("pt_provider_facility_gate") if isinstance(prq, dict) else None
+            gate_status = str((pt_gate or {}).get("status") or "").strip().upper() if isinstance(pt_gate, dict) else ""
+            if gate_status == "BLOCKED":
+                return "BLOCKED"
+            if gate_status == "REVIEW_RECOMMENDED" and status == "VERIFIED":
+                status = "REVIEW_RECOMMENDED"
             # PT ledger variance is a deterministic review trigger even if other litigation checks pass.
             pt_recon = ext.get("pt_reconciliation") if isinstance(ext, dict) else None
             if isinstance(pt_recon, dict):
@@ -614,6 +621,15 @@ def _build_pt_visit_ledger_section(
         Paragraph("<b>Facility</b>", small),
         Paragraph("<b>Citation</b>", small),
     ]]
+    def _display_identity(name_key: str, meta_key: str, unknown_label: str, label_prefix: str) -> str:
+        name = _clean_line(row.get(name_key)) or unknown_label
+        meta = row.get(meta_key) if isinstance(row.get(meta_key), dict) else {}
+        conf = float(meta.get("confidence") or 0.0) if isinstance(meta, dict) else 0.0
+        if name.lower() == unknown_label.lower():
+            return unknown_label
+        if conf < 0.60:
+            return f"{label_prefix} (low confidence): {name}"
+        return name
     for idx, row in enumerate(encounters):
         refs = _pt_ledger_refs(row, citation_by_id)
         row_anchor = chron_anchor(f"pt_ledger_{idx}")
@@ -622,8 +638,8 @@ def _build_pt_visit_ledger_section(
         _links, cite_text = _citation_links_and_text(refs, row_anchor=row_anchor, manifest=manifest)
         rows.append([
             Paragraph(f'<a name="{escape(row_anchor)}"/>{escape(str(row.get("encounter_date") or "Undated"))}', small),
-            Paragraph(escape(_clean_line(row.get("provider_name")) or "Unknown Provider"), small),
-            Paragraph(escape(_clean_line(row.get("facility_name")) or "Unknown Facility"), small),
+            Paragraph(escape(_display_identity("provider_name", "provider_resolution", "Unknown Provider", "Provider")), small),
+            Paragraph(escape(_display_identity("facility_name", "facility_resolution", "Unknown Facility", "Facility")), small),
             Paragraph(escape(cite_text), small),
         ])
     tbl = Table(rows, colWidths=[1.0 * inch, 2.0 * inch, 2.0 * inch, 1.5 * inch], repeatRows=1)
