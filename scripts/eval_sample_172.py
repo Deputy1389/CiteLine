@@ -172,6 +172,9 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str, export_mode: str) -> tupl
     if mode not in {"INTERNAL", "MEDIATION"}:
         raise ValueError("export_mode is required and must be INTERNAL or MEDIATION")
     config = RunConfig(max_pages=1000, export_mode=mode)
+    # LLM policy (Pass34): MEDIATION export never uses LLM.
+    if mode == "MEDIATION":
+        config.enable_llm_reasoning = False
     pages, _ = split_pages(str(sample_pdf), sample_pdf.name, page_offset=0, max_pages=config.max_pages)
     pages, _, _ = acquire_text(pages, str(sample_pdf))
     pages, _ = classify_pages(pages)
@@ -285,9 +288,15 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str, export_mode: str) -> tupl
     
     # ── Step 19: LLM Reasoning (optional) ────────────────────────────────
     if config.enable_llm_reasoning:
-        from apps.worker.steps.step19_llm_reasoning import run_llm_reasoning
-        llm_extensions, llm_warnings = run_llm_reasoning(graph, providers, config)
-        graph.extensions.update(llm_extensions)
+        try:
+            from apps.worker.steps.step19_llm_reasoning import run_llm_reasoning
+            llm_extensions, llm_warnings = run_llm_reasoning(graph, providers, config)
+            graph.extensions.update(llm_extensions)
+            graph.extensions["llm_polish_applied"] = True
+        except Exception:
+            graph.extensions["llm_polish_applied"] = False
+    else:
+        graph.extensions["llm_polish_applied"] = False
 
     claim_edges = build_claim_edges([], raw_events=chronology_events)
     graph.extensions.update(_build_litigation_extensions(claim_edges))

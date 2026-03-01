@@ -40,6 +40,7 @@ _MEDIATION_EXTENSION_ALLOWLIST = {
     "quality_gate",
     "extraction_metrics",
     "page_quality_assessment",
+    "llm_polish_applied",
 }
 
 

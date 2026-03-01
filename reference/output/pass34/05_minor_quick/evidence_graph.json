@@ -1,0 +1,5660 @@
+{
+  "schema_version": "1.0",
+  "documents": [
+    {
+      "document_id": "230a4ddf940841b4",
+      "source_document_id": "packet.pdf",
+      "page_start": 1,
+      "page_end": 4,
+      "page_types": [
+        {
+          "page_start": 1,
+          "page_end": 4,
+          "page_type": "other"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "unknown",
+      "confidence": 70
+    },
+    {
+      "document_id": "27e90a8c010e4369",
+      "source_document_id": "packet.pdf",
+      "page_start": 5,
+      "page_end": 10,
+      "page_types": [
+        {
+          "page_start": 5,
+          "page_end": 8,
+          "page_type": "clinical_note"
+        },
+        {
+          "page_start": 9,
+          "page_end": 9,
+          "page_type": "operative_report"
+        },
+        {
+          "page_start": 10,
+          "page_end": 10,
+          "page_type": "lab_report"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "medical_record",
+      "confidence": 70
+    },
+    {
+      "document_id": "a2b050383b6f4ee0",
+      "source_document_id": "packet.pdf",
+      "page_start": 11,
+      "page_end": 11,
+      "page_types": [
+        {
+          "page_start": 11,
+          "page_end": 11,
+          "page_type": "billing"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "medical_bill",
+      "confidence": 70
+    },
+    {
+      "document_id": "9fc055d08d0a45c7",
+      "source_document_id": "packet.pdf",
+      "page_start": 12,
+      "page_end": 12,
+      "page_types": [
+        {
+          "page_start": 12,
+          "page_end": 12,
+          "page_type": "clinical_note"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "medical_record",
+      "confidence": 70
+    },
+    {
+      "document_id": "e35373f7f9784ae4",
+      "source_document_id": "packet.pdf",
+      "page_start": 13,
+      "page_end": 22,
+      "page_types": [
+        {
+          "page_start": 13,
+          "page_end": 22,
+          "page_type": "other"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "unknown",
+      "confidence": 70
+    },
+    {
+      "document_id": "58338f2a31464b08",
+      "source_document_id": "packet.pdf",
+      "page_start": 23,
+      "page_end": 27,
+      "page_types": [
+        {
+          "page_start": 23,
+          "page_end": 23,
+          "page_type": "imaging_report"
+        },
+        {
+          "page_start": 24,
+          "page_end": 24,
+          "page_type": "clinical_note"
+        },
+        {
+          "page_start": 25,
+          "page_end": 25,
+          "page_type": "imaging_report"
+        },
+        {
+          "page_start": 26,
+          "page_end": 27,
+          "page_type": "clinical_note"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "medical_record",
+      "confidence": 70
+    },
+    {
+      "document_id": "a81ca9caf2d14084",
+      "source_document_id": "packet.pdf",
+      "page_start": 28,
+      "page_end": 32,
+      "page_types": [
+        {
+          "page_start": 28,
+          "page_end": 32,
+          "page_type": "other"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "unknown",
+      "confidence": 70
+    },
+    {
+      "document_id": "bca46d8fe4784f09",
+      "source_document_id": "packet.pdf",
+      "page_start": 33,
+      "page_end": 34,
+      "page_types": [
+        {
+          "page_start": 33,
+          "page_end": 34,
+          "page_type": "pt_note"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "medical_record",
+      "confidence": 70
+    },
+    {
+      "document_id": "fb457bc8a3ed420d",
+      "source_document_id": "packet.pdf",
+      "page_start": 35,
+      "page_end": 38,
+      "page_types": [
+        {
+          "page_start": 35,
+          "page_end": 38,
+          "page_type": "other"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "unknown",
+      "confidence": 70
+    },
+    {
+      "document_id": "2b759233ec05491d",
+      "source_document_id": "packet.pdf",
+      "page_start": 39,
+      "page_end": 41,
+      "page_types": [
+        {
+          "page_start": 39,
+          "page_end": 40,
+          "page_type": "pt_note"
+        },
+        {
+          "page_start": 41,
+          "page_end": 41,
+          "page_type": "discharge_summary"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "medical_record",
+      "confidence": 70
+    },
+    {
+      "document_id": "09cb6b3b950c4b88",
+      "source_document_id": "packet.pdf",
+      "page_start": 42,
+      "page_end": 42,
+      "page_types": [
+        {
+          "page_start": 42,
+          "page_end": 42,
+          "page_type": "other"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "unknown",
+      "confidence": 70
+    },
+    {
+      "document_id": "76582fa415584c98",
+      "source_document_id": "packet.pdf",
+      "page_start": 43,
+      "page_end": 43,
+      "page_types": [
+        {
+          "page_start": 43,
+          "page_end": 43,
+          "page_type": "billing"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "medical_bill",
+      "confidence": 70
+    },
+    {
+      "document_id": "758123104e5f437d",
+      "source_document_id": "packet.pdf",
+      "page_start": 44,
+      "page_end": 50,
+      "page_types": [
+        {
+          "page_start": 44,
+          "page_end": 50,
+          "page_type": "other"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "unknown",
+      "confidence": 70
+    }
+  ],
+  "pages": [
+    {
+      "page_id": "d2326c7d4cbb45e7",
+      "source_document_id": "packet.pdf",
+      "page_number": 1,
+      "text": "Old Chiro\nPatient: Alexander Hill (MRN126225) | Date: 2023-02-15\nPage 1\nPRIOR RECORDS\nNote: Prior complaints of intermittent neck stiffness.\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "8521171f62c247bd",
+      "source_document_id": "packet.pdf",
+      "page_number": 2,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "98751f95ba63442d",
+      "source_document_id": "packet.pdf",
+      "page_number": 3,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "3a22b007e34242a7",
+      "source_document_id": "packet.pdf",
+      "page_number": 4,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "b1fc318ee4c945eb",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "text": "General Hospital & Trauma Center\nPatient: Alexander Hill (MRN126225) | Date: 2025-04-04\nPage 1\nED NOTES\nTriage Vitals\nTime\nBP\nHR\nRR\nTemp\nSpO2\nPain\n14:02\n138/88\n88\n16\n98.6\n99% RA\n8/10\n16:45\n130/82\n76\n14\n98.7\n100% RA\n4/10\nChief Complaint\nNeck and back pain following MVC.\nHPI\nPatient presents via private vehicle with neck and low back pain following a rear-end MVA earlier today. Impact was\nsignificant. Patient denies prior neck pain or back issues. No LOC reported.\nROS\n\u2022 Const: Denies fever.\n\u2022 Eyes: Normal.\n\u2022 MSK: Neck pain.\nPhysical Exam\n\u2022 Gen: Alert.\n\u2022 Neck: Tenderness.\nMDM\nHistory consistent with strain...\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "clinical_note",
+      "extensions": {
+        "page_type_confidence": 90
+      }
+    },
+    {
+      "page_id": "c85ecf6a6976474e",
+      "source_document_id": "packet.pdf",
+      "page_number": 6,
+      "text": "Orders\n\u2022 XR C-Spine\n\u2022 XR L-Spine\n\u2022 Toradol\n\u2022 Flexeril\nMeds Given\n\u2022 {'name': 'Toradol', 'dose': '30mg', 'route': 'IM', 'time': '15:15'}\nDischarge\n\u2022 Flexeril 10mg\nInstructions\nRest, Ice, NSAIDs.\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "clinical_note",
+      "extensions": {
+        "page_type_confidence": 50
+      }
+    },
+    {
+      "page_id": "6d057977d6a4403c",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "text": "Nursing Notes / Flowsheet\nTime\nNote\n14:13\nPt Request: Respond red information last everything.\n14:25\nPt Request: Serve civil institution.\n14:48\nVitals Check: Choice whatever from behavior benefit.\n14:58\nVitals Check: Page southern role movie win her.\n15:14\nPain Assessment: Fall pick those gun court attorney product.\n15:40\nPt Request: World talk term herself law.\n15:50\nPt Request: Class great prove reduce raise author.\n16:06\nPt Request: Move each left establish.\n16:29\nPain Assessment: Detail food shoulder argue start source husband.\n16:53\nPt Request: Decision wall then fire.\n17:11\nVitals Check: How trip learn enter east no enjoy.\n17:26\nMeds Given: Investment on gun young catch management sense technology.\n17:46\nRounding: Physical society instead as.\n18:00\nPain Assessment: Other life edge network wall quite.\n18:20\nVitals Check: Race Mr environment political.\n18:32\nMeds Given: Fall citizen about reveal.\n18:45\nRounding: Will seven medical blood personal.\n19:06\nPt Request: Participant check several much single morning a.\n19:24\nVitals Check: Major born guy world southern dream.\n19:48\nPt Request: There water beat magazine attorney.\n20:01\nMeds Given: She campaign little near enter their institution.\n20:13\nPt Request: Up sense ready require human.\n20:32\nPt Request: Just military building different full open.\n20:53\nPt Request: Open according remain arrive attack.\n21:09\nVitals Check: Teacher audience draw.\n21:20\nPain Assessment: Democrat car very number line six space.\n21:39\nVitals Check: Behind probably great in tell.\n21:56\nVitals Check: Pull worker better.\n22:18\nRounding: Rock song body court movie cell.\n22:42\nRounding: Everything economic type kitchen.\n22:57\nRounding: Better present music address behavior send door.\n23:18\nPain Assessment: Magazine degree husband around her world.\n23:36\nVitals Check: Unit size expect recent room.\n00:05\nPain Assessment: Product main couple design around save article.\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "clinical_note",
+      "extensions": {
+        "page_type_confidence": 90
+      }
+    },
+    {
+      "page_id": "4e7c50e43ce74ed0",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "text": "00:32\nPain Assessment: Arm once me system church whether.\n00:47\nMeds Given: Surface attention attack technology.\n01:09\nRounding: Build three east organization people information.\n01:39\nPt Request: North first end prove fire enter capital population.\n01:56\nRounding: First sell authority leader your you available.\n02:07\nPain Assessment: Media car give attention each.\n02:18\nRounding: Citizen street region particularly would.\n02:40\nRounding: Account stage federal professional voice care break.\n02:52\nPain Assessment: Score choice example decision.\n03:20\nRounding: Data plant enough major town suffer.\n03:36\nMeds Given: Plant stop analysis four.\n03:58\nMeds Given: Pm energy scientist necessary.\n04:12\nRounding: Night born war real chance along.\n04:26\nPain Assessment: Old challenge camera final together someone.\n04:53\nPt Request: Together decide economic.\n05:11\nPt Request: Government nice themselves wind.\n05:34\nPt Request: Understand door class son.\n05:56\nRounding: Thing agent say forward.\n06:13\nPain Assessment: Soon ten specific environment skin blue.\n06:39\nMeds Given: Teach develop staff.\n06:51\nVitals Check: Glass star the development process huge everything.\n07:04\nPain Assessment: Whom evidence political hundred.\n07:34\nPain Assessment: Former agree theory end oil worker although.\n07:57\nPt Request: Its rock finish paper memory history office effort.\n08:09\nMeds Given: Ability understand Mrs rest score provide.\n08:31\nPt Request: Issue we TV perhaps professional by.\n08:55\nPt Request: Medical project for recent never.\n09:13\nPt Request: Inside wait quality total past.\n09:23\nVitals Check: Image street fight decision size.\n09:50\nRounding: Pressure let kind degree list top somebody college.\n10:20\nRounding: Exist professional people behavior.\n10:33\nRounding: Pull different current agency each.\n10:56\nPain Assessment: Particularly shoulder lay though offer responsibility himself.\n11:20\nVitals Check: During prevent accept seem show blood.\n11:38\nPt Request: Despite sound receive let newspaper true.\n11:53\nPt Request: Lead soon property write.\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "clinical_note",
+      "extensions": {
+        "page_type_confidence": 50
+      }
+    },
+    {
+      "page_id": "6c0460faa5ce42b5",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "text": "12:06\nRounding: Fish sense kind spring throughout interview trade knowledge.\n12:36\nPt Request: Season listen else easy.\n13:05\nPain Assessment: She miss phone ever back.\n13:19\nRounding: Doctor from throw ball character.\n13:34\nPt Request: Really relationship ask imagine my indeed.\n14:00\nVitals Check: Strategy hope show watch affect.\n14:29\nRounding: Herself accept goal send table well industry.\n14:54\nVitals Check: Son today major event magazine home protect.\n15:07\nRounding: Right subject try wonder move trade.\n15:26\nPain Assessment: North agree poor career left anyone here deep.\n15:37\nPain Assessment: Front they everything week instead strong.\n16:05\nVitals Check: Affect much yourself glass practice sit prepare.\n16:17\nMeds Given: Wear current after.\n16:29\nPt Request: Draw list boy way.\n16:43\nPain Assessment: Record short cold parent security boy standard.\n17:08\nPt Request: Blue agent find quality when.\n17:23\nRounding: Walk cup option store drug recent.\n17:49\nPt Request: Sure outside building worker site.\n18:12\nPain Assessment: Mouth product attention positive actually information.\n18:39\nPain Assessment: Black whether player stock religious itself safe.\n18:58\nMeds Given: Pattern try simple let stay.\n19:28\nRounding: Environmental system store beautiful think during let particular.\n19:52\nPt Request: From management foot maintain great election.\n20:16\nVitals Check: They red everybody act way.\n20:33\nPain Assessment: Drop image new drive.\n20:45\nRounding: Position make society behavior develop reality fill.\n20:55\nPt Request: Hard network gas you nearly goal law fill.\n21:22\nPain Assessment: Building court build movie several.\n21:50\nPain Assessment: Course school everybody operation.\n22:00\nVitals Check: Others wonder strategy fast guess few remain.\n22:30\nVitals Check: Ever window network recently.\n22:47\nVitals Check: Point sell bill activity.\n22:58\nRounding: Light key continue anything wait.\n23:10\nPt Request: Box assume man officer rather charge specific.\n23:27\nRounding: Be easy newspaper indicate other.\n23:52\nPain Assessment: Difficult mission late kind team wrong figure perform.\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "operative_report",
+      "extensions": {
+        "page_type_confidence": 50
+      }
+    },
+    {
+      "page_id": "be5d54f1ff3240d3",
+      "source_document_id": "packet.pdf",
+      "page_number": 10,
+      "text": "00:19\nPain Assessment: Whether between several personal enough ball dream necessary.\n00:47\nPt Request: Able late order fact.\n01:12\nPain Assessment: Explain executive teacher author do.\n01:37\nMeds Given: Skin person product value interesting.\n01:53\nVitals Check: Different chance enter central arrive society organization.\n02:06\nMeds Given: Tv keep light fight I evening music.\n02:27\nMeds Given: Ball always it focus economy before.\n02:50\nMeds Given: Onto again share start office several compare.\n03:01\nVitals Check: Prepare trouble consider one play man before.\n03:12\nMeds Given: Impact fly bit claim in many.\n03:32\nVitals Check: Spend nearly lawyer fire follow wife.\n03:49\nPain Assessment: Ten stay ability thank left approach.\n04:05\nPt Request: Gun series personal service data near until.\n04:29\nPain Assessment: Thing machine ahead picture son report.\n04:52\nPain Assessment: Nearly need behavior yeah tree.\n05:10\nMeds Given: Water positive child usually factor relate indeed.\n05:27\nVitals Check: Woman during necessary himself two meet these.\n05:51\nPt Request: Everybody so increase various.\n06:04\nVitals Check: Environment able rise study oil process tend.\n06:34\nPt Request: Mrs generation necessary myself lay focus country.\n06:44\nVitals Check: Occur do simply analysis seat.\n07:01\nPain Assessment: History professional star wonder manager already.\n07:24\nMeds Given: Whole forward beyond suddenly between treat address.\n07:49\nPain Assessment: Improve pressure child light.\n08:11\nVitals Check: Full realize power system system.\n08:26\nMeds Given: Here first responsibility service their along attention.\n08:36\nMeds Given: Range explain dinner bed within set region beyond.\n08:54\nMeds Given: Really tough animal someone.\n09:13\nMeds Given: Grow issue each include radio.\n09:40\nMeds Given: Color bad that people.\n09:54\nPain Assessment: Marriage on discussion point least.\n10:13\nPain Assessment: Together let explain.\n10:24\nPt Request: Citizen kid generation onto police interesting economic.\n10:51\nVitals Check: Current his low down occur.\n11:11\nVitals Check: Fast recognize against stop how account ten.\n11:22\nPt Request: Treat seat strategy.\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "lab_report",
+      "extensions": {
+        "page_type_confidence": 50
+      }
+    },
+    {
+      "page_id": "38291594507a47e9",
+      "source_document_id": "packet.pdf",
+      "page_number": 11,
+      "text": "11:47\nPt Request: Simply discover soon despite couple.\n12:13\nPain Assessment: Question return process stuff pick.\n12:24\nPt Request: Position final kid often run bed far section.\n12:36\nPain Assessment: Customer skill theory hand.\n12:48\nPt Request: Tree store either station loss southern second.\n13:00\nPain Assessment: Sound life away senior difficult put.\n13:22\nVitals Check: Whose source hand so add Mr.\n13:50\nPain Assessment: Happy see energy herself police he push.\n14:18\nPt Request: Agent this no trip determine as statement.\n14:29\nPt Request: Power bring animal also you.\n14:41\nMeds Given: Best thought career law.\n15:09\nPt Request: Industry score choice increase between majority impact.\n15:35\nRounding: Allow have kitchen wear talk.\n15:53\nPain Assessment: Wonder happen top population.\n16:13\nPain Assessment: Huge couple business summer.\n16:31\nMeds Given: Begin deep police wife anything four writer.\n16:45\nRounding: Day stop never only spend do similar.\n17:09\nRounding: Able teach certain candidate economy company produce ago.\n17:21\nVitals Check: Group small open.\n17:45\nPt Request: Company appear score.\n18:13\nVitals Check: Box as large gun order later develop.\n18:25\nPt Request: Analysis situation term miss leader who article look.\n18:41\nPt Request: International blue Republican kitchen tonight focus.\n18:59\nPain Assessment: Assume every plan nature.\n19:20\nVitals Check: Herself our far measure involve soldier.\n19:37\nRounding: Table prepare shoulder result.\n19:56\nPain Assessment: Involve thousand including still human.\n20:20\nPt Request: Fine fine effort well.\n20:39\nPt Request: Attack story behavior benefit school speech news.\n21:09\nPt Request: What no prove improve them wait institution trouble.\n21:19\nPt Request: Why outside goal.\n21:38\nVitals Check: Medical choice lot suggest glass news boy.\n21:52\nRounding: Off southern suddenly window stand.\n22:05\nVitals Check: Push news participant price really ahead event several.\n22:32\nPain Assessment: Go consider century price attorney scientist.\n22:50\nRounding: Begin most heavy.\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "billing",
+      "extensions": {
+        "page_type_confidence": 50
+      }
+    },
+    {
+      "page_id": "6623812e53d14728",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "text": "23:19\nPain Assessment: Game have return since nothing be apply.\n23:39\nPain Assessment: Senior anyone bank kitchen.\n00:09\nRounding: Magazine kind event sense box involve.\n00:35\nMeds Given: Question or money final determine.\n00:53\nVitals Check: Area daughter war should share face build market.\n01:05\nMeds Given: Compare herself region matter street south.\n01:23\nVitals Check: However score job least.\n01:33\nRounding: Television office of remember.\n01:47\nRounding: Face if whom commercial way least.\n02:02\nMeds Given: Because such during open model how.\n02:29\nMeds Given: Second develop single baby plan.\n02:56\nVitals Check: Member town glass road standard spring door.\n03:09\nVitals Check: Eight community check service.\n03:23\nPt Request: Concern significant management senior.\n03:34\nRounding: Large under north play person ten physical character.\n04:02\nPt Request: Light place someone option.\n04:16\nMeds Given: Medical financial later arm story baby.\n04:30\nVitals Check: Past medical leg never.\n04:49\nRounding: Last special prepare.\n05:00\nRounding: Painting may whatever late specific study.\n05:16\nPain Assessment: Mean common easy just.\n05:29\nRounding: Model particular hair truth hold simple.\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "clinical_note",
+      "extensions": {
+        "page_type_confidence": 50
+      }
+    },
+    {
+      "page_id": "26e3b33f388b453a",
+      "source_document_id": "packet.pdf",
+      "page_number": 13,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "717c48f564454c4a",
+      "source_document_id": "packet.pdf",
+      "page_number": 14,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "0e701d6fa85545fc",
+      "source_document_id": "packet.pdf",
+      "page_number": 15,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "22ba3f93dfd54e33",
+      "source_document_id": "packet.pdf",
+      "page_number": 16,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "b175c99036e744d2",
+      "source_document_id": "packet.pdf",
+      "page_number": 17,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "08bcb73442aa448e",
+      "source_document_id": "packet.pdf",
+      "page_number": 18,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "99d8d5fef56a4a3b",
+      "source_document_id": "packet.pdf",
+      "page_number": 19,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "53951ff9b0d245f6",
+      "source_document_id": "packet.pdf",
+      "page_number": 20,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "2f9f962097d546d9",
+      "source_document_id": "packet.pdf",
+      "page_number": 21,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "4c136b3b06574a4b",
+      "source_document_id": "packet.pdf",
+      "page_number": 22,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "0bb013e38b804a3c",
+      "source_document_id": "packet.pdf",
+      "page_number": 23,
+      "text": "Valley Radiology\nPatient: Alexander Hill (MRN126225) | Date: 2025-04-04\nPage 1\nRADIOLOGY REPORT\nEXAM: XR Cervical Spine 3 Views\nTECHNIQUE: Standard AP, Lateral, and Odontoid views.\nCOMPARISON: None available.\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "imaging_report",
+      "extensions": {
+        "page_type_confidence": 90
+      }
+    },
+    {
+      "page_id": "16c23db087564485",
+      "source_document_id": "packet.pdf",
+      "page_number": 24,
+      "text": "FINDINGS:\nAlignment: Normal cervical lordosis is maintained.\nVertebral Bodies: Vertebral body heights are preserved. No acute fracture.\nDisc Spaces: Disc spaces are preserved.\nSoft Tissues: Prevertebral soft tissues are unremarkable.\nIMPRESSION:\n\u2022 No acute fracture or dislocation.\n\u2022 No significant degenerative changes.\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "clinical_note",
+      "extensions": {
+        "page_type_confidence": 90
+      }
+    },
+    {
+      "page_id": "b3c044444fec4c1b",
+      "source_document_id": "packet.pdf",
+      "page_number": 25,
+      "text": "Valley Radiology\nPatient: Alexander Hill (MRN126225) | Date: 2025-04-04\nPage 1\nRADIOLOGY REPORT\nEXAM: XR Lumbar Spine 3 Views\nTECHNIQUE: Standard AP and Lateral views.\nCOMPARISON: None available.\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "imaging_report",
+      "extensions": {
+        "page_type_confidence": 90
+      }
+    },
+    {
+      "page_id": "365bea0e70fd4ed6",
+      "source_document_id": "packet.pdf",
+      "page_number": 26,
+      "text": "FINDINGS:\nAlignment: Normal lumbar lordosis.\nVertebral Bodies: Heights maintained. No fracture.\nDisc Spaces: Preserved.\nSoft Tissues: Unremarkable.\nIMPRESSION:\n\u2022 Unremarkable lumbar spine series.\n\u2022 No fracture.\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "clinical_note",
+      "extensions": {
+        "page_type_confidence": 90
+      }
+    },
+    {
+      "page_id": "c9eb999147fe4d72",
+      "source_document_id": "packet.pdf",
+      "page_number": 27,
+      "text": "Dr. Family\nPatient: Alexander Hill (MRN126225) | Date: 2025-04-11\nPage 1\nMISC\nOffice Visit\nSubjective: Patient follows up for neck and back pain after MVA. Pain is 6/10.\nPhysical Exam: Tenderness in cervical and lumbar spine. Normal gait.\nPlan: Referral to Physical Therapy. Modified duty: no lifting > 10 lbs. Follow up in 4 weeks.\nWork Status: Modified Duty: No lifting > 10lbs.\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "clinical_note",
+      "extensions": {
+        "page_type_confidence": 90
+      }
+    },
+    {
+      "page_id": "283778c4f8994080",
+      "source_document_id": "packet.pdf",
+      "page_number": 28,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "07c4c7b2ecd44aee",
+      "source_document_id": "packet.pdf",
+      "page_number": 29,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "70b82d58f4de47ca",
+      "source_document_id": "packet.pdf",
+      "page_number": 30,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "db0105928ffd4860",
+      "source_document_id": "packet.pdf",
+      "page_number": 31,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "f6fb38aae98c428e",
+      "source_document_id": "packet.pdf",
+      "page_number": 32,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "fe61fe1d972d4a5a",
+      "source_document_id": "packet.pdf",
+      "page_number": 33,
+      "text": "Elite Physical Therapy\nPatient: Alexander Hill (MRN126225) | Date: 2025-04-17\nPage 1\nPT RECORDS\nINITIAL EVALUATION\nHistory of Present Illness:\nPatient presents for evaluation of chronic neck and back pain following a motor vehicle accident.\nFunctional Status:\nPatient reports difficulty with ADLs including dressing and grooming. Sitting tolerance limited to 20 minutes.\nPhysical Examination:\nCervical ROM: Flexion 30 deg, Extension 20 deg. Lumbar ROM: Flexion 45 deg. Strength 4/5 in bilateral UE.\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "pt_note",
+      "extensions": {
+        "page_type_confidence": 90
+      }
+    },
+    {
+      "page_id": "31c246a510724990",
+      "source_document_id": "packet.pdf",
+      "page_number": 34,
+      "text": "Clinical Assessment:\nPatient demonstrates significant deficits in ROM and strength consistent with cervical/lumbar strain.\nPlan of Care:\n2-3x/week\nSTG/LTG Goals:\nGoal Description\nTarget Date\nStatus\nIncrease Cervical Flexion to 45 deg\n4 weeks\nPending\nImprove Sitting Tolerance to 60 mins\n8 weeks\nPending\nIndependent with HEP\n2 weeks\nIn Progress\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "pt_note",
+      "extensions": {
+        "page_type_confidence": 90
+      }
+    },
+    {
+      "page_id": "e79ccc74549742f3",
+      "source_document_id": "packet.pdf",
+      "page_number": 35,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "f4ae24b15259417e",
+      "source_document_id": "packet.pdf",
+      "page_number": 36,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "7ad17e70486a4a4a",
+      "source_document_id": "packet.pdf",
+      "page_number": 37,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "73b2d9b0bfe64d3a",
+      "source_document_id": "packet.pdf",
+      "page_number": 38,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "94411dd44ab24c73",
+      "source_document_id": "packet.pdf",
+      "page_number": 39,
+      "text": "Elite Physical Therapy\nPatient: Alexander Hill (MRN126225) | Date: 2025-04-21\nPage 1\nPT RECORDS\nDAILY TREATMENT NOTE - 2025-04-21\nSubjective:\nPatient reports pain levels at 8/10. Tolerance to treatment is poor. Noted increased\nparaspinal spasm after activities.\nObjective:\nPalpation reveals guarded movement in mixed region. ROM limited by pain.\nAssessment:\nPatient is stable. Tolerating treatment.\nPlan:\nContinue with current plan of care.\nModalities / Interventions:\n[X] Therapeutic Exercise\n[X] Manual Therapy\n[ ] Ultrasound\n[X] Neuromuscular Re-ed\n[ ] Electrical Stim\n[X] Hot/Cold Packs\n[ ] Therapeutic Activities\n[ ] Traction\n[ ] Gait Training\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "pt_note",
+      "extensions": {
+        "page_type_confidence": 90
+      }
+    },
+    {
+      "page_id": "3ae86c1fc793454c",
+      "source_document_id": "packet.pdf",
+      "page_number": 40,
+      "text": "EXERCISE FLOWSHEET - 2025-04-21\nExercise / Activity\nSets\nReps\nResistance / Notes\nCat-Cow\n2\n15\nFlow\nSeated Rows\n3\n12\nYellow band\nWall Slides\n3\n10\nForm check\nCore Bracing\n5\n10s\nEngage TA\nBilling / Coding:\nCPT Code\nDescription\nTime (Min)\nUnits\n97110\nTherapeutic Exercise\n15\n1\n97112\nNeuromuscular Re-education\n15\n1\n97140\nManual Therapy (Myofascial Release)\n15\n1\n<b>Total Time / Units</b>\n45\n3\nProvider: Elite Physical Therapy | NPI: 9988776655\nSignature: ________________________________________\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "pt_note",
+      "extensions": {
+        "page_type_confidence": 90
+      }
+    },
+    {
+      "page_id": "1f6a34719b0a4c0d",
+      "source_document_id": "packet.pdf",
+      "page_number": 41,
+      "text": "Elite Physical Therapy\nPatient: Alexander Hill (MRN126225) | Date: 2025-04-24\nPage 1\nDISCHARGE SUMMARY\nDischarge Summary\nFinal Pain: 8/10\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "discharge_summary",
+      "extensions": {
+        "page_type_confidence": 50
+      }
+    },
+    {
+      "page_id": "69d35768c4334ff8",
+      "source_document_id": "packet.pdf",
+      "page_number": 42,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "2d44dd3ad6b24e5c",
+      "source_document_id": "packet.pdf",
+      "page_number": 43,
+      "text": "Billing Dept\nPatient: Alexander Hill (MRN126225) | Date: 2025-04-24\nPage 1\nBILLING LEDGER\nDate\nCode\nDescription\nCharge\nPaid\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "billing",
+      "extensions": {
+        "page_type_confidence": 80
+      }
+    },
+    {
+      "page_id": "c6c1231aedcf47e2",
+      "source_document_id": "packet.pdf",
+      "page_number": 44,
+      "text": "Date\nCode\nDescription\nCharge\nPaid\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "d3b58b23e4ba47e8",
+      "source_document_id": "packet.pdf",
+      "page_number": 45,
+      "text": "Date\nCode\nDescription\nCharge\nPaid\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "d9e1157480474f44",
+      "source_document_id": "packet.pdf",
+      "page_number": 46,
+      "text": "Date\nCode\nDescription\nCharge\nPaid\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "f75b6d64ea884567",
+      "source_document_id": "packet.pdf",
+      "page_number": 47,
+      "text": "Date\nCode\nDescription\nCharge\nPaid\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n2025-04-04\n99999\nService\n$100.00\n$0.00\n<b>TOTAL</b>\n<b>$5000.00</b>\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "1b70efa35c6d4df2",
+      "source_document_id": "packet.pdf",
+      "page_number": 48,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "118a6a14e0ac4771",
+      "source_document_id": "packet.pdf",
+      "page_number": 49,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    },
+    {
+      "page_id": "94e3efb2ab734f9a",
+      "source_document_id": "packet.pdf",
+      "page_number": 50,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_confidence": 30
+      }
+    }
+  ],
+  "providers": [
+    {
+      "provider_id": "16f57d68c8934758",
+      "detected_name_raw": "Valley Radiology",
+      "normalized_name": "valley radiology",
+      "provider_type": "imaging",
+      "confidence": 75,
+      "evidence": [
+        {
+          "page_number": 23,
+          "snippet": "Valley Radiology",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        },
+        {
+          "page_number": 25,
+          "snippet": "Valley Radiology",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "provider_id": "f053ffc39bab4bc7",
+      "detected_name_raw": "RADIOLOGY REPORT",
+      "normalized_name": "radiology report",
+      "provider_type": "imaging",
+      "confidence": 75,
+      "evidence": [
+        {
+          "page_number": 23,
+          "snippet": "RADIOLOGY REPORT",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        },
+        {
+          "page_number": 25,
+          "snippet": "RADIOLOGY REPORT",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "provider_id": "34d9c21b91a94555",
+      "detected_name_raw": "Family\nPatient",
+      "normalized_name": "family patient",
+      "provider_type": "er",
+      "confidence": 75,
+      "evidence": [
+        {
+          "page_number": 27,
+          "snippet": "Family\nPatient",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "provider_id": "f9fb35d863b54df6",
+      "detected_name_raw": "Elite Physical Therapy",
+      "normalized_name": "elite physical therapy",
+      "provider_type": "pt",
+      "confidence": 80,
+      "evidence": [
+        {
+          "page_number": 33,
+          "snippet": "Elite Physical Therapy",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        },
+        {
+          "page_number": 39,
+          "snippet": "Elite Physical Therapy",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        },
+        {
+          "page_number": 40,
+          "snippet": "Elite Physical Therapy | NPI: 9988776655",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        },
+        {
+          "page_number": 41,
+          "snippet": "Elite Physical Therapy",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "provider_id": "2a854a9b990e40d4",
+      "detected_name_raw": "Clinical Assessment:",
+      "normalized_name": "clinical assessment",
+      "provider_type": "specialist",
+      "confidence": 75,
+      "evidence": [
+        {
+          "page_number": 34,
+          "snippet": "Clinical Assessment:",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "event_id": "126546dbdae140b9",
+      "provider_id": "16f57d68c8934758",
+      "event_type": "inpatient_daily_note",
+      "date": {
+        "kind": "single",
+        "value": "2025-04-04",
+        "relative_day": null,
+        "source": "tier2",
+        "status": "explicit",
+        "line_number": 2,
+        "partial_month": null,
+        "partial_day": null,
+        "extensions": {}
+      },
+      "encounter_type_raw": null,
+      "reason_for_visit": null,
+      "chief_complaint": null,
+      "author_name": "Unknown",
+      "author_role": null,
+      "facts": [
+        {
+          "text": "General Hospital & Trauma Center 8/10",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "f453ed9765304172",
+          "citation_ids": [
+            "f453ed9765304172",
+            "f487f55a06cf447b"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        }
+      ],
+      "diagnoses": [],
+      "medications": [],
+      "procedures": [],
+      "exam_findings": [],
+      "treatment_plan": [],
+      "coding": {},
+      "imaging": null,
+      "billing": null,
+      "confidence": 85,
+      "flags": [
+        "NEEDS_REVIEW",
+        "LEGAL_USABILITY_REFERENCE_ONLY"
+      ],
+      "citation_ids": [
+        "f487f55a06cf447b",
+        "f453ed9765304172"
+      ],
+      "source_page_numbers": [
+        5,
+        12,
+        24,
+        26
+      ],
+      "extensions": {
+        "assessment_findings": [
+          "Fall pick those gun court attorney product.\n15:40\nPt Request: World talk term herself law.\n15:50\nPt Request: Class great prove reduce raise author.\n16:06\nPt Request: Move each left establish.\n16:29\nPain Assessment: Detail food shoulder argue start source husband.\n16:53\nPt Request: Decision wall then fire.\n17:11\nVitals Check: How trip learn enter east no enjoy.\n17:26\nMeds Given: Investment on gun young catch management sense technology.\n17:46",
+          "Arm once me system church whether.\n00:47\nMeds Given: Surface attention attack technology.\n01:09",
+          "She miss phone ever back.\n13:19",
+          "Whether between several personal enough ball dream necessary.\n00:47\nPt Request: Able late order fact.\n01:12\nPain Assessment: Explain executive teacher author do.\n01:37\nMeds Given: Skin person product value interesting.\n01:53\nVitals Check: Different chance enter central arrive society organization.\n02:06\nMeds Given: Tv keep light fight I evening music.\n02:27\nMeds Given: Ball always it focus economy before.\n02:50\nMeds Given: Onto again share start office several compare.\n03:01\nVitals Check: Prepare trouble consider one play man before.\n03:12\nMeds Given: Impact fly bit claim in many.\n03:32\nVitals Check: Spend nearly lawyer fire follow wife.\n03:49\nPain Assessment: Ten stay ability thank left approach.\n04:05\nPt Request: Gun series personal service data near until.\n04:29\nPain Assessment: Thing machine ahead picture son report.\n04:52\nPain Assessment: Nearly need behavior yeah tree.\n05:10\nMeds Given: Water positive child usually factor relate indeed.\n05:27\nVitals Check: Woman during necessary himself two meet these.\n05:51\nPt Request: Everybody so increase various.\n06:04\nVitals Check: Environment able rise study oil process tend.\n06:34\nPt Request: Mrs generation necessary myself lay focus country.\n06:44\nVitals Check: Occur do simply analysis seat.\n07:01\nPain Assessment: History professional star wonder manager already.\n07:24\nMeds Given: Whole forward beyond suddenly between treat address.\n07:49\nPain Assessment: Improve pressure child light.\n08:11\nVitals Check: Full realize power system system.\n08:26\nMeds Given: Here first responsibility service their along attention.\n08:36\nMeds Given: Range explain dinner bed within set region beyond.\n08:54\nMeds Given: Really tough animal someone.\n09:13\nMeds Given: Grow issue each include radio.\n09:40\nMeds Given: Color bad that people.\n09:54\nPain Assessment: Marriage on discussion point least.\n10:13\nPain Assessment: Together let explain.\n10:24\nPt Request: Citizen kid generation onto police interesting economic.\n10:51\nVitals Check: Current hi",
+          "Question return process stuff pick.\n12:24\nPt Request: Position final kid often run bed far section.\n12:36\nPain Assessment: Customer skill theory hand.\n12:48\nPt Request: Tree store either station loss southern second.\n13:00\nPain Assessment: Sound life away senior difficult put.\n13:22\nVitals Check: Whose source hand so add Mr.\n13:50\nPain Assessment: Happy see energy herself police he push.\n14:18\nPt Request: Agent this no trip determine as statement.\n14:29\nPt Request: Power bring animal also you.\n14:41\nMeds Given: Best thought career law.\n15:09\nPt Request: Industry score choice increase between majority impact.\n15:35",
+          "Game have return since nothing be apply.\n23:39\nPain Assessment: Senior anyone bank kitchen.\n00:09",
+          "Patient demonstrates significant deficits in ROM and strength consistent with cervical/lumbar strain.\nPlan of Care:\n2-3x/week\nSTG/LTG Goals:\nGoal Description\nTarget Date\nStatus\nIncrease Cervical Flexion to 45 deg\n4 weeks\nPending\nImprove Sitting Tolerance to 60 mins\n8 weeks\nPending\nIndependent with HEP\n2 weeks\nIn Progress",
+          "Patient is stable. Tolerating treatment."
+        ],
+        "merged_from": [
+          "126546dbdae140b9",
+          "f5d921479d13464e",
+          "20c019de6b2b406e",
+          "a3a298fad4d94a3e"
+        ],
+        "event_class": "clinic",
+        "severity_score": 55,
+        "is_care_event": true,
+        "patient_scope_id": "ps_694188ac5240",
+        "patient_scope_confidence": 100
+      }
+    },
+    {
+      "event_id": "fd77bcb9769d4122",
+      "provider_id": "16f57d68c8934758",
+      "event_type": "imaging_study",
+      "date": {
+        "kind": "single",
+        "value": "2025-04-04",
+        "relative_day": null,
+        "source": "tier2",
+        "status": "explicit",
+        "line_number": 2,
+        "partial_month": null,
+        "partial_day": null,
+        "extensions": {}
+      },
+      "encounter_type_raw": null,
+      "reason_for_visit": null,
+      "chief_complaint": null,
+      "author_name": "Unknown",
+      "author_role": null,
+      "facts": [
+        {
+          "text": "\u2022 Unremarkable lumbar spine series.",
+          "kind": "impression",
+          "verbatim": true,
+          "citation_id": "9eb590b2d4a2419f",
+          "citation_ids": [
+            "9eb590b2d4a2419f"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        }
+      ],
+      "diagnoses": [],
+      "medications": [],
+      "procedures": [],
+      "exam_findings": [],
+      "treatment_plan": [],
+      "coding": {},
+      "imaging": {
+        "modality": "other",
+        "body_part": "cervical spine",
+        "impression": [
+          {
+            "text": "\u2022 No acute fracture or dislocation.",
+            "kind": "impression",
+            "verbatim": true,
+            "citation_id": "1622d64ecf2549af",
+            "citation_ids": [
+              "1622d64ecf2549af"
+            ],
+            "confidence": null,
+            "technical_noise": false
+          },
+          {
+            "text": "\u2022 No significant degenerative changes.",
+            "kind": "impression",
+            "verbatim": true,
+            "citation_id": "d91d0cbe598945a7",
+            "citation_ids": [
+              "d91d0cbe598945a7"
+            ],
+            "confidence": null,
+            "technical_noise": true
+          },
+          {
+            "text": "\u2022 Unremarkable lumbar spine series.",
+            "kind": "impression",
+            "verbatim": true,
+            "citation_id": "9eb590b2d4a2419f",
+            "citation_ids": [
+              "9eb590b2d4a2419f"
+            ],
+            "confidence": null,
+            "technical_noise": false
+          },
+          {
+            "text": "\u2022 No fracture.",
+            "kind": "impression",
+            "verbatim": true,
+            "citation_id": "f3a89233aed6457a",
+            "citation_ids": [
+              "f3a89233aed6457a"
+            ],
+            "confidence": null,
+            "technical_noise": false
+          }
+        ]
+      },
+      "billing": null,
+      "confidence": 99,
+      "flags": [],
+      "citation_ids": [
+        "9eb590b2d4a2419f"
+      ],
+      "source_page_numbers": [
+        23,
+        25
+      ],
+      "extensions": {
+        "event_class": "imaging_impression",
+        "severity_score": 75,
+        "is_care_event": true,
+        "patient_scope_id": "ps_694188ac5240",
+        "patient_scope_confidence": 100
+      }
+    },
+    {
+      "event_id": "ae476c3cde744593",
+      "provider_id": "34d9c21b91a94555",
+      "event_type": "inpatient_daily_note",
+      "date": {
+        "kind": "single",
+        "value": "2025-04-11",
+        "relative_day": null,
+        "source": "tier2",
+        "status": "explicit",
+        "line_number": 2,
+        "partial_month": null,
+        "partial_day": null,
+        "extensions": {}
+      },
+      "encounter_type_raw": null,
+      "reason_for_visit": null,
+      "chief_complaint": null,
+      "author_name": "Unknown",
+      "author_role": null,
+      "facts": [
+        {
+          "text": "Mobility: Physical Exam: Tenderness in cervical and lumbar spine. Normal gait.",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "56b6182951964663",
+          "citation_ids": [
+            "56b6182951964663"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "Aggregated PT sessions (4 encounters) (ROM, Exercise, Gait, Strength)",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "78a645727060406e",
+          "citation_ids": [
+            "78a645727060406e"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        }
+      ],
+      "diagnoses": [],
+      "medications": [],
+      "procedures": [],
+      "exam_findings": [],
+      "treatment_plan": [],
+      "coding": {},
+      "imaging": null,
+      "billing": null,
+      "confidence": 85,
+      "flags": [],
+      "citation_ids": [
+        "78a645727060406e",
+        "56b6182951964663"
+      ],
+      "source_page_numbers": [
+        27,
+        33,
+        39,
+        40
+      ],
+      "extensions": {
+        "merged_from": [
+          "ae476c3cde744593",
+          "392f14c3bffc4b44"
+        ],
+        "event_class": "clinic",
+        "severity_score": 55,
+        "is_care_event": true,
+        "patient_scope_id": "ps_694188ac5240",
+        "patient_scope_confidence": 100
+      }
+    },
+    {
+      "event_id": "a6191988022741f9",
+      "provider_id": "f9fb35d863b54df6",
+      "event_type": "hospital_discharge",
+      "date": {
+        "kind": "single",
+        "value": "2025-04-24",
+        "relative_day": null,
+        "source": "tier2",
+        "status": "explicit",
+        "line_number": 2,
+        "partial_month": null,
+        "partial_day": null,
+        "extensions": {}
+      },
+      "encounter_type_raw": null,
+      "reason_for_visit": null,
+      "chief_complaint": null,
+      "author_name": "Unknown",
+      "author_role": null,
+      "facts": [
+        {
+          "text": "Elite Physical Therapy DISCHARGE SUMMARY",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "d853955810da4363",
+          "citation_ids": [
+            "d853955810da4363",
+            "9b488c8785ed44e1"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "Discharge Summary Pain Level: Final Pain: 8/10",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "c2bfaa11e7f240f7",
+          "citation_ids": [
+            "c2bfaa11e7f240f7",
+            "9c07d971cdcb4ed3"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        }
+      ],
+      "diagnoses": [],
+      "medications": [],
+      "procedures": [],
+      "exam_findings": [],
+      "treatment_plan": [],
+      "coding": {},
+      "imaging": null,
+      "billing": null,
+      "confidence": 88,
+      "flags": [],
+      "citation_ids": [
+        "c2bfaa11e7f240f7",
+        "d853955810da4363",
+        "9c07d971cdcb4ed3",
+        "9b488c8785ed44e1"
+      ],
+      "source_page_numbers": [
+        41
+      ],
+      "extensions": {
+        "event_class": "discharge_transfer",
+        "severity_score": 90,
+        "is_care_event": true,
+        "patient_scope_id": "ps_694188ac5240",
+        "patient_scope_confidence": 100
+      }
+    },
+    {
+      "event_id": "a383c489692142e9",
+      "provider_id": "16f57d68c8934758",
+      "event_type": "billing_event",
+      "date": {
+        "kind": "single",
+        "value": "2025-04-24",
+        "relative_day": null,
+        "source": "tier2",
+        "status": "explicit",
+        "line_number": 2,
+        "partial_month": null,
+        "partial_day": null,
+        "extensions": {}
+      },
+      "encounter_type_raw": null,
+      "reason_for_visit": null,
+      "chief_complaint": null,
+      "author_name": "Unknown",
+      "author_role": null,
+      "facts": [
+        {
+          "text": "Total amount: $100.00",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "a003aba5264a4e8e",
+          "citation_ids": [
+            "a003aba5264a4e8e"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        }
+      ],
+      "diagnoses": [],
+      "medications": [],
+      "procedures": [],
+      "exam_findings": [],
+      "treatment_plan": [],
+      "coding": {},
+      "imaging": null,
+      "billing": {
+        "statement_date": "2025-04-24",
+        "service_date_range": null,
+        "total_amount": 100.0,
+        "currency": "USD",
+        "line_item_count": 33,
+        "has_cpt_codes": true,
+        "has_icd_codes": false
+      },
+      "confidence": 55,
+      "flags": [
+        "NEEDS_REVIEW",
+        "LEGAL_USABILITY_FACT_CLEAN_EMPTY"
+      ],
+      "citation_ids": [
+        "a003aba5264a4e8e"
+      ],
+      "source_page_numbers": [
+        43
+      ],
+      "extensions": {
+        "event_class": "other",
+        "severity_score": 10,
+        "is_care_event": false,
+        "patient_scope_id": "ps_694188ac5240",
+        "patient_scope_confidence": 100
+      }
+    },
+    {
+      "event_id": "f92116fcabcf4bd08aeac4db7b0d374c",
+      "provider_id": "f9fb35d863b54df6",
+      "event_type": "discharge",
+      "date": {
+        "kind": "single",
+        "value": null,
+        "relative_day": null,
+        "source": "tier2",
+        "status": "ambiguous",
+        "line_number": 6,
+        "partial_month": 8,
+        "partial_day": 10,
+        "extensions": {
+          "partial_date": true,
+          "partial_month": 8,
+          "partial_day": 10,
+          "year_missing": true
+        }
+      },
+      "encounter_type_raw": null,
+      "reason_for_visit": null,
+      "chief_complaint": null,
+      "author_name": "Unknown",
+      "author_role": null,
+      "facts": [
+        {
+          "text": "Discharge Summary Final Pain: 8/10",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "80c4026df1b54a6e",
+          "citation_ids": [
+            "80c4026df1b54a6e"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        }
+      ],
+      "diagnoses": [],
+      "medications": [],
+      "procedures": [],
+      "exam_findings": [],
+      "treatment_plan": [],
+      "coding": {},
+      "imaging": null,
+      "billing": null,
+      "confidence": 30,
+      "flags": [],
+      "citation_ids": [
+        "80c4026df1b54a6e"
+      ],
+      "source_page_numbers": [
+        41
+      ],
+      "extensions": {
+        "event_class": "discharge_transfer",
+        "severity_score": 90,
+        "is_care_event": true,
+        "patient_scope_id": "ps_694188ac5240",
+        "patient_scope_confidence": 100
+      }
+    },
+    {
+      "event_id": "b1f55a98ec0f4fa1",
+      "provider_id": "2a854a9b990e40d4",
+      "event_type": "pt_visit",
+      "date": {
+        "kind": "single",
+        "value": null,
+        "relative_day": null,
+        "source": "propagated",
+        "status": "undated",
+        "line_number": null,
+        "partial_month": null,
+        "partial_day": null,
+        "extensions": {}
+      },
+      "encounter_type_raw": null,
+      "reason_for_visit": null,
+      "chief_complaint": null,
+      "author_name": "Unknown",
+      "author_role": null,
+      "facts": [
+        {
+          "text": "Aggregated PT sessions (1 encounters) (ROM, Strength)",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "71a415fc75994d5b",
+          "citation_ids": [
+            "71a415fc75994d5b"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        }
+      ],
+      "diagnoses": [],
+      "medications": [],
+      "procedures": [],
+      "exam_findings": [],
+      "treatment_plan": [],
+      "coding": {},
+      "imaging": null,
+      "billing": null,
+      "confidence": 0,
+      "flags": [
+        "LOW_CONFIDENCE"
+      ],
+      "citation_ids": [
+        "71a415fc75994d5b"
+      ],
+      "source_page_numbers": [
+        34
+      ],
+      "extensions": {
+        "event_class": "therapy",
+        "severity_score": 60,
+        "is_care_event": true,
+        "patient_scope_id": "ps_694188ac5240",
+        "patient_scope_confidence": 100
+      }
+    }
+  ],
+  "citations": [
+    {
+      "citation_id": "f453ed9765304172",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "General Hospital & Trauma Center",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "8144b13164a670c825bdff9ac641592aa47eaead1d1f302e874511b139b94fa0"
+    },
+    {
+      "citation_id": "642982cc25404b47",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "Patient: Alexander Hill (MRN126225) | Date: 2025-04-04",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "f8f910194f05d3e018f7e1e9d3fded3284a7a015452503ea6f531f326c0bd468"
+    },
+    {
+      "citation_id": "783415d0728f4f02",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "Page 1",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "e8b8355262d0af49d5243e0225b02368cf12bcbe0d25afd89f7cab1bbbf151fb"
+    },
+    {
+      "citation_id": "cd88ae696b5a40ad",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "ED NOTES",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "ae40339923461ea9b3caf0b4fc076b64f0dfac9fcef152e707d20c4e2529190c"
+    },
+    {
+      "citation_id": "2dd873afe9014a2e",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "SpO2",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "fb0a260fbed1608e13fe61fb150ab871efcddad0e438e1f204bfbf79505cfca8"
+    },
+    {
+      "citation_id": "d43957c77e9b4fa5",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "14:02",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "c792dfb919d040a8789821ad1b146a29818c587401d01d0276491ac6b035a484"
+    },
+    {
+      "citation_id": "f73a28a83ecd4c0d",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "138/88",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "9195bd79172c425317e120b2c0b8f7302a0c5a40d5a599ec12248b3e8c596651"
+    },
+    {
+      "citation_id": "636259e142d340f2",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "88",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "8b940be7fb78aaa6b6567dd7a3987996947460df1c668e698eb92ca77e425349"
+    },
+    {
+      "citation_id": "fd57c331293e4a08",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "16",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "b17ef6d19c7a5b1ee83b907c595526dcb1eb06db8227d650d5dda0a9f4ce8cd9"
+    },
+    {
+      "citation_id": "6478c217602f45ca",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "98.6",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "f8efe2ccc64d2e3298a152075e9a66ae7a1b55064f1018f2dd590716bdd31017"
+    },
+    {
+      "citation_id": "8898f2f05df94188",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "99% RA",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "e3783fed15d9abb839d338705ccecdb59c0b527861329cce7b2859b71a1517a7"
+    },
+    {
+      "citation_id": "f487f55a06cf447b",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "8/10",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "5dbc6b15dd3c7f1dc6828cf557458d5a2c42f39f211355e91494934ae4161a4e"
+    },
+    {
+      "citation_id": "f8a2ea0cba0a4955",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "16:45",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "f77732ae62006af6257f6882777ce063ab5a387629d18c3f8a5fed9bb6c5ffb9"
+    },
+    {
+      "citation_id": "e747fe7a515d4891",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "130/82",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "a51b96261d5b1dd5a34852cfd038fe443132347707f1bad0c857350f0dbaf01e"
+    },
+    {
+      "citation_id": "2af1e748f37c4ac2",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "76",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "f74efabef12ea619e30b79bddef89cffa9dda494761681ca862cff2871a85980"
+    },
+    {
+      "citation_id": "0dd8b080952e49c4",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "14",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "8527a891e224136950ff32ca212b45bc93f69fbb801c3b1ebedac52775f99e61"
+    },
+    {
+      "citation_id": "8163f2f461b54546",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "98.7",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "c76711e77f5aa2883f3b0499620095d92dccc9c0707e1c925fbd690df66b0025"
+    },
+    {
+      "citation_id": "c7dfb01c0d2f4d74",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "100% RA",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "e2247554e8fd342d78cd6ebf8fd22470b891db73b147578b3d48fb7c249ce84d"
+    },
+    {
+      "citation_id": "2600f1bfe83b4fb8",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "4/10",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "9d7d942f2822b0d68e6b454848401dbb7cece847b098b7c70dd98ad7fb3c829f"
+    },
+    {
+      "citation_id": "84c2cc5bd7314582",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "\u2022 Const: Denies fever.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "8a48d978e017053188199f165a8bcf48aa273b95af2aa60e1d5c423099d83e49"
+    },
+    {
+      "citation_id": "66b67c5993674910",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "Physical Exam",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "5a51cb0b89a50706177585736b288f321644e9a063225cf324d5d283dfe44d39"
+    },
+    {
+      "citation_id": "b35dbd3205644f51",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "\u2022 Neck: Tenderness.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "253738a672840c613606d611d83f91a4a86a57a1d244e90c444803735a726d25"
+    },
+    {
+      "citation_id": "27aa3d5009ec4382",
+      "source_document_id": "packet.pdf",
+      "page_number": 5,
+      "snippet": "History consistent with strain...",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "d035b2f30412c5b4a0d3c2de311d45c91c6396df46aa3f14e1e5e85ee124290c"
+    },
+    {
+      "citation_id": "46b8dd7a21964ed8",
+      "source_document_id": "packet.pdf",
+      "page_number": 6,
+      "snippet": "\u2022 {'name': 'Toradol', 'dose': '30mg', 'route': 'IM', 'time': '15:15'}",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "0865c52b8aed454f497fff06c11f9ca0959345439f046f4197e925fd2b419959"
+    },
+    {
+      "citation_id": "2b7098864c1e4bbc",
+      "source_document_id": "packet.pdf",
+      "page_number": 6,
+      "snippet": "Discharge",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "1de694364549a0059c4f2b2ef78036425dadd89897070f9881db785ecad195b5"
+    },
+    {
+      "citation_id": "c08fae157d054692",
+      "source_document_id": "packet.pdf",
+      "page_number": 6,
+      "snippet": "\u2022 Flexeril 10mg",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "001902d87e3a6963b2b7e9df52c07d1767a25d4c72eb26deb2fef7e280d87620"
+    },
+    {
+      "citation_id": "658a0c4665de427a",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "14:13",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "feb22daa9e8088934a70d44d819efc7910b2d9f93c7eed3c5666f3c613fa202f"
+    },
+    {
+      "citation_id": "c0cd9529e5ab44f6",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "14:25",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "cf4627b3786c8bad8cb855567bda362d8eca1809ea8839423682715cdf3aadad"
+    },
+    {
+      "citation_id": "d5326cb91b884371",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "14:48",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "2b7eb9a23db972da6d9ca7ce3e21679f4bb2bc775337a681e0be0d04006f65bd"
+    },
+    {
+      "citation_id": "2427b514140644d8",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "14:58",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "20b500c99cbc90ce44c625b97b4f573136c000a0781034e10a43667157dc89a9"
+    },
+    {
+      "citation_id": "32677eb492014e35",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "15:14",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "28cc71eefe196d797cadfcc99e367760ceb823a5bc12f8b917a721c5f3220b85"
+    },
+    {
+      "citation_id": "0fff8768d9b44f52",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "15:40",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "97419a282485d0a3b21bf959209b456483474fb25e8d3872189625d8918eaad6"
+    },
+    {
+      "citation_id": "7a1ed5ed5b9b41c3",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "15:50",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "70a7d19e9a22689d8cca3a4aaca013454c89b454704c5b5844f48c24785a3a11"
+    },
+    {
+      "citation_id": "64c17f62fc1c4942",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "16:06",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "44db67cb1906717777a2d23d8ebb104686f044e7ed68a1e57b117edb34a79e5a"
+    },
+    {
+      "citation_id": "b4cd7da5cb6145e7",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "Pt Request: Move each left establish.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "ff4ad1e36894344afd85b905eefc5b5c24ced818073bfb81bf7d2e73f0d38078"
+    },
+    {
+      "citation_id": "ccf7bb0a17e94aeb",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "16:29",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "02e236ce6f19e3af70858d7dc6d4ee84ce51885c074050a45c3a082c90bbc542"
+    },
+    {
+      "citation_id": "91c6ee32472b4bf3",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "16:53",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "a5a4d354b7cbfdd25424000aa61a477aa75c8a19919dac17144b929e89a2e762"
+    },
+    {
+      "citation_id": "1fd8c07a453e45bc",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "17:11",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "3f5caa398f8731e5b455b5c2cc4d0d87c4a3d14a0c2b03f9a5874be30be6f2a8"
+    },
+    {
+      "citation_id": "ebe5c9f0e7014aee",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "17:26",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "87e018d74c468310d35448243940a1030f4028cdd6269c305d702a1dc67d7b78"
+    },
+    {
+      "citation_id": "2610aeb4384e4643",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "17:46",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "e48b0fa15aa915ee8da78f75e2c1f2ecf99fcc43480182c601853e584a220705"
+    },
+    {
+      "citation_id": "132feecdf1304ea4",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "18:00",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "cf5d1124f918b074e30b10cec155b1566fce852d945001871ef1992bc1e144c0"
+    },
+    {
+      "citation_id": "1e866c475b46434e",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "18:20",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "9481dc9f905cafbcead0f8bb781a06fdbb9a8baf24099679828b7c77505e6bf1"
+    },
+    {
+      "citation_id": "028c342e8ef74b54",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "18:32",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "8f6e8b6cf9c6ff2cea8df75fa049229644d92804ed5240b172b4a1a96c6379ca"
+    },
+    {
+      "citation_id": "a02fc3b069bc462c",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "18:45",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "87b09c62e54debb382f6b98726fcb0af2dad7dca7fc788b634d5cc0269a847e1"
+    },
+    {
+      "citation_id": "80a2d498550b4804",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "19:06",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "b47da412a536b958b07b1d91ba0d352a0177904f28310d70fb1b018f1389c30c"
+    },
+    {
+      "citation_id": "03480ba00ba94394",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "19:24",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "dedebbdf4926660f8f5dd754ad84d7cf22d3fb66ea7bc1885cf038db31a8c2ff"
+    },
+    {
+      "citation_id": "3e65e1d46ba14626",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "19:48",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "1e20a07419df1eabe89811ba7c083f9c854bc995e5c7e1ca6d882ab1171f5485"
+    },
+    {
+      "citation_id": "acaa4218068f449c",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "20:01",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "020b0ff1ef2e0ffe7b80517eab5fae5a4a0fe06bc703ec2f04403d4cc3dd70ff"
+    },
+    {
+      "citation_id": "eb08e6bbf8174ae6",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "20:13",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "701edfc559be102c8735bba9b4ddeb44e942f4ea1a7bb0ef4f1f13004baec466"
+    },
+    {
+      "citation_id": "f3ef4f42f4454f21",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "20:32",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "e712fadcdbc6a49afc1256c5ed2a9227a7df411c51f22ae014e9f2a14371d510"
+    },
+    {
+      "citation_id": "7b09524be5a4496b",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "20:53",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "b5d69edabc23a8f014c779312787cac2ddc610ca18e210fe8c670bfde7b57c38"
+    },
+    {
+      "citation_id": "cd13396c2d8f43f9",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "21:09",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "9503d232ca5b68a3bcf06fa988eef4951ca81716687c9f5e103b05b1fb2d0ea0"
+    },
+    {
+      "citation_id": "6b6417299c6b4e18",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "21:20",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "40fbb09b5751fb8159abbed659cde5a2a8dfe2c104b00ba7489d4ef1c2f1004a"
+    },
+    {
+      "citation_id": "5ed183c798994cd1",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "21:39",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "a4f5a785683c64f66946dad6f84fe50b2e18e8765564ff6a4017deef86459c52"
+    },
+    {
+      "citation_id": "8a843854786648a2",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "21:56",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "8d6dbb1a083f363ae1ddbe8b5f9e0178337c7139eabd1b9082922b347d0498e2"
+    },
+    {
+      "citation_id": "64a0807022dd41a1",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "22:18",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "d3b56726c7d67c79a96028a2c883d323ef7fae4c938a7b5523febc7c6ddbeeef"
+    },
+    {
+      "citation_id": "58958bf8e7e84de2",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "22:42",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "ecde8f384982396d42d4e2ff1b7fec573b3038443fdf3b3bdb28fd53a4bdf09e"
+    },
+    {
+      "citation_id": "8aaf98e140e04898",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "22:57",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "74516ef7da26fc59d5321bc40c7c6532b0ac05164995b2ae2ead45b6ce9c027b"
+    },
+    {
+      "citation_id": "9765aa68625446c4",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "23:18",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "660646e6082d093ad58d6155a0d5c89fef350a8078ed8923b42f39a9c75495ab"
+    },
+    {
+      "citation_id": "13f42b19c39b43ad",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "23:36",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "165b393f3ea934ff6e072f366b255730be77d9ad0f5c795efdc9cd57d5817398"
+    },
+    {
+      "citation_id": "f3691b3979744099",
+      "source_document_id": "packet.pdf",
+      "page_number": 7,
+      "snippet": "00:05",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "a246100fb31872d40e8c86ab4c460f8f78635ca9cc7f7351dd42c6d0d513e09b"
+    },
+    {
+      "citation_id": "a39f9dfaeaf0434e",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "00:32",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "7d747e63d4dee04e91c9b8d18fef83fabb4487764aef19a11dfb5bc0817feafc"
+    },
+    {
+      "citation_id": "a85761066e0d44ab",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "00:47",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "7f514f0789c131b304366e61e290fc2c1d337563ba83e17f8ff08eb791bf245f"
+    },
+    {
+      "citation_id": "1a7a19cd21e844d6",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "01:09",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "6998c254a8e387ff3b653cb49e81c2925b733ef9f1c78a0d25f95473f5c68113"
+    },
+    {
+      "citation_id": "fe8dc22acc9d481d",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "01:39",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "262abc5568e94c2e6b11061a2a58313bf5d036b12e9849d7d65b44efc91b605a"
+    },
+    {
+      "citation_id": "fee088bbe0644284",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "01:56",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "7c061adc1e11d864a5e2256a8b96cb69b474b0ab86be33dffe40f9fbd2b2d5f6"
+    },
+    {
+      "citation_id": "7ddb4cfb4d874c50",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "02:07",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "0f26b4d58e929574e8c97251809ab57380a6c77916efdf5e49360b7ba0a57df0"
+    },
+    {
+      "citation_id": "54fa790f888b428e",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "02:18",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "927fbf3f11cff92805b27d177abdd421e3bcda168e8804f8e14502ece73f5688"
+    },
+    {
+      "citation_id": "2fa03fd64be6463c",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "02:40",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "2eaaa1a812528ddabaace6c5f82241c956be471526d1bc148bf67df35d98ff26"
+    },
+    {
+      "citation_id": "400e51fb9ec641eb",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "02:52",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "6cbba17bd051f271de980375f05dcbf0d9e00ade4327bfb2c698246ffdb3683c"
+    },
+    {
+      "citation_id": "8012061458174db1",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "03:20",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "755350feb714583cc9d5f513dbc136f52d1da12316b47a47d494dcb2581ea92f"
+    },
+    {
+      "citation_id": "a202210d4d4e4311",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "03:36",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "135087d265d7a7d6238c74b18bc3f293b388fb91bb40898e9f63bd76be055920"
+    },
+    {
+      "citation_id": "11535ddc3a87434c",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "03:58",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "680f20d7df583d67e9f171c3efc918d0168a2574020c4f1801fc9311edad6025"
+    },
+    {
+      "citation_id": "67c586bf33b643b5",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "04:12",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "722fffa0086a7654a45a110ed2286bdb36dcefd6de3b4bc8f9b1ea1f5b921ac2"
+    },
+    {
+      "citation_id": "c79aaee5678f4af3",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "04:26",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "df80870110cd92d60dd7a5e924b59f4f4c7da9bf60e4f32099225ad1ba4756c5"
+    },
+    {
+      "citation_id": "975c7990823b4030",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "04:53",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "4c125db8d7d76baf7d83e9887ebe28a655a230b367976d0c62d2ab37cae9809c"
+    },
+    {
+      "citation_id": "e511c2fbc1c24f2a",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "05:11",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "7be8af057d69f17b1560cfc9e338137ae142a14372c4944fefe654847d70c05a"
+    },
+    {
+      "citation_id": "b677f0802b1c47de",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "05:34",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "45b0d68c305a5310fd00c2f1cdf754d958d2e1a7a963a6535d95ffe2b4df9fed"
+    },
+    {
+      "citation_id": "86ffb95941ec4153",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "05:56",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "10f9f10889e72ea7ba62177298c8968299e70f04bb7f3f3014b2784c9fb499d6"
+    },
+    {
+      "citation_id": "968ffcabf25f4bfe",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "06:13",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "a8a166288bc7292c1c30c7bef452cbba068e9da046cf216cf11944146aa95eff"
+    },
+    {
+      "citation_id": "7d49ea0cb8d74b27",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "06:39",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "dd2fcfbb9c8aa1e5baddcdec8cbe30352e1c8da2cb1592baed6faa72a80f89a7"
+    },
+    {
+      "citation_id": "602b7ae516064f15",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "06:51",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "1dff83c24325342a1b402f86363a6b844a6aaf50d2e0039a26d77adda4f36f1e"
+    },
+    {
+      "citation_id": "8b0889a9402949a4",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "07:04",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "07cc21ec824dae2d97e3e04338a07f282a303a2b1a1ab2bf6bc1e82f143717f9"
+    },
+    {
+      "citation_id": "998dcc37728c45dc",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "07:34",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "11af50a4526ea2d484f8033f11519f758d7a987918a26d518bd13742b3933813"
+    },
+    {
+      "citation_id": "c369eb54c9184078",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "07:57",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "e76e8d5a985c200b9ced8c353d23e14e39f2c4191f70b45647960fcf439a5db4"
+    },
+    {
+      "citation_id": "d5cd612e66f044d9",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "08:09",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "0dc4142626e81998a7592362de2cecfd8e9c064afd0afed7474b89e4dd7668d0"
+    },
+    {
+      "citation_id": "71b8f49916954d2c",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "08:31",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "93c37dffd183f29814f219c3470b37c09e50e9481722e78ec0e9b81d37904261"
+    },
+    {
+      "citation_id": "c3b9f4aa0cfb460b",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "08:55",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "f17c9165b5c5cbcddf420e5e76c220e1bfa9b23f4b232b237837d5dd48d64234"
+    },
+    {
+      "citation_id": "fd01e8b3834c4130",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "09:13",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "34131f3b3585aae76c0099f741fe293b0e5b09dc799c59ef042a01ddd965a503"
+    },
+    {
+      "citation_id": "550876ff55c240bf",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "09:23",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "7d3166f26733b11df1c099bb2d0b4450e8ee3fc0d7de22c7cb5883890bddc1cc"
+    },
+    {
+      "citation_id": "d51d354ec1954c84",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "09:50",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "a0b059528bee3eb374974bcf3cb583eb5ba29b7607b3346136fbff698bfe7a33"
+    },
+    {
+      "citation_id": "700b5bb50f5541cc",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "10:20",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "5e1b18e06bb9b065a903bd507e7a0c496e7d13fa7a87935d8eee08b7dc1bcf0f"
+    },
+    {
+      "citation_id": "bbba6c38a8104342",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "10:33",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "f0bc9f6b291ece25625ad883e094a97e28fb7d27ecc24e7029f90964b925b0e1"
+    },
+    {
+      "citation_id": "c1e0f414ab76479d",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "10:56",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "dc018ed5220fff0c187d01ce910a681e88a32cf76c47ea42f4fb02e1057d8cfd"
+    },
+    {
+      "citation_id": "cb0fedc7695a4d56",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "11:20",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "c71e54b5170a17ae3b8c5dd9b2c25751337e93b38c05647d8961d0f46bdffe6b"
+    },
+    {
+      "citation_id": "aafdcdf0cfff4023",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "11:38",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "6a46c6111d8f02017ec5d2e8939998ff6cf90740ae0969df23dfe6deae276de6"
+    },
+    {
+      "citation_id": "144922143e974b30",
+      "source_document_id": "packet.pdf",
+      "page_number": 8,
+      "snippet": "11:53",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "051179962e2f5a258f3f6407ac2784bbd2f608dd48c259540a4e678cad4e0d87"
+    },
+    {
+      "citation_id": "a87d103e800a4b2c",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "12:06",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "cb4245a2b4375362086d871d61453855d4a53759566cbaa66d9f8e61413a8d0c"
+    },
+    {
+      "citation_id": "050850caf5014839",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "12:36",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "99055fbaa96137028f8f38f7c6cefa39715bfb3baa5a64c080b33a691c60a71d"
+    },
+    {
+      "citation_id": "e1f74a7c4e0e4699",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "13:05",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "5672cbcf9c9ebb0e575d5f6c080c5d0c92ce9487332215ea0c345ad7a85e9f1b"
+    },
+    {
+      "citation_id": "1833c8c547d448a4",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "13:19",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "46608e5b9faf8f34e3c63be10804657f88d80dfab947b73e1cb878024461db04"
+    },
+    {
+      "citation_id": "844dfaafe68f48bf",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "13:34",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "82ef0e6d261973d390dd42227042866eecf16876f5b89fc7ebb79c9dc50d40f3"
+    },
+    {
+      "citation_id": "39efa1a026ab463f",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "14:00",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "fb4506210213175c1ef631304e7ee73094ed4cc322b2b02059f862514ccab225"
+    },
+    {
+      "citation_id": "1bff61e715544418",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "14:29",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "5c856f97535c276dfa39f68f9d084ffd83e783ac372c30ae816d1086d8297e1b"
+    },
+    {
+      "citation_id": "c97de4333f6a4558",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "14:54",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "df5f4a11a11973bc22c9a1b498a472e7a71eb19c8ae05a50e4f0fcc9145fb756"
+    },
+    {
+      "citation_id": "a38c82a19d704fa4",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "15:07",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "e46a83b18f99b466e85256cd00274b08b75a38dca00e1c2f1dae4680f640afcf"
+    },
+    {
+      "citation_id": "50c617aa733746c2",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "15:26",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "a8ebd88f4e3afba2a8d33b7efce66117c195038eb19921776b8726b08f5e2143"
+    },
+    {
+      "citation_id": "2e4aaf064efb4b48",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "Pain Assessment: North agree poor career left anyone here deep.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "0d7335e5dec1c0150ae3075c507d72f7d0b2805c37ddee0b6db317e5b614beb8"
+    },
+    {
+      "citation_id": "2729f6bdd0b747a1",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "15:37",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "ac43657b958e54629f919a2797fd31e24209f14632e0a286fadfc01638030458"
+    },
+    {
+      "citation_id": "b0c1091c6d3846f9",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "16:05",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "da83c359bdf01bb5d7b088cd37724b23a68a0d459bc4e26cd313a87d4b0c2b9b"
+    },
+    {
+      "citation_id": "05c46b200ac34be0",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "16:17",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "59c7a5d0aa1423e3e3e4251633a9fb81154f99927fb729d32bdb50938df89562"
+    },
+    {
+      "citation_id": "e7c73913df0c436f",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "16:29",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "02e236ce6f19e3af70858d7dc6d4ee84ce51885c074050a45c3a082c90bbc542"
+    },
+    {
+      "citation_id": "ff56c59b66194f0c",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "16:43",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "25aa7aed4da67fd226bcf1f807c9f4d99e281661768ef3cb355a1955a182e394"
+    },
+    {
+      "citation_id": "d3ee4238b72a4e9e",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "17:08",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "79932037002104941e61de130214076b4d0acf19c71f0ed1a486fd8f92e25ac1"
+    },
+    {
+      "citation_id": "149dc9bc81cb4d83",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "17:23",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "b5dc7530d9e6796f68399f6731d46fdf508411ccb27b433c3e1a8febe2241b65"
+    },
+    {
+      "citation_id": "b9115d170ebf4f89",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "17:49",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "d5248bcba6ce274237c1131bc898cca24b1d93321317a934acd7a7c6e257ce26"
+    },
+    {
+      "citation_id": "fc84ee199bd14bd4",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "18:12",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "158e043749595e83ecde48a7060db73582a94676df8c27b844ffd90f58f5e4ec"
+    },
+    {
+      "citation_id": "104b7e30ef4a4592",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "18:39",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "00f641fbe91cf82cbcd671cc284b92e01b5a1474c00b3ceb83844970be6824c7"
+    },
+    {
+      "citation_id": "9e015e1bfb8d40dd",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "18:58",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "d32000f3b336f84bf0f68847e40373b6f976c64211dbc07a43ed2df3faaaef1d"
+    },
+    {
+      "citation_id": "e86496c4a58a49a2",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "19:28",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "5ca16b75f23ce2c32fffe47661fc2ead060297bb279a354b173da5bbd9bdbe0a"
+    },
+    {
+      "citation_id": "c23c7e3111324304",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "19:52",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "40b344167301dd5bf8bc6c31b9f04e95d94686e669fba73621d7d5101a648e63"
+    },
+    {
+      "citation_id": "52c9c26e3af24f1f",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "20:16",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "9846e461e3d578dd30587517a69c58b5a83e98b293a608e5ebef4df0b4d00556"
+    },
+    {
+      "citation_id": "87a01cdb5cc540eb",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "20:33",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "807a08968bab86fb64c4e494ef1a741735065f641a5f2c55468b69ae26ed4816"
+    },
+    {
+      "citation_id": "4dda8455fe354b12",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "20:45",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "10406a274544c72e65cb45e23617a79028b223b1ebf3f56c2a7abdddeaa20c7e"
+    },
+    {
+      "citation_id": "7f1230bfc0844539",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "20:55",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "9ddee3de410c87f0af8d4d8ce6c1c4f8edc46993177bd6a8593aab3013cb2745"
+    },
+    {
+      "citation_id": "c7e1235579bb4852",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "21:22",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "377e6dbf53f0a8425f5bfbcf82e1eb9d8dd0425c49489f90697878169331e7e5"
+    },
+    {
+      "citation_id": "8c6e978bf51741d7",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "21:50",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "45164f5b8f079d990db4af9e6191704ae222756519d5b5b7fde8b374c9381671"
+    },
+    {
+      "citation_id": "0b14d8df8d00453f",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "22:00",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "7b3c04c43126417285996eb4fc96cf9cad065fea8468fa6637b5c5bf1123dfad"
+    },
+    {
+      "citation_id": "34e5c8383dc24045",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "22:30",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "301be8483d09a6ed5897eb09ba7ab919cd66fbfcb505e174b473d96942a28f1d"
+    },
+    {
+      "citation_id": "875f6d9549cc4202",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "22:47",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "fe36f24db323cac1ef51f117b09c77d3dd15d4d2143a0905dd193eecc4f8bdf6"
+    },
+    {
+      "citation_id": "91d4ecb0933b423f",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "22:58",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "f267f3ea36d4cc4b175cd3bcc0e5749df55bd7f35643247900e97c38f904052f"
+    },
+    {
+      "citation_id": "6b063bc95dcb439d",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "23:10",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "06dc668d5c3ad356f8d9814d75b35334d5808d7cc73701c1032efb58b99ab0ba"
+    },
+    {
+      "citation_id": "f91d5a6a68df45e6",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "23:27",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "e2d72dd00e216645cc767294c2c7edb2665c644638cba7a88c71fc3bf3b8fbc7"
+    },
+    {
+      "citation_id": "3612ae2498ab4d78",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": "23:52",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "a76b252be9d7af4101675b0e5d35e845537e8a38044bcbebc66a01ad78375cd0"
+    },
+    {
+      "citation_id": "53686f0bb2da4c50",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "23:19",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "35a1c7633c2b717dee28d86495c9549d6314591e605bdb98fb853719b22d0d5e"
+    },
+    {
+      "citation_id": "004ad12f0b324db0",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "23:39",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "28c82cff349bdd28cd65b922f21617927a55477516a33695eec74bd780971468"
+    },
+    {
+      "citation_id": "e189d734485f47f8",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "00:09",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "489cfbcd55b3dd9f553a2d9a0c86477a0db99472170ae93cc1591718d53eb0f5"
+    },
+    {
+      "citation_id": "68bb8343d0fc436a",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "00:35",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "87a8dc3be7a388d2a665389ba26520a19309f89c1e4b2c1e125880b5730012d4"
+    },
+    {
+      "citation_id": "de1f302c49bf489d",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "00:53",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "653a8244d0df6e16abbe2270f0fee2c3c72fb0316077efa3de8454fc91a9a671"
+    },
+    {
+      "citation_id": "a11c3a2fbb3e42a7",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "01:05",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "363b0ee66480e0ee6d06a901a9665bf6ddbe71da347e7c29c9d8038ab862c38f"
+    },
+    {
+      "citation_id": "2e856aa402d6491d",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "01:23",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "350a842cfdac2ba5722c1c4c63db11d36ea4dbc770f33b4be7299b779bfb0120"
+    },
+    {
+      "citation_id": "456d87b0a61e40b8",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "01:33",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "be48bbe5a092d4f53f106c6c92face02db8a285a9a0dd2c9948ca7162e6ea9fa"
+    },
+    {
+      "citation_id": "957714e2229a4955",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "01:47",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "739dda31d60856184ed722bf7d74bf51691a6a6f4a15e31db543ff0c2b103dd6"
+    },
+    {
+      "citation_id": "e2cba42d1849401b",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "02:02",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "0576883b27051dcdb237a39b6cab88b2c6fc1a85338d6b883678211d964d50aa"
+    },
+    {
+      "citation_id": "f5570048e0424313",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "02:29",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "d8327768fa574cbcda21d262c4d87b32e842f6d7aba11fbd05e356d9073b831e"
+    },
+    {
+      "citation_id": "4127d8658a164c04",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "02:56",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "cffd3d5fd719f6dc84eefaeba0931796aa8f973a4d00f76210fbf2988b7bff42"
+    },
+    {
+      "citation_id": "53abd0a15aaf404f",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "03:09",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "b532826bd2957338a7e6fef97e31b03446a1c65ee3a8410ebb444e6147e0848d"
+    },
+    {
+      "citation_id": "26d906beaed44601",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "03:23",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "ed0b943b6bb72860a300f16ab3576341e8a1c860984c06f5db2e248a7931f1b0"
+    },
+    {
+      "citation_id": "4d7eaa770d2d47c2",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "03:34",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "606ba615285d0f6ed8c6787c207a883887e475da49417306071cf5e7e3a1487d"
+    },
+    {
+      "citation_id": "4e4ac4d7568b4804",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "04:02",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "daf252edf12ab68b63b80bad3f7d20a5e1ce2974eb7241bd4c32a2c673600d4a"
+    },
+    {
+      "citation_id": "af8392cc5f9043fb",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "04:16",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "97254df0f563f890a6d14cd7c7e9d72f74a8517cea358d458c93217b83cc668f"
+    },
+    {
+      "citation_id": "612c298dd85147bc",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "04:30",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "fb33df7e1bba760faa41fb285cb54d893ad7aecdcbeb30f8cd4f670eaee4ff0f"
+    },
+    {
+      "citation_id": "1e512136c39f47f7",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "04:49",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "e063ee98830467730f63c147f0aa2b7751ec68f6055ffdf00ed5dc50dedeb65c"
+    },
+    {
+      "citation_id": "eee025bb4cf04909",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "05:00",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "bfe38c64db7e7e980943e2b38602830a0f6dd686ed45217371a74cf91f31475f"
+    },
+    {
+      "citation_id": "863518662c814b84",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "05:16",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "575f0c6a5eea96e24f53ecfddc3517efa02310376bb2059c996dcdb366776525"
+    },
+    {
+      "citation_id": "b6cd7a76fa8f4b0c",
+      "source_document_id": "packet.pdf",
+      "page_number": 12,
+      "snippet": "05:29",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "047709486e05687b13553e7657c4e6f3b08fb2309f10d8cc7514c5902f932a9a"
+    },
+    {
+      "citation_id": "bbff47dda98f4ff6",
+      "source_document_id": "packet.pdf",
+      "page_number": 24,
+      "snippet": "Alignment: Normal cervical lordosis is maintained.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "31f41970429c07a01f948db4040b3f0db0be6e3d8ba8295996e0b570452a3a66"
+    },
+    {
+      "citation_id": "5397db476c72422c",
+      "source_document_id": "packet.pdf",
+      "page_number": 24,
+      "snippet": "IMPRESSION:",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "a2a8b3900a0c68202a80c74cb72f330363e2306f229f23e81695a235edaeea3a"
+    },
+    {
+      "citation_id": "d3fd64a8bc584874",
+      "source_document_id": "packet.pdf",
+      "page_number": 26,
+      "snippet": "Alignment: Normal lumbar lordosis.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "3bec81b68e791cd9dea3c8a870e709893f9926bf9b6a2e824e9266ff6c567e51"
+    },
+    {
+      "citation_id": "477ea9bec86443ea",
+      "source_document_id": "packet.pdf",
+      "page_number": 26,
+      "snippet": "Disc Spaces: Preserved.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "3878c16b76dbb5842e3db6d61dd4ebc06812c8d431db239c8de99a0b2c05142f"
+    },
+    {
+      "citation_id": "591eba9846f94d1d",
+      "source_document_id": "packet.pdf",
+      "page_number": 26,
+      "snippet": "IMPRESSION:",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "a2a8b3900a0c68202a80c74cb72f330363e2306f229f23e81695a235edaeea3a"
+    },
+    {
+      "citation_id": "a2c844ff98214775",
+      "source_document_id": "packet.pdf",
+      "page_number": 26,
+      "snippet": "\u2022 Unremarkable lumbar spine series.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "df8fd3079887577de472130b98841a897af2a56aa01c74cefc1665e453fc4dd0"
+    },
+    {
+      "citation_id": "b770d2f4e33643f1",
+      "source_document_id": "packet.pdf",
+      "page_number": 26,
+      "snippet": "\u2022 No fracture.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "d84d449101174aa684a6740769308cbb1d5f02e28bf7808efb81cef5477120ba"
+    },
+    {
+      "citation_id": "fe47d2eaf0e04980",
+      "source_document_id": "packet.pdf",
+      "page_number": 27,
+      "snippet": "Patient: Alexander Hill (MRN126225) | Date: 2025-04-11",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "c599639c0036acbf62acc834260608c92a6f3aaf7e83bc9bfca4df35ad2c4d63"
+    },
+    {
+      "citation_id": "cf97aaea6a21475d",
+      "source_document_id": "packet.pdf",
+      "page_number": 27,
+      "snippet": "Page 1",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "e8b8355262d0af49d5243e0225b02368cf12bcbe0d25afd89f7cab1bbbf151fb"
+    },
+    {
+      "citation_id": "b93e9a0078954334",
+      "source_document_id": "packet.pdf",
+      "page_number": 27,
+      "snippet": "Office Visit",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "3f73124bea5d07f85ff4353dd86380d72f3891aa726cf726e7450f2da09e8bb4"
+    },
+    {
+      "citation_id": "56b6182951964663",
+      "source_document_id": "packet.pdf",
+      "page_number": 27,
+      "snippet": "Physical Exam: Tenderness in cervical and lumbar spine. Normal gait.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "f9aae769b26ad45ec80ca51c4ee051718d0debea98aa41dc2eb388431970fb4c"
+    },
+    {
+      "citation_id": "d853955810da4363",
+      "source_document_id": "packet.pdf",
+      "page_number": 41,
+      "snippet": "Elite Physical Therapy",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "0237b5306787eeebad2b2adc3c8e33f8e48204b39b6bd412ed3bba2ff611e5fd"
+    },
+    {
+      "citation_id": "d929155ecc814332",
+      "source_document_id": "packet.pdf",
+      "page_number": 41,
+      "snippet": "Patient: Alexander Hill (MRN126225) | Date: 2025-04-24",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "924a720bf09c705136fc4767ee09b82c01b107d04f4e5b6848ec607292e33917"
+    },
+    {
+      "citation_id": "884a5be4fbef4a8e",
+      "source_document_id": "packet.pdf",
+      "page_number": 41,
+      "snippet": "Page 1",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "e8b8355262d0af49d5243e0225b02368cf12bcbe0d25afd89f7cab1bbbf151fb"
+    },
+    {
+      "citation_id": "9b488c8785ed44e1",
+      "source_document_id": "packet.pdf",
+      "page_number": 41,
+      "snippet": "DISCHARGE SUMMARY",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "9b81c9fe321f2983ae3cf01a78d4ad97a7085e866d408ee76e4b90ea2b37d7af"
+    },
+    {
+      "citation_id": "c2bfaa11e7f240f7",
+      "source_document_id": "packet.pdf",
+      "page_number": 41,
+      "snippet": "Discharge Summary",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "9ef7f75385c60228b29375d028a782bc21ae548e7cf30930a3e8537cb6bf50a3"
+    },
+    {
+      "citation_id": "9c07d971cdcb4ed3",
+      "source_document_id": "packet.pdf",
+      "page_number": 41,
+      "snippet": "Final Pain: 8/10",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "09e86101b22a6855737fcb728f6d17dd72bb3df16dd8e8c6a6de7860cf61b44a"
+    },
+    {
+      "citation_id": "1622d64ecf2549af",
+      "source_document_id": "packet.pdf",
+      "page_number": 23,
+      "snippet": "\u2022 No acute fracture or dislocation.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "c351fc2d16c960d6da8b3db74783ba9f18a9b65ac23e2c041d03a4b7045dad11"
+    },
+    {
+      "citation_id": "d91d0cbe598945a7",
+      "source_document_id": "packet.pdf",
+      "page_number": 23,
+      "snippet": "\u2022 No significant degenerative changes.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "a8e17f991d4668a7e265a1968b960527482921cb220742f5b1066064e1c5c1b4"
+    },
+    {
+      "citation_id": "9eb590b2d4a2419f",
+      "source_document_id": "packet.pdf",
+      "page_number": 25,
+      "snippet": "\u2022 Unremarkable lumbar spine series.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "df8fd3079887577de472130b98841a897af2a56aa01c74cefc1665e453fc4dd0"
+    },
+    {
+      "citation_id": "f3a89233aed6457a",
+      "source_document_id": "packet.pdf",
+      "page_number": 25,
+      "snippet": "\u2022 No fracture.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "d84d449101174aa684a6740769308cbb1d5f02e28bf7808efb81cef5477120ba"
+    },
+    {
+      "citation_id": "71a415fc75994d5b",
+      "source_document_id": "packet.pdf",
+      "page_number": 34,
+      "snippet": "Aggregated PT sessions (1 encounters) (ROM, Strength)",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "cb28929216bef880c3c0e5cb6593ecf6d4511beb3343d99f1365715fa5d83415"
+    },
+    {
+      "citation_id": "c63d950361d84fa6",
+      "source_document_id": "packet.pdf",
+      "page_number": 34,
+      "snippet": "Goal Description\nTarget Date\nStatus\nIncrease Cervical Flexion to 45 deg\n4 weeks\nPending\nImprove Sitting Tolerance to 60 mins\n8 weeks\nPending\nIndependent with HEP\n2 weeks\nIn Progress",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "200d038ba65af12583b8c0bc98487ca7548b9b3caa433166c683407c197b6304"
+    },
+    {
+      "citation_id": "78a645727060406e",
+      "source_document_id": "packet.pdf",
+      "page_number": 27,
+      "snippet": "Aggregated PT sessions (4 encounters) (ROM, Exercise, Gait, Strength)",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "e4cc2d3cdf1d908d8184bdaaf2d5147109acc91f9b57fef2f2c13f26fbe81a49"
+    },
+    {
+      "citation_id": "a003aba5264a4e8e",
+      "source_document_id": "packet.pdf",
+      "page_number": 43,
+      "snippet": "Total amount: $100.00",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "0267874d58572faeb2d7060badd58c62632b9df2f3cf35affa431c9f1f657bcc"
+    },
+    {
+      "citation_id": "efc8e2011274486d",
+      "source_document_id": "packet.pdf",
+      "page_number": 10,
+      "snippet": "Labs found: AST, Iron",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "bc0aeae77d40483b390927359d0de5bc07f422d726d8006c35377a2f65638018"
+    },
+    {
+      "citation_id": "80c4026df1b54a6e",
+      "source_document_id": "packet.pdf",
+      "page_number": 41,
+      "snippet": "Discharge Summary\nFinal Pain: 8/10",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "3ecb57f5d9887de39d3f1637f5460d40d6c6910f7693e0107206b45db05f1ce8"
+    },
+    {
+      "citation_id": "7d0066598864456a",
+      "source_document_id": "packet.pdf",
+      "page_number": 9,
+      "snippet": ".\n22:00\nVitals Check: Others wonder strategy fast guess few remain.\n22:30\nVitals Check: Ever window network recently.\n22:47\nVitals Check: Point sell bill activity.\n22:58",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "e45510f29b373712e926c6fce2a48ff83479de93c153fbaae36e6b8310f7fad7"
+    }
+  ],
+  "gaps": [],
+  "skipped_events": [],
+  "narrative_chronology": null,
+  "extensions": {
+    "case_collapse_candidates": [
+      {
+        "id": "22bddd5e0ec6fa6f",
+        "fragility_type": "DEGENERATIVE_COMPETING_EXPLANATION",
+        "score_components": {
+          "degenerative_competition": 6,
+          "acute_marker_strength": -2
+        },
+        "fragility_score": 6,
+        "support_rows": [
+          {
+            "id": "29d6440c1f7e9b46",
+            "event_id": "fd77bcb9769d4122",
+            "patient_label": "See Patient Header",
+            "claim_type": "IMAGING_FINDING",
+            "date": "2025-04-04",
+            "body_region": "general",
+            "provider": "16f57d68c8934758",
+            "assertion": "\u2022 No significant degenerative changes",
+            "citations": [
+              "p. 23",
+              "p. 25"
+            ],
+            "citation_anchors": [],
+            "support_score": 0,
+            "support_strength": "Weak",
+            "flags": [
+              "degenerative_language"
+            ],
+            "materiality_weight": 3,
+            "selection_score": 0
+          }
+        ],
+        "citations": [
+          "p. 23",
+          "p. 25"
+        ],
+        "why": "Degenerative/chronic wording allows a non-traumatic explanation path.",
+        "confidence_tier": "Low",
+        "incident_date": null
+      }
+    ],
+    "causation_chains": [
+      {
+        "id": "f02eb348c3adf841",
+        "body_region": "general",
+        "rungs": [
+          {
+            "rung_order": 3,
+            "event_id": "126546dbdae140b9",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2025-04-04",
+            "citation_ids": [
+              "p. 5",
+              "p. 12",
+              "p. 24"
+            ],
+            "temporal_gap_from_previous_days": null,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 4,
+            "event_id": "fd77bcb9769d4122",
+            "rung_type": "ESCALATION",
+            "body_region": "general",
+            "date": "2025-04-04",
+            "citation_ids": [
+              "p. 23",
+              "p. 25"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 4,
+            "event_id": "fd77bcb9769d4122",
+            "rung_type": "ESCALATION",
+            "body_region": "general",
+            "date": "2025-04-04",
+            "citation_ids": [
+              "p. 23",
+              "p. 25"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 27,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 4,
+            "event_id": "fd77bcb9769d4122",
+            "rung_type": "ESCALATION",
+            "body_region": "general",
+            "date": "2025-04-04",
+            "citation_ids": [
+              "p. 23",
+              "p. 25"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 27,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "ae476c3cde744593",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2025-04-11",
+            "citation_ids": [
+              "p. 27",
+              "p. 33",
+              "p. 39"
+            ],
+            "temporal_gap_from_previous_days": 7,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "a383c489692142e9",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2025-04-24",
+            "citation_ids": [
+              "p. 43"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "a6191988022741f9",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2025-04-24",
+            "citation_ids": [
+              "p. 41"
+            ],
+            "temporal_gap_from_previous_days": 13,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 5,
+            "event_id": "a6191988022741f9",
+            "rung_type": "OUTCOME",
+            "body_region": "general",
+            "date": "2025-04-24",
+            "citation_ids": [
+              "p. 41"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 9,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "b1f55a98ec0f4fa1",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "unknown",
+            "citation_ids": [
+              "p. 34"
+            ],
+            "temporal_gap_from_previous_days": null,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 5,
+            "event_id": "f92116fcabcf4bd08aeac4db7b0d374c",
+            "rung_type": "OUTCOME",
+            "body_region": "general",
+            "date": "unknown",
+            "citation_ids": [
+              "p. 41"
+            ],
+            "temporal_gap_from_previous_days": null,
+            "integrity_score": 9,
+            "provider_reliability_multiplier": 0.9
+          }
+        ],
+        "chain_integrity_score": 69,
+        "break_points": [],
+        "missing_rungs": [
+          "INCIDENT",
+          "INITIAL_DX"
+        ],
+        "incident_date": null,
+        "temporal_decay_penalty": 0,
+        "provider_reliability_multiplier_avg": 0.9,
+        "provider_reliability_penalty": 1,
+        "max_days_from_incident": 0
+      },
+      {
+        "id": "54584ff006670cae",
+        "body_region": "cervical",
+        "rungs": [
+          {
+            "rung_order": 3,
+            "event_id": "ae476c3cde744593",
+            "rung_type": "TREATMENT",
+            "body_region": "cervical",
+            "date": "2025-04-11",
+            "citation_ids": [
+              "p. 27",
+              "p. 33",
+              "p. 39"
+            ],
+            "temporal_gap_from_previous_days": null,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          }
+        ],
+        "chain_integrity_score": 39,
+        "break_points": [],
+        "missing_rungs": [
+          "INCIDENT",
+          "INITIAL_DX",
+          "ESCALATION",
+          "OUTCOME"
+        ],
+        "incident_date": null,
+        "temporal_decay_penalty": 0,
+        "provider_reliability_multiplier_avg": 0.9,
+        "provider_reliability_penalty": 1,
+        "max_days_from_incident": 0
+      },
+      {
+        "id": "b5b48c7089b41b48",
+        "body_region": "lumbar",
+        "rungs": [
+          {
+            "rung_order": 4,
+            "event_id": "fd77bcb9769d4122",
+            "rung_type": "ESCALATION",
+            "body_region": "lumbar",
+            "date": "2025-04-04",
+            "citation_ids": [
+              "p. 23",
+              "p. 25"
+            ],
+            "temporal_gap_from_previous_days": null,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          }
+        ],
+        "chain_integrity_score": 39,
+        "break_points": [],
+        "missing_rungs": [
+          "INCIDENT",
+          "INITIAL_DX",
+          "TREATMENT",
+          "OUTCOME"
+        ],
+        "incident_date": null,
+        "temporal_decay_penalty": 0,
+        "provider_reliability_multiplier_avg": 0.9,
+        "provider_reliability_penalty": 1,
+        "max_days_from_incident": 0
+      }
+    ],
+    "citation_fidelity": {
+      "claim_rows_total": 12,
+      "claim_rows_anchored": 12,
+      "claim_row_anchor_ratio": 1.0
+    },
+    "claim_context_alignment": {
+      "name": "claim_context_alignment",
+      "version": "1.0",
+      "claims_total": 2,
+      "claims_pass": 1,
+      "claims_fail": 1,
+      "failures": [
+        {
+          "claim_id": "b96939cd7d48",
+          "claim_type": "pt_claim",
+          "claim_text": "Aggregated PT sessions (4 encounters) (ROM, Exercise, Gait, Strength)",
+          "citations": [
+            27,
+            27
+          ],
+          "page_types": [
+            "clinical_note"
+          ],
+          "candidate_pages": [
+            {
+              "page": 27,
+              "page_type": "clinical_note",
+              "score": 1.0
+            },
+            {
+              "page": 27,
+              "page_type": "clinical_note",
+              "score": 0.392
+            }
+          ],
+          "best_page": 27,
+          "best_page_type": "clinical_note",
+          "best_score": 1.0,
+          "reason_code": "page_type_mismatch_soft",
+          "severity": "REVIEW_REQUIRED"
+        }
+      ],
+      "claims": [
+        {
+          "claim_id": "b96939cd7d48",
+          "claim_type": "pt_claim",
+          "claim_text": "Aggregated PT sessions (4 encounters) (ROM, Exercise, Gait, Strength)",
+          "citations": [
+            27,
+            27
+          ],
+          "page_types": [
+            "clinical_note"
+          ],
+          "candidate_pages": [
+            {
+              "page": 27,
+              "page_type": "clinical_note",
+              "score": 1.0
+            },
+            {
+              "page": 27,
+              "page_type": "clinical_note",
+              "score": 0.392
+            }
+          ],
+          "best_page": 27,
+          "best_page_type": "clinical_note",
+          "best_score": 1.0,
+          "reason_code": "page_type_mismatch_soft",
+          "severity": "REVIEW_REQUIRED",
+          "alignment_pass": false,
+          "context_pass": true,
+          "PASS": false
+        },
+        {
+          "claim_id": "f0e915ef83b4",
+          "claim_type": "pt_claim",
+          "claim_text": "Aggregated PT sessions (1 encounters) (ROM, Strength)",
+          "citations": [
+            34
+          ],
+          "page_types": [
+            "pt_note"
+          ],
+          "candidate_pages": [
+            {
+              "page": 34,
+              "page_type": "pt_note",
+              "score": 1.0
+            }
+          ],
+          "best_page": 34,
+          "best_page_type": "pt_note",
+          "best_score": 1.0,
+          "reason_code": null,
+          "severity": "PASS",
+          "alignment_pass": true,
+          "context_pass": true,
+          "PASS": true
+        }
+      ],
+      "export_status": "REVIEW_REQUIRED",
+      "PASS": false
+    },
+    "claim_rows": [
+      {
+        "id": "b35a8041c9c637e4",
+        "event_id": "fd77bcb9769d4122",
+        "patient_label": "See Patient Header",
+        "claim_type": "IMAGING_FINDING",
+        "date": "2025-04-04",
+        "body_region": "general",
+        "provider": "16f57d68c8934758",
+        "assertion": "\u2022 No acute fracture or dislocation",
+        "citations": [
+          "p. 23",
+          "p. 25"
+        ],
+        "citation_anchors": [],
+        "support_score": 3,
+        "support_strength": "Medium",
+        "flags": [],
+        "materiality_weight": 3,
+        "selection_score": 9
+      },
+      {
+        "id": "ea40740f25d7a54d",
+        "event_id": "fd77bcb9769d4122",
+        "patient_label": "See Patient Header",
+        "claim_type": "IMAGING_FINDING",
+        "date": "2025-04-04",
+        "body_region": "general",
+        "provider": "16f57d68c8934758",
+        "assertion": "\u2022 No fracture",
+        "citations": [
+          "p. 23",
+          "p. 25"
+        ],
+        "citation_anchors": [],
+        "support_score": 3,
+        "support_strength": "Medium",
+        "flags": [],
+        "materiality_weight": 3,
+        "selection_score": 9
+      },
+      {
+        "id": "29d6440c1f7e9b46",
+        "event_id": "fd77bcb9769d4122",
+        "patient_label": "See Patient Header",
+        "claim_type": "IMAGING_FINDING",
+        "date": "2025-04-04",
+        "body_region": "general",
+        "provider": "16f57d68c8934758",
+        "assertion": "\u2022 No significant degenerative changes",
+        "citations": [
+          "p. 23",
+          "p. 25"
+        ],
+        "citation_anchors": [],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [
+          "degenerative_language"
+        ],
+        "materiality_weight": 3,
+        "selection_score": 0
+      },
+      {
+        "id": "ac5bef4ff59fa143",
+        "event_id": "fd77bcb9769d4122",
+        "patient_label": "See Patient Header",
+        "claim_type": "IMAGING_FINDING",
+        "date": "2025-04-04",
+        "body_region": "lumbar",
+        "provider": "16f57d68c8934758",
+        "assertion": "\u2022 Unremarkable lumbar spine series",
+        "citations": [
+          "p. 23",
+          "p. 25"
+        ],
+        "citation_anchors": [],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 3,
+        "selection_score": 0
+      },
+      {
+        "id": "d0b35fcba3a7ab2b",
+        "event_id": "126546dbdae140b9",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2025-04-04",
+        "body_region": "general",
+        "provider": "16f57d68c8934758",
+        "assertion": "General Hospital & Trauma Center 8/10",
+        "citations": [
+          "p. 5",
+          "p. 12",
+          "p. 24"
+        ],
+        "citation_anchors": [],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "4c342e285d6d6bde",
+        "event_id": "ae476c3cde744593",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2025-04-11",
+        "body_region": "cervical",
+        "provider": "34d9c21b91a94555",
+        "assertion": "Mobility: Physical Exam: Tenderness in cervical and lumbar spine. Normal gait",
+        "citations": [
+          "p. 27",
+          "p. 33",
+          "p. 39"
+        ],
+        "citation_anchors": [],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "cb2dfd186a848273",
+        "event_id": "ae476c3cde744593",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2025-04-11",
+        "body_region": "general",
+        "provider": "34d9c21b91a94555",
+        "assertion": "Aggregated PT sessions (4 encounters) (ROM, Exercise, Gait, Strength)",
+        "citations": [
+          "p. 27",
+          "p. 33",
+          "p. 39"
+        ],
+        "citation_anchors": [],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "e006a3d54783afc2",
+        "event_id": "a6191988022741f9",
+        "patient_label": "See Patient Header",
+        "claim_type": "SYMPTOM",
+        "date": "2025-04-24",
+        "body_region": "general",
+        "provider": "f9fb35d863b54df6",
+        "assertion": "Discharge Summary Pain Level: Final Pain: 8/10",
+        "citations": [
+          "p. 41"
+        ],
+        "citation_anchors": [],
+        "support_score": 1,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 1
+      },
+      {
+        "id": "4fd5601dcfbe4335",
+        "event_id": "a6191988022741f9",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2025-04-24",
+        "body_region": "general",
+        "provider": "f9fb35d863b54df6",
+        "assertion": "Elite Physical Therapy DISCHARGE SUMMARY",
+        "citations": [
+          "p. 41"
+        ],
+        "citation_anchors": [],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "7fbee0535e830568",
+        "event_id": "a383c489692142e9",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2025-04-24",
+        "body_region": "general",
+        "provider": "16f57d68c8934758",
+        "assertion": "Total amount: $100.00",
+        "citations": [
+          "p. 43"
+        ],
+        "citation_anchors": [],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "926ac21f43e8d0e7",
+        "event_id": "f92116fcabcf4bd08aeac4db7b0d374c",
+        "patient_label": "See Patient Header",
+        "claim_type": "SYMPTOM",
+        "date": "unknown",
+        "body_region": "general",
+        "provider": "f9fb35d863b54df6",
+        "assertion": "Discharge Summary Final Pain: 8/10",
+        "citations": [
+          "p. 41"
+        ],
+        "citation_anchors": [],
+        "support_score": 1,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 1
+      },
+      {
+        "id": "ca8c08b68df18049",
+        "event_id": "b1f55a98ec0f4fa1",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "unknown",
+        "body_region": "general",
+        "provider": "2a854a9b990e40d4",
+        "assertion": "Aggregated PT sessions (1 encounters) (ROM, Strength)",
+        "citations": [
+          "p. 34"
+        ],
+        "citation_anchors": [],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      }
+    ],
+    "comparative_pattern_engine": {
+      "status": "insufficient_corpus_for_comparative_deviation",
+      "version": "v0_scaffold",
+      "required_min_cases": 500,
+      "current_case_features": {
+        "claim_row_count": 12,
+        "claim_type_distribution": {
+          "IMAGING_FINDING": 4,
+          "SYMPTOM": 2,
+          "TREATMENT_VISIT": 6
+        },
+        "avg_support_score": 0.67
+      },
+      "deviation_flags": []
+    },
+    "contradiction_matrix": [],
+    "export_artifacts_metadata": {
+      "export_mode": "MEDIATION",
+      "pdf_suffix": "_MEDIATION"
+    },
+    "export_mode": "MEDIATION",
+    "litigation_safe_v1": {
+      "version": "litigation_safe_v1",
+      "status": "BLOCKED",
+      "failure_reasons": [
+        {
+          "code": "INTERNAL_CONTRADICTION",
+          "message": "Internal numeric/provider contradictions detected across export summary aggregates."
+        }
+      ],
+      "billing_partial_disclosed": false,
+      "checks": {
+        "mechanism_and_diagnosis_supported": true,
+        "procedure_dates_complete": true,
+        "gap_statement_consistent": true,
+        "billing_not_implied_complete": true,
+        "no_internal_contradictions": false,
+        "claim_context_alignment_pass": false
+      },
+      "computed": {
+        "max_gap_days": 13,
+        "has_gap_gt_45": false,
+        "reported_max_gap_days": null,
+        "pt_count_candidates": [
+          1,
+          4
+        ],
+        "contradiction_details": [
+          {
+            "kind": "pt_count_conflict",
+            "values": [
+              1,
+              4
+            ]
+          }
+        ],
+        "pt_verified_count": null,
+        "pt_reported_count_max": null,
+        "claim_context_alignment": {
+          "name": "claim_context_alignment",
+          "version": "1.0",
+          "claims_total": 2,
+          "claims_pass": 1,
+          "claims_fail": 1,
+          "failures": [
+            {
+              "claim_id": "b96939cd7d48",
+              "claim_type": "pt_claim",
+              "claim_text": "Aggregated PT sessions (4 encounters) (ROM, Exercise, Gait, Strength)",
+              "citations": [
+                27,
+                27
+              ],
+              "page_types": [
+                "clinical_note"
+              ],
+              "candidate_pages": [
+                {
+                  "page": 27,
+                  "page_type": "clinical_note",
+                  "score": 1.0
+                },
+                {
+                  "page": 27,
+                  "page_type": "clinical_note",
+                  "score": 0.392
+                }
+              ],
+              "best_page": 27,
+              "best_page_type": "clinical_note",
+              "best_score": 1.0,
+              "reason_code": "page_type_mismatch_soft",
+              "severity": "REVIEW_REQUIRED"
+            }
+          ],
+          "claims": [
+            {
+              "claim_id": "b96939cd7d48",
+              "claim_type": "pt_claim",
+              "claim_text": "Aggregated PT sessions (4 encounters) (ROM, Exercise, Gait, Strength)",
+              "citations": [
+                27,
+                27
+              ],
+              "page_types": [
+                "clinical_note"
+              ],
+              "candidate_pages": [
+                {
+                  "page": 27,
+                  "page_type": "clinical_note",
+                  "score": 1.0
+                },
+                {
+                  "page": 27,
+                  "page_type": "clinical_note",
+                  "score": 0.392
+                }
+              ],
+              "best_page": 27,
+              "best_page_type": "clinical_note",
+              "best_score": 1.0,
+              "reason_code": "page_type_mismatch_soft",
+              "severity": "REVIEW_REQUIRED",
+              "alignment_pass": false,
+              "context_pass": true,
+              "PASS": false
+            },
+            {
+              "claim_id": "f0e915ef83b4",
+              "claim_type": "pt_claim",
+              "claim_text": "Aggregated PT sessions (1 encounters) (ROM, Strength)",
+              "citations": [
+                34
+              ],
+              "page_types": [
+                "pt_note"
+              ],
+              "candidate_pages": [
+                {
+                  "page": 34,
+                  "page_type": "pt_note",
+                  "score": 1.0
+                }
+              ],
+              "best_page": 34,
+              "best_page_type": "pt_note",
+              "best_score": 1.0,
+              "reason_code": null,
+              "severity": "PASS",
+              "alignment_pass": true,
+              "context_pass": true,
+              "PASS": true
+            }
+          ],
+          "export_status": "REVIEW_REQUIRED",
+          "PASS": false
+        }
+      }
+    },
+    "llm_polish_applied": false,
+    "narrative_duality": {
+      "plaintiff_narrative": {
+        "summary": "Citation-backed medical progression emphasizing objective findings and treatment escalation.",
+        "points": [
+          {
+            "date": "2025-04-04",
+            "assertion": "\u2022 No acute fracture or dislocation",
+            "claim_type": "IMAGING_FINDING",
+            "support_strength": "Medium",
+            "citations": [
+              "p. 23",
+              "p. 25"
+            ]
+          }
+        ]
+      },
+      "defense_narrative": {
+        "summary": "Citation-backed competing medical interpretation emphasizing fragility points.",
+        "points": [
+          {
+            "attack": "Degenerative Competing Explanation",
+            "path": "Degenerative/chronic wording allows a non-traumatic explanation path.",
+            "confidence_tier": "Low",
+            "citations": [
+              "p. 23",
+              "p. 25"
+            ]
+          }
+        ]
+      }
+    },
+    "provider_resolution_quality": {
+      "version": "1.0",
+      "scope": "export_projection_rows",
+      "rows_total": 4,
+      "rows_resolved": 4,
+      "rows_unresolved": 0,
+      "resolved_ratio": 1.0,
+      "unresolved_by_family": {},
+      "by_family": {
+        "discharge_transfer": {
+          "rows_total": 1,
+          "rows_resolved": 1,
+          "rows_unresolved": 0,
+          "resolved_ratio": 1.0
+        },
+        "ed_visit": {
+          "rows_total": 2,
+          "rows_resolved": 2,
+          "rows_unresolved": 0,
+          "resolved_ratio": 1.0
+        },
+        "imaging_impression": {
+          "rows_total": 1,
+          "rows_resolved": 1,
+          "rows_unresolved": 0,
+          "resolved_ratio": 1.0
+        }
+      },
+      "pt_ledger": {
+        "pt_ledger_rows_total": 0,
+        "pt_facility_resolved": 0,
+        "pt_provider_resolved": 0,
+        "pt_facility_resolved_ratio": 1.0,
+        "pt_provider_resolved_ratio": 1.0,
+        "pt_provider_facility_gate": {
+          "status": "warn",
+          "reason": null
+        },
+        "top_unresolved_examples": []
+      }
+    },
+    "renderer_manifest": {
+      "manifest_version": "1.0",
+      "doi": {
+        "value": "2025-04-04",
+        "citation_ids": [
+          "f487f55a06cf447b",
+          "f453ed9765304172"
+        ],
+        "source": "inferred"
+      },
+      "mechanism": {
+        "value": null,
+        "citation_ids": []
+      },
+      "pt_summary": {
+        "total_encounters": 4,
+        "encounter_count_min": 1,
+        "encounter_count_max": 4,
+        "date_start": "2025-04-11",
+        "date_end": "2025-04-24",
+        "discharge_status": "Elite Physical Therapy DISCHARGE SUMMARY",
+        "reconciliation_note": "Treatment volume varies across records (1-4 sessions). Chronology verifies 0 dated treatment sessions. Documentation indicates a total range of 1-4 visits; the maximum reported intensity is reflected here for clinical completeness.",
+        "citation_ids": [
+          "78a645727060406e",
+          "56b6182951964663",
+          "c2bfaa11e7f240f7",
+          "d853955810da4363",
+          "9c07d971cdcb4ed3",
+          "9b488c8785ed44e1",
+          "71a415fc75994d5b"
+        ],
+        "count_source": "aggregate_snippet"
+      },
+      "promoted_findings": [
+        {
+          "category": "objective_deficit",
+          "label": "Aggregated PT sessions (4 encounters) (ROM, Exercise, Gait, Strength)",
+          "body_region": null,
+          "severity": "high",
+          "headline_eligible": true,
+          "finding_polarity": "positive",
+          "is_verbatim": false,
+          "citation_ids": [
+            "78a645727060406e"
+          ],
+          "confidence": 0.85,
+          "source_event_id": "ae476c3cde744593",
+          "semantic_family": "objective_deficit|general|positive|strength_deficit",
+          "finding_source_count": 1,
+          "source_families": [
+            "pt"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "objective_deficit",
+          "label": "Aggregated PT sessions (1 encounters) (ROM, Strength)",
+          "body_region": null,
+          "severity": "high",
+          "headline_eligible": true,
+          "finding_polarity": "positive",
+          "is_verbatim": false,
+          "citation_ids": [
+            "71a415fc75994d5b"
+          ],
+          "confidence": 0.0,
+          "source_event_id": "b1f55a98ec0f4fa1",
+          "semantic_family": "objective_deficit|general|positive|strength_deficit",
+          "finding_source_count": 1,
+          "source_families": [
+            "pt"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "imaging",
+          "label": "No acute fracture or dislocation.",
+          "body_region": "cervical spine",
+          "severity": "low",
+          "headline_eligible": false,
+          "finding_polarity": "negative",
+          "is_verbatim": true,
+          "citation_ids": [
+            "1622d64ecf2549af"
+          ],
+          "confidence": 0.99,
+          "source_event_id": "fd77bcb9769d4122",
+          "semantic_family": "imaging|cervical spine|negative|negative_imaging",
+          "finding_source_count": 1,
+          "source_families": [
+            "imaging"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "imaging",
+          "label": "Unremarkable lumbar spine series.",
+          "body_region": "cervical spine",
+          "severity": "low",
+          "headline_eligible": false,
+          "finding_polarity": "negative",
+          "is_verbatim": true,
+          "citation_ids": [
+            "9eb590b2d4a2419f"
+          ],
+          "confidence": 0.99,
+          "source_event_id": "fd77bcb9769d4122",
+          "semantic_family": "imaging|cervical spine|negative|negative_imaging",
+          "finding_source_count": 1,
+          "source_families": [
+            "imaging"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "imaging",
+          "label": "No fracture.",
+          "body_region": "cervical spine",
+          "severity": "low",
+          "headline_eligible": false,
+          "finding_polarity": "negative",
+          "is_verbatim": true,
+          "citation_ids": [
+            "f3a89233aed6457a"
+          ],
+          "confidence": 0.99,
+          "source_event_id": "fd77bcb9769d4122",
+          "semantic_family": "imaging|cervical spine|negative|negative_imaging",
+          "finding_source_count": 1,
+          "source_families": [
+            "imaging"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "imaging",
+          "label": "No acute fracture or dislocation",
+          "body_region": "general",
+          "severity": "low",
+          "headline_eligible": false,
+          "finding_polarity": "negative",
+          "is_verbatim": false,
+          "citation_ids": [
+            "1622d64ecf2549af",
+            "f3a89233aed6457a",
+            "d91d0cbe598945a7"
+          ],
+          "confidence": 0.6,
+          "source_event_id": "fd77bcb9769d4122",
+          "semantic_family": "imaging|general|negative|negative_imaging",
+          "finding_source_count": 1,
+          "source_families": [
+            "imaging"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "imaging",
+          "label": "No fracture",
+          "body_region": "general",
+          "severity": "low",
+          "headline_eligible": false,
+          "finding_polarity": "negative",
+          "is_verbatim": false,
+          "citation_ids": [
+            "f3a89233aed6457a",
+            "1622d64ecf2549af",
+            "d91d0cbe598945a7"
+          ],
+          "confidence": 0.6,
+          "source_event_id": "fd77bcb9769d4122",
+          "semantic_family": "imaging|general|negative|negative_imaging",
+          "finding_source_count": 1,
+          "source_families": [
+            "imaging"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "imaging",
+          "label": "Disc Spaces: Preserved.",
+          "body_region": null,
+          "severity": "low",
+          "headline_eligible": false,
+          "finding_polarity": "negative",
+          "is_verbatim": true,
+          "citation_ids": [
+            "477ea9bec86443ea"
+          ],
+          "confidence": 0.55,
+          "source_event_id": null,
+          "semantic_family": "imaging|general|negative|negative_imaging",
+          "finding_source_count": 1,
+          "source_families": [
+            "citation_fallback"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "imaging",
+          "label": "No significant degenerative changes",
+          "body_region": "general",
+          "severity": "low",
+          "headline_eligible": false,
+          "finding_polarity": "negative",
+          "is_verbatim": false,
+          "citation_ids": [
+            "d91d0cbe598945a7",
+            "f3a89233aed6457a",
+            "1622d64ecf2549af"
+          ],
+          "confidence": 0.0,
+          "source_event_id": "fd77bcb9769d4122",
+          "semantic_family": "imaging|general|negative|negative_imaging",
+          "finding_source_count": 1,
+          "source_families": [
+            "imaging"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "imaging",
+          "label": "Unremarkable lumbar spine series",
+          "body_region": "lumbar",
+          "severity": "low",
+          "headline_eligible": false,
+          "finding_polarity": "negative",
+          "is_verbatim": false,
+          "citation_ids": [
+            "9eb590b2d4a2419f"
+          ],
+          "confidence": 0.0,
+          "source_event_id": "fd77bcb9769d4122",
+          "semantic_family": "imaging|lumbar|negative|negative_imaging",
+          "finding_source_count": 1,
+          "source_families": [
+            "imaging"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "treatment",
+          "label": "Discharge Summary Pain Level: Final Pain: 8/10",
+          "body_region": null,
+          "severity": "medium",
+          "headline_eligible": true,
+          "finding_polarity": "neutral",
+          "is_verbatim": false,
+          "citation_ids": [
+            "80c4026df1b54a6e",
+            "9c07d971cdcb4ed3",
+            "c2bfaa11e7f240f7",
+            "9b488c8785ed44e1"
+          ],
+          "confidence": 0.88,
+          "source_event_id": "a6191988022741f9",
+          "semantic_family": "treatment|general|neutral|treatment_other",
+          "finding_source_count": 2,
+          "source_families": [
+            "clinical"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "treatment",
+          "label": "General Hospital & Trauma Center 8/10",
+          "body_region": "general",
+          "severity": "medium",
+          "headline_eligible": true,
+          "finding_polarity": "neutral",
+          "is_verbatim": false,
+          "citation_ids": [
+            "f453ed9765304172",
+            "f487f55a06cf447b",
+            "2600f1bfe83b4fb8"
+          ],
+          "confidence": 0.0,
+          "source_event_id": "126546dbdae140b9",
+          "semantic_family": "treatment|general|neutral|treatment_other",
+          "finding_source_count": 1,
+          "source_families": [
+            "clinical"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "treatment",
+          "label": "Mobility: Physical Exam: Tenderness in cervical and lumbar spine. Normal gait",
+          "body_region": "cervical",
+          "severity": "medium",
+          "headline_eligible": true,
+          "finding_polarity": "neutral",
+          "is_verbatim": false,
+          "citation_ids": [
+            "56b6182951964663",
+            "78a645727060406e"
+          ],
+          "confidence": 0.0,
+          "source_event_id": "ae476c3cde744593",
+          "semantic_family": "treatment|cervical|neutral|treatment_other",
+          "finding_source_count": 1,
+          "source_families": [
+            "clinical"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "treatment",
+          "label": "Elite Physical Therapy DISCHARGE SUMMARY",
+          "body_region": "general",
+          "severity": "medium",
+          "headline_eligible": true,
+          "finding_polarity": "neutral",
+          "is_verbatim": false,
+          "citation_ids": [
+            "d853955810da4363",
+            "c2bfaa11e7f240f7",
+            "9b488c8785ed44e1",
+            "80c4026df1b54a6e"
+          ],
+          "confidence": 0.0,
+          "source_event_id": "a6191988022741f9",
+          "semantic_family": "treatment|general|neutral|treatment_other",
+          "finding_source_count": 1,
+          "source_families": [
+            "pt"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "treatment",
+          "label": "Total amount: $100.00",
+          "body_region": "general",
+          "severity": "medium",
+          "headline_eligible": true,
+          "finding_polarity": "neutral",
+          "is_verbatim": false,
+          "citation_ids": [
+            "a003aba5264a4e8e"
+          ],
+          "confidence": 0.0,
+          "source_event_id": "a383c489692142e9",
+          "semantic_family": "treatment|general|neutral|treatment_other",
+          "finding_source_count": 1,
+          "source_families": [
+            "clinical"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "visit_count",
+          "label": "Aggregated PT sessions (4 encounters) (ROM, Exercise, Gait, Strength)",
+          "body_region": "general",
+          "severity": "medium",
+          "headline_eligible": true,
+          "finding_polarity": "neutral",
+          "is_verbatim": false,
+          "citation_ids": [
+            "78a645727060406e",
+            "56b6182951964663"
+          ],
+          "confidence": 0.0,
+          "source_event_id": "ae476c3cde744593",
+          "semantic_family": "visit_count|general|neutral|visit_count",
+          "finding_source_count": 1,
+          "source_families": [
+            "pt"
+          ],
+          "alignment_status": "REVIEW_REQUIRED",
+          "alignment_reason": "page_type_mismatch_soft",
+          "alignment_claim_id": "b96939cd7d48"
+        },
+        {
+          "category": "visit_count",
+          "label": "Aggregated PT sessions (1 encounters) (ROM, Strength)",
+          "body_region": "general",
+          "severity": "medium",
+          "headline_eligible": true,
+          "finding_polarity": "neutral",
+          "is_verbatim": false,
+          "citation_ids": [
+            "71a415fc75994d5b"
+          ],
+          "confidence": 0.0,
+          "source_event_id": "b1f55a98ec0f4fa1",
+          "semantic_family": "visit_count|general|neutral|visit_count",
+          "finding_source_count": 1,
+          "source_families": [
+            "pt"
+          ],
+          "alignment_status": "PASS",
+          "alignment_reason": null,
+          "alignment_claim_id": "f0e915ef83b4"
+        },
+        {
+          "category": "symptom",
+          "label": "General Hospital & Trauma Center 8/10",
+          "body_region": null,
+          "severity": "medium",
+          "headline_eligible": true,
+          "finding_polarity": "neutral",
+          "is_verbatim": false,
+          "citation_ids": [
+            "f453ed9765304172",
+            "f487f55a06cf447b"
+          ],
+          "confidence": 0.85,
+          "source_event_id": "126546dbdae140b9",
+          "semantic_family": "symptom|general|neutral|symptom_other",
+          "finding_source_count": 1,
+          "source_families": [
+            "clinical"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "symptom",
+          "label": "Total amount: $100.00",
+          "body_region": null,
+          "severity": "medium",
+          "headline_eligible": true,
+          "finding_polarity": "neutral",
+          "is_verbatim": false,
+          "citation_ids": [
+            "a003aba5264a4e8e"
+          ],
+          "confidence": 0.55,
+          "source_event_id": "a383c489692142e9",
+          "semantic_family": "symptom|general|neutral|symptom_other",
+          "finding_source_count": 1,
+          "source_families": [
+            "clinical"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "symptom",
+          "label": "Discharge Summary Final Pain: 8/10",
+          "body_region": "general",
+          "severity": "medium",
+          "headline_eligible": true,
+          "finding_polarity": "neutral",
+          "is_verbatim": false,
+          "citation_ids": [
+            "80c4026df1b54a6e",
+            "9c07d971cdcb4ed3",
+            "c2bfaa11e7f240f7",
+            "9b488c8785ed44e1"
+          ],
+          "confidence": 0.2,
+          "source_event_id": "f92116fcabcf4bd08aeac4db7b0d374c",
+          "semantic_family": "symptom|general|neutral|symptom_other",
+          "finding_source_count": 2,
+          "source_families": [
+            "clinical"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        }
+      ],
+      "top_case_drivers": [
+        "126546dbdae140b9",
+        "ae476c3cde744593",
+        "a6191988022741f9",
+        "f92116fcabcf4bd08aeac4db7b0d374c"
+      ],
+      "bucket_evidence": {
+        "ed": {
+          "detected": true,
+          "event_ids": [
+            "126546dbdae140b9",
+            "a6191988022741f9"
+          ],
+          "citation_ids": [
+            "f487f55a06cf447b",
+            "f453ed9765304172",
+            "c2bfaa11e7f240f7",
+            "d853955810da4363",
+            "9c07d971cdcb4ed3",
+            "9b488c8785ed44e1"
+          ]
+        },
+        "pt_eval": {
+          "detected": false,
+          "event_ids": [],
+          "citation_ids": []
+        }
+      },
+      "billing_completeness": "none"
+    },
+    "severity_profile": {
+      "schema_version": "severity_profile.v1",
+      "export_intent": "mediation",
+      "provenance": {
+        "source_schema": "csi.v2",
+        "transform_version": "severity_profile.transform.v1"
+      },
+      "primary_label": "Objective-support profile",
+      "band": "MODERATE_PLUS",
+      "severity_drivers": [
+        {
+          "rank": 1,
+          "component": "objective",
+          "tier_key": "disc_displacement",
+          "label": "Disc pathology documented",
+          "support_citation_ids": [
+            "1622d64ecf2549af",
+            "477ea9bec86443ea",
+            "56b6182951964663",
+            "71a415fc75994d5b",
+            "78a645727060406e",
+            "9b488c8785ed44e1",
+            "9c07d971cdcb4ed3",
+            "9eb590b2d4a2419f",
+            "c2bfaa11e7f240f7",
+            "d853955810da4363",
+            "d91d0cbe598945a7",
+            "f3a89233aed6457a",
+            "f453ed9765304172",
+            "f487f55a06cf447b"
+          ]
+        },
+        {
+          "rank": 2,
+          "component": "intensity",
+          "tier_key": "ed_imaging_pt",
+          "label": "ED + imaging + PT course documented",
+          "support_citation_ids": [
+            "1622d64ecf2549af",
+            "477ea9bec86443ea",
+            "56b6182951964663",
+            "71a415fc75994d5b",
+            "78a645727060406e",
+            "9b488c8785ed44e1",
+            "9c07d971cdcb4ed3",
+            "9eb590b2d4a2419f",
+            "c2bfaa11e7f240f7",
+            "d853955810da4363",
+            "d91d0cbe598945a7",
+            "f3a89233aed6457a",
+            "f453ed9765304172",
+            "f487f55a06cf447b"
+          ]
+        },
+        {
+          "rank": 3,
+          "component": "duration",
+          "tier_key": "lt_14",
+          "label": "<14 day treatment course",
+          "support_citation_ids": [
+            "1622d64ecf2549af",
+            "477ea9bec86443ea",
+            "56b6182951964663",
+            "71a415fc75994d5b",
+            "78a645727060406e",
+            "9b488c8785ed44e1",
+            "9c07d971cdcb4ed3",
+            "9eb590b2d4a2419f",
+            "c2bfaa11e7f240f7",
+            "d853955810da4363",
+            "d91d0cbe598945a7",
+            "f3a89233aed6457a",
+            "f453ed9765304172",
+            "f487f55a06cf447b"
+          ]
+        }
+      ],
+      "treatment_progression": [
+        {
+          "phase": "intensity",
+          "tier_key": "ed_imaging_pt",
+          "label": "ED + imaging + PT course documented",
+          "support_citation_ids": [
+            "1622d64ecf2549af",
+            "477ea9bec86443ea",
+            "56b6182951964663",
+            "71a415fc75994d5b",
+            "78a645727060406e",
+            "9b488c8785ed44e1",
+            "9c07d971cdcb4ed3",
+            "9eb590b2d4a2419f",
+            "c2bfaa11e7f240f7",
+            "d853955810da4363",
+            "d91d0cbe598945a7",
+            "f3a89233aed6457a",
+            "f453ed9765304172",
+            "f487f55a06cf447b"
+          ]
+        },
+        {
+          "phase": "duration",
+          "tier_key": "lt_14",
+          "label": "<14 day treatment course",
+          "support_citation_ids": [
+            "1622d64ecf2549af",
+            "477ea9bec86443ea",
+            "56b6182951964663",
+            "71a415fc75994d5b",
+            "78a645727060406e",
+            "9b488c8785ed44e1",
+            "9c07d971cdcb4ed3",
+            "9eb590b2d4a2419f",
+            "c2bfaa11e7f240f7",
+            "d853955810da4363",
+            "d91d0cbe598945a7",
+            "f3a89233aed6457a",
+            "f453ed9765304172",
+            "f487f55a06cf447b"
+          ]
+        }
+      ],
+      "anticipated_defense_arguments": [],
+      "support": {
+        "citation_ids": [
+          "1622d64ecf2549af",
+          "477ea9bec86443ea",
+          "56b6182951964663",
+          "71a415fc75994d5b",
+          "78a645727060406e",
+          "9b488c8785ed44e1",
+          "9c07d971cdcb4ed3",
+          "9eb590b2d4a2419f",
+          "c2bfaa11e7f240f7",
+          "d853955810da4363",
+          "d91d0cbe598945a7",
+          "f3a89233aed6457a",
+          "f453ed9765304172",
+          "f487f55a06cf447b"
+        ],
+        "page_refs": [
+          {
+            "source_document_id": "packet.pdf",
+            "page_number": 5
+          },
+          {
+            "source_document_id": "packet.pdf",
+            "page_number": 23
+          },
+          {
+            "source_document_id": "packet.pdf",
+            "page_number": 25
+          },
+          {
+            "source_document_id": "packet.pdf",
+            "page_number": 26
+          },
+          {
+            "source_document_id": "packet.pdf",
+            "page_number": 27
+          },
+          {
+            "source_document_id": "packet.pdf",
+            "page_number": 34
+          },
+          {
+            "source_document_id": "packet.pdf",
+            "page_number": 41
+          }
+        ]
+      }
+    }
+  }
+}
