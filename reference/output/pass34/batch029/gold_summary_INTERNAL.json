@@ -1,0 +1,245 @@
+{
+  "schema_version": "gold_run_harness.v1",
+  "generated_at": "2026-03-01T17:38:46.378444+00:00",
+  "packet": "C:\\CiteLine\\PacketIntake\\batch_029_complex_prior\\packet.pdf",
+  "case_id_base": "pass34_gold_internal_batch029",
+  "export_mode": "INTERNAL",
+  "run_a": {
+    "case_id": "pass34_gold_internal_batch029_a",
+    "run_id": "pass34_gold_internal_batch029_gold_a",
+    "overall_pass": true,
+    "qa_pass": true,
+    "artifact_manifest_ok": true,
+    "acceptance_all_pass": true,
+    "acceptance_exit_code": 0,
+    "projection_entries": 0,
+    "gaps_count": 2,
+    "gate_signature": [
+      {
+        "name": "A_gap_statement_truth",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "B_pt_count_consistency",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "PT_count_defensible",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "PT_same_day_inflation_guard",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "C_high_volume_provider_requirement",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "G3_no_undated_invasive_in_timeline",
+        "pass": true,
+        "outcome": "PASS"
+      },
+      {
+        "name": "E_no_garbage_text",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "new_worker_marker_provider_resolution_quality",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "G4_provider_resolution",
+        "pass": true,
+        "outcome": "PASS"
+      },
+      {
+        "name": "provider_resolution_quality",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "PAGE1_PROMOTED_PARITY_GUARD",
+        "pass": true,
+        "outcome": "PASS"
+      },
+      {
+        "name": "G1_promotion_integrity",
+        "pass": true,
+        "outcome": "PASS"
+      },
+      {
+        "name": "claim_context_alignment",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "SNAPSHOT_COHERENCE_GUARD",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "AR_TIMELINE_SUPPRESSION_OVERSHOT",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "SUBSTANTIVE_METRIC_AUDIT",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "REQUIRED_BUCKET_DETECTION_AUDIT",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "TOP10_INTEGRITY_AUDIT",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "META_LANGUAGE_CLEANROOM",
+        "pass": true,
+        "outcome": ""
+      }
+    ],
+    "mediation_pdf_check": {
+      "pass": true
+    },
+    "artifacts": {
+      "eval_dir": "C:\\CiteLine\\data\\evals\\pass34_gold_internal_batch029_a",
+      "output_pdf": "C:\\CiteLine\\data\\evals\\pass34_gold_internal_batch029_a\\output_INTERNAL.pdf",
+      "evidence_graph": "C:\\CiteLine\\data\\evals\\pass34_gold_internal_batch029_a\\evidence_graph.json",
+      "acceptance_check": "C:\\CiteLine\\data\\evals\\pass34_gold_internal_batch029_a\\acceptance_check.json"
+    }
+  },
+  "run_b": {
+    "case_id": "pass34_gold_internal_batch029_b",
+    "run_id": "pass34_gold_internal_batch029_gold_b",
+    "overall_pass": true,
+    "qa_pass": true,
+    "artifact_manifest_ok": true,
+    "acceptance_all_pass": true,
+    "acceptance_exit_code": 0,
+    "projection_entries": 0,
+    "gaps_count": 2,
+    "gate_signature": [
+      {
+        "name": "A_gap_statement_truth",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "B_pt_count_consistency",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "PT_count_defensible",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "PT_same_day_inflation_guard",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "C_high_volume_provider_requirement",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "G3_no_undated_invasive_in_timeline",
+        "pass": true,
+        "outcome": "PASS"
+      },
+      {
+        "name": "E_no_garbage_text",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "new_worker_marker_provider_resolution_quality",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "G4_provider_resolution",
+        "pass": true,
+        "outcome": "PASS"
+      },
+      {
+        "name": "provider_resolution_quality",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "PAGE1_PROMOTED_PARITY_GUARD",
+        "pass": true,
+        "outcome": "PASS"
+      },
+      {
+        "name": "G1_promotion_integrity",
+        "pass": true,
+        "outcome": "PASS"
+      },
+      {
+        "name": "claim_context_alignment",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "SNAPSHOT_COHERENCE_GUARD",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "AR_TIMELINE_SUPPRESSION_OVERSHOT",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "SUBSTANTIVE_METRIC_AUDIT",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "REQUIRED_BUCKET_DETECTION_AUDIT",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "TOP10_INTEGRITY_AUDIT",
+        "pass": true,
+        "outcome": ""
+      },
+      {
+        "name": "META_LANGUAGE_CLEANROOM",
+        "pass": true,
+        "outcome": ""
+      }
+    ],
+    "mediation_pdf_check": {
+      "pass": true
+    },
+    "artifacts": {
+      "eval_dir": "C:\\CiteLine\\data\\evals\\pass34_gold_internal_batch029_b",
+      "output_pdf": "C:\\CiteLine\\data\\evals\\pass34_gold_internal_batch029_b\\output_INTERNAL.pdf",
+      "evidence_graph": "C:\\CiteLine\\data\\evals\\pass34_gold_internal_batch029_b\\evidence_graph.json",
+      "acceptance_check": "C:\\CiteLine\\data\\evals\\pass34_gold_internal_batch029_b\\acceptance_check.json"
+    }
+  },
+  "parity": {
+    "deterministic_parity": true,
+    "reasons": []
+  }
+}
