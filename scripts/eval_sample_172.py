@@ -333,6 +333,12 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str, export_mode: str) -> tupl
         csi=_csi,
         settlement_leverage_model=graph.extensions.get("settlement_leverage_model"),
     )
+    from apps.worker.lib.internal_demand_copilot import build_internal_demand_package
+    graph.extensions["internal_demand_package"] = build_internal_demand_package(
+        evidence_graph=graph.model_dump(mode="json"),
+        csi_internal=_csi,
+        damages_structured=None,  # specials not computed in eval path
+    )
 
     artifact_dir = get_artifact_dir(run_id)
     artifact_dir.mkdir(parents=True, exist_ok=True)
