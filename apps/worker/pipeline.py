@@ -166,6 +166,10 @@ def run_pipeline(run_id: str) -> None:
             config_dict = run_row.config_json if isinstance(run_row.config_json, dict) else {}
             export_mode = _require_export_mode_config(config_dict)
             config = RunConfig(**config_dict)
+            # Pass34: Enforce LLM policy at pipeline entry — before any step runs.
+            # MEDIATION export must complete regardless of LLM availability.
+            if export_mode == "MEDIATION":
+                config.enable_llm_reasoning = False
             doc_rows = session.query(SourceDocORM).filter_by(matter_id=matter_id).all()
             source_documents = [SourceDocument(document_id=d.id, filename=d.filename, mime_type=d.mime_type, sha256=d.sha256, bytes=d.bytes, uploaded_at=d.uploaded_at) for d in doc_rows]
         if not source_documents: _fail_run(run_id, "No source documents found"); return
@@ -430,9 +434,16 @@ def run_pipeline(run_id: str) -> None:
 
         # Ã¢â€â‚¬Ã¢â€â‚¬ Step 19/20: LLM Ã¢â€â‚¬Ã¢â€â‚¬
         if config.enable_llm_reasoning:
-            llm_ext, llm_warns = run_llm_reasoning(evidence_graph, providers, config)
-            all_warnings.extend(llm_warns); evidence_graph.extensions.update(llm_ext)
-            run_chronology_narrative(evidence_graph, providers, config)
+            try:
+                llm_ext, llm_warns = run_llm_reasoning(evidence_graph, providers, config)
+                all_warnings.extend(llm_warns); evidence_graph.extensions.update(llm_ext)
+                run_chronology_narrative(evidence_graph, providers, config)
+                evidence_graph.extensions["llm_polish_applied"] = True
+            except Exception as _llm_err:
+                logger.warning("LLM reasoning failed gracefully (will continue with deterministic output): %s", _llm_err)
+                evidence_graph.extensions["llm_polish_applied"] = False
+        else:
+            evidence_graph.extensions["llm_polish_applied"] = False
 
         # Ã¢â€â‚¬Ã¢â€â‚¬ Final Export Ã¢â€â‚¬Ã¢â€â‚¬
         processing_seconds = time.time() - start_time

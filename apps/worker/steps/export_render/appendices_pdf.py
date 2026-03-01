@@ -210,24 +210,29 @@ def build_projection_appendix_sections(
                 flowables.append(Spacer(1, 0.05 * inch))
     flowables.append(Spacer(1, 0.1 * inch))
 
-    # Appendix C: Treatment Gaps
+    # Appendix C: Treatment Gaps — Tweak 5: unified source of truth from missing_records.gaps
+    # Both this section and the snapshot summary now read from the same list.
+    mr_all_gaps = [
+        g for g in ((missing_records_payload or {}).get("gaps") or [])
+        if int(g.get("gap_days") or 0) > 0
+    ]
     flowables.append(Paragraph("Appendix C: Treatment Gaps", h1_style))
-    if use_gap_meta:
-        if not gap_meta_rows:
-            flowables.append(Paragraph("No treatment gaps detected.", normal_style))
-        else:
-            for gm in gap_meta_rows:
-                label = f"{gm.get('start_date') or 'unknown'} to {gm.get('end_date') or 'unknown'}"
-                days = int(gm.get("gap_days") or 0)
-                if gm.get("anchors_complete"):
-                    flowables.append(Paragraph(f"- {label} ({days} days) | Anchors: p. {gm.get('gap_start_page')} to p. {gm.get('gap_end_page')}", normal_style))
-                else:
-                    flowables.append(Paragraph(f"- {label} ({days} days) | Anchors unavailable", normal_style))
-    elif not gap_rows:
+    if not mr_all_gaps:
         flowables.append(Paragraph("No treatment gaps detected.", normal_style))
     else:
-        for gr in gap_rows:
-            flowables.append(Paragraph(f"- {gr.get('label', 'Gap')} ({gr.get('duration_days', 0)} days)", normal_style))
+        for gm in mr_all_gaps:
+            start = str(gm.get("start_date") or gm.get("gap_start") or "unknown")
+            end = str(gm.get("end_date") or gm.get("gap_end") or "unknown")
+            days = int(gm.get("gap_days") or 0)
+            anchor_start = gm.get("gap_start_page")
+            anchor_end = gm.get("gap_end_page")
+            if anchor_start and anchor_end:
+                flowables.append(Paragraph(
+                    f"- {start} to {end} ({days} days) | Anchors: p. {anchor_start} to p. {anchor_end}",
+                    normal_style,
+                ))
+            else:
+                flowables.append(Paragraph(f"- {start} to {end} ({days} days)", normal_style))
     flowables.append(Spacer(1, 0.1 * inch))
 
     # Appendix D: Patient-Reported Outcomes

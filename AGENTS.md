@@ -440,6 +440,42 @@ If any instruction conflicts with ad-hoc iteration, follow `reference/AgentExecu
 
 ---
 
+## LLM Policy (Pass34)
+
+### MEDIATION export: LLM permanently disabled
+
+- The guard fires at **pipeline entry** (`pipeline.py`) immediately after `export_mode` is resolved —
+  before any step runs. Never guard inside the renderer (too late).
+- `config.enable_llm_reasoning = False` is set unconditionally when `export_mode == "MEDIATION"`.
+- MEDIATION export must complete regardless of LLM quota or availability.
+- `evidence_graph.extensions["llm_polish_applied"]` is set to `True`/`False` in both modes
+  for unambiguous debugging.
+
+### INTERNAL mode: LLM optional
+
+- LLM is allowed (if available) only for: demand letter polish, associate drafting, narrative rewrite
+  suggestions in INTERNAL mode.
+- LLM must NOT be used for: evidence graph generation, chronology ordering, objective tier detection,
+  escalation ladder, risk flag detection, gap detection, billing totals, demand multiplier math.
+
+### Fail-safe rule
+
+- If LLM call fails or quota exceeded: log the failure, continue with deterministic output,
+  never raise or block the export.
+- `llm_polish_applied: false` surfaces in evidence graph extensions.
+
+### RunConfig fields (domain.py)
+
+- `enable_llm_for_mediation: bool = False` — always off, never override
+- `llm_polish_internal: bool = True` — optional in INTERNAL mode
+
+### Marketing statement (unlocked by this policy)
+
+> "No generative AI is used in mediation exports. Every statement is deterministically derived
+> from cited medical records."
+
+---
+
 ## Active Work Items (As of 2026-02-25)
 
 These are known gaps that agents should **advance**, not work around.

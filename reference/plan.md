@@ -1,394 +1,292 @@
-# Pass33 — Internal Demand Co-Pilot
+# Pass34 Plan — 5 Deterministic Leverage Tweaks + LLM Policy
 
-**Date**: 2026-02-28
-**Scope**: INTERNAL ONLY demand intelligence module. Zero mediation surface.
-
----
-
-## Goal
-
-Add a deterministic, fully explainable internal demand package to the evidence graph.
-Never rendered in MEDIATION mode. Gives attorneys: demand posture, multiplier band,
-single suggested anchor, negotiation strategy map, counteroffer classifier, and a
-template-driven demand letter outline.
+**Status**: PLANNED
+**Date**: 2026-03-01
+**Scope**: Mediation export rendering only. No pipeline changes, no new extraction,
+no new extensions. Pure ordering, suppression, and promotion rules.
 
 ---
 
-## 1. New File
+## Context
 
-**`apps/worker/lib/internal_demand_copilot.py`**
+Packet reviewed with LLM OFF scored:
+- Litigation Readiness: 7.8/10
+- Mediation Leverage: 8.2/10
+- Credibility / Cleanliness: 8.5/10
 
-Public API:
-```python
-def build_internal_demand_package(
-    evidence_graph: dict,
-    csi_internal: dict | None,
-    damages_structured: dict | None,
-) -> dict
+Diagnosis conclusion: core engine is strong. Weaknesses are structural ordering issues,
+not semantic reasoning issues. 5 deterministic tweaks move this to ~9.2/10 without LLM.
+
+---
+
+## Tweak 1 — Rewrite Page 1 as an Executive Summary (Not a Report)
+
+**Problem**: Page 1 ("CASE SNAPSHOT") reads like an internal QA sheet. Includes pain
+score bullets, PT visit count, and record limitations language. Frames the case as
+"here's a structured report" instead of "this is a serious injury."
+
+**Fix**: Replace the CASE SNAPSHOT section with a deterministic executive summary
+that always outputs exactly this structure, in this order:
+
+```
+1. Mechanism + immediate care timing
+   "Emergency department evaluation on date of collision."
+
+2. Primary objective pathology
+   "Cervical disc displacement with radiculopathy documented."
+
+3. Escalation marker
+   "Escalation to imaging and interventional pain management."
+
+4. Duration
+   "Documented treatment spanning X months."
+
+5. Specials
+   "Medical specials total: $XXX,XXX."
 ```
 
-Called from `apps/worker/pipeline.py` immediately after the existing CSI/settlement
-model block. Result stored at `evidence_graph.extensions["internal_demand_package"]`.
+**What to remove from page 1:**
+- Pain score bullets (8/10 etc.)
+- PT visit count
+- "Record limitations" / QA notes
+- Any treatment intensity summary rows
+
+**Where**: `mediation_sections.py` — the snapshot/executive summary block builder.
+If the snapshot is rendered from `timeline_pdf.py`, locate the section that emits
+CASE SNAPSHOT and restructure the field selection and ordering there.
+
+**Rules (deterministic, no LLM):**
+- Mechanism line: from `extensions.litigation_safe_v1` DOI + first event date delta
+- Objective pathology line: select strongest available tier using explicit ranking:
+  `radiculopathy > disc_herniation > soft_tissue > no_objective`
+  Map the winning tier to a human label (e.g., "radiculopathy" → "Radiculopathy with
+  neural involvement documented"). Do NOT rely on arbitrary ordering of findings in
+  `selected_tiers.objective` — rank explicitly so edge cases always surface the most
+  serious finding.
+- Escalation marker: if injection or surgery in events → "interventional pain management"; else if specialist → "specialist management"; else "imaging and ongoing care"
+- Duration: (last_event_date - first_event_date) in months, rounded
+- Specials: from `extensions.specials_summary.total_billed` if present, else omit
 
 ---
 
-## 2. Strip Integration (Two Places)
+## Tweak 2 — Suppress Negative Imaging Noise From Objective Findings
 
-### `apps/worker/lib/artifacts_writer.py`
-Add `"internal_demand_package"` to `_VALUATION_EXTENSION_KEYS`.
+**Problem**: The OBJECTIVE FINDINGS section includes:
+- "No acute fracture"
+- "No significant degenerative changes"
+- "Unremarkable lumbar spine series"
+- "No fracture"
 
-### `apps/worker/steps/export_render/orchestrator.py`
-Add `"internal_demand_package"` to `_MEDIATION_BANNED_KEYS`.
+These are technically correct but dilute psychological weight. Defense already has them.
 
-Both are defense-in-depth. The allowlist in `_MEDIATION_EXTENSION_ALLOWLIST` already
-excludes it by omission — but explicit keys in both strip lists are required per the
-existing pattern for `case_severity_index`.
+**Fix**: Add a suppression filter in the objective findings renderer. Keep only:
+- Pathology (disc displacement, herniation, stenosis)
+- Neurological involvement (radiculopathy, nerve root compression)
+- Intervention triggers (findings that led to injection/surgery)
+- Degenerative exclusion IF it directly rebuts a likely defense claim ("no degenerative changes" is worth keeping when defense will argue pre-existing)
+
+**Suppression rule** — exclude any finding where the text contains:
+```
+"no acute", "no fracture", "unremarkable", "within normal limits",
+"no significant", "no evidence of", "negative for"
+```
+...UNLESS the finding is explicitly flagged as a defense preemption item
+(i.e., exists in `extensions.defense_attack_map` as a rebuttal).
+
+**Scope constraint**: Apply this suppression ONLY inside the OBJECTIVE FINDINGS
+section of the mediation PDF. Do NOT suppress in:
+- Appendices (raw citation index must stay complete)
+- Chronology timeline entries
+- Any other section
+
+Completeness lives in appendices. Leverage lives in the findings section.
+
+**Where**: `projection_enrichment.py` or `extraction_utils.py` — wherever objective
+findings are assembled for the PDF section. Add a filter pass before the findings
+are handed to the renderer. Alternatively in `mediation_sections.py` if the objective
+findings block is built there.
 
 ---
 
-## 3. Module Logic
+## Tweak 3 — Promote Injection Into Main Escalation Ladder
 
-### 3a. Base Band from CSI Tier
+**Problem**: Injection lives in "Procedures Requiring Date Clarification" — a footnote
+section. Visually the case reads as conservative PT-only when it isn't.
 
-Priority order (first match wins):
+**Fix**: If an injection procedure is documented anywhere in the evidence graph (even
+without a confirmed date), it must appear in the main TREATMENT PROGRESSION ladder:
 
-| Condition | base_band |
+```
+ED → Imaging → PT → Specialist → Injection
+```
+
+**Rule**:
+- Check `events` for any event where `event_type == "injection"` OR `procedure_type`
+  contains "injection" OR event narrative contains injection keywords
+- If found: include in the TREATMENT PROGRESSION section with whatever date is available.
+  If date is unresolved, render as: `"Injection performed (see cited record)."` —
+  not "Date TBC" (looks clerical) and not omitted (hides leverage).
+- Remove from the "Procedures Requiring Date Clarification" bucket once promoted
+  (don't show it twice)
+
+**Where**: `timeline_render_utils.py` or `projection_pipeline.py` — where escalation
+ladder steps are assembled. Also check `mediation_sections.py` for the treatment
+progression block builder.
+
+---
+
+## Tweak 4 — Surface Neurological Deficits as a Dedicated Subsection
+
+**Problem**: Radiculopathy is diagnosed, weakness/reflex/dermatomal findings are in
+the citation index (e.g., "C6 4/5 weak" on p.106), but they never appear as a
+leverage subsection. These increase jury risk perception significantly.
+
+**Fix**: Add a deterministic "DOCUMENTED NEUROLOGICAL DEFICITS" subsection to the
+objective findings or treatment section. If any of these signals exist in evidence
+graph events, bullet and cite them:
+
+| Signal | Source |
 |---|---|
-| `intensity.tier_key == "surgery"` OR surgery in evidence | `[5.5, 9.0]` |
-| `intensity.tier_key` in `{injection, procedure, interventional}` | `[3.5, 6.0]` |
-| `objective.tier_key` contains `disc` / `radiculopathy` / `herniation` | `[2.5, 4.5]` |
-| `objective.tier_key` contains `soft_tissue` or any objective present | `[2.0, 3.5]` |
-| Default (no_objective or CSI absent) | `[1.5, 2.5]` |
+| Muscle weakness (4/5, 3/5) | exam_findings containing "weak" + grade |
+| Diminished/absent reflex | exam_findings containing "reflex" + "diminished"/"absent" |
+| Dermatomal numbness | exam_findings containing "numbness"/"paresthesia" + dermatome |
+| Positive Spurling sign | exam_findings containing "spurling" |
+| Positive straight leg raise | exam_findings containing "straight leg"/"SLR" |
+| Positive Phalen/Tinel | exam_findings containing "phalen"/"tinel" |
 
-If CSI absent entirely, fall back to objective signals from evidence_graph events
-(look for `diagnoses` containing disc/radiculopathy/fracture/surgery keywords, or
-`intensity_flags` containing injection/surgery).
+**Rendering rule**:
+- Show subsection only if at least one signal is found
+- Each bullet: signal label + verbatim snippet + citation token
+- Do not describe or interpret — just list
+- Cap at 3–4 bullets maximum — too many exam snippets reduces impact; rank by
+  clinical severity (weakness > reflex loss > dermatomal > provocation sign)
+- Omit subsection entirely if no signals (no placeholder)
 
-Surgery base band is a floor: even with max downward adjustments do not go below
-`[5.0, 8.0]`.
+**Where**: New helper in `mediation_sections.py` → `_build_neuro_deficit_subsection()`.
+Reads from `projection_entries` event `exam_findings` fields and/or from
+`extensions.claim_rows` entries tagged with neurological content.
 
-### 3b. Adjustments
+---
 
-Step size: `0.5` default, `1.0` max per factor.
-Cap: total upward ≤ `+2.0`, total downward ≥ `-2.0`.
-Each adjustment adds to BOTH `low` and `high` of band.
+## Tweak 5 — Resolve Gap Messaging Inconsistency
 
-**Upward** (sourced from structured evidence signals, never free-text):
+**Problem**: Timeline summary page shows "Treatment gap detected (171 days)" but
+Appendix C shows "No treatment gaps detected." Contradiction noticed immediately
+by defense counsel.
 
-| key | delta | source |
-|---|---|---|
-| `radiculopathy_documented` | +0.5 | diagnoses containing M54.x / ICD "radiculopathy" |
-| `multi_level_disc_pathology` | +0.5 | 2+ distinct disc levels in diagnoses/exam_findings |
-| `emg_ncs_positive` | +0.5 | exam_findings or diagnoses containing EMG/NCS positive |
-| `specialist_management` | +0.5 | providers with specialty: pain mgmt/ortho/neuro |
-| `injection_or_intervention` | +1.0 | injection/procedure event present AND not already in surgical base tier |
-| `surgery_recommended` | +1.0 | "recommended" + surgery in promoted_findings/notes, no surgery performed |
-| `work_restriction_or_disability_rating` | +0.5 | disability/TPD/restriction in exam_findings or diagnoses |
-| `persistent_neuro_deficit` | +0.5 | objective neurological deficit documented in last 2 events |
-| `treatment_duration_gt_180_days` | +0.5 | care span > 180 days (use DOI to last event) |
-| `treatment_duration_gt_365_days` | +1.0 | care span > 365 days (replaces the +0.5 above, not additive) |
+**Fix**: Single source of truth for gap status. Both the summary and Appendix C
+must read from the same computed gap list.
 
-**Downward**:
+**Rule**:
+- Gap list is `extensions.missing_records.gaps` (already computed, already in evidence graph)
+- Summary page: if `len(gaps) > 0` → show gap(s) with duration; else omit gap mention
+- Appendix C: if `len(gaps) > 0` → list gap(s); else "No treatment gaps identified"
+- Both read from the same list — no separate detection logic
 
-| key | delta | source |
-|---|---|---|
-| `major_gap_in_care_gt_120_days` | -1.0 | gap > 120 days in evidence_graph gaps |
-| `gap_in_care_60_120_days` | -0.5 | any gap 60–120 days |
-| `delayed_first_care_gt_14_days` | -0.5 | days from DOI to first event > 14 |
-| `prior_similar_injury` | -0.5 | prior injury signal in case_info or promoted_findings |
-| `conservative_only_no_imaging` | -0.5 | no imaging event AND no specialist event |
-| `pt_visits_lt_6` | -0.5 | PT encounter count < 6 **AND** conservative-only case **AND** no imaging **AND** no specialist; skip if any escalation present |
-| `imaging_negative_or_minor` | -0.5 | imaging exists **AND** findings negative/unremarkable **AND** no objective neurological diagnosis **AND** no escalation beyond conservative care; skip if radiculopathy/disc documented |
+**Where**:
+- Summary/snapshot page: `mediation_sections.py` or `timeline_pdf.py` summary block
+- Appendix C: `appendices_pdf.py` — gap section
+- Both must call the same helper or read from the same `gaps` field
 
-Apply at most once per key. Do not compound.
+**Root cause to check**: Is Appendix C running its own gap detection instead of
+reading from `extensions.missing_records.gaps`? If so, **delete that logic entirely**
+and route both to the shared source. Do not refactor it — remove it.
+Duplication is the enemy. There must be exactly one place gap truth is computed,
+and it is the pipeline, not the renderer.
 
-**Guard note for `imaging_negative_or_minor`**: if `radiculopathy_documented` or
-`multi_level_disc_pathology` is also active as an upward key, suppress this factor
-entirely — a "small bulge" finding should not penalize a case that also has documented
-neurological involvement.
+---
 
-**Guard note for `pt_visits_lt_6`**: do not apply if the intensity base tier is already
-injection or surgical, or if specialist_management is active. Early escalation replaces
-the need for visit count.
+## Part 2 — LLM Policy
 
-Floor: band does not go below `[1.0, 2.0]`.
+### Mediation Export: LLM permanently disabled
 
-### 3c. Anchor Derivation
-
-```
-risk_count = number of active downward adjustment keys applied
-
-if risk_count >= 2:  percentile = 0.70
-elif risk_count == 1: percentile = 0.80
-else:                 percentile = 0.90
-
-chosen_multiplier = low + percentile * (high - low)
-anchor = round(specials_total * chosen_multiplier, -2)  # nearest $100
-
-# Sanity clamp (band bounds):
-anchor = max(anchor, specials_total * low)
-anchor = min(anchor, specials_total * high)
-
-# Floor safety (prevents under-anchoring in tight bands):
-anchor = max(anchor, round(specials_total * (low + 0.25), -2))
-```
-
-If `specials_total` is absent or 0: omit `anchor` block entirely; return
-posture-only output with `"anchor": null`.
-
-### 3d. Case Strength Summary
-
-Computed from: CSI base score, active upward keys, active downward keys.
-CSI dominates; adjustments refine, not override.
+Enforce at **pipeline entry**, not inside the renderer. The guard must fire before
+any LLM pre-processing, any optional enrichment layer, and any narrative builder:
 
 ```python
-strength_score = (
-    csi_base_0_100 * 0.6
-    + len(up_keys) * 6
-    - len(down_keys) * 8
-)  # clamped 0–100
+# In pipeline.py, immediately after export_mode is resolved — before any step runs:
+if export_mode == "MEDIATION":
+    config.enable_llm_reasoning = False
 ```
 
-Map to band:
-- 0–30 → "LOW"
-- 31–55 → "MODERATE"
-- 56–75 → "STRONG"
-- 76–100 → "HIGH"
+Never block a mediation export because LLM is unavailable. If any code path
+checks for LLM availability and would fail — fail gracefully to deterministic output.
+The mediation export must complete regardless of LLM quota or availability.
 
-`primary_drivers` = human-readable labels for top 3 upward keys (sorted by delta desc),
-also emitted as `confidence_drivers_ranked` with weight derived from delta (delta 1.0 →
-weight 1.0, delta 0.5 → weight 0.5). Gives attorneys the "what's driving value" view.
+**Why pipeline entry, not renderer**: Guarding inside the renderer is too late.
+LLM could have already run in an earlier enrichment step, contaminating the data
+before it ever reaches the renderer.
 
-`primary_risks` = human-readable labels for all active downward keys.
+**Marketing copy unlocked**: "No generative AI is used in mediation exports.
+Every statement is deterministically derived from cited medical records."
 
-### 3e. Negotiation Strategy Map (Lookup Table)
+### Internal Mode: LLM optional for drafting
 
-```
-STRONG or HIGH + risk_count == 0  → PUSH_HIGH_ANCHOR
-STRONG or HIGH + risk_count == 1  → ASSERTIVE_WITH_PREEMPTION
-STRONG or HIGH + risk_count >= 2  → STANDARD_WITH_REBUTTAL
-MODERATE        + risk_count <= 1 → STANDARD
-MODERATE        + risk_count >= 2 → BUILD_CASE
-LOW                               → ANCHOR_NEAR_SPECIALS
-```
+LLM is allowed (if available) only for:
+- Demand letter polish in `internal_demand_package`
+- Associate drafting suggestions
+- Executive summary rewrite suggestions (INTERNAL tab only)
 
-Each strategy has a fixed `opening_strategy` string, `anticipated_defense_moves` list,
-and `counter_positioning` list — all templated, zero new facts.
+LLM must NOT be used for:
+- Evidence graph generation
+- Chronology ordering
+- Objective tier detection
+- Escalation ladder
+- Risk flag detection
+- Gap detection
+- Billing totals
+- Demand multiplier math
 
-### 3f. Counteroffer Simulator
+### Fail-safe rule
 
-Given an adjuster's offer `offer_amount` and the computed `adjusted_band [low, high]`:
+If LLM call fails or quota exceeded:
+- Log the failure
+- Continue with deterministic output
+- Never raise or block the export
+- Surface in `export_artifacts_metadata` as `"llm_polish_applied": false`
 
-```
-mid = specials_total * (low + high) / 2
+This applies to both MEDIATION and INTERNAL modes. Persist whether LLM was applied
+so debugging is unambiguous — "did the LLM run or not?" must always be answerable.
 
-if offer_amount < specials_total * 1.5         → LOWBALL
-elif offer_amount < specials_total * low        → BELOW_RANGE
-elif offer_amount <= mid                        → NEGOTIABLE
-elif offer_amount <= specials_total * high      → STRONG_OFFER
-else                                            → ABOVE_EXPECTATION
-```
+### Config surface
 
-Classification is band-tied, not ratio-only. This ensures consistency with the
-multiplier output the attorney already sees.
-
-Returns `suggested_response_posture` string from template (hold firm / reduce modestly /
-increase documentation emphasis). No actual dollar counter-suggestions.
-
-### 3g. Demand Letter Draft
-
-Template-driven. Six named blocks:
-
-```
-A. LIABILITY_SUMMARY     — from mechanism/initial_presentation section data
-B. MEDICAL_OVERVIEW      — top 3 objective findings with citation IDs
-C. TREATMENT_COURSE      — escalation ladder (stage labels + dates)
-D. FUNCTIONAL_IMPACT     — disability/restriction signals
-E. DAMAGES               — specials total formatted as "$XX,XXX"
-F. DEMAND                — anchor amount: "our client demands $XXX,XXX in full settlement"
-```
-
-All content pulled from already-computed pipeline signals. No new facts introduced.
-Entire block labeled:
-
-```
-INTERNAL DRAFT — DO NOT EXPORT — EDIT BEFORE SENDING
-```
-
-Block F only rendered when anchor is non-null.
-
-**Block F hard constraints** (enforced in template, not optional):
-- Never state "jury would likely award" or any verdict prediction language
-- Never state "permanent injury" or "permanent disability" unless a permanency rating or
-  "permanent" language is explicitly documented in the structured evidence
-- Never mention the multiplier value, multiplier band, or CSI score
-- Never mention the word "specials" — use "medical expenses" or "documented treatment costs"
-- Opening line template only: "Based on the documented objective findings, escalation
-  of care, and functional limitations, our client demands $XXX,XXX in full settlement."
-
----
-
-## 4. Output Contract
-
-```json
-{
-  "schema_version": "internal_demand_package.v1",
-  "specials": {
-    "total": 42000,
-    "currency": "USD",
-    "support_citation_ids": []
-  },
-  "strength_summary": {
-    "strength_band": "STRONG",
-    "confidence_score_0_100": 74,
-    "primary_drivers": ["Radiculopathy documented", "Specialist management"],
-    "primary_risks": ["171-day treatment gap"],
-    "confidence_drivers_ranked": [
-      {"key": "radiculopathy_documented", "label": "Radiculopathy documented", "weight": 0.5},
-      {"key": "specialist_management", "label": "Specialist management", "weight": 0.5}
-    ]
-  },
-  "multiplier": {
-    "base_band": [2.5, 4.5],
-    "adjustments": [
-      {"key": "radiculopathy_documented", "direction": "up", "delta": 0.5, "support_citation_ids": []},
-      {"key": "major_gap_in_care_gt_120_days", "direction": "down", "delta": -1.0, "support_citation_ids": []}
-    ],
-    "adjusted_band": [2.0, 4.0],
-    "caps_applied": {"up_cap_hit": false, "down_cap_hit": false}
-  },
-  "anchor": {
-    "risk_count": 1,
-    "percentile_used": 0.8,
-    "chosen_multiplier": 3.6,
-    "suggested_demand_anchor": 151200
-  },
-  "negotiation_strategy": {
-    "recommended_anchor_style": "ASSERTIVE_WITH_PREEMPTION",
-    "opening_strategy": "Lead with objective findings and disability before addressing gap.",
-    "anticipated_defense_moves": ["Minimize treatment gap", "Argue prior similar history"],
-    "counter_positioning": ["Highlight continuous symptom documentation", "Emphasize escalation to specialist"]
-  },
-  "demand_letter_draft": {
-    "label": "INTERNAL DRAFT — DO NOT EXPORT — EDIT BEFORE SENDING",
-    "blocks": {
-      "A_LIABILITY_SUMMARY": "...",
-      "B_MEDICAL_OVERVIEW": "...",
-      "C_TREATMENT_COURSE": "...",
-      "D_FUNCTIONAL_IMPACT": "...",
-      "E_DAMAGES": "Total Medical Specials: $42,000",
-      "F_DEMAND": "..."
-    }
-  },
-  "mode": "INTERNAL_ONLY_DO_NOT_EXPORT"
-}
-```
-
-Notes:
-- `adjustments` sorted by `key` before serialization.
-- `anchor` key omitted (null) when specials absent.
-- `demand_letter_draft.blocks.F_DEMAND` omitted when anchor is null.
-
----
-
-## 5. Pipeline Integration
-
-In `apps/worker/pipeline.py`, after the existing CSI block (around line 412–414):
-
+Add to `RunConfig` (if not already present):
 ```python
-from apps.worker.lib.internal_demand_copilot import build_internal_demand_package
-
-_idp = build_internal_demand_package(
-    evidence_graph=evidence_graph,
-    csi_internal=evidence_graph.extensions.get("case_severity_index"),
-    damages_structured=specials_summary,
-)
-evidence_graph.extensions["internal_demand_package"] = _idp
+enable_llm_for_mediation: bool = False   # permanently off for mediation
+llm_polish_internal: bool = True          # optional in internal mode
 ```
 
-Run unconditionally for both modes. The strip logic handles MEDIATION exclusion.
-
 ---
 
-## 6. Tests — `tests/unit/test_internal_demand_copilot.py`
-
-Minimum 38 tests across these categories:
-
-**Base band** (5):
-- Surgery intensity → `[5.5, 9.0]`
-- Injection intensity → `[3.5, 6.0]`
-- Disc/radiculopathy objective → `[2.5, 4.5]`
-- Soft tissue objective → `[2.0, 3.5]`
-- No CSI / no objective → `[1.5, 2.5]`
-
-**Adjustments** (12):
-- Single upward applied correctly
-- Single downward applied correctly
-- Up+down combined band math
-- Up cap hit at +2.0 (try 5 upward signals)
-- Down cap hit at -2.0 (try 5 downward signals)
-- Surgery floor preserved after max downward pressure (min `[5.0, 8.0]`)
-- Global floor `[1.0, 2.0]` respected
-- treatment_duration_gt_365_days replaces gt_180 (not additive)
-- `imaging_negative_or_minor` suppressed when `radiculopathy_documented` is active
-- `imaging_negative_or_minor` suppressed when escalation beyond conservative exists
-- `pt_visits_lt_6` suppressed when injection/surgical base tier active
-- `pt_visits_lt_6` suppressed when specialist_management is active
-
-**Anchor** (7):
-- risk_count 0 → 90th percentile
-- risk_count 1 → 80th percentile
-- risk_count ≥ 2 → 70th percentile
-- Rounds to nearest $100
-- Specials absent → anchor is None, no F_DEMAND block
-- Floor safety: anchor ≥ `specials * (low + 0.25)` (prevents under-anchoring in tight bands)
-- Clamp upper: anchor ≤ `specials * high`
-
-**Schema** (4):
-- `schema_version == "internal_demand_package.v1"`
-- `mode == "INTERNAL_ONLY_DO_NOT_EXPORT"`
-- `adjustments` are sorted by `key`
-- `support_citation_ids` present on each adjustment
-
-**Strip tests** (4):
-- MEDIATION `build_export_evidence_graph` output does NOT contain `internal_demand_package`
-- INTERNAL mode preserves `internal_demand_package`
-- `_MEDIATION_BANNED_KEYS` in orchestrator.py contains `"internal_demand_package"`
-- `_VALUATION_EXTENSION_KEYS` in artifacts_writer.py contains `"internal_demand_package"`
-
-**Strategy map** (2):
-- Same inputs produce same posture every call (deterministic)
-- LOW strength → "ANCHOR_NEAR_SPECIALS"
-
-**Demand letter safety** (3):
-- Block F absent when anchor is None
-- Block F text does not contain "jury", "permanent", "multiplier", or "CSI"
-- `confidence_drivers_ranked` weights match deltas of active upward keys
-
-**Counteroffer** (5):
-- Offer < 1.5× specials → LOWBALL
-- Offer < specials × low (below band) → BELOW_RANGE
-- Offer ≤ band midpoint → NEGOTIABLE
-- Offer ≤ specials × high → STRONG_OFFER
-- Offer > specials × high → ABOVE_EXPECTATION
-
----
-
-## 7. What Does NOT Change
-
-- `mediation_sections.py` — untouched
-- MEDIATION PDF rendering — untouched
-- Existing CSI / settlement_model_report / defense_attack_map modules — untouched
-- All existing tests — must remain green
-
----
-
-## 8. Pass33 Files Touched
+## Files Changed
 
 | File | Change |
 |---|---|
-| `apps/worker/lib/internal_demand_copilot.py` | **NEW** |
-| `apps/worker/pipeline.py` | Add call after CSI block |
-| `apps/worker/lib/artifacts_writer.py` | Add key to `_VALUATION_EXTENSION_KEYS` |
-| `apps/worker/steps/export_render/orchestrator.py` | Add key to `_MEDIATION_BANNED_KEYS` |
-| `tests/unit/test_internal_demand_copilot.py` | **NEW**, ≥30 tests |
+| `apps/worker/steps/export_render/mediation_sections.py` | Tweak 1 (page 1 exec summary), Tweak 4 (neuro deficit subsection), Tweak 5 (gap source of truth) |
+| `apps/worker/steps/export_render/projection_enrichment.py` or `extraction_utils.py` | Tweak 2 (negative imaging suppression) |
+| `apps/worker/steps/export_render/timeline_render_utils.py` or `projection_pipeline.py` | Tweak 3 (injection promotion into escalation ladder) |
+| `apps/worker/steps/export_render/appendices_pdf.py` | Tweak 5 (Appendix C reads from shared gap source) |
+| `apps/worker/pipeline.py` | LLM policy — disable for MEDIATION, graceful fallback |
+| `packages/shared/models/domain.py` | Add `enable_llm_for_mediation: bool = False` to RunConfig if needed |
+
+---
+
+## What Does NOT Change
+
+- Evidence graph generation — untouched
+- Chronology logic — untouched
+- CSI / settlement model / internal demand — untouched
+- All quality gate scores — must remain green (zero regression deltas)
+- MEDIATION strip logic — untouched
+
+---
+
+## Gold Run Acceptance Criteria
+
+Both packets (05_minor_quick, batch_029_complex_prior) must:
+- Pass all quality gates with zero regression deltas vs Pass33
+- Page 1 of MEDIATION PDF contains: mechanism, objective pathology, escalation, duration, specials — no pain scores, no PT count, no QA notes
+- Objective findings section contains no "no fracture" / "unremarkable" noise lines (unless defense preemption flagged)
+- Injection present in main escalation ladder if documented in events
+- Gap status consistent between summary and Appendix C
+- No LLM calls made during MEDIATION export (verify via log or `llm_polish_applied: false` in artifacts metadata)

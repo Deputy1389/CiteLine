@@ -33,6 +33,8 @@ class RunConfig(BaseModel):
     event_confidence_min_export: int = 30  # Lowered from 40 to capture undated specialist events
     low_confidence_event_behavior: object = "exclude_from_export"  # exclude_from_export or include_with_flag
     enable_llm_reasoning: bool = True  # Enable Gemini Flash semantic reasoning (Step 19)
+    enable_llm_for_mediation: bool = False  # Permanently off — MEDIATION export never uses LLM
+    llm_polish_internal: bool = True  # LLM polish allowed in INTERNAL mode if available
     gemini_model: str = "gemini-1.5-flash"  # Gemini model for LLM reasoning
     gemini_model_narrative: Optional[str] = None  # Optional override for narrative model
     llm_reasoning_min_confidence: int = 30

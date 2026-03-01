@@ -56,6 +56,7 @@ from apps.worker.steps.export_render.copy_translations import (
 )
 from apps.worker.steps.export_render.mediation_sections import (
     build_mediation_sections,
+    build_mediation_exec_summary_items,
     run_mediation_structural_gate,
 )
 from packages.shared.utils.scoring_utils import (
@@ -1890,9 +1891,33 @@ def generate_pdf_from_projection(
         if lsv1:
             flowables.append(Spacer(1, 0.05 * inch))
 
-    flowables.append(Paragraph("Case Highlights", h2_style))
-    flowables.append(Paragraph("Emergency department and treatment documentation support the findings below.", ParagraphStyle("SnapshotAssurance", parent=normal_style, fontSize=8.5, textColor=colors.HexColor("#0F172A"), spaceAfter=3)))
-    flowables.append(Paragraph("Highlights below are drawn from cited medical records.", ParagraphStyle("SnapshotMeta", parent=normal_style, fontSize=8.5, textColor=colors.HexColor("#475569"), spaceAfter=4)))
+    # Pass34 Tweak 1: In MEDIATION mode, replace Case Highlights with a deterministic
+    # 5-line executive summary. No pain scores, no PT count, no QA notes.
+    if export_mode_norm == "MEDIATION":
+        _exec_bullet_style = ParagraphStyle("ExecSummaryBullet", parent=normal_style, leftIndent=12, bulletIndent=0, spaceAfter=3)
+        _exec_items = build_mediation_exec_summary_items(
+            ext=ext,
+            rm=rm,
+            raw_events=raw_events,
+            doi_display=doi_display,
+            mechanism_display=mechanism_display,
+            specials_summary=specials_summary,
+            citation_by_id=citation_by_id,
+        )
+        for _ei in _exec_items:
+            if _ei.support:
+                flowables.append(Paragraph(
+                    f'- {escape(_ei.label)} <font size="8">{escape(_ei.support)}</font>',
+                    _exec_bullet_style,
+                ))
+            else:
+                flowables.append(Paragraph(f"- {escape(_ei.label)}", _exec_bullet_style))
+        flowables.append(Spacer(1, 0.1 * inch))
+
+    if export_mode_norm != "MEDIATION":
+        flowables.append(Paragraph("Case Highlights", h2_style))
+        flowables.append(Paragraph("Emergency department and treatment documentation support the findings below.", ParagraphStyle("SnapshotAssurance", parent=normal_style, fontSize=8.5, textColor=colors.HexColor("#0F172A"), spaceAfter=3)))
+        flowables.append(Paragraph("Highlights below are drawn from cited medical records.", ParagraphStyle("SnapshotMeta", parent=normal_style, fontSize=8.5, textColor=colors.HexColor("#475569"), spaceAfter=4)))
     settlement_driver_rows: list[Paragraph] = []
     snapshot_promoted_semantic_families: set[str] = set()
     bullet_style = ParagraphStyle("SnapshotBullet", parent=normal_style, leftIndent=12, bulletIndent=0, spaceAfter=2)
@@ -1987,13 +2012,15 @@ def generate_pdf_from_projection(
             seen_snapshot_pain_scores.add(early_pain)
             seen_snapshot_pain_scores.add(later_pain)
 
-    # Continuous care if no global gap >45
+    # Continuous care if no gaps — Tweak 5: single source of truth from missing_records.gaps
     mr_payload = missing_records_payload or ext.get("missing_records") or {}
     global_gaps = [g for g in (mr_payload.get("gaps") or []) if str(g.get("rule_name") or "") == "global_gap" and int(g.get("gap_days") or 0) > 45]
     gap_anchor_meta = build_gap_anchor_metadata_rows(mr_payload, all_citations, page_map)
     raw_gaps_gt45 = [g for g in (gaps or []) if int(getattr(g, "duration_days", 0) or 0) > 45]
     lsv1_gap_gt45, lsv1_max_gap_days = _litigation_gap_summary(lsv1)
-    if not lsv1_gap_gt45 and not global_gaps and not raw_gaps_gt45:
+    # Unified gap truth: use missing_records.gaps directly (same source as Appendix C)
+    mr_all_gaps = [g for g in (mr_payload.get("gaps") or []) if int(g.get("gap_days") or 0) > 0]
+    if not mr_all_gaps:
         # cite first and last dated events if available
         if dated_events:
             start_evt = dated_events[0]
@@ -2335,18 +2362,21 @@ def generate_pdf_from_projection(
         snapshot_warnings.append("Diagnosis detail is limited in this summary.")
     if isinstance(rm, dict) and str(rm.get("billing_completeness") or "") == "partial":
         snapshot_warnings.append("Billing detail is incomplete in the provided packet; totals are partial.")
-    if snapshot_warnings:
-        warn_style = ParagraphStyle("SnapshotWarn", parent=normal_style, backColor=colors.HexColor("#FFF7ED"), borderColor=colors.HexColor("#FDBA74"), borderWidth=0.5, borderPadding=4, spaceAfter=6)
-        flowables.append(Paragraph("<b>Record limitations</b>: " + " ".join(snapshot_warnings), warn_style))
+    # Tweak 1/5: In MEDIATION mode, skip record limitations and settlement_driver_rows.
+    # The exec summary was already emitted above; these would add noise.
+    if export_mode_norm != "MEDIATION":
+        if snapshot_warnings:
+            warn_style = ParagraphStyle("SnapshotWarn", parent=normal_style, backColor=colors.HexColor("#FFF7ED"), borderColor=colors.HexColor("#FDBA74"), borderWidth=0.5, borderPadding=4, spaceAfter=6)
+            flowables.append(Paragraph("<b>Record limitations</b>: " + " ".join(snapshot_warnings), warn_style))
 
-    if not settlement_driver_rows:
-        settlement_driver_rows.append(Paragraph("- No fully citation-supported settlement drivers were available for front-page display.", bullet_style))
-    flowables.extend(settlement_driver_rows[:12])
-    if additional_findings_rows:
-        flowables.append(Spacer(1, 0.06 * inch))
-        flowables.append(Paragraph("Additional Findings (Context Not Fully Verified)", h2_style))
-        flowables.extend(additional_findings_rows[:4])
-    flowables.append(Spacer(1, 0.1 * inch))
+        if not settlement_driver_rows:
+            settlement_driver_rows.append(Paragraph("- No fully citation-supported settlement drivers were available for front-page display.", bullet_style))
+        flowables.extend(settlement_driver_rows[:12])
+        if additional_findings_rows:
+            flowables.append(Spacer(1, 0.06 * inch))
+            flowables.append(Paragraph("Additional Findings (Context Not Fully Verified)", h2_style))
+            flowables.extend(additional_findings_rows[:4])
+        flowables.append(Spacer(1, 0.1 * inch))
 
     flowables.append(Paragraph("Top 10 Case-Driving Events", h2_style))
     flowables.append(Paragraph("Top Record Anchors (citation-backed)", ParagraphStyle("Top10AliasNote", parent=normal_style, fontSize=8.5, textColor=colors.HexColor("#475569"), spaceAfter=3)))

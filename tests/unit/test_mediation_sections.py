@@ -424,6 +424,7 @@ class TestSectionOrder:
         "severity_profile",
         "mechanism_initial_presentation",
         "objective_findings",
+        "neuro_deficits",          # Pass34 Tweak 4 — after objective findings
         "provider_corroboration",
         "treatment_progression",
         "functional_limitations",
@@ -786,10 +787,10 @@ class TestBuildMediationSections:
     def test_all_10_section_keys_present(self):
         sections = build_mediation_sections(ext={}, rm={})
         keys = [s.key for s in sections]
-        assert len(keys) == 10
+        assert len(keys) == 11  # Pass34: added neuro_deficits section
 
     def test_no_gate_failures_thin_packet(self):
-        """Thin packet must produce zero gate failures across all 10 sections."""
+        """Thin packet must produce zero gate failures across all 11 sections."""
         sections = build_mediation_sections(ext={}, rm={}, raw_events=[], gaps=[])
         fails = run_mediation_structural_gate(sections)
         assert fails == []

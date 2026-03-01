@@ -228,6 +228,73 @@ _WORK_RESTRICTION_PRIORITY_PATTERN = re.compile(
     re.I,
 )
 
+# ---------------------------------------------------------------------------
+# Pass34 — Tweak 2: Negative imaging noise suppression (MEDIATION only)
+# ---------------------------------------------------------------------------
+
+_NEGATIVE_IMAGING_NOISE = re.compile(
+    r"\bno\s+acute\b|\bno\s+fracture\b|\bunremarkable\b|\bwithin\s+normal\s+limits\b"
+    r"|\bno\s+significant\b|\bno\s+evidence\s+of\b|\bnegative\s+for\b",
+    re.I,
+)
+
+
+def _is_defense_preemption_finding(label: str, ext: dict) -> bool:
+    """True if a negative-sounding finding should be retained as a defense preemption rebuttal.
+
+    Example: "no degenerative changes" is worth keeping when defense argues pre-existing condition.
+    Reads from extensions.defense_attack_map.flags to check triggered attacks.
+    """
+    label_lower = label.lower()
+    dam = ext.get("defense_attack_map") if isinstance(ext, dict) else {}
+    if not isinstance(dam, dict):
+        return False
+    triggered_flag_ids = {
+        str(f.get("flag_id") or "")
+        for f in (dam.get("flags") or [])
+        if isinstance(f, dict) and f.get("triggered")
+    }
+    # Keep "no degenerative changes" findings when defense argues pre-existing injury
+    if "degenerative" in label_lower and "PRIOR_SIMILAR_INJURY" in triggered_flag_ids:
+        return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Pass34 — Tweak 4: Neurological deficit signal patterns
+# ---------------------------------------------------------------------------
+
+_NEURO_WEAKNESS_PATTERN = re.compile(
+    r"\b(4/5|3/5|2/5|1/5|4\+/5|3\+/5|weak(?:ness)?)\b",
+    re.I,
+)
+_NEURO_REFLEX_PATTERN = re.compile(
+    r"\b(reflex|reflexes)\b.{0,40}\b(diminished|absent|reduced|decreased|hyporeflexia)\b"
+    r"|\b(diminished|absent|reduced|decreased|hyporeflexia)\b.{0,40}\b(reflex|reflexes)\b",
+    re.I,
+)
+_NEURO_DERMATOMAL_PATTERN = re.compile(
+    r"\b(numbness|paresthesia|tingling|dysesthesia)\b.{0,50}\b(C\d|L\d|S\d|cervical|lumbar|dermatome)\b"
+    r"|\b(C\d|L\d|S\d|cervical|lumbar|dermatome)\b.{0,50}\b(numbness|paresthesia|tingling)\b",
+    re.I,
+)
+_NEURO_SPURLING_PATTERN = re.compile(r"\bspurling\b", re.I)
+_NEURO_SLR_PATTERN = re.compile(
+    r"\bpositive\s+(straight\s+leg|slr)\b|\b(straight\s+leg|slr)\b.{0,30}\bpositive\b",
+    re.I,
+)
+_NEURO_TINEL_PHALEN_PATTERN = re.compile(r"\b(phalen|tinel)\b", re.I)
+
+# Ordered by clinical severity (0 = most severe)
+_NEURO_SIGNAL_PATTERNS: list[tuple[int, str, re.Pattern]] = [
+    (0, "Muscle weakness", _NEURO_WEAKNESS_PATTERN),
+    (1, "Diminished/absent reflex", _NEURO_REFLEX_PATTERN),
+    (2, "Dermatomal deficit", _NEURO_DERMATOMAL_PATTERN),
+    (3, "Positive Spurling sign", _NEURO_SPURLING_PATTERN),
+    (4, "Positive straight leg raise", _NEURO_SLR_PATTERN),
+    (5, "Phalen/Tinel sign", _NEURO_TINEL_PHALEN_PATTERN),
+]
+
 
 # ---------------------------------------------------------------------------
 # Section 1: Medical Severity Profile
@@ -453,6 +520,10 @@ def _build_objective_findings_section(
             # Exclude pain-score-only lines
             if _PAIN_SCORE_PATTERN.search(label):
                 continue
+            # Tweak 2: Suppress negative imaging noise (e.g. "no fracture", "unremarkable")
+            # unless the finding is a defense preemption rebuttal item.
+            if _NEGATIVE_IMAGING_NOISE.search(label) and not _is_defense_preemption_finding(label, ext):
+                continue
             seen_labels.add(label.lower())
             cids = [str(c) for c in (finding.get("citation_ids") or [])]
             support = _cids_to_citation_text(cids, citation_by_id)
@@ -526,6 +597,20 @@ def _detect_stages(
         if isinstance(bucket_ev.get("pt_eval"), dict) and bucket_ev["pt_eval"].get("detected"):
             present.add("pt")
 
+    # Tweak 3: Also check promoted_findings for injection signals.
+    # Injection events may exist without confirmed dates and thus not appear in raw_events.
+    if isinstance(rm, dict) and "procedure" not in present:
+        for finding in (rm.get("promoted_findings") or []):
+            if not isinstance(finding, dict):
+                continue
+            cat = str(finding.get("category") or "").lower()
+            label = str(finding.get("label") or "").lower()
+            if cat in {"procedure", "injection"} or any(
+                kw in label for kw in ("injection", "nerve block", "epidural", "cortisone", "steroid injection")
+            ):
+                present.add("procedure")
+                break
+
     return [s for s in _CANONICAL_STAGE_ORDER if s in present]
 
 
@@ -571,7 +656,12 @@ def _build_treatment_progression_section(
             _, earliest_date = earliest_entry
             label = f"{base_label} – {earliest_date.isoformat()}"
         else:
-            label = base_label
+            # Tweak 3: "procedure" stage without confirmed date — render descriptively
+            # not as bare "Procedure / Injection" (clerical) and not omitted (hides leverage)
+            if stage == "procedure":
+                label = f"{base_label} – Injection performed (see cited record)."
+            else:
+                label = base_label
 
         # Citation from earliest event in this stage
         support = ""
@@ -1219,6 +1309,198 @@ def _build_clinical_reasonableness_section(
 
 
 # ---------------------------------------------------------------------------
+# Pass34 — Tweak 4: Documented Neurological Deficits subsection
+# ---------------------------------------------------------------------------
+
+def _build_neuro_deficit_subsection(
+    ext: dict,
+    rm: dict,
+    raw_events: list | None = None,
+    event_citations_by_event: dict | None = None,
+    citation_by_id: dict | None = None,
+) -> MediationSection:
+    """
+    Deterministic 'DOCUMENTED NEUROLOGICAL DEFICITS' subsection.
+
+    - Scans exam_findings, diagnoses, and facts from events.
+    - Also scans claim_rows for neurological content.
+    - Ranks by clinical severity: weakness > reflex loss > dermatomal > provocation sign.
+    - Caps at 4 bullets. Omits section entirely if no signals found (no placeholder).
+    - Required: False (informational — never gate-fails).
+    """
+    found: list[tuple[int, str, str, str]] = []  # (rank, signal_label, verbatim, cite)
+    seen_labels: set[str] = set()
+
+    if raw_events:
+        for evt in raw_events:
+            all_texts: list[str] = []
+            for pool_name in ("exam_findings", "diagnoses", "facts"):
+                for fact in (getattr(evt, pool_name, []) or []):
+                    txt = _clean(getattr(fact, "text", "") or "")
+                    if txt:
+                        all_texts.append(txt)
+            refs = (event_citations_by_event or {}).get(str(getattr(evt, "event_id", "")), [])
+            cite = _refs_to_citation_text(refs[:3]) if refs else ""
+            for rank, signal_label, pattern in _NEURO_SIGNAL_PATTERNS:
+                if signal_label in seen_labels:
+                    continue
+                for txt in all_texts:
+                    if pattern.search(txt):
+                        found.append((rank, signal_label, txt[:200].strip(), cite))
+                        seen_labels.add(signal_label)
+                        break
+
+    # Also check claim_rows for neurological content
+    if len(found) < 2:
+        for row in (ext.get("claim_rows") or []):
+            if not isinstance(row, dict):
+                continue
+            text = _clean(str(row.get("assertion") or ""))
+            if not text:
+                continue
+            raw_cits = [str(c) for c in (row.get("citations") or []) if str(c).strip()]
+            cite = _pages_to_citation_text(raw_cits)
+            for rank, signal_label, pattern in _NEURO_SIGNAL_PATTERNS:
+                if signal_label in seen_labels:
+                    continue
+                if pattern.search(text):
+                    found.append((rank, signal_label, text[:200], cite))
+                    seen_labels.add(signal_label)
+                    break
+
+    # Sort by rank (most severe first), cap at 4
+    found.sort(key=lambda x: x[0])
+    items: list[MediationItem] = []
+    for _, signal_label, verbatim, cite in found[:4]:
+        items.append(MediationItem(label=f"{signal_label}: {verbatim}", support=cite))
+
+    return MediationSection(
+        key="neuro_deficits",
+        title="DOCUMENTED NEUROLOGICAL DEFICITS",
+        items=items,
+        gate_required=False,
+        gate_fail=False,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Pass34 — Tweak 1: Deterministic executive summary for MEDIATION page 1
+# ---------------------------------------------------------------------------
+
+def build_mediation_exec_summary_items(
+    ext: dict,
+    rm: dict,
+    raw_events: list | None,
+    doi_display: str,
+    mechanism_display: str,
+    specials_summary: dict | None = None,
+    citation_by_id: dict | None = None,
+) -> list[MediationItem]:
+    """
+    Build the 5-line deterministic executive summary for MEDIATION page 1.
+
+    Fixed order:
+      1. Mechanism + immediate care timing
+      2. Primary objective pathology (tier-ranked: radiculopathy > disc > soft_tissue)
+      3. Escalation marker
+      4. Duration
+      5. Specials (omitted if absent)
+
+    No LLM. No free-text inference. Reads only from pipeline-produced structured data.
+    """
+    items: list[MediationItem] = []
+    dated_pairs = _sorted_dated_events(raw_events or [])
+
+    # 1. Mechanism + immediate care timing
+    er_types = frozenset({"er_visit", "hospital_admission", "hospital_discharge", "inpatient_daily_note"})
+    first_er_date: datetime.date | None = None
+    for evt, d in dated_pairs:
+        evtype = str(
+            getattr(getattr(evt, "event_type", None), "value", getattr(evt, "event_type", "")) or ""
+        ).lower()
+        if evtype in er_types:
+            first_er_date = d
+            break
+    if first_er_date:
+        items.append(MediationItem(
+            label=f"Emergency department evaluation on {first_er_date.isoformat()}.",
+        ))
+    elif dated_pairs:
+        items.append(MediationItem(
+            label=f"Initial medical evaluation on {dated_pairs[0][1].isoformat()}.",
+        ))
+
+    # 2. Primary objective pathology — explicit tier ranking
+    # Tier: 0=radiculopathy (highest severity), 1=disc herniation/displacement,
+    #        2=stenosis, 3=disc, 4=soft_tissue
+    _TIER_KEYWORDS: list[tuple[int, list[str], str]] = [
+        (0, ["radiculopathy", "radicular", "neural involvement"], "Radiculopathy with neural involvement documented."),
+        (1, ["disc herniation", "herniated disc"], "Disc herniation documented."),
+        (1, ["disc displacement"], "Disc displacement documented."),
+        (2, ["stenosis"], "Cervical/lumbar stenosis documented."),
+        (3, ["disc", "discogenic"], "Disc pathology documented."),
+        (4, ["soft tissue", "strain", "sprain"], "Soft tissue injury documented."),
+    ]
+    best_rank = 99
+    best_label = ""
+    best_cids: list[str] = []
+    if isinstance(rm, dict):
+        for finding in (rm.get("promoted_findings") or []):
+            if not isinstance(finding, dict):
+                continue
+            cat = str(finding.get("category") or "").lower()
+            if cat not in {"imaging", "objective_deficit", "diagnosis"}:
+                continue
+            f_label = str(finding.get("label") or "").lower()
+            for rank, keywords, tier_text in _TIER_KEYWORDS:
+                if rank < best_rank and any(kw in f_label for kw in keywords):
+                    best_rank = rank
+                    best_label = tier_text
+                    best_cids = [str(c) for c in (finding.get("citation_ids") or [])]
+    if best_label:
+        support = _cids_to_citation_text(best_cids, citation_by_id)
+        items.append(MediationItem(label=best_label, support=support))
+
+    # 3. Escalation marker
+    stages = set(_detect_stages(raw_events, rm))
+    if "procedure" in stages or "surgery" in stages:
+        esc_label = "Escalation to interventional pain management documented."
+    elif "specialist" in stages:
+        esc_label = "Escalation to specialist management documented."
+    else:
+        esc_label = "Escalation to imaging and ongoing care documented."
+    items.append(MediationItem(label=esc_label))
+
+    # 4. Duration
+    if len(dated_pairs) >= 2:
+        start_date = dated_pairs[0][1]
+        end_date = dated_pairs[-1][1]
+        duration_days = (end_date - start_date).days
+        duration_months = round(duration_days / 30.4)
+        if duration_months < 1:
+            items.append(MediationItem(label=f"Documented treatment spanning {duration_days} days."))
+        elif duration_months == 1:
+            items.append(MediationItem(label="Documented treatment spanning 1 month."))
+        else:
+            items.append(MediationItem(label=f"Documented treatment spanning {duration_months} months."))
+
+    # 5. Specials — omit entirely if not present
+    specials = specials_summary if isinstance(specials_summary, dict) else (
+        ext.get("specials_summary") if isinstance(ext, dict) else None
+    )
+    if isinstance(specials, dict):
+        total_billed = specials.get("total_billed")
+        if total_billed is not None:
+            try:
+                amt = float(total_billed)
+                items.append(MediationItem(label=f"Medical specials total: ${amt:,.2f}."))
+            except Exception:
+                items.append(MediationItem(label=f"Medical specials total: {total_billed}."))
+
+    return items
+
+
+# ---------------------------------------------------------------------------
 # Mediation Structural Gate
 # ---------------------------------------------------------------------------
 
@@ -1249,19 +1531,20 @@ def build_mediation_sections(
     gaps: list | None = None,
 ) -> list[MediationSection]:
     """
-    Build ordered mediation leverage sections (Pass31 + Pass32).
+    Build ordered mediation leverage sections (Pass31 + Pass32 + Pass34).
 
-    Section order (10 sections):
+    Section order (11 sections):
       1. Medical Severity Profile
       2. Mechanism & Initial Presentation
       3. Objective Findings
-      4. Provider Corroboration       [Pass32 — optional]
-      5. Treatment Progression
-      6. Functional Limitations
-      7. Current Condition & Prognosis [Pass32]
-      8. Clinical Course & Reasonableness [Pass32]
-      9. Economic Damages Summary
-     10. Anticipated Defense Arguments & Context
+      4. Documented Neurological Deficits  [Pass34 Tweak 4 — omitted if no signals]
+      5. Provider Corroboration            [Pass32 — optional]
+      6. Treatment Progression
+      7. Functional Limitations
+      8. Current Condition & Prognosis     [Pass32]
+      9. Clinical Course & Reasonableness  [Pass32]
+     10. Economic Damages Summary
+     11. Anticipated Defense Arguments & Context
 
     Returns list of MediationSection in mandatory rendering order.
     The caller (timeline_pdf.py) iterates sections and renders each with items.
@@ -1271,6 +1554,7 @@ def build_mediation_sections(
         _build_severity_profile_section(ext, rm),
         _build_mechanism_section(ext, rm, raw_events, event_citations_by_event, citation_by_id),
         _build_objective_findings_section(ext, rm, citation_by_id),
+        _build_neuro_deficit_subsection(ext, rm, raw_events, event_citations_by_event, citation_by_id),
         _build_provider_corroboration_section(ext, rm, citation_by_id),
         _build_treatment_progression_section(ext, rm, raw_events, event_citations_by_event, citation_by_id),
         _build_functional_limitations_section(ext, rm, citation_by_id),
