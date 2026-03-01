@@ -219,3 +219,58 @@ class Gap(Base):
     related_event_ids_json = Column(JSON, nullable=True)
 
     run = relationship("Run", back_populates="gaps")
+
+
+class OpsEvent(Base):
+    __tablename__ = "ops_events"
+
+    id = Column(String(120), primary_key=True, default=_uuid)
+    ts = Column(DateTime, default=utcnow)
+    source = Column(String(50), nullable=False)  # api | worker | n8n | stripe
+    stage = Column(String(100), nullable=False)  # demo_download | export | gate | email_send | scrape
+    severity = Column(String(20), nullable=False)  # info | warn | error | critical
+    fingerprint = Column(String(200), nullable=False, index=True)
+    message = Column(Text, nullable=True)
+    firm_id = Column(String(120), nullable=True, index=True)
+    matter_id = Column(String(120), nullable=True)
+    run_id = Column(String(120), nullable=True)
+    payload_json = Column(JSON, nullable=True)
+    error_json = Column(JSON, nullable=True)
+
+
+class Incident(Base):
+    __tablename__ = "incidents"
+
+    id = Column(String(120), primary_key=True, default=_uuid)
+    fingerprint = Column(String(200), nullable=False, unique=True, index=True)
+    first_seen_at = Column(DateTime, default=utcnow)
+    last_seen_at = Column(DateTime, default=utcnow)
+    occurrence_count_24h = Column(Integer, default=1)
+    severity = Column(String(20), default="error")
+    status = Column(String(20), default="OPEN")  # OPEN | INVESTIGATING | FIXED | IGNORED
+    impact_score = Column(Float, default=0.0)
+    resolved_at = Column(DateTime, nullable=True)
+
+
+class SalesEvent(Base):
+    __tablename__ = "sales_events"
+
+    id = Column(String(120), primary_key=True, default=_uuid)
+    ts = Column(DateTime, default=utcnow)
+    lead_id = Column(String(120), nullable=True, index=True)
+    firm_name = Column(String(200), nullable=True)
+    domain = Column(String(200), nullable=True, index=True)
+    email = Column(String(200), nullable=True)
+    stage = Column(String(50), nullable=False)  # scraped | demo_run | email_sent | trial_started | converted_to_paid
+    status = Column(String(20), nullable=False)  # success | failure
+    run_id = Column(String(120), nullable=True)
+    error_json = Column(JSON, nullable=True)
+
+
+class SystemConfig(Base):
+    __tablename__ = "system_config"
+
+    id = Column(String(120), primary_key=True, default=_uuid)
+    key = Column(String(100), primary_key=True)  # outbound_paused | demo_success_threshold | etc
+    value_json = Column(JSON, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)

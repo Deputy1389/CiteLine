@@ -3,7 +3,8 @@ import FirmsList from './pages/FirmsList';
 import MatterList from './pages/MatterList';
 import MatterDetail from './pages/MatterDetail';
 import Landing from './pages/Landing';
-import { FileText, Database, Shield } from 'lucide-react';
+import Cockpit from './pages/Cockpit';
+import { FileText, Database, Shield, Compass } from 'lucide-react';
 
 function Navigation() {
   const location = useLocation();
@@ -20,6 +21,7 @@ function Navigation() {
 
       <div className="hidden md:flex items-center gap-8">
         <NavLink to="/firms" label="Case Dashboard" icon={<Database size={14} />} active={location.pathname.startsWith('/firms')} />
+        <NavLink to="/admin/cockpit" label="Cockpit" icon={<Compass size={14} />} active={location.pathname === '/admin/cockpit'} />
         <NavLink to="/security" label="Trust Center" icon={<Shield size={14} />} />
       </div>
 
@@ -54,6 +56,7 @@ function App() {
             <Route path="/firms" element={<FirmsList />} />
             <Route path="/firms/:firmId" element={<MatterList />} />
             <Route path="/matters/:matterId" element={<MatterDetail />} />
+            <Route path="/admin/cockpit" element={<Cockpit />} />
           </Routes>
         </main>
       </div>

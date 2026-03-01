@@ -79,3 +79,6 @@ artifacts/
 scripts/*.jar
 *.pdf
 New folder/
+sales_agent/*.env
+sales_agent/*.local
+sales_agent/credentials.json
