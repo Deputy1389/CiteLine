@@ -56,7 +56,7 @@ def test_eval_bundle_contains_core_artifacts(monkeypatch, tmp_path: Path):
 
     monkeypatch.setattr(rc, "ROOT", tmp_path)
 
-    def _pipeline(_input, run_id):
+    def _pipeline(_input, run_id, **kwargs):
         artifact_dir = tmp_path / "data" / "artifacts" / run_id
         artifact_dir.mkdir(parents=True, exist_ok=True)
         for name in [
@@ -82,8 +82,22 @@ def test_eval_bundle_contains_core_artifacts(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(rc, "run_sample_pipeline", _pipeline)
     monkeypatch.setattr(rc, "extract_pdf_text", lambda p: "Top 10 Case-Driving Events\nAppendix E: Issue Flags")
     monkeypatch.setattr(rc, "score_report", lambda txt, ctx: {"overall_pass": True, "model_score": 77})
-    monkeypatch.setattr(rc, "build_luqa_report", lambda report_text, ctx: {"luqa_pass": True, "luqa_score_0_100": 99, "failures": [], "metrics": {}})
-    monkeypatch.setattr(rc, "build_attorney_readiness_report", lambda report_text, ctx: {"attorney_ready_pass": True, "attorney_ready_score_0_100": 99, "failures": [], "metrics": {}})
+    monkeypatch.setattr(
+        rc,
+        "run_quality_gates",
+        lambda **kwargs: {
+            "overall_pass": True,
+            "attorney_ready_pass": True,
+            "attorney_ready_score": 99,
+            "luqa_pass": True,
+            "luqa_score": 99,
+            "gate_report": {
+                "luqa": {"luqa_pass": True, "luqa_score_0_100": 99, "failures": [], "metrics": {}},
+                "attorney": {"attorney_ready_pass": True, "attorney_ready_score_0_100": 99, "failures": [], "metrics": {}},
+            },
+            "failures": [],
+        },
+    )
     monkeypatch.setattr(
         rc,
         "build_litigation_checklist",
@@ -102,9 +116,9 @@ def test_eval_bundle_contains_core_artifacts(monkeypatch, tmp_path: Path):
         },
     )
     monkeypatch.setattr(rc, "write_litigation_checklist", lambda path, checklist: path.write_text(json.dumps(checklist), encoding="utf-8"))
-    monkeypatch.setattr(rc, "_write_fail_cover_pdf", lambda out_pdf, checklist, luqa=None, attorney=None: None)
+    monkeypatch.setattr(rc, "write_fail_cover_pdf", lambda out_pdf, gate_results: False)
 
-    rc.run_case(input_pdf=input_pdf, case_id="bundle", run_label="runbundle")
+    rc.run_case(input_pdf=input_pdf, case_id="bundle", run_label="runbundle", export_mode="INTERNAL")
     eval_dir = tmp_path / "data" / "evals" / "bundle"
     assert (eval_dir / "evidence_graph.json").exists()
     assert (eval_dir / "patient_partitions.json").exists()

@@ -16,8 +16,6 @@ from apps.worker.steps.export_render.common import (
     _sanitize_citation_display,
     _sanitize_filename_display,
     _is_sdoh_noise,
-    _pick_theory_entry,
-    _fact_excerpt,
 )
 from apps.worker.steps.export_render.constants import (
     DX_ALLOWED_SECTION_RE,
@@ -239,31 +237,6 @@ def _repair_case_summary_narrative(
     if care_window_start and care_window_end and not any(l.lower().startswith("treatment timeframe:") for l in out):
         out.append(f"Treatment Timeframe: {care_window_start} to {care_window_end}")
 
-    lower_out = "\n".join(out).lower()
-    if projection_entries and (
-        "liability facts" not in lower_out or "causation chain" not in lower_out or "damages progression" not in lower_out
-    ):
-        cited_entries = [e for e in projection_entries if (getattr(e, "citation_display", "") or "").strip()]
-        if cited_entries:
-            liab = _pick_theory_entry(cited_entries, r"\b(mva|mvc|motor vehicle|rear[- ]end|collision|accident|fall|slip)\b", r"\bemergency\b")
-            caus = _pick_theory_entry(cited_entries, r"\b(procedure|surgery|injection|epidural|fluoroscopy|impression|mri|ct|x-?ray)\b")
-            if caus is liab:
-                caus = _pick_theory_entry(cited_entries, r"\b(diagnosis|assessment|radiculopathy|herniation|stenosis|fracture|tear)\b")
-            dmg = _pick_theory_entry(cited_entries, r"\b(pain\s*\d+\s*/\s*10|rom|range of motion|strength|work restriction|return to work|therapy)\b")
-
-            liab_excerpt = _fact_excerpt(liab, r"\b(mva|mvc|motor vehicle|rear[- ]end|collision|accident|fall|slip|chief complaint|hpi)\b")
-            caus_excerpt = _fact_excerpt(caus, r"\b(impression|diagnosis|procedure|surgery|injection|epidural|fluoroscopy|mri|ct|x-?ray|radiculopathy|herniation|stenosis|fracture|tear)\b")
-            dmg_excerpt = _fact_excerpt(dmg, r"\b(pain\s*\d+\s*/\s*10|rom|range of motion|strength|work restriction|return to work|therapy)\b")
-
-            sections = [
-                ("Liability Facts", (f"Incident/mechanism is documented in cited records: {liab_excerpt}" if liab_excerpt else "Record evidence documents incident/mechanism context tied to initial treatment presentation."), (getattr(liab, "citation_display", "") or "").strip()),
-                ("Causation Chain", (f"Diagnostic/treatment progression supports causation: {caus_excerpt}" if caus_excerpt else "Timeline shows diagnostic and treatment events consistent with injury-driven care progression."), (getattr(caus, "citation_display", "") or "").strip()),
-                ("Damages Progression", (f"Symptoms/functional findings document damages progression: {dmg_excerpt}" if dmg_excerpt else "Symptoms and functional findings demonstrate ongoing impact and treatment response over time."), (getattr(dmg, "citation_display", "") or "").strip()),
-            ]
-            for title, sentence, cite in sections:
-                if title.lower() in lower_out: continue
-                out.append(f"{title}: {sentence}")
-                if cite: out.append(f"Citation(s): {cite}")
     return "\n".join(out)
 
 

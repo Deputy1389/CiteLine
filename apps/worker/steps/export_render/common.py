@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 
 _SENTINEL_DATE_VALUES = {"1900-01-01", "0001-01-01", "unknown", "undated", ""}
+ATTORNEY_UNDATED_LABEL = "Date not established in available records"
 
 
 def is_sentinel_date(value: Any) -> bool:
@@ -32,7 +33,7 @@ def is_sentinel_date(value: Any) -> bool:
 def _date_str(event: Event) -> str:
     """Format event date for display."""
     if not event.date:
-        return "Date not documented"
+        return ATTORNEY_UNDATED_LABEL
 
     ext = event.date.extensions or {}
     time_val = ext.get("time")
@@ -54,7 +55,7 @@ def _date_str(event: Event) -> str:
         e = str(d.end) if d.end else ""
         return f"{s} to {e}{time_str}"
 
-    return "Date not documented"
+    return ATTORNEY_UNDATED_LABEL
 
 
 def _provider_name(event: Event, providers: list[Provider]) -> str:
@@ -73,7 +74,7 @@ def _provider_name(event: Event, providers: list[Provider]) -> str:
             if len(pname) > 3 and pname in blob:
                 return sanitize_for_report(p.normalized_name or p.detected_name_raw)
 
-    return "Provider Not Stated"
+    return "Provider not stated in records"
 
 
 def _facts_text(event: Event) -> str:
@@ -135,6 +136,27 @@ def _is_meta_language(text: str) -> bool:
     return bool(META_LANGUAGE_RE.search(low))
 
 
+def clean_meta_language(text: str | None) -> str:
+    if not text:
+        return ""
+    from apps.worker.steps.export_render.constants import META_LANGUAGE_RE
+    # If the text is exactly a placeholder, or contains meta-speak, return empty
+    # to block it from being promoted to Page 1 or headers.
+    low = text.strip().lower()
+    if low in {"not available", "unknown provider", "date not documented", "unknown", "undated"}:
+        return ""
+    
+    if META_LANGUAGE_RE.search(text):
+        # If it's a short snippet with meta language, just block it.
+        # If it's a long sentence, we might want to strip, but for PromotedFindings,
+        # usually meta-hits mean the whole finding is system-generated noise.
+        if len(text) < 150:
+            return ""
+        return META_LANGUAGE_RE.sub("", text).strip()
+        
+    return text.strip()
+
+
 def _sanitize_filename_display(fname: str) -> str:
     cleaned = re.sub(r"\s*\.\s*(pdf|PDF)\b", r".\1", fname or "")
     cleaned = re.sub(r"\s+", " ", cleaned).replace("\n", " ").strip()
@@ -144,6 +166,8 @@ def _sanitize_filename_display(fname: str) -> str:
 def _sanitize_citation_display(citation: str) -> str:
     cleaned = re.sub(r"\s*\.\s*(pdf|PDF)\b", r".\1", citation or "")
     cleaned = re.sub(r"\s+", " ", cleaned).replace("\n", " ").strip()
+    cleaned = re.sub(r"\bNot available\b", "Citation not established in available records", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bUndated\b", ATTORNEY_UNDATED_LABEL, cleaned, flags=re.IGNORECASE)
     return cleaned
 
 
@@ -261,7 +285,22 @@ def _sanitize_top10_sentence(text: str) -> str:
 
 
 def _sanitize_render_sentence(text: str) -> str:
-    return _sanitize_top10_sentence(text)
+    out = _sanitize_top10_sentence(text)
+    if not out:
+        return ""
+    # Export cleanroom rewrites (attorney-facing, no system diary language).
+    rewrites = [
+        (r"\bnot elevated to snapshot\b", "not reflected in the snapshot"),
+        (r"\bcontext review recommended\b", "manual confirmation advised"),
+        (r"\bextracted records\b", "available records"),
+        (r"\bnot promoted\b", "not reflected in the summary"),
+        (r"\bNot available\b", "Not established in available records"),
+        (r"\bUndated\b", ATTORNEY_UNDATED_LABEL),
+    ]
+    for pat, repl in rewrites:
+        out = re.sub(pat, repl, out, flags=re.IGNORECASE)
+    out = re.sub(r"\s{2,}", " ", out).strip()
+    return out
 
 
 def _projection_entry_substance_score(entry) -> int:

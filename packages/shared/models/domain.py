@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Optional, Literal
+from typing import Optional, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -48,6 +48,7 @@ class RunConfig(BaseModel):
     chronology_merged_facts_max: int = 4
     chronology_appendix_facts_max: int = 10
     chronology_min_score: int = 60
+    export_mode: Literal["INTERNAL", "MEDIATION"] = "INTERNAL"
     chronology_selection_hard_max_rows: int = 250
     litigation_defense_paths_limit: int = 6
     litigation_objection_profiles_limit: int = 24
@@ -250,6 +251,7 @@ class NarrativeEntry(BaseModel):
     tags: list[str] = Field(default_factory=list, description="e.g. 'imaging', 'surgery', 'gap', 'preexisting'")
     risk_flags: list[str] = Field(default_factory=list, description="e.g. 'gap_in_care', 'contradiction'")
     confidence: float = Field(default=0.8, ge=0.0, le=1.0)
+    is_verbatim: bool = False
     exportable: bool = True 
 
 
@@ -288,12 +290,22 @@ class PromotedFinding(BaseModel):
     severity: Optional[Literal["high", "medium", "low"]] = None
     headline_eligible: bool = True
     finding_polarity: Optional[Literal["positive", "negative", "neutral"]] = None
+    is_verbatim: bool = False
     citation_ids: list[str] = Field(default_factory=list)
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     source_event_id: Optional[str] = None
     semantic_family: Optional[str] = None
     finding_source_count: Optional[int] = None
     source_families: list[str] = Field(default_factory=list)
+    alignment_status: Optional[Literal["PASS", "REVIEW_REQUIRED", "BLOCKED"]] = None
+    alignment_reason: Optional[str] = None
+    alignment_claim_id: Optional[str] = None
+
+
+class BucketEvidence(BaseModel):
+    detected: bool = False
+    event_ids: list[str] = Field(default_factory=list)
+    citation_ids: list[str] = Field(default_factory=list)
 
 
 class RendererManifest(BaseModel):
@@ -303,6 +315,7 @@ class RendererManifest(BaseModel):
     pt_summary: RendererPtSummary = Field(default_factory=RendererPtSummary)
     promoted_findings: list[PromotedFinding] = Field(default_factory=list)
     top_case_drivers: list[str] = Field(default_factory=list)
+    bucket_evidence: dict[str, BucketEvidence] = Field(default_factory=dict)
     billing_completeness: Literal["complete", "partial", "none"] = "none"
 
 
@@ -394,3 +407,41 @@ class ChronologyResult(BaseModel):
     case: CaseInfo
     inputs: PipelineInputs
     outputs: PipelineOutputs
+
+
+# ── Settlement Leverage Model v1 ──────────────────────────────────────────────
+
+SlmSourceType = Literal[
+    "promoted_finding", "event", "pt_summary", "gap",
+    "extension", "not_determinable", "user_input"
+]
+
+
+class SlmProvenance(BaseModel):
+    source_type: SlmSourceType
+    source_id: Optional[str] = None
+    locator: Optional[str] = None
+    confidence: Literal["HIGH", "MED", "LOW"]
+    entered_by: Literal["SYSTEM", "USER"] = "SYSTEM"
+
+
+class SlmSignalAudit(BaseModel):
+    value: Optional[Union[bool, float, int]] = None  # None = UNKNOWN
+    provenance: SlmProvenance
+
+
+class SettlementLeverageModel(BaseModel):
+    schema_version: str = "slm.v1"
+    settlement_leverage_index: float = Field(ge=0.0, le=1.0)
+    liability_strength: float = Field(ge=0.0, le=1.0)
+    damages_objectivity: float = Field(ge=0.0, le=1.0)
+    escalation_signal: float = Field(ge=0.0, le=1.0)
+    treatment_continuity: float = Field(ge=0.0, le=1.0)
+    defense_risk_index: float = Field(ge=0.0, le=1.0)
+    permanency_signal: float = Field(ge=0.0, le=1.0)
+    recommended_posture: Literal[
+        "PUSH_HIGH_ANCHOR", "STRONG_STANDARD_DEMAND",
+        "BUILD_CASE", "FIX_WEAKNESSES", "HIGH_RISK_SETTLEMENT"
+    ]
+    confidence_score: float = Field(ge=0.0, le=1.0)
+    input_signals: dict[str, SlmSignalAudit] = Field(default_factory=dict)

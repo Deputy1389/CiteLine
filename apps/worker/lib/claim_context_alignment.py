@@ -15,7 +15,7 @@ _ALLOWED_PAGE_TYPES: dict[str, set[str]] = {
 }
 
 _THRESHOLDS: dict[str, float] = {
-    "mechanism": 0.65,
+    "mechanism": 0.40,
     "diagnosis": 0.70,
     "imaging_finding": 0.70,
     "procedure": 0.70,
@@ -63,6 +63,13 @@ _PROMOTED_TO_CLAIM_TYPE = {
 }
 
 _SEVERITY_ORDER = {"PASS": 0, "WARN": 1, "REVIEW_REQUIRED": 2, "BLOCKED": 3}
+_PREALIGN_MIN_OVERLAP = {
+    "mechanism": 0.20,
+    "diagnosis": 0.20,
+    "imaging_finding": 0.18,
+    "procedure": 0.20,
+    "pt_claim": 0.15,
+}
 
 
 def run_claim_context_alignment(
@@ -138,7 +145,7 @@ def _extract_snapshot_claims(rm: dict[str, Any]) -> list[dict[str, Any]]:
     claims: list[dict[str, Any]] = []
     mechanism = rm.get("mechanism") if isinstance(rm.get("mechanism"), dict) else {}
     mech_val = str((mechanism or {}).get("value") or "").strip()
-    if mech_val:
+    if mech_val and re.search(r"\b(motor vehicle|mva|mvc|collision|rear[- ]end|crash|auto accident)\b", mech_val, re.I):
         claims.append(
             {
                 "claim_type": "mechanism",
@@ -148,6 +155,8 @@ def _extract_snapshot_claims(rm: dict[str, Any]) -> list[dict[str, Any]]:
         )
     for idx, pf in enumerate(rm.get("promoted_findings") or []):
         if not isinstance(pf, dict):
+            continue
+        if not bool(pf.get("headline_eligible", True)):
             continue
         category = str(pf.get("category") or "").strip().lower()
         claim_type = _PROMOTED_TO_CLAIM_TYPE.get(category)
@@ -194,6 +203,9 @@ def _evaluate_claim(claim: dict[str, Any], page_by_number: dict[int, dict[str, A
         snippet = str(c.get("snippet") or "").strip()
         page_text = str(page.get("text") or "")
         source_text = snippet or page_text[:1000]
+        if claim_type == "mechanism" and page_text:
+            if (not snippet) or (not re.search(r"\b(motor vehicle|collision|mva|mvc|rear[- ]end|crash|auto accident)\b", snippet, re.I)):
+                source_text = page_text[:1500]
         score = _semantic_score(claim_text, source_text)
         page_records.append(
             {
@@ -202,6 +214,7 @@ def _evaluate_claim(claim: dict[str, Any], page_by_number: dict[int, dict[str, A
                 "page_type": page_type,
                 "score": score,
                 "snippet": source_text,
+                "snippet_overlap": _token_overlap_ratio(claim_text, source_text),
             }
         )
 
@@ -214,6 +227,29 @@ def _evaluate_claim(claim: dict[str, Any], page_by_number: dict[int, dict[str, A
     allowed_records = [r for r in page_records if str(r.get("page_type") or "") in allowed_types]
     if not allowed_records:
         best_any = max(page_records, key=lambda r: float(r.get("score") or 0.0))
+        best_any_score = float(best_any.get("score") or 0.0)
+        best_any_overlap = float(best_any.get("snippet_overlap") or 0.0)
+        prealign_threshold = float(_PREALIGN_MIN_OVERLAP.get(claim_type, 0.15))
+        soft_page_type = best_any_score >= 0.85 and best_any_overlap >= prealign_threshold
+        return _result(
+            claim_id,
+            claim_type,
+            claim_text,
+            [int(r["page"]) for r in page_records],
+            observed_page_types,
+            [{"page": int(r["page"]), "page_type": str(r["page_type"]), "score": round(float(r["score"]), 4)} for r in page_records],
+            int(best_any["page"]),
+            str(best_any["page_type"]),
+            round(best_any_score, 4),
+            "page_type_mismatch_soft" if soft_page_type else "page_type_mismatch",
+            "REVIEW_REQUIRED" if soft_page_type else "BLOCKED",
+        )
+
+    # Pre-alignment hard gate: require citation text and minimum lexical overlap before semantic scoring.
+    prealign_threshold = float(_PREALIGN_MIN_OVERLAP.get(claim_type, 0.15))
+    text_backed_allowed = [r for r in allowed_records if str(r.get("snippet") or "").strip()]
+    if not text_backed_allowed:
+        best_any = max(allowed_records, key=lambda r: float(r.get("score") or 0.0))
         return _result(
             claim_id,
             claim_type,
@@ -224,11 +260,42 @@ def _evaluate_claim(claim: dict[str, Any], page_by_number: dict[int, dict[str, A
             int(best_any["page"]),
             str(best_any["page_type"]),
             round(float(best_any["score"]), 4),
-            "page_type_mismatch",
+            "missing_citation",
+            "BLOCKED",
+        )
+    # Preserve overstatement detection priority even when lexical overlap is modest.
+    best_semantic_candidate = max(text_backed_allowed, key=lambda r: float(r.get("score") or 0.0))
+    if _overstatement_risk(claim_text, str(best_semantic_candidate.get("snippet") or "")):
+        return _result(
+            claim_id,
+            claim_type,
+            claim_text,
+            [int(r["page"]) for r in page_records],
+            observed_page_types,
+            [{"page": int(r["page"]), "page_type": str(r["page_type"]), "score": round(float(r["score"]), 4)} for r in page_records],
+            int(best_semantic_candidate["page"]),
+            str(best_semantic_candidate["page_type"]),
+            round(float(best_semantic_candidate.get("score") or 0.0), 4),
+            "overstatement_risk",
+            "BLOCKED",
+        )
+    best_overlap_row = max(text_backed_allowed, key=lambda r: float(r.get("snippet_overlap") or 0.0))
+    if float(best_overlap_row.get("snippet_overlap") or 0.0) < prealign_threshold:
+        return _result(
+            claim_id,
+            claim_type,
+            claim_text,
+            [int(r["page"]) for r in page_records],
+            observed_page_types,
+            [{"page": int(r["page"]), "page_type": str(r["page_type"]), "score": round(float(r["score"]), 4)} for r in page_records],
+            int(best_overlap_row["page"]),
+            str(best_overlap_row["page_type"]),
+            round(float(best_overlap_row.get("score") or 0.0), 4),
+            "pre_alignment_overlap_fail",
             "BLOCKED",
         )
 
-    best = max(allowed_records, key=lambda r: float(r.get("score") or 0.0))
+    best = max(text_backed_allowed, key=lambda r: float(r.get("score") or 0.0))
     best_score = float(best.get("score") or 0.0)
     best_snippet = str(best.get("snippet") or "")
 
@@ -321,7 +388,10 @@ def _result(
 
 def _tokens(text: str) -> set[str]:
     toks = {t for t in re.findall(r"[a-z0-9]+", (text or "").lower()) if len(t) >= 2}
-    return {t for t in toks if t not in _STOPWORDS}
+    out = {t for t in toks if t not in _STOPWORDS}
+    if "mva" in out or "mvc" in out:
+        out.update({"motor", "vehicle", "collision"})
+    return out
 
 
 def _semantic_score(a: str, b: str) -> float:
@@ -335,6 +405,14 @@ def _semantic_score(a: str, b: str) -> float:
     seq = SequenceMatcher(None, aa[:400], bb[:800]).ratio()
     containment_bonus = 0.2 if aa in bb or any(tok in bb for tok in ta if len(tok) >= 4) else 0.0
     return max(0.0, min(1.0, (0.55 * jaccard) + (0.45 * seq) + containment_bonus))
+
+
+def _token_overlap_ratio(a: str, b: str) -> float:
+    ta = _tokens(a)
+    tb = _tokens(b)
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / max(1, len(ta))
 
 
 def _is_exact_icd_match(claim_text: str, snippet: str) -> bool:
@@ -354,4 +432,3 @@ def _overstatement_risk(claim_text: str, snippet: str) -> bool:
         if qual in claim_low and qual not in snippet_low:
             return True
     return False
-

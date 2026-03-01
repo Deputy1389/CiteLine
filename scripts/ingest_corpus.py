@@ -88,7 +88,7 @@ def main():
             run = Run(
                 matter_id=matter.id,
                 status="pending",
-                config_json='{"max_pages": 500}' # Limit page count for benchmark speed
+                config_json={"max_pages": 500},  # Limit page count for benchmark speed
             )
             session.add(run)
             print(f"Queued {p.name} -> Run {run.id}")

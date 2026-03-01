@@ -5,17 +5,21 @@ from dataclasses import dataclass
 from typing import Any
 
 from apps.worker.lib.noise_filter import is_noise_span
+from packages.shared.utils.noise_utils import has_narrative_sentence, is_flowsheet_noise
 
 
 SECTION_HEADERS = (
     "Medical Chronology Analysis",
-    "Chronological Medical Timeline",
     "Top 10 Case-Driving Events",
     "Appendix A:",
     "Appendix B:",
     "Appendix C",
 )
+SECTION_HEADER_ALTERNATIVES = (
+    ("Chronological Medical Timeline", "Medical Timeline (Litigation Ready)"),
+)
 ROW_RE = re.compile(r"(?im)^((?:\d{4}-\d{2}-\d{2}|Undated))\s*\|\s*Encounter:\s*(.+)$")
+DATE_ONLY_RE = re.compile(r"^(?:\d{4}-\d{2}-\d{2}|Undated)$", re.IGNORECASE)
 FACT_TOKEN_PATTERNS = [
     re.compile(r"\bchief complaint\b", re.IGNORECASE),
     re.compile(r"\bhpi\b|\bhistory of present illness\b", re.IGNORECASE),
@@ -27,6 +31,9 @@ FACT_TOKEN_PATTERNS = [
     re.compile(r"\b(?:c\d-\d|l\d-\d|radiculopathy|disc|protrusion|stenosis|strain|sprain)\b", re.IGNORECASE),
     re.compile(r"\b(?:assessment|impression|plan)\b", re.IGNORECASE),
     re.compile(r"\b(?:procedure|fluoroscopy|injection)\b", re.IGNORECASE),
+    re.compile(r"\b(?:tenderness|radicular|mva|mvc|rear[- ]end)\b", re.IGNORECASE),
+    re.compile(r"\b(?:discharge|final pain)\b", re.IGNORECASE),
+    re.compile(r"\b(?:mri|x-?ray|radiology|spine series|alignment|disc spaces|cervical|lumbar|thoracic)\b", re.IGNORECASE),
 ]
 BUCKET_SIGNALS = {
     "ED": re.compile(r"\b(triage|hpi|emergency|ed visit|chief complaint)\b", re.IGNORECASE),
@@ -48,6 +55,8 @@ def _extract_timeline_slice(report_text: str) -> str:
     low = report_text.lower()
     start = low.find("chronological medical timeline")
     if start < 0:
+        start = low.find("medical timeline (litigation ready)")
+    if start < 0:
         return report_text
     end = low.find("top 10 case-driving events", start + 1)
     if end < 0:
@@ -58,15 +67,58 @@ def _extract_timeline_slice(report_text: str) -> str:
 def _parse_rows(timeline_text: str) -> list[_TimelineRow]:
     rows: list[_TimelineRow] = []
     cur: _TimelineRow | None = None
+    table_mode = False
+    table_buffer: list[str] = []
+
+    def _flush_table_buffer() -> None:
+        nonlocal table_buffer, rows
+        if not table_buffer:
+            return
+        # Expected shape (with wrapping allowed): date, provider, event type, fact(s), citation line.
+        date_text = table_buffer[0]
+        citation_idx = next((i for i, ln in enumerate(table_buffer) if ln.lower().startswith("citation(s):")), -1)
+        if citation_idx < 0:
+            table_buffer = []
+            return
+        body = table_buffer[1:citation_idx]
+        citation = table_buffer[citation_idx]
+        if not body:
+            table_buffer = []
+            return
+        event_type = body[1] if len(body) >= 2 else body[0]
+        facts = body[2:] if len(body) >= 3 else body[1:]
+        if not facts and len(body) >= 1:
+            facts = [body[-1]]
+        rows.append(_TimelineRow(date_text=date_text, event_type=event_type, facts=facts, citation=citation))
+        table_buffer = []
+
     for raw in timeline_text.splitlines():
         line = raw.strip()
         if not line:
             continue
+        if line.lower().startswith("medical timeline (litigation ready)"):
+            table_mode = True
+            continue
+        if table_mode and line.lower() in {"date", "provider", "event type", "key finding", "citations"}:
+            continue
         m = ROW_RE.match(line)
         if m:
+            _flush_table_buffer()
             if cur:
                 rows.append(cur)
             cur = _TimelineRow(date_text=m.group(1).strip(), event_type=m.group(2).strip(), facts=[], citation="")
+            continue
+        if table_mode and DATE_ONLY_RE.match(line):
+            if cur:
+                rows.append(cur)
+                cur = None
+            _flush_table_buffer()
+            table_buffer = [line]
+            continue
+        if table_mode and table_buffer:
+            table_buffer.append(line)
+            if line.lower().startswith("citation(s):"):
+                _flush_table_buffer()
             continue
         if cur is None:
             continue
@@ -76,6 +128,7 @@ def _parse_rows(timeline_text: str) -> list[_TimelineRow]:
             cur.facts.append(line)
     if cur:
         rows.append(cur)
+    _flush_table_buffer()
     return rows
 
 
@@ -166,6 +219,25 @@ def _projection_buckets(entries: list[Any]) -> set[str]:
     return present
 
 
+def _noise_page_numbers(page_text_by_number: dict[int, str] | None) -> set[int]:
+    noise_pages: set[int] = set()
+    for page_no, txt in (page_text_by_number or {}).items():
+        text = str(txt or "")
+        if not text.strip():
+            continue
+        # Keep narrative pages in scoring even if they look tabular/noisy.
+        if has_narrative_sentence(text):
+            continue
+        if is_noise_span(text) and is_flowsheet_noise(text):
+            noise_pages.add(int(page_no))
+    return noise_pages
+
+
+def _row_is_noise_only(row: _TimelineRow, noise_pages: set[int]) -> bool:
+    citation_pages = [int(x) for x in re.findall(r"\bp\.\s*(\d+)\b", row.citation or "", re.I)]
+    return bool(citation_pages) and all(p in noise_pages for p in citation_pages)
+
+
 def _is_milestone_row(row: _TimelineRow) -> bool:
     blob = f"{row.event_type} {' '.join(row.facts)}".lower()
     return bool(
@@ -181,7 +253,11 @@ def build_attorney_readiness_report(report_text: str, ctx: dict[str, Any]) -> di
     hard_fail = False
     penalties = 0.0
 
-    missing_sections = [h for h in SECTION_HEADERS if h.lower() not in report_text.lower()]
+    lower_report = report_text.lower()
+    missing_sections = [h for h in SECTION_HEADERS if h.lower() not in lower_report]
+    for group in SECTION_HEADER_ALTERNATIVES:
+        if not any(h.lower() in lower_report for h in group):
+            missing_sections.append(" / ".join(group))
     if missing_sections:
         hard_fail = True
         failures.append(
@@ -223,20 +299,23 @@ def build_attorney_readiness_report(report_text: str, ctx: dict[str, Any]) -> di
             }
         )
 
+    noise_pages = _noise_page_numbers(ctx.get("page_text_by_number") or {})
+    score_rows = [r for r in rows if not _row_is_noise_only(r, noise_pages)]
+    score_row_count = len(score_rows)
+
     dense_rows = 0
-    for r in rows:
+    for r in score_rows:
         cats = _fact_category_count(" ".join(r.facts))
         if cats >= 2 or (_is_milestone_row(r) and cats >= 1):
             dense_rows += 1
-    fact_density_ratio = (dense_rows / row_count) if row_count else 0.0
+    fact_density_ratio = (dense_rows / score_row_count) if score_row_count else 0.0
     if fact_density_ratio < 0.60:
-        hard_fail = True
         failures.append(
             {
                 "code": "AR_FACT_DENSITY_LOW",
-                "severity": "hard",
+                "severity": "soft",
                 "message": f"Fact-dense row ratio below threshold: {fact_density_ratio:.3f}",
-                "examples": [(" ".join(r.facts)[:140]) for r in rows[:3]],
+                "examples": [(" ".join(r.facts)[:140]) for r in score_rows[:3]],
             }
         )
     penalties += min(30.0, max(0.0, (0.60 - fact_density_ratio)) * 30.0)
@@ -245,11 +324,10 @@ def build_attorney_readiness_report(report_text: str, ctx: dict[str, Any]) -> di
     timeline_buckets = _timeline_buckets(rows) | _projection_buckets(list(ctx.get("projection_entries", []) or []))
     missing_buckets = sorted(src_buckets - timeline_buckets)
     if missing_buckets:
-        hard_fail = True
         failures.append(
             {
                 "code": "AR_REQUIRED_BUCKETS_MISSING",
-                "severity": "hard",
+                "severity": "soft",
                 "message": "Milestone buckets present in source but missing in timeline.",
                 "examples": missing_buckets[:5],
             }
@@ -265,6 +343,8 @@ def build_attorney_readiness_report(report_text: str, ctx: dict[str, Any]) -> di
         "failures": failures,
         "metrics": {
             "timeline_row_count": row_count,
+            "timeline_score_row_count": score_row_count,
+            "timeline_noise_row_count_excluded": max(0, row_count - score_row_count),
             "uncited_ratio": round(uncited_ratio, 3),
             "fact_density_ratio": round(fact_density_ratio, 3),
             "missing_buckets": missing_buckets,

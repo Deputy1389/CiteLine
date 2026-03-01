@@ -3,8 +3,8 @@ API route: Runs
 """
 from __future__ import annotations
 
-import json
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
@@ -21,18 +21,19 @@ router = APIRouter(tags=["runs"])
 _RUNCFG_DEFAULTS = RunConfig()
 
 
+def _normalize_run_status(value: str | None) -> str:
+    raw = str(value or "").strip().lower()
+    if raw == "completed":
+        return "success"
+    if raw in {"pending", "running", "success", "partial", "failed", "needs_review"}:
+        return raw
+    return "failed"
+
+
 def _coerce_json_value(value, expected: type):
     if value is None:
         return None
-    if isinstance(value, expected):
-        return value
-    if isinstance(value, str):
-        try:
-            parsed = json.loads(value)
-        except json.JSONDecodeError:
-            return None
-        return parsed if isinstance(parsed, expected) else None
-    return None
+    return value if isinstance(value, expected) else None
 
 
 class CreateRunRequest(BaseModel):
@@ -48,12 +49,13 @@ class CreateRunRequest(BaseModel):
     llm_reasoning_min_confidence: int = _RUNCFG_DEFAULTS.llm_reasoning_min_confidence
     narrative_min_confidence: int = _RUNCFG_DEFAULTS.narrative_min_confidence
     chronology_min_score: int = _RUNCFG_DEFAULTS.chronology_min_score
+    export_mode: Literal["INTERNAL", "MEDIATION"]
 
 
 class RunResponse(BaseModel):
     id: str
     matter_id: str
-    status: str  # pending | running | success | partial | failed | needs_review
+    status: Literal["pending", "running", "success", "partial", "failed", "needs_review"]
     started_at: str | None
     heartbeat_at: str | None
     finished_at: str | None
@@ -68,7 +70,7 @@ class RunResponse(BaseModel):
 @router.post("/matters/{matter_id}/runs", response_model=RunResponse, status_code=202)
 def start_run(
     matter_id: str,
-    req: CreateRunRequest = CreateRunRequest(),
+    req: CreateRunRequest = ...,
     db: Session = Depends(get_db),
     identity: RequestIdentity | None = Depends(get_request_identity),
 ):
@@ -95,12 +97,13 @@ def start_run(
         "llm_reasoning_min_confidence": req.llm_reasoning_min_confidence,
         "narrative_min_confidence": req.narrative_min_confidence,
         "chronology_min_score": req.chronology_min_score,
+        "export_mode": req.export_mode,
     }
 
     run = Run(
         matter_id=matter_id,
         status="pending",
-        config_json=json.dumps(config),
+        config_json=config,
     )
     db.add(run)
     db.flush()
@@ -108,7 +111,7 @@ def start_run(
     return RunResponse(
         id=run.id,
         matter_id=run.matter_id,
-        status=run.status,
+        status=_normalize_run_status(run.status),
         started_at=None,
         heartbeat_at=run.heartbeat_at.isoformat() if run.heartbeat_at else None,
         finished_at=None,
@@ -143,7 +146,7 @@ def list_runs(
             RunResponse(
                 id=r.id,
                 matter_id=r.matter_id,
-                status=r.status,
+                status=_normalize_run_status(r.status),
                 started_at=r.started_at.isoformat() if r.started_at else None,
                 heartbeat_at=r.heartbeat_at.isoformat() if r.heartbeat_at else None,
                 finished_at=r.finished_at.isoformat() if r.finished_at else None,
@@ -178,7 +181,7 @@ def get_run(
     return RunResponse(
         id=run.id,
         matter_id=run.matter_id,
-        status=run.status,
+        status=_normalize_run_status(run.status),
         started_at=run.started_at.isoformat() if run.started_at else None,
         heartbeat_at=run.heartbeat_at.isoformat() if run.heartbeat_at else None,
         finished_at=run.finished_at.isoformat() if run.finished_at else None,
@@ -218,7 +221,7 @@ def cancel_run(
     return RunResponse(
         id=run.id,
         matter_id=run.matter_id,
-        status=run.status,
+        status=_normalize_run_status(run.status),
         started_at=run.started_at.isoformat() if run.started_at else None,
         heartbeat_at=run.heartbeat_at.isoformat() if run.heartbeat_at else None,
         finished_at=run.finished_at.isoformat() if run.finished_at else None,
@@ -255,7 +258,7 @@ def force_fail_run(
     return RunResponse(
         id=run.id,
         matter_id=run.matter_id,
-        status=run.status,
+        status=_normalize_run_status(run.status),
         started_at=run.started_at.isoformat() if run.started_at else None,
         heartbeat_at=run.heartbeat_at.isoformat() if run.heartbeat_at else None,
         finished_at=run.finished_at.isoformat() if run.finished_at else None,
@@ -270,6 +273,7 @@ def force_fail_run(
 def download_artifact(
     run_id: str,
     artifact_type: str,
+    export_mode: Literal["INTERNAL", "MEDIATION"] | None = None,
     db: Session = Depends(get_db),
     identity: RequestIdentity | None = Depends(get_request_identity),
 ):
@@ -289,6 +293,14 @@ def download_artifact(
     artifact = db.query(Artifact).filter_by(run_id=run_id, artifact_type=artifact_type).first()
     if not artifact:
         raise HTTPException(status_code=404, detail="Artifact not found")
+    if str(artifact_type).lower() == "pdf":
+        if export_mode is None:
+            raise HTTPException(status_code=422, detail="export_mode is required for PDF artifact download")
+        run_mode = ""
+        if isinstance(run.config_json, dict):
+            run_mode = str(run.config_json.get("export_mode") or "").strip().upper()
+        if run_mode and run_mode != str(export_mode).upper():
+            raise HTTPException(status_code=409, detail=f"Run export mode is {run_mode}; requested {export_mode}")
 
     from pathlib import Path
 
@@ -314,6 +326,7 @@ def download_artifact(
 def download_artifact_by_name(
     run_id: str,
     filename: str,
+    export_mode: Literal["INTERNAL", "MEDIATION"] | None = None,
     db: Session = Depends(get_db),
     identity: RequestIdentity | None = Depends(get_request_identity),
 ):
@@ -334,6 +347,14 @@ def download_artifact_by_name(
     safe_name = Path(filename).name
     if safe_name != filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
+    if safe_name.lower().endswith(".pdf"):
+        if export_mode is None:
+            raise HTTPException(status_code=422, detail="export_mode is required for PDF artifact download")
+        run_mode = ""
+        if isinstance(run.config_json, dict):
+            run_mode = str(run.config_json.get("export_mode") or "").strip().upper()
+        if run_mode and run_mode != str(export_mode).upper():
+            raise HTTPException(status_code=409, detail=f"Run export mode is {run_mode}; requested {export_mode}")
 
     # Use get_artifact_path which downloads from Supabase if file not local
     file_path = get_artifact_path(run_id, safe_name)

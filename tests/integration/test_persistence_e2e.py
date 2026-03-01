@@ -4,7 +4,6 @@ Based on test_pipeline_e2e.py, but adds checks for Evidence Graph tables.
 """
 from __future__ import annotations
 
-import json
 import os
 import sys
 import uuid
@@ -86,7 +85,7 @@ class TestPersistenceE2E:
             run = Run(
                 matter_id=matter.id,
                 status="pending",
-                config_json=json.dumps(run_config),
+                config_json=run_config,
             )
             session.add(run)
             session.flush()
@@ -101,7 +100,7 @@ class TestPersistenceE2E:
         # Verify DB Persistence
         with get_session() as session:
             run = session.query(Run).filter_by(id=run_id).first()
-            assert run.status in ("success", "partial"), f"Run failed with error: {run.error_message}"
+            assert run.status in ("success", "partial", "needs_review"), f"Run failed with error: {run.error_message}"
 
             # 1. Pages
             pages = session.query(Page).filter_by(run_id=run_id).all()

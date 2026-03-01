@@ -83,7 +83,7 @@ from apps.worker.steps.step15a_missing_record_requests import (
 )
 from apps.worker.steps.step16_billing_lines import extract_billing_lines, render_billing_lines
 from apps.worker.steps.step17_specials_summary import compute_specials_summary, render_specials_summary
-from apps.worker.steps.step_renderer_manifest import build_renderer_manifest
+from apps.worker.steps.step_renderer_manifest import build_renderer_manifest, annotate_renderer_manifest_claim_context_alignment
 from apps.worker.steps.step18_paralegal_chronology import (
     build_paralegal_chronology_payload, generate_extraction_notes_md, render_paralegal_chronology_artifacts,
 )
@@ -92,16 +92,32 @@ from apps.worker.pipeline_persistence import persist_pipeline_state
 from apps.worker.steps.step19_llm_reasoning import run_llm_reasoning
 from apps.worker.steps.step20_chronology_narrative import run_chronology_narrative
 from apps.worker.lib.litigation_integrity import run_litigation_integrity_pass
+from apps.worker.lib.pipeline_parity import build_pipeline_parity_report
 from apps.worker.quality.text_quality import clean_text, is_garbage
 from apps.worker.lib.pt_enumeration import build_pt_evidence_extensions
 from apps.worker.lib.provider_resolution_v1 import augment_provider_resolution_quality
 from apps.worker.lib.claim_context_alignment import run_claim_context_alignment
 from apps.worker.lib.litigation_safe_v1 import build_litigation_safe_v1_snapshot, validate_litigation_safe_v1
+from apps.worker.lib.settlement_leverage import build_settlement_leverage_model
+from apps.worker.lib.settlement_features import build_settlement_feature_pack
+from apps.worker.lib.defense_attack_map import build_defense_attack_map
+from apps.worker.lib.case_severity_index import build_case_severity_index
+from apps.worker.lib.severity_profile import build_severity_profile
+from apps.worker.lib.settlement_model import build_settlement_model_report
+from apps.worker.lib.internal_demand_copilot import build_internal_demand_package
+from apps.worker.lib.artifacts_writer import build_export_evidence_graph
 
 logger = logging.getLogger(__name__)
 RUN_TIMEOUT_SECONDS = int(os.getenv("RUN_TIMEOUT_SECONDS", "1800"))
 API_BASE_URL = os.getenv("API_BASE_URL", "https://linecite-api.onrender.com")
 ERROR_MESSAGE_MAX_LEN = int(os.getenv("ERROR_MESSAGE_MAX_LEN", "2000"))
+
+
+def _require_export_mode_config(config_dict: dict[str, Any]) -> str:
+    mode = str((config_dict or {}).get("export_mode") or "").strip().upper()
+    if mode not in {"INTERNAL", "MEDIATION"}:
+        raise ValueError("Run config must include explicit export_mode: INTERNAL or MEDIATION")
+    return mode
 
 def _download_document_from_api(document_id: str, timeout_seconds: int) -> Path:
     ensure_dirs()
@@ -147,7 +163,8 @@ def run_pipeline(run_id: str) -> None:
             if not run_row: return
             run_row.status = "running"; run_row.started_at = started_at; session.flush()
             matter = run_row.matter; matter_title = matter.title; matter_id = matter.id; firm_id = matter.firm_id; tz = matter.timezone or "America/Los_Angeles"
-            config_dict = run_row.config_json if isinstance(run_row.config_json, dict) else (json.loads(run_row.config_json) if run_row.config_json else {})
+            config_dict = run_row.config_json if isinstance(run_row.config_json, dict) else {}
+            export_mode = _require_export_mode_config(config_dict)
             config = RunConfig(**config_dict)
             doc_rows = session.query(SourceDocORM).filter_by(matter_id=matter_id).all()
             source_documents = [SourceDocument(document_id=d.id, filename=d.filename, mime_type=d.mime_type, sha256=d.sha256, bytes=d.bytes, uploaded_at=d.uploaded_at) for d in doc_rows]
@@ -337,6 +354,13 @@ def run_pipeline(run_id: str) -> None:
             evidence_graph_payload=evidence_graph.model_dump(mode="json"),
             renderer_manifest=renderer_manifest.model_dump(mode="json"),
         )
+        annotated_manifest = annotate_renderer_manifest_claim_context_alignment(
+            renderer_manifest,
+            evidence_graph.extensions,
+        )
+        if isinstance(annotated_manifest, type(renderer_manifest)):
+            renderer_manifest = annotated_manifest
+            evidence_graph.extensions["renderer_manifest"] = renderer_manifest.model_dump(mode="json")
         billing_status_upper = str(renderer_manifest.billing_completeness or "none").strip().upper()
         pt_recon = (
             evidence_graph.extensions.get("pt_reconciliation")
@@ -365,6 +389,39 @@ def run_pipeline(run_id: str) -> None:
                     "pt_total_encounters": numeric_pt_counts,
                 },
             },
+        )
+        evidence_graph.extensions["settlement_leverage_model"] = build_settlement_leverage_model(
+            evidence_graph_payload=evidence_graph.model_dump(mode="json"),
+            renderer_manifest=renderer_manifest.model_dump(mode="json"),
+        )
+        _sfp = build_settlement_feature_pack(
+            evidence_graph_payload=evidence_graph.model_dump(mode="json"),
+            renderer_manifest=renderer_manifest.model_dump(mode="json"),
+        )
+        evidence_graph.extensions["settlement_feature_pack"] = _sfp
+        _dam = build_defense_attack_map(
+            evidence_graph_payload=evidence_graph.model_dump(mode="json"),
+            renderer_manifest=renderer_manifest.model_dump(mode="json"),
+            feature_pack=_sfp,
+        )
+        evidence_graph.extensions["defense_attack_map"] = _dam
+        _csi = build_case_severity_index(
+            evidence_graph_payload=evidence_graph.model_dump(mode="json"),
+            renderer_manifest=renderer_manifest.model_dump(mode="json"),
+            feature_pack=_sfp,
+        )
+        evidence_graph.extensions["case_severity_index"] = _csi
+        evidence_graph.extensions["severity_profile"] = build_severity_profile(_csi)
+        evidence_graph.extensions["settlement_model_report"] = build_settlement_model_report(
+            feature_pack=_sfp,
+            dam=_dam,
+            csi=_csi,
+            settlement_leverage_model=evidence_graph.extensions.get("settlement_leverage_model"),
+        )
+        evidence_graph.extensions["internal_demand_package"] = build_internal_demand_package(
+            evidence_graph=evidence_graph.model_dump(mode="json"),
+            csi_internal=_csi,
+            damages_structured=specials_payload,
         )
         paralegal_payload = build_paralegal_chronology_payload(evidence_graph, chronology_events, providers, page_map)
         evidence_graph.extensions["paralegal_chronology"] = paralegal_payload
@@ -414,8 +471,8 @@ def run_pipeline(run_id: str) -> None:
         run_record = create_run_record(run_id, started_at, source_documents, evidence_graph, chronology, all_warnings, processing_seconds)
         full_result = ChronologyResult(schema_version="0.1.0", generated_at=datetime.now(timezone.utc), case=case_info, inputs=PipelineInputs(source_documents=source_documents, run_config=config), outputs=PipelineOutputs(run=run_record, evidence_graph=evidence_graph, chronology=chronology))
 
-        full_output_dict = json.loads(full_result.model_dump_json())
-        eg_dict = json.loads(evidence_graph.model_dump_json())
+        full_output_dict = full_result.model_dump(mode="json")
+        eg_dict = build_export_evidence_graph(evidence_graph.model_dump(mode="json"), export_mode)
         json_bytes = json.dumps(eg_dict, indent=2, default=str).encode()
         json_path = save_artifact(run_id, "evidence_graph.json", json_bytes)
         json_sha = hashlib.sha256(json_bytes).hexdigest()
@@ -431,17 +488,36 @@ def run_pipeline(run_id: str) -> None:
         gate_results = _run_production_quality_gates(
             chronology=chronology,
             page_text_by_number={p.page_number: (p.text or "") for p in all_pages},
+            projection_entries=list(projection_for_metrics.entries),
             chronology_events=chronology_events,
+            gaps=list(gaps),
+            source_pdf=(str(get_upload_path(valid_docs[0].document_id)) if valid_docs else None),
         )
+        parity_report = build_pipeline_parity_report(
+            mode="production",
+            source_pdf=(str(get_upload_path(valid_docs[0].document_id)) if valid_docs else None),
+            page_text_by_number={p.page_number: (p.text or "") for p in all_pages},
+            projection_entries=list(projection_for_metrics.entries),
+            chronology_events=chronology_events,
+            gaps=list(gaps),
+            gate_results=gate_results,
+        )
+        evidence_graph.extensions["pipeline_parity_report"] = parity_report
+        parity_bytes = json.dumps(parity_report, indent=2, default=str).encode()
+        parity_path = save_artifact(run_id, "pipeline_parity_report.json", parity_bytes)
+        parity_sha = hashlib.sha256(parity_bytes).hexdigest()
+        parity_ref = ArtifactRef(uri=str(parity_path), sha256=parity_sha, bytes=len(parity_bytes))
 
         # Update status based on quality gates
-        if not gate_results.get("overall_pass", True):
+        gate_export_status = str(gate_results.get("export_status") or "").strip().upper()
+        if gate_export_status in {"BLOCKED", "REVIEW_RECOMMENDED"}:
             status = "needs_review"
             all_warnings.append(
                 Warning(
                     code="QUALITY_GATE_FAILED",
                     message=(
-                        "Quality gates failed: "
+                        "Quality gates require review: "
+                        f"export_status={gate_export_status or 'UNKNOWN'}, "
                         f"attorney={gate_results.get('attorney_ready_pass')}, "
                         f"luqa={gate_results.get('luqa_pass')}"
                     ),
@@ -458,7 +534,26 @@ def run_pipeline(run_id: str) -> None:
             except Exception as e:
                 logger.error(f"Failed to write fail cover PDF: {e}")
 
-        artifact_entries = build_artifact_ref_entries(chronology, prov_csv_ref, prov_json_ref, mr_csv_ref, mr_json_ref, mrr_csv_ref, mrr_json_ref, mrr_md_ref, bl_csv_ref, bl_json_ref, ss_csv_ref, ss_json_ref, ss_pdf_ref, paralegal_chronology_md_ref, extraction_notes_md_ref, patient_chronologies_json_ref, patient_partitions_json_ref)
+        artifact_entries = build_artifact_ref_entries(
+            chronology,
+            prov_csv_ref,
+            prov_json_ref,
+            mr_csv_ref,
+            mr_json_ref,
+            mrr_csv_ref,
+            mrr_json_ref,
+            mrr_md_ref,
+            bl_csv_ref,
+            bl_json_ref,
+            ss_csv_ref,
+            ss_json_ref,
+            ss_pdf_ref,
+            paralegal_chronology_md_ref,
+            extraction_notes_md_ref,
+            patient_chronologies_json_ref,
+            patient_partitions_json_ref,
+            parity_ref,
+        )
 
         persist_pipeline_state(run_id, status, processing_seconds, run_record, all_warnings, evidence_graph, artifact_entries, gate_results)
         logger.info(f"[{run_id}] Pipeline complete: {status}")
@@ -469,7 +564,10 @@ def run_pipeline(run_id: str) -> None:
 def _run_production_quality_gates(
     chronology,
     page_text_by_number: dict[int, str],
+    projection_entries,
     chronology_events,
+    gaps,
+    source_pdf: str | None = None,
 ) -> dict:
     """
     Run quality gates on the production pipeline output.
@@ -504,34 +602,14 @@ def _run_production_quality_gates(
             logger.warning(f"Failed to extract text from PDF for quality gates: {e}")
             return {"overall_pass": True, "skipped": True}
         
-        # Build projection entries from events (simplified - same as eval does)
-        projection_entries = []
-        try:
-            from apps.worker.project.chronology import build_chronology_projection
-            from apps.worker.project.models import ChronologyProjection
-            from packages.shared.models import Provider
-            
-            # Get providers for projection (simplified - pass empty list)
-            providers = []
-            
-            projection: ChronologyProjection = build_chronology_projection(
-                chronology_events,
-                providers,
-                page_map=None,
-                page_patient_labels={},
-                page_text_by_number=page_text_by_number,
-            )
-            projection_entries = list(projection.entries)
-        except Exception as e:
-            logger.warning(f"Failed to build projection for quality gates: {e}")
-            projection_entries = []
-        
         # Run quality gates
         results = run_quality_gates(
             report_text=report_text,
             page_text_by_number=page_text_by_number,
-            projection_entries=projection_entries,
-            chronology_events=chronology_events,
+            projection_entries=list(projection_entries or []),
+            chronology_events=list(chronology_events or []),
+            gaps=list(gaps or []),
+            source_pdf=source_pdf,
         )
         
         logger.info(f"Quality gates: overall_pass={results.get('overall_pass')}, "

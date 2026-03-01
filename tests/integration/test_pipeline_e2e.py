@@ -76,7 +76,7 @@ class TestPipelineE2E:
             run = Run(
                 matter_id=matter.id,
                 status="pending",
-                config_json=json.dumps({"max_pages": 500}),
+                config_json={"max_pages": 500},
             )
             session.add(run)
             session.flush()
@@ -91,11 +91,11 @@ class TestPipelineE2E:
         with get_session() as session:
             run = session.query(Run).filter_by(id=run_id).first()
             assert run is not None
-            assert run.status in ("success", "partial"), f"Run failed: {run.error_message}"
+            assert run.status in ("success", "partial", "needs_review"), f"Run failed: {run.error_message}"
 
             # Check metrics
             assert run.metrics_json is not None
-            metrics = json.loads(run.metrics_json)
+            metrics = run.metrics_json
             assert metrics["pages_total"] >= 1
             assert metrics["events_total"] >= 0  # May be 0 if no events extracted
 

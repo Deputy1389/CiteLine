@@ -16,7 +16,7 @@ from apps.worker.steps.export_render.common import (
 )
 
 if TYPE_CHECKING:
-    from packages.shared.models import Event, Gap
+    from packages.shared.models import Event, Gap, Citation
 
 
 def _material_gap_rows(gap_list: list[Gap], entries_by_patient: dict[str, list], raw_event_by_id: dict[str, Event], page_map=None) -> list[dict]:
@@ -108,3 +108,72 @@ def _material_gap_rows(gap_list: list[Gap], entries_by_patient: dict[str, list],
                     if int(rr["gap"].duration_days or 0) >= 540: final_rows.append(rr)
                 i = j
     return final_rows
+
+
+def build_gap_anchor_metadata_rows(
+    missing_records_payload: dict | None,
+    all_citations: list["Citation"] | None,
+    page_map=None,
+) -> list[dict]:
+    payload = missing_records_payload if isinstance(missing_records_payload, dict) else {}
+    gaps = [g for g in (payload.get("gaps") or []) if isinstance(g, dict)]
+    if not gaps:
+        return []
+    cit_by_id: dict[str, "Citation"] = {}
+    for c in (all_citations or []):
+        cid = str(getattr(c, "citation_id", "") or "").strip()
+        if cid:
+            cit_by_id[cid] = c
+
+    rows: list[dict] = []
+    for g in gaps:
+        evidence = g.get("evidence") if isinstance(g.get("evidence"), dict) else {}
+        cids = [str(c) for c in (evidence.get("citation_ids") or []) if str(c)]
+        refs: list[dict] = []
+        seen_pages: set[str] = set()
+        for cid in cids:
+            c = cit_by_id.get(cid)
+            if not c:
+                continue
+            try:
+                global_page = int(getattr(c, "page_number", 0) or 0)
+            except Exception:
+                global_page = 0
+            local_page = global_page
+            if page_map and global_page in page_map:
+                _mapped_name, mapped_local = page_map[global_page]
+                try:
+                    local_page = int(mapped_local)
+                except Exception:
+                    local_page = global_page
+            page_key = str(local_page or global_page)
+            if page_key in seen_pages:
+                continue
+            seen_pages.add(page_key)
+            refs.append(
+                {
+                    "citation_id": cid,
+                    "global_page": global_page,
+                    "local_page": local_page,
+                    "snippet": str(getattr(c, "snippet", "") or "").strip(),
+                }
+            )
+        rows.append(
+            {
+                "gap_id": str(g.get("gap_id") or ""),
+                "gap_days": int(g.get("gap_days") or g.get("duration_days") or 0),
+                "threshold_days": int((payload.get("ruleset") or {}).get("global_gap_medium_days") or g.get("threshold_days") or 45),
+                "severity": str(g.get("severity") or ""),
+                "rule_name": str(g.get("rule_name") or ""),
+                "start_date": str(g.get("start_date") or ""),
+                "end_date": str(g.get("end_date") or ""),
+                "gap_start_event_id": str(evidence.get("last_event_id") or ""),
+                "gap_end_event_id": str(evidence.get("next_event_id") or ""),
+                "citation_ids": cids,
+                "citation_refs": refs,
+                "gap_start_page": (refs[0]["local_page"] if len(refs) >= 1 else None),
+                "gap_end_page": (refs[1]["local_page"] if len(refs) >= 2 else None),
+                "anchors_complete": len(refs) >= 2,
+            }
+        )
+    return rows

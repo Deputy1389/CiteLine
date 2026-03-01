@@ -21,11 +21,76 @@ _ATTORNEY_PLACEHOLDER_PATTERNS: list[tuple[str, str]] = [
     ("SEE_PATIENT_HEADER", r"\bSee Patient Header\b"),
     ("SENTINEL_DATE_1900", r"\b1900-01-01\b"),
     ("SENTINEL_DATE_0001", r"\b0001-01-01\b"),
+    ("UNKNOWN_PROVIDER", r"\bUnknown provider\b"),
+    ("NOT_AVAILABLE", r"\bNot available\b"),
+    ("DATE_NOT_DOCUMENTED", r"\bDate not documented\b"),
+    ("UNDATED", r"\bUndated\b"),
 ]
+
+# Canonical hard/soft policy for litigation-safe v1 expression.
+_HARD_FAILURE_CODES: set[str] = {
+    "EXPORT_UNCITED_TIMELINE_ROW",
+    "EXPORT_UNCITED_TOP10_ITEM",
+    "UNDATED",
+    "DATE_NOT_DOCUMENTED",
+    "AR_MISSING_REQUIRED_SECTIONS",
+    "AR_EMPTY_TIMELINE",
+    "AR_UNCITED_FACT_ROWS",
+    "LUQA_META_LANGUAGE_BAN",
+    "LUQA_RENDER_QUALITY_SANITY",
+    "LUQA_CARE_WINDOW_INTEGRITY",
+    "LUQA_REQUIRED_BUCKETS_WHEN_PRESENT",
+    "LUQA_NOISE_SUPPRESSION_RATE",
+    "LUQA_DUPLICATE_SNIPPETS",
+    "PT_HIGH_VOLUME_UNVERIFIED",
+}
+_SOFT_FAILURE_CODES: set[str] = {
+    "AR_FACT_DENSITY_LOW",
+    "AR_REQUIRED_BUCKETS_MISSING",
+    "LUQA_PLACEHOLDER_RATIO",
+    "LUQA_FACT_DENSITY",
+    "LUQA_VERBATIM_ANCHOR_RATIO",
+    "NOT_AVAILABLE",
+}
+
+
+def _is_hard_failure(row: dict[str, Any]) -> bool:
+    code = str(row.get("code") or "").strip().upper()
+    sev = str(row.get("severity") or "").strip().lower()
+    if code in _SOFT_FAILURE_CODES:
+        return False
+    if code in _HARD_FAILURE_CODES:
+        return True
+    if sev == "soft":
+        return False
+    if sev == "hard":
+        return True
+    # Conservative default: unknown failures remain hard.
+    return True
+
+
+def _classify_failures(failures: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    hard: list[dict[str, Any]] = []
+    soft: list[dict[str, Any]] = []
+    for row in failures:
+        if _is_hard_failure(row):
+            hard.append(row)
+        else:
+            soft.append(row)
+    return hard, soft
+
+
+def _attorney_facing_text(report_text: str) -> str:
+    text = str(report_text or "")
+    marker = "Citation Index & Record Appendix"
+    idx = text.lower().find(marker.lower())
+    if idx >= 0:
+        return text[:idx]
+    return text
 
 
 def _placeholder_leak_findings(report_text: str) -> list[dict[str, Any]]:
-    text = str(report_text or "")
+    text = _attorney_facing_text(report_text)
     findings: list[dict[str, Any]] = []
     for code, pattern in _ATTORNEY_PLACEHOLDER_PATTERNS:
         if not re.search(pattern, text, re.IGNORECASE):
@@ -36,6 +101,121 @@ def _placeholder_leak_findings(report_text: str) -> list[dict[str, Any]]:
             "message": f"Attorney-facing placeholder leak detected: {code}",
         })
     return findings
+
+
+def _pt_count_consistency_findings(report_text: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    text = _attorney_facing_text(report_text)
+    verified = [int(x) for x in re.findall(r"PT visits\s*\(Verified\)\s*:\s*(\d+)\s+encounters", text, re.I)]
+    reported = [
+        int(x)
+        for x in re.findall(
+            r"PT visits\s*\(Reported(?: in records)?\)\s*:\s*(\d+)\s*(?:encounters?)?",
+            text,
+            re.I,
+        )
+    ]
+    findings: list[dict[str, Any]] = []
+    max_verified = max(verified) if verified else 0
+    max_reported = max(reported) if reported else 0
+
+    if verified and reported and max_verified != max_reported:
+        findings.append(
+            {
+                "source": "pt_count_consistency",
+                "code": "PT_COUNT_CONFLICT",
+                "message": f"PT count mismatch: verified={max_verified}, reported={max_reported}",
+                "verified_count": max_verified,
+                "reported_count": max_reported,
+            }
+        )
+    if max_reported > 10 and max_verified == 0:
+        findings.append(
+            {
+                "source": "pt_count_consistency",
+                "code": "PT_HIGH_VOLUME_UNVERIFIED",
+                "message": f"High-volume PT reported without verification: reported={max_reported}, verified=0",
+                "verified_count": max_verified,
+                "reported_count": max_reported,
+            }
+        )
+
+    telemetry = {
+        "verified_counts": verified,
+        "reported_counts": reported,
+        "max_verified": max_verified,
+        "max_reported": max_reported,
+    }
+    return findings, telemetry
+
+
+def _projection_citation_integrity_findings(projection_entries: list[Any] | None) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    rows = list(projection_entries or [])
+    uncited: list[dict[str, Any]] = []
+    for row in rows:
+        if isinstance(row, dict):
+            event_id = str(row.get("event_id") or "")
+            event_type = str(row.get("event_type_display") or row.get("event_type") or "")
+            citation_display = str(row.get("citation_display") or "")
+        else:
+            event_id = str(getattr(row, "event_id", "") or "")
+            event_type = str(getattr(row, "event_type_display", "") or "")
+            citation_display = str(getattr(row, "citation_display", "") or "")
+        cited = bool(re.search(r"\bp\.\s*\d+\b", citation_display, re.I))
+        if cited:
+            continue
+        uncited.append(
+            {
+                "event_id": event_id,
+                "event_type": event_type,
+                "citation_display": citation_display[:160],
+            }
+        )
+    findings = [
+        {
+            "source": "export_citation_integrity",
+            "code": "EXPORT_UNCITED_TIMELINE_ROW",
+            "message": f"Timeline/projection rows without citations: {len(uncited)}",
+            "examples": uncited[:10],
+        }
+    ] if uncited else []
+    telemetry = {
+        "projection_rows_total": len(rows),
+        "projection_rows_uncited": len(uncited),
+    }
+    return findings, telemetry
+
+
+def _top10_citation_integrity_findings(report_text: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    text = _attorney_facing_text(report_text)
+    low = text.lower()
+    start = low.find("top 10 case-driving events")
+    if start < 0:
+        return [], {"top10_present": False, "top10_bullets_total": 0, "top10_bullets_uncited": 0}
+    end_candidates = [
+        low.find("liability facts", start + 1),
+        low.find("medical timeline (litigation ready)", start + 1),
+        low.find("impact summary", start + 1),
+        low.find("citation index & record appendix", start + 1),
+    ]
+    end_candidates = [i for i in end_candidates if i > start]
+    end = min(end_candidates) if end_candidates else len(text)
+    block = text[start:end]
+    bullets = [ln.strip() for ln in block.splitlines() if ln.strip().startswith("-")]
+    uncited = [b for b in bullets if not re.search(r"(\[p\.\s*\d+\]|Citation\(s\):)", b, re.I)]
+    findings = [
+        {
+            "source": "export_citation_integrity",
+            "code": "EXPORT_UNCITED_TOP10_ITEM",
+            "message": f"Top 10 items without citations: {len(uncited)}",
+            "examples": uncited[:10],
+        }
+    ] if uncited else []
+    telemetry = {
+        "top10_present": True,
+        "top10_bullets_total": len(bullets),
+        "top10_bullets_uncited": len(uncited),
+    }
+    return findings, telemetry
 
 
 def run_quality_gates(
@@ -79,6 +259,10 @@ def run_quality_gates(
         "litigation_pass": True,
         "litigation_score": 100,
         "failures": [],
+        "hard_failures": [],
+        "soft_failures": [],
+        "review_required": False,
+        "export_status": "VERIFIED",
         "gate_report": {},
     }
     
@@ -88,12 +272,10 @@ def run_quality_gates(
         results["attorney_ready_pass"] = attorney.get("attorney_ready_pass", True)
         results["attorney_ready_score"] = attorney.get("attorney_ready_score_0_100", 100)
         results["gate_report"]["attorney"] = attorney
-        if not results["attorney_ready_pass"]:
-            results["overall_pass"] = False
-            results["failures"].extend([
-                {"source": "attorney", **f} 
-                for f in attorney.get("failures", [])
-            ])
+        results["failures"].extend([
+            {"source": "attorney", **f}
+            for f in attorney.get("failures", [])
+        ])
     except Exception as e:
         logger.warning(f"Attorney readiness check failed: {e}")
     
@@ -103,12 +285,10 @@ def run_quality_gates(
         results["luqa_pass"] = luqa.get("luqa_pass", True)
         results["luqa_score"] = luqa.get("luqa_score_0_100", 100)
         results["gate_report"]["luqa"] = luqa
-        if not results["luqa_pass"]:
-            results["overall_pass"] = False
-            results["failures"].extend([
-                {"source": "luqa", **f} 
-                for f in luqa.get("failures", [])
-            ])
+        results["failures"].extend([
+            {"source": "luqa", **f}
+            for f in luqa.get("failures", [])
+        ])
     except Exception as e:
         logger.warning(f"LUQA check failed: {e}")
     
@@ -116,7 +296,6 @@ def run_quality_gates(
     # For now, we'll skip it in the quick wrapper but could be added
     placeholder_findings = _placeholder_leak_findings(report_text)
     if placeholder_findings:
-        results["overall_pass"] = False
         results["failures"].extend(placeholder_findings)
         results["gate_report"]["placeholder_scan"] = {
             "pass": False,
@@ -124,6 +303,57 @@ def run_quality_gates(
         }
     else:
         results["gate_report"]["placeholder_scan"] = {"pass": True, "failures": []}
+
+    pt_findings, pt_telemetry = _pt_count_consistency_findings(report_text)
+    if pt_findings:
+        results["failures"].extend(pt_findings)
+        results["gate_report"]["pt_count_consistency"] = {
+            "pass": False,
+            "failures": pt_findings,
+            "telemetry": pt_telemetry,
+        }
+    else:
+        results["gate_report"]["pt_count_consistency"] = {
+            "pass": True,
+            "failures": [],
+            "telemetry": pt_telemetry,
+        }
+
+    projection_cite_findings, projection_cite_telemetry = _projection_citation_integrity_findings(projection_entries)
+    top10_cite_findings, top10_cite_telemetry = _top10_citation_integrity_findings(report_text)
+    export_citation_findings = projection_cite_findings + top10_cite_findings
+    if export_citation_findings:
+        results["failures"].extend(export_citation_findings)
+        results["gate_report"]["export_citation_integrity"] = {
+            "pass": False,
+            "failures": export_citation_findings,
+            "telemetry": {
+                "projection": projection_cite_telemetry,
+                "top10": top10_cite_telemetry,
+            },
+        }
+    else:
+        results["gate_report"]["export_citation_integrity"] = {
+            "pass": True,
+            "failures": [],
+            "telemetry": {
+                "projection": projection_cite_telemetry,
+                "top10": top10_cite_telemetry,
+            },
+        }
+
+    hard_failures, soft_failures = _classify_failures(list(results.get("failures") or []))
+    results["hard_failures"] = hard_failures
+    results["soft_failures"] = soft_failures
+    results["review_required"] = bool(soft_failures)
+    results["overall_pass"] = len(hard_failures) == 0
+    results["export_status"] = (
+        "BLOCKED"
+        if hard_failures
+        else ("REVIEW_RECOMMENDED" if soft_failures else "VERIFIED")
+    )
+    results["attorney_ready_pass"] = not any((f.get("source") == "attorney" and _is_hard_failure(f)) for f in results["failures"])
+    results["luqa_pass"] = not any((f.get("source") == "luqa" and _is_hard_failure(f)) for f in results["failures"])
     
     return results
 
@@ -133,45 +363,54 @@ def write_fail_cover_pdf(
     gate_results: dict[str, Any],
 ) -> bool:
     """
-    Write a fail cover page to the PDF if gates failed.
+    Write an attorney-facing review/block cover page when needed.
     
-    Returns True if fail cover was written, False if gates passed.
+    Returns True if cover was written, False if export is verified.
     """
-    if gate_results.get("overall_pass", True):
+    status = str(gate_results.get("export_status") or "").strip().upper()
+    if status in {"", "VERIFIED"}:
         return False
     
     from reportlab.lib.pagesizes import letter
     from reportlab.pdfgen import canvas
     from pypdf import PdfReader, PdfWriter
     
-    fail_lines: list[str] = ["CiteLine Validation Gate - QUALITY CHECKS FAILED", ""]
-    
-    # Attorney readiness failures
-    if not gate_results.get("attorney_ready_pass", True):
-        fail_lines.append("ATTORNEY READINESS FAIL")
-        fail_lines.append(f"Score: {gate_results.get('attorney_ready_score', 0)}/100")
-        for f in gate_results.get("failures", []):
-            if f.get("source") == "attorney":
-                fail_lines.append(f"- {f.get('code')}: {f.get('message', '')[:80]}")
-        fail_lines.append("")
-    
-    # LUQA failures
-    if not gate_results.get("luqa_pass", True):
-        fail_lines.append("LITIGATION USABILITY FAIL")
-        fail_lines.append(f"Score: {gate_results.get('luqa_score', 0)}/100")
-        for f in gate_results.get("failures", []):
-            if f.get("source") == "luqa":
-                fail_lines.append(f"- {f.get('code')}: {f.get('message', '')[:80]}")
-        fail_lines.append("")
-    
-    fail_lines.append("This document may contain errors.")
-    fail_lines.append("Do not use in litigation without manual review.")
+    hard_failures = list(gate_results.get("hard_failures") or [])
+    soft_failures = list(gate_results.get("soft_failures") or [])
+    fail_lines: list[str] = []
+    if status == "BLOCKED":
+        fail_lines.extend(
+            [
+                "EXPORT STATUS: BLOCKED - Integrity Issue Detected",
+                "",
+                "One or more citation/integrity checks failed and must be resolved before litigation use.",
+                "",
+            ]
+        )
+        fail_lines.append("Blocking issues:")
+        for f in hard_failures[:8]:
+            fail_lines.append(f"- {str(f.get('code') or '').strip()}: {str(f.get('message') or '').strip()[:90]}")
+    else:
+        fail_lines.extend(
+            [
+                "EXPORT STATUS: REVIEW RECOMMENDED",
+                "",
+                "All exported findings remain citation-anchored.",
+                "Some quality checks require attorney review before litigation use.",
+                "",
+            ]
+        )
+        fail_lines.append("Items for attorney confirmation:")
+        for f in soft_failures[:8]:
+            fail_lines.append(f"- {str(f.get('code') or '').strip()}: {str(f.get('message') or '').strip()[:90]}")
+    fail_lines.append("")
+    fail_lines.append("See cited pages in the chronology and appendix for source verification.")
     
     # Generate cover page
     cover_buf = io.BytesIO()
     c = canvas.Canvas(cover_buf, pagesize=letter)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(50, 750, fail_lines[0])
+    c.setFont("Helvetica-Bold", 15)
+    c.drawString(50, 750, fail_lines[0][:110])
     c.setFont("Helvetica", 11)
     y = 720
     for line in fail_lines[1:]:

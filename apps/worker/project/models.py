@@ -12,6 +12,7 @@ class ChronologyProjectionEntry(BaseModel):
     event_type_display: str
     patient_label: str = "Unknown Patient"
     facts: list[str] = Field(default_factory=list)
+    verbatim_flags: list[bool] = Field(default_factory=list)
     citation_display: str = ""
     confidence: int = 0
 

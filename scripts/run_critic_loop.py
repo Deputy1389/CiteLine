@@ -72,7 +72,7 @@ def run_loop(input_pdf: Path, case_id: str, iterations: int) -> dict[str, Any]:
         iter_dir.mkdir(parents=True, exist_ok=True)
 
         run_label = f"{case_id}-{iteration_id}-{uuid4().hex[:6]}"
-        run_payload = run_case(input_pdf=input_pdf, case_id=case_id, run_label=run_label)
+        run_payload = run_case(input_pdf=input_pdf, case_id=case_id, run_label=run_label, export_mode="INTERNAL")
 
         # Snapshot current case outputs into this iteration folder.
         current_eval_dir = ROOT / "data" / "evals" / case_id

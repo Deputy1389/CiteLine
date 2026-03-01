@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from packages.shared.utils.noise_utils import is_flowsheet_noise, has_narrative_sentence
+
 
 TOOL_VERSION = "qa-litigation-1.0"
 TARGET_SCORE = 98
@@ -471,6 +473,22 @@ def build_litigation_checklist(
         "issue_flags_section_present": has_issue_flags,
         "top10_bucket_diversity": top10_diversity,
     }
+    candidate_narrative_event_count = 0
+    for ev in events:
+        joined = " ".join(getattr(f, "text", "") for f in (getattr(ev, "facts", []) or []) if getattr(f, "text", ""))
+        if not joined.strip():
+            continue
+        if is_flowsheet_noise(joined) and not has_narrative_sentence(joined):
+            continue
+        if has_narrative_sentence(joined):
+            candidate_narrative_event_count += 1
+    quality_gates["Q8_attorney_usability_sections"]["metrics"]["candidate_narrative_event_count"] = candidate_narrative_event_count
+    quality_gates["Q8_attorney_usability_sections"]["metrics"]["timeline_rows"] = timeline_rows
+    if candidate_narrative_event_count >= 1 and timeline_rows < 1:
+        quality_gates["Q8_attorney_usability_sections"]["pass"] = False
+        quality_gates["Q8_attorney_usability_sections"]["details"].append(
+            _issue("AR_TIMELINE_SUPPRESSION_OVERSHOT", "Timeline suppression removed all rendered rows despite narrative candidate events.")
+        )
     if not (has_top10 and has_issue_flags):
         quality_gates["Q8_attorney_usability_sections"]["pass"] = False
         quality_gates["Q8_attorney_usability_sections"]["details"].append(
@@ -814,11 +832,15 @@ def build_litigation_checklist(
         return ""
 
     bucket_counts = defaultdict(int)
+    bucket_event_ids: dict[str, list[str]] = defaultdict(list)
     for e in projection_entries:
         b = _bucket(e)
         if b:
             bucket_counts[b] += 1
+            bucket_event_ids[b].append(getattr(e, "event_id", ""))
     timeline_start = lower_report.find("chronological medical timeline")
+    if timeline_start < 0:
+        timeline_start = lower_report.find("medical timeline (litigation ready)")
     timeline_end = lower_report.find("top 10 case-driving events", timeline_start + 1) if timeline_start >= 0 else -1
     timeline_slice = lower_report[timeline_start:timeline_end] if (timeline_start >= 0 and timeline_end > timeline_start) else lower_report
     if bucket_counts.get("procedure", 0) < 1 and (
@@ -830,7 +852,27 @@ def build_litigation_checklist(
         "orthopedic consult" in lower_report or re.search(r"\b(orthopedic|orthopaedic|ortho)\b", lower_report)
     ):
         bucket_counts["ortho"] = 1
-    quality_gates["Q_USE_1_required_buckets_present"]["metrics"] = dict(bucket_counts)
+    graph_bucket_event_ids: dict[str, list[str]] = {"ed": [], "pt_eval": []}
+    for ev in events:
+        eid = str(getattr(ev, "event_id", "") or "")
+        et = str(getattr(getattr(ev, "event_type", None), "value", getattr(ev, "event_type", "")) or "").lower()
+        facts_blob = " ".join(getattr(f, "text", "") for f in (getattr(ev, "facts", []) or []) if getattr(f, "text", "")).lower()
+        if (
+            et in {"er_visit"}
+            or re.search(r"\b(emergency department|ed hpi|er visit)\b", facts_blob)
+        ) and re.search(r"\b(chief complaint|hpi|history of present illness|presented with)\b", facts_blob):
+            if eid:
+                graph_bucket_event_ids["ed"].append(eid)
+        pt_context = ("pt_visit" in et) or bool(re.search(r"\b(physical therapy|pt)\b", facts_blob))
+        if pt_context and re.search(r"\b(initial evaluation|pt evaluation|plan of care)\b", facts_blob):
+            if eid:
+                graph_bucket_event_ids["pt_eval"].append(eid)
+    graph_detected_buckets = sorted([b for b, ids in graph_bucket_event_ids.items() if ids])
+    quality_gates["Q_USE_1_required_buckets_present"]["metrics"] = {
+        **dict(bucket_counts),
+        "detected_buckets": graph_detected_buckets,
+        "bucket_event_ids": {k: v[:10] for k, v in graph_bucket_event_ids.items()},
+    }
     page_blob = "\n".join(page_text_by_number.values()).lower()
     procedure_anchor_terms = re.findall(
         r"\b(depo-?medrol|lidocaine|fluoroscopy|interlaminar|transforaminal|epidural steroid injection|esi)\b",
@@ -858,7 +900,8 @@ def build_litigation_checklist(
         ),
     }
     required_buckets = [b for b, available in bucket_source_available.items() if available]
-    missing_buckets = [b for b in required_buckets if bucket_counts.get(b, 0) < 1]
+    missing_buckets = [b for b in required_buckets if (bucket_counts.get(b, 0) < 1 and not graph_bucket_event_ids.get(b))]
+    quality_gates["Q_USE_1_required_buckets_present"]["metrics"]["missing_required_buckets"] = missing_buckets
     if missing_buckets:
         quality_gates["Q_USE_1_required_buckets_present"]["pass"] = False
         quality_gates["Q_USE_1_required_buckets_present"]["details"].append(
@@ -954,6 +997,8 @@ def build_litigation_checklist(
     # Compute high-density ratio from rendered timeline rows (lawyer-visible output), with
     # projection fallback when row parsing is unavailable.
     timeline_start = lower_report.find("chronological medical timeline")
+    if timeline_start < 0:
+        timeline_start = lower_report.find("medical timeline (litigation ready)")
     timeline_end = lower_report.find("top 10 case-driving events", timeline_start + 1) if timeline_start >= 0 else -1
     timeline_block = report_text[timeline_start: timeline_end if timeline_end > timeline_start else len(report_text)] if timeline_start >= 0 else report_text
     row_blobs: list[str] = []
@@ -962,7 +1007,7 @@ def build_litigation_checklist(
         line = raw_line.strip()
         if not line:
             continue
-        if re.match(r"^(?:\d{4}-\d{2}-\d{2}|Undated)\s+\|\s+Encounter:\s+", line, re.IGNORECASE):
+        if re.match(r"^(?:\d{4}-\d{2}-\d{2}|Undated)\s+\|\s+Encounter:\s+", line, re.IGNORECASE) or re.match(r"^(?:\d{4}-\d{2}-\d{2}|Undated)$", line, re.IGNORECASE):
             if current:
                 row_blobs.append(" ".join(current))
             current = [line]
@@ -1107,7 +1152,11 @@ def build_litigation_checklist(
         except Exception:
             selection_stop_reason = "unknown"
     required_bucket_counts = quality_gates.get("Q_USE_1_required_buckets_present", {}).get("metrics", {}) or {}
-    required_bucket_present = sum(1 for _k, v in required_bucket_counts.items() if int(v or 0) > 0)
+    required_bucket_present = sum(
+        1
+        for _k, v in required_bucket_counts.items()
+        if isinstance(v, (int, float)) and int(v or 0) > 0
+    )
     suff_metrics = {
         "source_pages": source_pages,
         "substantive_events": substantive_events,

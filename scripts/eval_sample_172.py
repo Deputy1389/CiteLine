@@ -55,6 +55,7 @@ from apps.worker.steps.events.event_weighting import annotate_event_weights
 from apps.worker.steps.step11_gaps import detect_gaps
 from apps.worker.steps.step12_export import (
     _enrich_projection_procedure_entries,
+    _ensure_ed_bucket_entry,
     _ensure_mri_bucket_entry,
     _ensure_ortho_bucket_entry,
     _ensure_procedure_bucket_entry,
@@ -63,9 +64,13 @@ from apps.worker.steps.step12_export import (
     render_patient_chronology_reports,
 )
 from apps.worker.steps.step15_missing_records import detect_missing_records
+from apps.worker.steps.step_renderer_manifest import build_renderer_manifest
 from apps.worker.lib.provider_normalize import normalize_provider_entities
 from apps.worker.lib.claim_ledger_lite import build_claim_edges, select_top_claim_rows
 from apps.worker.lib.causation_ladder import build_causation_ladders
+from apps.worker.lib.case_severity_index import build_case_severity_index
+from apps.worker.lib.severity_profile import build_severity_profile
+from apps.worker.lib.settlement_model import build_settlement_model_report
 from apps.worker.steps.case_collapse import (
     build_case_collapse_candidates,
     build_defense_attack_paths,
@@ -84,7 +89,7 @@ from apps.worker.project.chronology import build_chronology_projection, infer_pa
 from scripts.litigation_qa import build_litigation_checklist, write_litigation_checklist
 from packages.shared.models import CaseInfo, ClaimEdge, EvidenceGraph, Gap, LitigationExtensions, RunConfig, SourceDocument
 from packages.shared.storage import get_artifact_dir
-from apps.worker.lib.artifacts_writer import write_artifact_json
+from apps.worker.lib.artifacts_writer import write_artifact_json, write_evidence_graph_artifact
 from apps.worker.lib.artifacts_writer import safe_copy, validate_artifacts_exist
 from apps.worker.lib.luqa import build_luqa_report
 from apps.worker.lib.attorney_readiness import build_attorney_readiness_report
@@ -162,8 +167,11 @@ def extract_pdf_text(pdf_path: Path) -> str:
     return "\n".join((doc[i].get_text("text") or "") for i in range(doc.page_count))
 
 
-def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, Any]]:
-    config = RunConfig(max_pages=1000)
+def run_sample_pipeline(sample_pdf: Path, run_id: str, export_mode: str) -> tuple[Path, dict[str, Any]]:
+    mode = str(export_mode or "").strip().upper()
+    if mode not in {"INTERNAL", "MEDIATION"}:
+        raise ValueError("export_mode is required and must be INTERNAL or MEDIATION")
+    config = RunConfig(max_pages=1000, export_mode=mode)
     pages, _ = split_pages(str(sample_pdf), sample_pdf.name, page_offset=0, max_pages=config.max_pages)
     pages, _, _ = acquire_text(pages, str(sample_pdf))
     pages, _ = classify_pages(pages)
@@ -172,7 +180,7 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
 
     docs, _ = segment_documents(pages, sample_pdf.name)
     providers, page_provider_map, _ = detect_providers(pages, docs)
-    dates = extract_dates_for_pages(pages)
+    dates = extract_dates_for_pages(pages, page_provider_map=page_provider_map)
 
     all_events = []
     all_citations = []
@@ -186,15 +194,18 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
         extract_discharge_events,
         extract_operative_events,
     ):
-        if extractor is extract_pt_events:
-            events, citations, _, skipped = extractor(pages, dates, providers, config, page_provider_map)
-        elif extractor is extract_imaging_events:
-            events, citations, _, skipped = extractor(
-                pages, dates, providers, page_provider_map,
-                page_text_by_number={p.page_number: (p.text or "") for p in pages}
-            )
-        else:
-            events, citations, _, skipped = extractor(pages, dates, providers, page_provider_map)
+        extractor_kwargs = {
+            "pages": pages,
+            "dates": dates,
+            "providers": providers,
+            "config": config,
+            "page_provider_map": page_provider_map,
+        }
+        if extractor is extract_imaging_events:
+            extractor_kwargs["page_text_by_number"] = {
+                p.page_number: (p.text or "") for p in pages
+            }
+        events, citations, _, skipped = extractor(**extractor_kwargs)
         all_events.extend(events)
         all_citations.extend(citations)
         all_skipped.extend(skipped)
@@ -230,6 +241,7 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
         chronology_events,
         providers,
         page_map=None,
+        page_provider_map=page_provider_map,
         page_patient_labels=page_patient_labels,
         page_text_by_number=page_text_by_number,
         debug_sink=projection_debug,
@@ -269,7 +281,7 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
     )
     narrative = synthesize_narrative(chronology_events, providers, all_citations, case_info)
 
-    graph = EvidenceGraph(pages=pages, documents=docs, providers=providers, events=chronology_events, citations=all_citations)
+    graph = EvidenceGraph(pages=pages, documents=docs, providers=providers, events=chronology_events, citations=all_citations, gaps=gaps)
     
     # ── Step 19: LLM Reasoning (optional) ────────────────────────────────
     if config.enable_llm_reasoning:
@@ -281,10 +293,51 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
     graph.extensions.update(_build_litigation_extensions(claim_edges))
     provider_norm = normalize_provider_entities(graph)
     missing_payload = detect_missing_records(graph, provider_norm)
+    renderer_manifest = build_renderer_manifest(
+        events=chronology_events,
+        evidence_graph_extensions=graph.extensions,
+        specials_summary=None,
+        citations=all_citations,
+    )
+    # ── Settlement intelligence extensions ────────────────────────────────────
+    _rm_payload = renderer_manifest.model_dump(mode="json")
+    _eg_payload_for_slm = graph.model_dump(mode="json")
+    from apps.worker.lib.settlement_leverage import build_settlement_leverage_model
+    from apps.worker.lib.settlement_features import build_settlement_feature_pack
+    from apps.worker.lib.defense_attack_map import build_defense_attack_map
+    graph.extensions["settlement_leverage_model"] = build_settlement_leverage_model(
+        evidence_graph_payload=_eg_payload_for_slm,
+        renderer_manifest=_rm_payload,
+    )
+    _sfp = build_settlement_feature_pack(
+        evidence_graph_payload=_eg_payload_for_slm,
+        renderer_manifest=_rm_payload,
+    )
+    graph.extensions["settlement_feature_pack"] = _sfp
+    _dam = build_defense_attack_map(
+        evidence_graph_payload=_eg_payload_for_slm,
+        renderer_manifest=_rm_payload,
+        feature_pack=_sfp,
+    )
+    graph.extensions["defense_attack_map"] = _dam
+    _csi = build_case_severity_index(
+        evidence_graph_payload=_eg_payload_for_slm,
+        renderer_manifest=_rm_payload,
+        feature_pack=_sfp,
+    )
+    graph.extensions["case_severity_index"] = _csi
+    graph.extensions["severity_profile"] = build_severity_profile(_csi)
+    graph.extensions["settlement_model_report"] = build_settlement_model_report(
+        feature_pack=_sfp,
+        dam=_dam,
+        csi=_csi,
+        settlement_leverage_model=graph.extensions.get("settlement_leverage_model"),
+    )
+
     artifact_dir = get_artifact_dir(run_id)
     artifact_dir.mkdir(parents=True, exist_ok=True)
     evidence_graph_payload = graph.model_dump(mode="json")
-    write_artifact_json("evidence_graph.json", evidence_graph_payload, artifact_dir)
+    write_evidence_graph_artifact(evidence_graph_payload, mode, artifact_dir)
     write_artifact_json("patient_partitions.json", patient_partitions_payload, artifact_dir)
     write_artifact_json("missing_records.json", missing_payload, artifact_dir)
     render_gaps: list[Gap] = []
@@ -324,6 +377,7 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
         gaps=render_gaps,
         providers=providers,
         page_map=page_map,
+        page_provider_map=page_provider_map,
         case_info=case_info,
         all_citations=all_citations,
         narrative_synthesis=narrative,
@@ -331,6 +385,8 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
         evidence_graph_payload=evidence_graph_payload,
         patient_partitions_payload=patient_partitions_payload,
         missing_records_payload=missing_payload,
+        renderer_manifest=renderer_manifest.model_dump(mode="json"),
+        config=config,
     )
     patient_manifest_ref = render_patient_chronology_reports(
         run_id=run_id,
@@ -338,7 +394,9 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
         events=chronology_events,
         providers=providers,
         page_map=page_map,
+        page_provider_map=page_provider_map,
         page_text_by_number=page_text_by_number,
+        config=config,
     )
 
     # Keep QA context projection aligned with export-time enrichment/backfill logic.
@@ -354,6 +412,11 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str) -> tuple[Path, dict[str, 
         page_map=page_map,
     )
     projection_for_ctx = _ensure_procedure_bucket_entry(
+        projection_for_ctx,
+        page_text_by_number=page_text_by_number,
+        page_map=page_map,
+    )
+    projection_for_ctx = _ensure_ed_bucket_entry(
         projection_for_ctx,
         page_text_by_number=page_text_by_number,
         page_map=page_map,
@@ -526,7 +589,7 @@ def score_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def evaluate_sample_172(debug_trace: bool = False) -> dict[str, Any]:
+def evaluate_sample_172(debug_trace: bool = False, export_mode: str = "INTERNAL") -> dict[str, Any]:
     sample_pdf = locate_sample_pdf()
     eval_dir = ROOT / "data" / "evals" / "sample_172"
     eval_dir.mkdir(parents=True, exist_ok=True)
@@ -535,7 +598,7 @@ def evaluate_sample_172(debug_trace: bool = False) -> dict[str, Any]:
         trace_path.unlink()
 
     run_id = f"eval-sample-172-{uuid4().hex[:8]}"
-    pdf_path, ctx = run_sample_pipeline(sample_pdf, run_id)
+    pdf_path, ctx = run_sample_pipeline(sample_pdf, run_id, export_mode=export_mode)
     artifact_dir = get_artifact_dir(run_id)
 
     out_pdf = eval_dir / "output.pdf"
@@ -622,9 +685,10 @@ def evaluate_sample_172(debug_trace: bool = False) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Deterministic litigation-grade evaluation for sample-medical-chronology172.pdf.")
     parser.add_argument("--debug-trace", action="store_true", help="Write evidence_trace.json (default off).")
+    parser.add_argument("--export-mode", required=True, choices=["INTERNAL", "MEDIATION"])
     args = parser.parse_args()
 
-    scorecard = evaluate_sample_172(debug_trace=args.debug_trace)
+    scorecard = evaluate_sample_172(debug_trace=args.debug_trace, export_mode=args.export_mode)
     print(json.dumps(scorecard, indent=2))
     return 0 if scorecard["overall_pass"] else 1
 

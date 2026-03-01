@@ -1,5 +1,7 @@
 from scripts.verify_litigation_export_acceptance import _check_provider_resolution_quality
 from scripts.verify_litigation_export_acceptance import _check_pt_count_defensible, _check_pt_same_day_inflation_guard
+from scripts.verify_litigation_export_acceptance import _check_g1_promotion_integrity
+from scripts.verify_litigation_export_acceptance import _check_g4_provider_resolution, _check_page1_promoted_parity_guard
 
 
 def test_provider_resolution_gate_review_required_for_mid_ratio() -> None:
@@ -84,3 +86,87 @@ def test_pt_count_defensible_rejects_clinical_note_pt_encounter() -> None:
     res = _check_pt_count_defensible(eg, pdf)
     assert res['PASS'] is False
     assert res['pt_encounter_clinical_note_rows']
+
+
+def test_g1_promotion_integrity_fails_when_blocked_claim_exists() -> None:
+    eg = {
+        "extensions": {
+            "claim_context_alignment": {
+                "failures": [
+                    {
+                        "claim_type": "mechanism",
+                        "severity": "BLOCKED",
+                    }
+                ]
+            }
+        }
+    }
+    pdf = "Case Snapshot\nMechanism not elevated to snapshot (context review recommended; see timeline and cited records)."
+    res = _check_g1_promotion_integrity(eg, pdf)
+    assert res["PASS"] is False
+    assert res["outcome"] == "FAIL"
+
+
+def test_g1_promotion_integrity_passes_when_no_blocked_failures() -> None:
+    eg = {
+        "extensions": {
+            "claim_context_alignment": {
+                "failures": [
+                    {
+                        "claim_type": "pt_claim",
+                        "severity": "REVIEW_REQUIRED",
+                    }
+                ]
+            }
+        }
+    }
+    pdf = "Case Snapshot\nMechanism: Not documented."
+    res = _check_g1_promotion_integrity(eg, pdf)
+    assert res["PASS"] is True
+    assert res["outcome"] == "PASS"
+
+
+def test_g4_provider_resolution_fails_below_threshold() -> None:
+    eg = {
+        "extensions": {
+            "provider_resolution_quality": {
+                "rows_total": 10,
+                "rows_resolved": 7,
+                "resolved_ratio": 0.79,
+            }
+        }
+    }
+    res = _check_g4_provider_resolution(eg)
+    assert res["PASS"] is False
+    assert res["outcome"] == "FAIL"
+
+
+def test_g4_provider_resolution_passes_at_threshold() -> None:
+    eg = {
+        "extensions": {
+            "provider_resolution_quality": {
+                "rows_total": 10,
+                "rows_resolved": 8,
+                "resolved_ratio": 0.80,
+            }
+        }
+    }
+    res = _check_g4_provider_resolution(eg)
+    assert res["PASS"] is True
+    assert res["outcome"] == "PASS"
+
+
+def test_page1_promoted_parity_guard_fails_on_invariant_flag() -> None:
+    eg = {
+        "extensions": {
+            "sprint4d_invariants": {
+                "PAGE1_PROMOTED_PARITY_FAILURE": True,
+                "page1_promoted_considered": 8,
+                "page1_promoted_rendered": 0,
+                "page1_promoted_fallback_used": False,
+            }
+        }
+    }
+    res = _check_page1_promoted_parity_guard(eg)
+    assert res["PASS"] is False
+    assert res["outcome"] == "FAIL"

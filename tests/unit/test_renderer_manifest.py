@@ -49,6 +49,8 @@ def test_renderer_manifest_pt_conflict_adds_reconciliation_note() -> None:
     assert manifest.pt_summary.encounter_count_min == 117
     assert manifest.pt_summary.encounter_count_max == 141
     assert manifest.pt_summary.reconciliation_note
+    note = manifest.pt_summary.reconciliation_note or ""
+    assert ("Chronology verifies" in note) or ("Dated PT encounters documented in this packet" in note)
 
 
 def test_renderer_manifest_promotes_claim_rows_with_priority_categories() -> None:
@@ -114,6 +116,42 @@ def test_renderer_manifest_extracts_mechanism_from_cited_event_text() -> None:
     assert "c-mvc" in manifest.mechanism.citation_ids
 
 
+def test_renderer_manifest_mechanism_prefers_ed_hpi_like_citation_context() -> None:
+    citations = [
+        Citation(
+            citation_id="c-ortho",
+            source_document_id="doc-1",
+            page_number=104,
+            snippet="Orthopedic consult note: motor vehicle accident with persistent neck pain.",
+            bbox=BBox(x=1, y=1, w=1, h=1),
+        ),
+        Citation(
+            citation_id="c-ed",
+            source_document_id="doc-1",
+            page_number=11,
+            snippet="ED HPI: rear-end MVA. Chief complaint neck pain after collision.",
+            bbox=BBox(x=1, y=1, w=1, h=1),
+        ),
+    ]
+    evt = Event(
+        event_id="er-ctx-1",
+        provider_id="prov-er",
+        event_type=EventType.ER_VISIT,
+        reason_for_visit="Motor vehicle collision with neck pain",
+        facts=[Fact(text="Presented to ED after rear-end MVC.", kind=FactKind.OTHER, verbatim=True, citation_ids=["c-ortho", "c-ed"])],
+        confidence=90,
+        citation_ids=["c-ortho", "c-ed"],
+        source_page_numbers=[11, 104],
+    )
+    ext: dict = {}
+    manifest = build_renderer_manifest(events=[evt], evidence_graph_extensions=ext, specials_summary=None, citations=citations)
+    assert manifest.mechanism.value == "rear-end motor vehicle collision"
+    assert manifest.mechanism.citation_ids
+    assert manifest.mechanism.citation_ids[0] == "c-ed"
+    audit = ext.get("mechanism_selection_audit") or {}
+    assert audit.get("selected_candidate", {}).get("citation_id") == "c-ed"
+
+
 def test_renderer_manifest_falls_back_to_citation_snippets_for_mechanism_dx_and_pt_count() -> None:
     citations = [
         Citation(citation_id="c1", source_document_id="doc-1", page_number=11, snippet="Rear-end motor vehicle collision", bbox=BBox(x=1, y=1, w=1, h=1)),
@@ -131,6 +169,43 @@ def test_renderer_manifest_falls_back_to_citation_snippets_for_mechanism_dx_and_
     assert "imaging" in cats
     assert any(f.category == "visit_count" and "141 encounters" in f.label for f in manifest.promoted_findings)
     assert not any(f.category == "objective_deficit" and "141 encounters" in f.label for f in manifest.promoted_findings)
+
+
+def test_renderer_manifest_mechanism_citation_fallback_prefers_non_negated_rear_end() -> None:
+    citations = [
+        Citation(
+            citation_id="c-neg",
+            source_document_id="doc-1",
+            page_number=4,
+            snippet="ED triage: patient denies MVC today.",
+            bbox=BBox(x=1, y=1, w=1, h=1),
+        ),
+        Citation(
+            citation_id="c-pos",
+            source_document_id="doc-1",
+            page_number=5,
+            snippet="ED HPI: neck and back pain following MVC rear-end MVA earlier today.",
+            bbox=BBox(x=1, y=1, w=1, h=1),
+        ),
+    ]
+    manifest = build_renderer_manifest(events=[], evidence_graph_extensions={}, specials_summary=None, citations=citations)
+    assert manifest.mechanism.value == "rear-end motor vehicle collision"
+    assert manifest.mechanism.citation_ids == ["c-pos"]
+
+
+def test_renderer_manifest_mechanism_citation_fallback_respects_negation_only() -> None:
+    citations = [
+        Citation(
+            citation_id="c-neg-only",
+            source_document_id="doc-1",
+            page_number=3,
+            snippet="Chief complaint: patient denies motor vehicle collision.",
+            bbox=BBox(x=1, y=1, w=1, h=1),
+        )
+    ]
+    manifest = build_renderer_manifest(events=[], evidence_graph_extensions={}, specials_summary=None, citations=citations)
+    assert manifest.mechanism.value is None
+    assert manifest.mechanism.citation_ids == []
 
 
 def test_negative_and_junk_imaging_are_not_headline_promoted() -> None:
@@ -193,3 +268,40 @@ def test_diagnosis_label_cleanup_strips_assessment_prefixes() -> None:
     dx = next(f for f in manifest.promoted_findings if f.category == "diagnosis")
     assert not dx.label.upper().startswith("ASSESSMENT AND TREATMENT PLAN")
     assert dx.label.startswith("Cervical Disc Displacement")
+
+
+def test_renderer_manifest_consolidates_lordosis_spasm_duplicates_but_keeps_structural_pathology() -> None:
+    claim_rows = [
+        {
+            "event_id": "e1",
+            "claim_type": "IMAGING_FINDING",
+            "assertion": "Loss of normal cervical lordosis consistent with muscle spasm",
+            "citations": ["packet.pdf p. 10"],
+            "selection_score": 70,
+            "body_region": "cervical",
+        },
+        {
+            "event_id": "e2",
+            "claim_type": "IMAGING_FINDING",
+            "assertion": "Straightening of cervical lordosis suggesting spasm",
+            "citations": ["packet.pdf p. 11"],
+            "selection_score": 68,
+            "body_region": "cervical",
+        },
+        {
+            "event_id": "e3",
+            "claim_type": "IMAGING_FINDING",
+            "assertion": "C5-C6 disc protrusion with left foraminal narrowing",
+            "citations": ["packet.pdf p. 12"],
+            "selection_score": 92,
+            "body_region": "cervical",
+        },
+    ]
+    manifest = build_renderer_manifest(events=[], evidence_graph_extensions={"claim_rows": claim_rows}, specials_summary=None)
+    labels = [f.label.lower() for f in manifest.promoted_findings if f.category == "imaging"]
+    assert any("disc protrusion" in l for l in labels)
+    lordosis_variants = [f for f in manifest.promoted_findings if f.category in {"imaging", "objective_deficit"} and ("lordosis" in f.label.lower() or "spasm" in f.label.lower())]
+    assert len(lordosis_variants) == 1
+    assert lordosis_variants[0].semantic_family
+    assert lordosis_variants[0].finding_source_count == 2
+    assert "imaging" in (lordosis_variants[0].source_families or [])

@@ -101,7 +101,10 @@ def build_legal_usability_report(
         if re.search(r"\b(pt eval|physical therapy|range of motion|strength\s*[0-5]\s*/\s*5)\b", low):
             source_buckets.add("PT")
 
-    timeline_start = report_text.lower().find("chronological medical timeline")
+    low_report = report_text.lower()
+    timeline_start = low_report.find("chronological medical timeline")
+    if timeline_start < 0:
+        timeline_start = low_report.find("medical timeline (litigation ready)")
     top10_start = report_text.lower().find("top 10 case-driving events")
     timeline_slice = report_text[timeline_start:top10_start] if timeline_start >= 0 and top10_start > timeline_start else report_text
     low_timeline = timeline_slice.lower()

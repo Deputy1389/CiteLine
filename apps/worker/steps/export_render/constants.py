@@ -64,6 +64,13 @@ MEDICAL_ANCHOR_RE = re.compile(
     re.IGNORECASE,
 )
 META_LANGUAGE_RE = re.compile(
-    r"\b(identified from source|identified|documented in cited records|markers|extracted|encounter identified|not stated in records|documented)\b",
+    r"\b("
+    r"identified from source|identified|documented in cited records|markers|extracted|encounter identified|"
+    r"not stated in records|documented|packet|summaries vary|observed range|intensity reference|"
+    r"reconciliation|displays? the|reference only|not available|unknown provider|date not documented|"
+    r"chronology eval|litigation safety check|verified in extracted chronology|not yet litigation-safe|"
+    r"attorney-facing chronology|recommended attorney action|defense vulnerabilities|case readiness|"
+    r"defense may exploit|review recommended|qa_[a-z0-9_]+|ar_[a-z0-9_]+"
+    r")\b",
     re.IGNORECASE,
 )

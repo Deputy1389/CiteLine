@@ -1,0 +1,53 @@
+{
+  "forbidden_strings_found": [],
+  "has_placeholder_dates": false,
+  "has_uuid_provider_ids": false,
+  "has_raw_fragment_dump": false,
+  "surgery_count": 1,
+  "injury_list": [
+    "shoulder fracture"
+  ],
+  "missing_records_section_present": false,
+  "empty_surgery_entries": 0,
+  "total_surgeries_field": 1,
+  "has_atom_dump_marker": false,
+  "has_date_not_documented_pt_visit": false,
+  "has_provider_lines_in_timeline": false,
+  "timeline_entry_count": 9,
+  "projection_patient_label_count": 1,
+  "timeline_limit": 220,
+  "source_pages": 494,
+  "provider_misassignment_count": 0,
+  "patient_scope_violation_count": 0,
+  "overall_pass": true,
+  "qa_pass": true,
+  "qa_score": 80,
+  "luqa_pass": true,
+  "luqa_score": 97,
+  "luqa_failures_count": 0,
+  "attorney_ready_pass": true,
+  "attorney_ready_score": 100,
+  "attorney_ready_failures_count": 0,
+  "legal_pass": true,
+  "legal_score": 97,
+  "legal_failures_count": 0,
+  "model_score": 1,
+  "score_0_100": 80,
+  "confidence_tier": {
+    "tier": "medium_confidence_review_recommended",
+    "label": "Medium confidence - review recommended"
+  },
+  "run_delta": {
+    "has_previous": true,
+    "previous_run_id": "pass32-batch029-fix",
+    "entry_count_delta": 0,
+    "gaps_delta": 0,
+    "qa_score_delta": 0,
+    "luqa_score_delta": 0,
+    "legal_score_delta": 0,
+    "new_claim_ids_count": 0,
+    "resolved_claim_ids_count": 0,
+    "new_fragility_count": 0,
+    "resolved_fragility_count": 0
+  }
+}

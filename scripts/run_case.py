@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 import json
 import shutil
 import sys
-import io
 from pathlib import Path
 from uuid import uuid4
 
@@ -20,10 +19,10 @@ from scripts.eval_sample_172 import (
     score_report,
 )
 from scripts.litigation_qa import build_litigation_checklist, write_litigation_checklist
-from apps.worker.lib.luqa import build_luqa_report
-from apps.worker.lib.attorney_readiness import build_attorney_readiness_report
 from apps.worker.lib.legal_usability import build_legal_usability_report
 from apps.worker.lib.artifacts_writer import safe_copy, write_artifact_json, validate_artifacts_exist
+from apps.worker.lib.pipeline_parity import build_pipeline_parity_report
+from apps.worker.lib.quality_gates import run_quality_gates, write_fail_cover_pdf
 
 
 def _confidence_tier(
@@ -125,76 +124,25 @@ def _build_run_delta(previous: dict | None, current: dict) -> dict:
     }
 
 
-def _write_fail_cover_pdf(out_pdf: Path, checklist: dict, luqa: dict | None = None, attorney: dict | None = None) -> None:
-    luqa = luqa or {}
-    attorney = attorney or {}
-    if bool(checklist.get("pass")) and bool(luqa.get("luqa_pass", True)) and bool(attorney.get("attorney_ready_pass", True)):
-        return
-    from reportlab.lib.pagesizes import letter
-    from reportlab.pdfgen import canvas
-    from pypdf import PdfReader, PdfWriter
-
-    fail_lines: list[str] = []
-    if not bool(checklist.get("pass")):
-        fail_lines.append("LITIGATION QA FAILED - Do Not Use Without Review")
-        for gate_name, gate in (checklist.get("quality_gates") or {}).items():
-            if not gate.get("pass", True):
-                fail_lines.append(f"- {gate_name}")
-                for detail in gate.get("details", [])[:2]:
-                    fail_lines.append(f"  - {detail.get('code')}: {detail.get('message')}")
-        for hard_name, hard in (checklist.get("hard_invariants") or {}).items():
-            if not hard.get("pass", True):
-                fail_lines.append(f"- {hard_name}")
-                for detail in hard.get("details", [])[:2]:
-                    fail_lines.append(f"  - {detail.get('code')}: {detail.get('message')}")
-    if not bool(luqa.get("luqa_pass", True)):
-        fail_lines.append("LITIGATION USABILITY FAIL")
-        for failure in (luqa.get("failures") or [])[:5]:
-            fail_lines.append(f"- {failure.get('code')}: {failure.get('message')}")
-            for ex in (failure.get("examples") or [])[:2]:
-                fail_lines.append(f"  - {str(ex)[:120]}")
-    if not bool(attorney.get("attorney_ready_pass", True)):
-        fail_lines.append("ATTORNEY READINESS FAIL")
-        for failure in (attorney.get("failures") or [])[:5]:
-            fail_lines.append(f"- {failure.get('code')}: {failure.get('message')}")
-            for ex in (failure.get("examples") or [])[:2]:
-                fail_lines.append(f"  - {str(ex)[:120]}")
-    fail_lines.append("See: selection_debug.json, missing_records.json, luqa_report.json")
-
-    cover_buf = io.BytesIO()
-    c = canvas.Canvas(cover_buf, pagesize=letter)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(50, 750, "CiteLine Validation Gate")
-    c.setFont("Helvetica", 11)
-    y = 720
-    for line in fail_lines[:25]:
-        c.drawString(50, y, line[:120])
-        y -= 18
-        if y < 60:
-            c.showPage()
-            c.setFont("Helvetica", 11)
-            y = 750
-    c.save()
-    cover_buf.seek(0)
-
-    writer = PdfWriter()
-    writer.append(PdfReader(cover_buf))
-    writer.append(PdfReader(str(out_pdf)))
-    with out_pdf.open("wb") as f:
-        writer.write(f)
-
-
-def run_case(input_pdf: Path, case_id: str, run_label: str | None = None) -> dict:
+def run_case(input_pdf: Path, case_id: str, run_label: str | None = None, export_mode: str | None = None) -> dict:
     if not input_pdf.exists():
         raise FileNotFoundError(f"Input PDF not found: {input_pdf}")
+    mode = str(export_mode or "").strip().upper()
+    if mode not in {"INTERNAL", "MEDIATION"}:
+        raise ValueError("export_mode is required and must be INTERNAL or MEDIATION")
 
     run_id = run_label or f"eval-{case_id}-{uuid4().hex[:8]}"
     eval_dir = ROOT / "data" / "evals" / case_id
     eval_dir.mkdir(parents=True, exist_ok=True)
 
-    rendered_pdf, ctx = run_sample_pipeline(input_pdf, run_id)
-    out_pdf = eval_dir / "output.pdf"
+    rendered_pdf, ctx = run_sample_pipeline(input_pdf, run_id, export_mode=mode)
+    mode_dir = eval_dir / "exports" / mode.lower()
+    mode_dir.mkdir(parents=True, exist_ok=True)
+    out_pdf = eval_dir / f"output_{mode}.pdf"
     shutil.copyfile(rendered_pdf, out_pdf)
+    shutil.copyfile(rendered_pdf, mode_dir / "output.pdf")
+    if mode == "INTERNAL":
+        shutil.copyfile(rendered_pdf, eval_dir / "output.pdf")
     artifact_dir = ROOT / "data" / "artifacts" / run_id
     artifact_dir.mkdir(parents=True, exist_ok=True)
 
@@ -232,11 +180,20 @@ def run_case(input_pdf: Path, case_id: str, run_label: str | None = None) -> dic
     )
     checklist_path = eval_dir / "qa_litigation_checklist.json"
     write_litigation_checklist(checklist_path, checklist)
-    luqa = build_luqa_report(report_text, ctx)
+    gate_results = run_quality_gates(
+        report_text=report_text,
+        page_text_by_number=dict(ctx.get("page_text_by_number") or {}),
+        projection_entries=list(ctx.get("projection_entries") or []),
+        chronology_events=list(ctx.get("events") or []),
+        gaps=list(ctx.get("gaps") or []),
+        source_pdf=str(input_pdf),
+    )
+    gate_report = gate_results.get("gate_report") if isinstance(gate_results.get("gate_report"), dict) else {}
+    luqa = gate_report.get("luqa") if isinstance(gate_report.get("luqa"), dict) else {"luqa_pass": True, "luqa_score_0_100": 100, "failures": [], "metrics": {}}
     luqa_eval_path = write_artifact_json("luqa_report.json", luqa, eval_dir)
     write_artifact_json("luqa_report.json", luqa, artifact_dir)
     manifest["luqa_report.json"] = str(luqa_eval_path.resolve())
-    attorney = build_attorney_readiness_report(report_text, ctx)
+    attorney = gate_report.get("attorney") if isinstance(gate_report.get("attorney"), dict) else {"attorney_ready_pass": True, "attorney_ready_score_0_100": 100, "failures": [], "metrics": {}}
     attorney_eval_path = write_artifact_json("attorney_readiness_report.json", attorney, eval_dir)
     write_artifact_json("attorney_readiness_report.json", attorney, artifact_dir)
     manifest["attorney_readiness_report.json"] = str(attorney_eval_path.resolve())
@@ -244,25 +201,39 @@ def run_case(input_pdf: Path, case_id: str, run_label: str | None = None) -> dic
     legal_eval_path = write_artifact_json("legal_usability_report.json", legal, eval_dir)
     write_artifact_json("legal_usability_report.json", legal, artifact_dir)
     manifest["legal_usability_report.json"] = str(legal_eval_path.resolve())
-    _write_fail_cover_pdf(out_pdf, checklist, luqa, attorney)
+    write_fail_cover_pdf(str(out_pdf), gate_results)
     semqa_debug = {
         "run_id": run_id,
         "hard_failures": checklist.get("hard_failures", []),
         "quality_gates": checklist.get("quality_gates", {}),
         "metrics": checklist.get("metrics", {}),
         "required_quality_gates": (checklist.get("failure_summary") or {}).get("required_quality_gates", []),
-        "qa_pass": bool(checklist.get("pass")),
+        "qa_pass": bool(gate_results.get("overall_pass", True)),
+        "gate_results": gate_results,
     }
     semqa_path = write_artifact_json("semqa_debug.json", semqa_debug, eval_dir)
     write_artifact_json("semqa_debug.json", semqa_debug, artifact_dir)
     manifest["semqa_debug.json"] = str(semqa_path.resolve())
+    ctx["artifact_manifest"] = manifest
+    parity_report = build_pipeline_parity_report(
+        mode="eval",
+        source_pdf=input_pdf,
+        page_text_by_number=dict(ctx.get("page_text_by_number") or {}),
+        projection_entries=list(ctx.get("projection_entries") or []),
+        chronology_events=list(ctx.get("events") or []),
+        gaps=list(ctx.get("gaps") or []),
+        gate_results=gate_results,
+    )
+    parity_eval_path = write_artifact_json("pipeline_parity_report.json", parity_report, eval_dir)
+    write_artifact_json("pipeline_parity_report.json", parity_report, artifact_dir)
+    manifest["pipeline_parity_report.json"] = str(parity_eval_path.resolve())
     ctx["artifact_manifest"] = manifest
 
     # Validate manifest paths and keep context explicit.
     manifest_for_validation = {k: v for k, v in manifest.items()}
     artifacts_ok, missing_keys = validate_artifacts_exist(manifest_for_validation)
 
-    scorecard["qa_pass"] = bool(checklist.get("pass"))
+    scorecard["qa_pass"] = bool(gate_results.get("overall_pass", True))
     scorecard["qa_score"] = int(checklist.get("score_0_100", 0) or 0)
     scorecard["luqa_pass"] = bool(luqa.get("luqa_pass"))
     scorecard["luqa_score"] = int(luqa.get("luqa_score_0_100", 0) or 0)
@@ -275,16 +246,17 @@ def run_case(input_pdf: Path, case_id: str, run_label: str | None = None) -> dic
     scorecard["legal_failures_count"] = len(legal.get("failures") or [])
     scorecard["model_score"] = scorecard.get("model_score", scorecard.get("surgery_count", 0))
     scorecard["score_0_100"] = int(checklist.get("score_0_100", scorecard.get("score_0_100", 0)) or 0)
-    scorecard["overall_pass"] = bool(checklist.get("pass")) and bool(legal.get("legal_pass"))
+    scorecard["overall_pass"] = bool(gate_results.get("overall_pass", True))
     scorecard_path = eval_dir / "scorecard.json"
 
     context_path = eval_dir / "context.json"
     context_payload = {
+        "export_mode": mode,
         "run_id": run_id,
         "input_pdf": str(input_pdf),
         "output_pdf": str(out_pdf),
         "qa_litigation_checklist": str(checklist_path),
-        "qa_pass": bool(checklist.get("pass")),
+        "qa_pass": bool(gate_results.get("overall_pass", True)),
         "luqa_pass": bool(luqa.get("luqa_pass")),
         "luqa_score": int(luqa.get("luqa_score_0_100", 0) or 0),
         "attorney_ready_pass": bool(attorney.get("attorney_ready_pass")),
@@ -294,13 +266,19 @@ def run_case(input_pdf: Path, case_id: str, run_label: str | None = None) -> dic
         "patient_manifest_ref": ctx.get("patient_manifest_ref"),
         "projection_entry_count": len(ctx.get("projection_entries", [])),
         "gaps_count": ctx.get("gaps_count", 0),
-        "overall_pass": bool(checklist.get("pass")) and bool(legal.get("legal_pass")),
+        "overall_pass": bool(gate_results.get("overall_pass", True)),
         "failure_summary": checklist.get("failure_summary", {}),
         "artifact_manifest": manifest,
         "artifact_manifest_ok": artifacts_ok,
         "artifact_manifest_missing": missing_keys,
+        "gate_results": gate_results,
+        "pipeline_parity_report": parity_report,
     }
-    confidence = _confidence_tier(checklist, luqa, attorney, legal)
+    confidence_checklist = {
+        "pass": bool(gate_results.get("overall_pass", True)),
+        "score_0_100": int(checklist.get("score_0_100", 0) or 0),
+    }
+    confidence = _confidence_tier(confidence_checklist, luqa, attorney, legal)
     context_payload["confidence_tier"] = confidence
     scorecard["confidence_tier"] = confidence
 
@@ -362,9 +340,10 @@ def main() -> int:
     parser.add_argument("--input", required=True, help="Path to source PDF.")
     parser.add_argument("--case-id", required=True, help="Eval case id, used under data/evals/<case-id>.")
     parser.add_argument("--run-label", help="Optional deterministic run label.")
+    parser.add_argument("--export-mode", required=True, choices=["INTERNAL", "MEDIATION"])
     args = parser.parse_args()
 
-    payload = run_case(Path(args.input), args.case_id, args.run_label)
+    payload = run_case(Path(args.input), args.case_id, args.run_label, export_mode=args.export_mode)
     print(json.dumps(payload, indent=2))
     if payload.get("overall_pass"):
         return 0

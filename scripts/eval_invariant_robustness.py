@@ -271,8 +271,8 @@ def _compare_invariants(base: Snapshot, pert: Snapshot, *, perturbation: str) ->
 
 
 def _determinism_probe(input_pdf: Path, case_id: str, run_label: str) -> dict:
-    first = run_case(input_pdf, f"{case_id}_det_a", run_label=f"{run_label}_det_a")
-    second = run_case(input_pdf, f"{case_id}_det_b", run_label=f"{run_label}_det_b")
+    first = run_case(input_pdf, f"{case_id}_det_a", run_label=f"{run_label}_det_a", export_mode="INTERNAL")
+    second = run_case(input_pdf, f"{case_id}_det_b", run_label=f"{run_label}_det_b", export_mode="INTERNAL")
     a = {
         "qa_pass": bool(first.get("qa_pass")),
         "legal_pass": bool(first.get("legal_pass")),
@@ -317,7 +317,7 @@ def evaluate(
 
     for i, src in enumerate(seeds, start=1):
         case_base = f"robust_base_{i:03d}"
-        base_payload = run_case(src, case_base, run_label=f"robust_base_{seed}_{i:03d}")
+        base_payload = run_case(src, case_base, run_label=f"robust_base_{seed}_{i:03d}", export_mode="INTERNAL")
         base_snap = _build_snapshot(case_base, base_payload, src)
 
         if determinism_probe:
@@ -351,7 +351,7 @@ def evaluate(
 
         for p_name, p_path in perturbations:
             pert_case = f"robust_{p_name}_{i:03d}"
-            pert_payload = run_case(p_path, pert_case, run_label=f"robust_{p_name}_{seed}_{i:03d}")
+            pert_payload = run_case(p_path, pert_case, run_label=f"robust_{p_name}_{seed}_{i:03d}", export_mode="INTERNAL")
             pert_snap = _build_snapshot(pert_case, pert_payload, p_path)
             cmp = _compare_invariants(base_snap, pert_snap, perturbation=p_name.replace("inject_noise", "noise"))
             if cmp["material_change"]:

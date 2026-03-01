@@ -87,10 +87,10 @@ class TestApiE2E:
             resp = client.get(f"/runs/{run_id}")
             assert resp.status_code == 200
             status = resp.json()["status"]
-            if status in ("success", "partial", "failed"):
+            if status in ("success", "partial", "needs_review", "failed"):
                 break
         
-        assert status in ("success", "partial"), f"Run failed: {resp.json().get('error_message')}"
+        assert status in ("success", "partial", "needs_review"), f"Run failed: {resp.json().get('error_message')}"
 
         # 6. Get Exports
         resp = client.get(f"/matters/{matter_id}/exports/latest")

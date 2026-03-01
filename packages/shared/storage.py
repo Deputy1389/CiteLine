@@ -122,6 +122,7 @@ def save_artifact(run_id: str, filename: str, data: bytes) -> Path:
     run_dir = ARTIFACTS_DIR / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     path = run_dir / filename
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
     
     if USE_SUPABASE_STORAGE:

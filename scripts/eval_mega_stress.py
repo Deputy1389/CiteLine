@@ -20,7 +20,7 @@ def evaluate_mega_stress() -> dict:
         raise FileNotFoundError(f"Mega stress packet not found: {src}")
 
     run_id = f"eval-mega-{uuid4().hex[:8]}"
-    pdf_path, ctx = run_sample_pipeline(src, run_id)
+    pdf_path, ctx = run_sample_pipeline(src, run_id, export_mode="INTERNAL")
 
     eval_dir = ROOT / "data" / "evals" / "mega_stress"
     eval_dir.mkdir(parents=True, exist_ok=True)

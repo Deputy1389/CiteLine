@@ -145,7 +145,7 @@ def _ensure_ortho_bucket_entry(
     ortho_entry = ChronologyProjectionEntry(
         event_id=f"ortho_anchor_{hashlib.sha1('|'.join(map(str, ortho_pages)).encode('utf-8')).hexdigest()[:12]}",
         date_display=f"{ortho_date.isoformat()} (time not documented)" if ortho_date else "Date not documented",
-        provider_display="Unknown", event_type_display="Orthopedic Consult", patient_label="See Patient Header",
+        provider_display="Orthopedic Provider", event_type_display="Orthopedic Consult", patient_label="See Patient Header",
         facts=[ortho_fact], citation_display=", ".join(refs), confidence=80,
     )
     new_entries = list(projection.entries)
@@ -211,7 +211,7 @@ def _ensure_mri_bucket_entry(
     mri_entry = ChronologyProjectionEntry(
         event_id=f"mri_anchor_{hashlib.sha1('|'.join(map(str, mri_pages)).encode('utf-8')).hexdigest()[:12]}",
         date_display=f"{mri_date.isoformat()} (time not documented)" if mri_date else "Date not documented",
-        provider_display="Unknown", event_type_display="Imaging Study", patient_label="See Patient Header",
+        provider_display="Radiology Provider", event_type_display="Imaging Study", patient_label="See Patient Header",
         facts=[f'MRI Impression: "{finding}"'], citation_display=", ".join(refs), confidence=82,
     )
     new_entries = list(projection.entries)
@@ -297,7 +297,7 @@ def _ensure_procedure_bucket_entry(
     proc_entry = ChronologyProjectionEntry(
         event_id=f"proc_anchor_{hashlib.sha1('|'.join(map(str, proc_pages)).encode('utf-8')).hexdigest()[:12]}",
         date_display=f"{proc_date.isoformat()} (time not documented)" if proc_date else "Date not documented",
-        provider_display="Unknown", event_type_display="Procedure/Surgery", patient_label="See Patient Header",
+        provider_display="Procedure Provider", event_type_display="Procedure/Surgery", patient_label="See Patient Header",
         facts=[sanitize_for_report(f) for f in facts if f], citation_display=", ".join(refs), confidence=82,
     )
     new_entries = list(projection.entries)
@@ -305,9 +305,96 @@ def _ensure_procedure_bucket_entry(
     return projection.model_copy(update={"entries": new_entries})
 
 
+def _ensure_ed_bucket_entry(
+    projection: ChronologyProjection,
+    *,
+    page_text_by_number: dict[int, str] | None,
+    page_map: dict[int, tuple[str, int]] | None,
+) -> ChronologyProjection:
+    if not page_text_by_number:
+        return projection
+    for entry in projection.entries:
+        klass = _normalize_event_class_local(entry)
+        if klass == "ed":
+            return projection
+
+    ed_pages: list[int] = []
+    ed_date: date | None = None
+    mechanism_line = ""
+    pain_line = ""
+    denial_line = ""
+    for p in sorted(page_text_by_number.keys()):
+        txt = page_text_by_number.get(p) or ""
+        low = txt.lower()
+        if not re.search(
+            r"\b(ed notes?|emergency department|emergency room|er visit|triage|chief complaint|hpi|history of present illness)\b",
+            low,
+        ):
+            continue
+        ed_pages.append(p)
+        for line in re.split(r"[\r\n]+", txt):
+            sline = sanitize_for_report(line).strip()
+            if not sline:
+                continue
+            l = sline.lower()
+            if not mechanism_line and re.search(r"\b(motor vehicle|mvc|mva|rear[- ]end|collision|auto accident|car accident|fall)\b", l):
+                mechanism_line = sline[:240]
+            if not pain_line and re.search(r"\bpain(?:\s*(?:score|level|severity))?\s*[:=]?\s*\d{1,2}\s*/\s*10\b", l):
+                pain_line = sline[:240]
+            if not denial_line and re.search(r"\b(denies?|no prior|without prior|prior complaints?)\b", l):
+                denial_line = sline[:240]
+        for m in re.finditer(r"\b(20\d{2}|19[7-9]\d)-([01]\d)-([0-3]\d)\b", low):
+            try:
+                cand = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            except ValueError:
+                continue
+            if date_sanity(cand) and (ed_date is None or cand < ed_date):
+                ed_date = cand
+    if not ed_pages:
+        return projection
+
+    refs: list[str] = []
+    for p in ed_pages[:5]:
+        if page_map and p in page_map:
+            fname, local = page_map[p]
+            refs.append(f"{_sanitize_filename_display(fname)} p. {local}")
+        else:
+            refs.append(f"p. {p}")
+    facts: list[str] = []
+    if mechanism_line:
+        facts.append(mechanism_line)
+    if pain_line:
+        facts.append(pain_line)
+    if denial_line:
+        facts.append(denial_line)
+    if not facts:
+        facts.append("Emergency department evaluation documented in cited records.")
+
+    ed_entry = ChronologyProjectionEntry(
+        event_id=f"ed_anchor_{hashlib.sha1('|'.join(map(str, ed_pages)).encode('utf-8')).hexdigest()[:12]}",
+        date_display=f"{ed_date.isoformat()} (time not documented)" if ed_date else "Undated",
+        provider_display="Medical Provider",
+        event_type_display="Emergency Visit",
+        patient_label="See Patient Header",
+        facts=[sanitize_for_report(f) for f in facts if f],
+        citation_display=", ".join(refs),
+        confidence=82,
+    )
+    new_entries = list(projection.entries)
+    new_entries.append(ed_entry)
+    return projection.model_copy(update={"entries": new_entries})
+
+
 def _normalize_event_class_local(entry) -> str:
     normalized = (entry.event_type_display or "").strip().lower()
     facts = list(getattr(entry, "facts", []) or [])
+    facts_blob = " ".join(str(f or "") for f in facts).lower()
+    if re.search(
+        r"\b(ed notes?|emergency department|emergency room|triage|chief complaint|hpi|history of present illness|"
+        r"rear[- ]end|motor vehicle collision|mvc|mva|trauma center)\b",
+        facts_blob,
+    ):
+        return "ed"
     mapping = {
         "emergency visit": "ed",
         "hospital admission": "admission",

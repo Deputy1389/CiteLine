@@ -2,10 +2,61 @@ import re
 from datetime import date
 from apps.worker.project.models import ChronologyProjectionEntry
 from apps.worker.steps.events.report_quality import date_sanity, procedure_canonicalization, injury_canonicalization
-from packages.shared.utils.noise_utils import is_vitals_heavy
+from packages.shared.utils.noise_utils import is_vitals_heavy, is_flowsheet_noise
 from packages.shared.models import Event
 
 MIN_SUBSTANCE_THRESHOLD = 1
+
+_ED_MARKER_RE = re.compile(
+    r"\b("
+    r"ed notes?|emergency department|emergency room|er visit|triage|chief complaint|"
+    r"history of present illness|hpi|trauma center"
+    r")\b",
+    re.IGNORECASE,
+)
+
+_MECHANISM_MARKER_RE = re.compile(
+    r"\b("
+    r"rear[- ]end|motor vehicle collision|mvc|mva|auto accident|car accident|collision|head-on|T-bone|side-impact"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def is_ed_event(
+    *,
+    text_blob: str,
+    event_type: str = "",
+    provider_blob: str = "",
+    event_class: str = "",
+) -> bool:
+    low_text = (text_blob or "").lower()
+    low_event_type = (event_type or "").lower()
+    low_provider = (provider_blob or "").lower()
+    low_event_class = (event_class or "").lower()
+    if low_event_class == "ed_visit":
+        return True
+    if _ED_MARKER_RE.search(low_text):
+        return True
+    if re.search(r"\b(emergency department|emergency room|er visit|ed visit|trauma center)\b", low_text):
+        return True
+    if re.search(r"\b(emergency|er visit)\b", low_event_type):
+        return True
+    if re.search(r"\b(emergency|trauma)\b", low_provider):
+        return True
+    return False
+
+
+def _mechanism_priority_score(text: str) -> int:
+    low = text.lower()
+    score = 0
+    if _MECHANISM_MARKER_RE.search(low):
+        score += 15
+    if re.search(r"\bpain(?:\s*(?:score|severity|level))?\s*[:=]?\s*\d{1,2}\s*/\s*10\b", low):
+        score += 5
+    if re.search(r"\b(denies?|no prior|without prior|prior complaints?)\b", low):
+        score += 5
+    return score
 
 def is_high_value_event(event: Event, joined_raw: str) -> bool:
     ext = event.extensions or {}
@@ -47,6 +98,10 @@ def is_high_value_event(event: Event, joined_raw: str) -> bool:
 def classify_projection_entry(entry: ChronologyProjectionEntry) -> str:
     et = (entry.event_type_display or "").lower()
     facts = " ".join(entry.facts).lower()
+    if is_ed_event(text_blob=facts, event_type=et, provider_blob=(entry.provider_display or "")):
+        return "ed_visit"
+    if is_flowsheet_noise(" ".join(entry.facts or [])):
+        return "flowsheet"
     if "admission" in et:
         return "inpatient"
     if "discharge" in et:
@@ -75,16 +130,33 @@ def bucket_for_required_coverage(entry: ChronologyProjectionEntry) -> str | None
     event_class = classify_projection_entry(entry)
     blob = " ".join(entry.facts).lower()
     et = (entry.event_type_display or "").lower()
+    cite = (entry.citation_display or "").lower()
+    provider = (entry.provider_display or "").lower()
+    if event_class == "flowsheet":
+        return None
+
+    pt_context = (
+        ("therapy" in et)
+        or bool(re.search(r"\b(physical therapy|pt|therap)\b", provider))
+        or bool(re.search(r"\b(pt eval|physical therapy|rehab|therap)\b", cite))
+        or bool(re.search(r"\b(physical therapy|pt evaluation|plan of care|therapeutic exercise|manual therapy)\b", blob))
+    )
+    ed_context = is_ed_event(text_blob=blob, event_type=et, provider_blob=provider, event_class=event_class)
     if re.search(r"\b(ortho|orthopedic)\b", blob):
         return "ortho"
-    if event_class == "ed_visit":
+    if ed_context or _MECHANISM_MARKER_RE.search(blob):
         return "ed"
     if event_class == "imaging_impression":
         if re.search(r"\bmri\b", blob):
             return "mri"
         return "xr_radiology"
     if event_class == "therapy":
-        if re.search(r"\b(eval|evaluation|initial eval|pain|rom|range of motion|strength)\b", blob):
+        if pt_context and (
+            re.search(r"\b(initial evaluation|pt evaluation|evaluation|eval|plan of care)\b", blob)
+            or re.search(r"\bpt[_ -]?eval|initial[_ -]?eval|plan[_ -]?of[_ -]?care\b", cite)
+        ):
+            return "pt_eval"
+        if pt_context and re.search(r"\bassessment\b", blob) and re.search(r"\b(initial|evaluation|eval|plan of care|goals?|functional limitation|adl)\b", blob):
             return "pt_eval"
         return "pt_followup"
     if event_class == "surgery_procedure":
@@ -98,7 +170,7 @@ def bucket_for_required_coverage(entry: ChronologyProjectionEntry) -> str | None
 def projection_entry_score(entry: ChronologyProjectionEntry) -> int:
     event_class = classify_projection_entry(entry)
     base = {
-        "inpatient": 90, "discharge_transfer": 90, "ed_visit": 85, "surgery_procedure": 85, "imaging_impression": 75, "therapy": 55, "clinic": 35, "labs": 30, "questionnaire": 10, "vitals": 10, "admin": 0, "other": 20,
+        "inpatient": 90, "discharge_transfer": 90, "ed_visit": 85, "surgery_procedure": 85, "imaging_impression": 75, "therapy": 55, "clinic": 35, "labs": 30, "questionnaire": 10, "vitals": 10, "flowsheet": 0, "admin": 0, "other": 20,
     }[event_class]
     facts = " ".join(entry.facts).lower()
     severe_score = False
@@ -136,7 +208,7 @@ def entry_substance_score(entry: ChronologyProjectionEntry) -> int:
     facts = " ".join(entry.facts).lower()
     if not (entry.citation_display or "").strip():
         return 0
-    score = 0
+    score = _mechanism_priority_score(facts)
     if re.search(r"\b(diagnosis|assessment|impression|problem|radiculopathy|fracture|tear|infection|stenosis|sprain|strain)\b", facts):
         score += 2
     if re.search(r"\b(surgery|operative|procedure|debridement|orif|arthroplasty|repair|reconstruction|injection|epidural|nerve block|medrol|lidocaine|marcaine|depo)\b", facts):
@@ -163,12 +235,18 @@ def entry_substance_score(entry: ChronologyProjectionEntry) -> int:
         score += 1
     if re.search(r"\b(limited detail|encounter recorded|continuity of care|documentation noted)\b", facts):
         score -= 3
+    if any(getattr(entry, "verbatim_flags", [])):
+        score += 5
     return max(0, score)
 
 def is_substantive_entry(entry: ChronologyProjectionEntry) -> bool:
     if not (entry.citation_display or "").strip():
         return False
+    if any(getattr(entry, "verbatim_flags", [])):
+        return True
     event_class = classify_projection_entry(entry)
+    if event_class == "flowsheet":
+        return False
     if event_class in {"ed_visit", "imaging_impression", "surgery_procedure", "inpatient", "discharge_transfer"}:
         return True
     if event_class == "therapy":

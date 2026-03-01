@@ -5,8 +5,23 @@ from types import SimpleNamespace
 from apps.worker.lib.luqa import build_luqa_report
 
 
-def _entry(date_display: str, facts: list[str], citation_display: str = "packet.pdf p. 1"):
-    return SimpleNamespace(date_display=date_display, facts=facts, citation_display=citation_display)
+def _entry(
+    date_display: str,
+    facts: list[str],
+    citation_display: str = "packet.pdf p. 1",
+    *,
+    event_type_display: str = "Clinical Note",
+    provider_display: str = "Unknown",
+    verbatim_flags: list[bool] | None = None,
+):
+    return SimpleNamespace(
+        date_display=date_display,
+        facts=facts,
+        citation_display=citation_display,
+        event_type_display=event_type_display,
+        provider_display=provider_display,
+        verbatim_flags=verbatim_flags or [False] * len(facts),
+    )
 
 
 def _ctx(entries=None, page_text=None):
@@ -159,3 +174,43 @@ Appendix A:
     luqa = build_luqa_report(report, _ctx())
     codes = {f["code"] for f in luqa["failures"]}
     assert "LUQA_RENDER_QUALITY_SANITY" in codes
+
+
+def test_luqa_verbatim_ratio_uses_structured_verbatim_flags():
+    report = "Medical Timeline (Litigation Ready)\nTop 10 Case-Driving Events\n"
+    entries = [
+        _entry(
+            "2025-01-01",
+            ["Chief complaint: rear-end MVC with neck pain 8/10."],
+            "packet.pdf p. 1",
+            event_type_display="Emergency Visit",
+            verbatim_flags=[True],
+        ),
+        _entry(
+            "2025-01-02",
+            ["Assessment: cervical strain and limited ROM."],
+            "packet.pdf p. 2",
+            event_type_display="Follow-Up Visit",
+            verbatim_flags=[False],
+        ),
+    ]
+    luqa = build_luqa_report(report, _ctx(entries=entries))
+    assert luqa["metrics"]["qa_rows_source"] == "projection_rows"
+    assert luqa["metrics"]["verbatim_ratio"] > 0
+
+
+def test_luqa_projection_bucket_presence_recognizes_ed_from_event_type():
+    report = "Medical Timeline (Litigation Ready)\nTop 10 Case-Driving Events\n"
+    page_text = {1: "Emergency Department triage and HPI after MVC."}
+    entries = [
+        _entry(
+            "2025-01-01",
+            ["General Hospital & Trauma Center 8/10"],
+            "packet.pdf p. 1",
+            event_type_display="Emergency Visit",
+            verbatim_flags=[False],
+        )
+    ]
+    luqa = build_luqa_report(report, _ctx(entries=entries, page_text=page_text))
+    codes = {f["code"] for f in luqa["failures"]}
+    assert "LUQA_REQUIRED_BUCKETS_WHEN_PRESENT" not in codes

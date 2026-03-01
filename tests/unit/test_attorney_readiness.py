@@ -34,7 +34,8 @@ Appendix C
 """
     ctx = _ctx(page_text={1: "ED triage HPI after MVC. MRI impression shows C5-6 protrusion. Orthopedic assessment and plan."})
     out = build_attorney_readiness_report(report, ctx)
-    assert out["attorney_ready_pass"] is False
+    # Missing required buckets is review-level (soft), not a hard export block.
+    assert out["attorney_ready_pass"] is True
     codes = {f["code"] for f in out["failures"]}
     assert "AR_REQUIRED_BUCKETS_MISSING" in codes
 

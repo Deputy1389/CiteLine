@@ -39,6 +39,26 @@ def extract_clinical_events(
     warnings: list[PipelineWarning] = []
     skipped: list[SkippedEvent] = []
 
+    # Backward compatibility for eval paths still calling the old 4-arg signature:
+    # extract_clinical_events(pages, dates, providers, page_provider_map)
+    if isinstance(config, dict) and not isinstance(config, RunConfig):
+        looks_like_page_provider_map = all(
+            isinstance(k, (int, str)) and isinstance(v, str)
+            for k, v in config.items()
+        )
+        if looks_like_page_provider_map and not page_provider_map:
+            page_provider_map = {
+                int(k): v
+                for k, v in config.items()
+                if str(k).isdigit() and isinstance(v, str)
+            }
+            config = RunConfig()
+        else:
+            try:
+                config = RunConfig.model_validate(config)
+            except Exception:
+                config = RunConfig()
+
     # 1. Group pages into blocks
     blocks = group_clinical_pages(pages, dates, providers, page_provider_map)
 

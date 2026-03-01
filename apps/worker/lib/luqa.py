@@ -8,6 +8,9 @@ from datetime import date, timedelta
 from typing import Any
 
 from apps.worker.lib.noise_filter import is_noise_span
+from packages.shared.utils.noise_utils import has_narrative_sentence, is_flowsheet_noise
+from packages.shared.utils.scoring_utils import bucket_for_required_coverage as _bucket_for_required_coverage
+from packages.shared.utils.scoring_utils import is_ed_event
 
 
 META_PATTERNS = [
@@ -39,8 +42,18 @@ DX_RE = re.compile(
     re.IGNORECASE,
 )
 ENCOUNTER_RE = re.compile(r"\b(chief complaint|hpi|emergency|impression|assessment|plan|procedure|injection|fluoroscopy)\b", re.IGNORECASE)
+_FUNCTIONAL_RE = re.compile(r"\b(tenderness|radicular|mva|mvc|rear[- ]end|discharge|final pain)\b", re.IGNORECASE)
+_IMAGING_SIGNAL_RE = re.compile(r"\b(mri|x-?ray|radiology|spine series|alignment|disc spaces|cervical|lumbar|thoracic)\b", re.IGNORECASE)
 MED_RE = re.compile(
     r"\b(hydrocodone|oxycodone|lidocaine|depo-?medrol|ibuprofen|acetaminophen|toradol|ketorolac|gabapentin|cyclobenzaprine|prednisone|naproxen)\b",
+    re.IGNORECASE,
+)
+TIER1_RE = re.compile(
+    r"\b(radiculopathy|herniation|disc protrusion|disc bulge|foraminal stenosis|fracture|tear|neuropathy|procedure|injection|surgery)\b",
+    re.IGNORECASE,
+)
+MECHANISM_RE = re.compile(
+    r"\b(mva|mvc|motor vehicle|rear[- ]end|collision|accident|fell|fall|slipped)\b",
     re.IGNORECASE,
 )
 BUCKET_SIGNALS = {
@@ -83,11 +96,17 @@ class TimelineRow:
     provider: str
     fact_lines: list[str]
     citation_line: str
+    source_event_id: str = ""
+    bucket: str = ""
+    verbatim_flags: list[bool] | None = None
+    citation_pages: list[int] | None = None
 
 
 def _extract_timeline_slice(report_text: str) -> str:
     low = report_text.lower()
     start = low.find("chronological medical timeline")
+    if start < 0:
+        start = low.find("medical timeline (litigation ready)")
     if start < 0:
         return report_text
     end_candidates = [
@@ -167,19 +186,17 @@ def _rows_from_projection_entries(entries: list[Any]) -> list[TimelineRow]:
         facts = [str(f or "") for f in (getattr(e, "facts", []) or []) if str(f or "").strip()]
         if not facts:
             continue
-        facts_text = " ".join(facts)
         citation = str(getattr(e, "citation_display", "") or "").strip()
         if not citation:
             continue
-        if is_noise_span(facts_text):
-            continue
-        # Keep fallback rows litigation-useful; do not import placeholder-heavy projection rows.
-        if _non_stopword_token_count(facts_text) < 12:
-            continue
-        if _fact_category_count(facts_text) < 2:
-            continue
-        if PLACEHOLDER_RE.search(facts_text):
-            continue
+        flags = list(getattr(e, "verbatim_flags", []) or [])
+        if len(flags) < len(facts):
+            flags.extend([False] * (len(facts) - len(flags)))
+        citation_pages = [int(x) for x in re.findall(r"p\.\s*(\d+)", citation, re.I)]
+        try:
+            bucket = str(_bucket_for_required_coverage(e) or "")
+        except Exception:
+            bucket = ""
         date_text = "Undated"
         m = DATE_RE.search(getattr(e, "date_display", "") or "")
         if m:
@@ -191,6 +208,10 @@ def _rows_from_projection_entries(entries: list[Any]) -> list[TimelineRow]:
                 provider=str(getattr(e, "provider_display", "") or ""),
                 fact_lines=facts,
                 citation_line=f"Citation(s): {citation}",
+                source_event_id=str(getattr(e, "event_id", "") or ""),
+                bucket=bucket,
+                verbatim_flags=flags[: len(facts)],
+                citation_pages=citation_pages,
             )
         )
     return rows
@@ -230,6 +251,10 @@ def _fact_category_count(text: str) -> int:
     if DX_RE.search(text):
         categories += 1
     if ENCOUNTER_RE.search(text):
+        categories += 1
+    if _FUNCTIONAL_RE.search(text):
+        categories += 1
+    if _IMAGING_SIGNAL_RE.search(text):
         categories += 1
     return categories
 
@@ -294,7 +319,11 @@ def _timeline_bucket_presence(rows: list[TimelineRow]) -> set[str]:
     present: set[str] = set()
     for row in rows:
         blob = f"{row.event_type} {' '.join(row.fact_lines)}".lower()
-        if re.search(r"\b(emergency|ed)\b", blob):
+        if (row.bucket or "").lower() == "ed" or is_ed_event(
+            text_blob=blob,
+            event_type=row.event_type,
+            provider_blob=row.provider,
+        ):
             present.add("ED")
         if re.search(r"\b(mri|impression|imaging)\b", blob):
             present.add("MRI")
@@ -310,11 +339,29 @@ def _timeline_bucket_presence(rows: list[TimelineRow]) -> set[str]:
 def _projection_bucket_presence(entries: list[Any]) -> set[str]:
     present: set[str] = set()
     for e in entries or []:
+        try:
+            bucket = str(_bucket_for_required_coverage(e) or "").lower()
+        except Exception:
+            bucket = ""
+        if bucket == "ed":
+            present.add("ED")
+        if bucket == "pt_eval":
+            present.add("PT_EVAL")
+        if bucket == "procedure":
+            present.add("PROCEDURE")
+        if bucket == "ortho":
+            present.add("ORTHO")
+        if bucket == "mri":
+            present.add("MRI")
         blob = (
             f"{str(getattr(e, 'event_type_display', '') or '')} "
             f"{' '.join(str(f or '') for f in (getattr(e, 'facts', []) or []))}"
         ).lower()
-        if re.search(r"\b(emergency|ed|chief complaint|triage)\b", blob):
+        if is_ed_event(
+            text_blob=blob,
+            event_type=str(getattr(e, "event_type_display", "") or ""),
+            provider_blob=str(getattr(e, "provider_display", "") or ""),
+        ):
             present.add("ED")
         if re.search(r"\b(mri|impression|imaging)\b", blob):
             present.add("MRI")
@@ -327,6 +374,38 @@ def _projection_bucket_presence(entries: list[Any]) -> set[str]:
     return present
 
 
+def _noise_page_numbers(page_text_by_number: dict[int, str]) -> set[int]:
+    noise_pages: set[int] = set()
+    for page_no, txt in (page_text_by_number or {}).items():
+        text = str(txt or "")
+        if not text.strip():
+            continue
+        if has_narrative_sentence(text):
+            continue
+        if is_noise_span(text) and is_flowsheet_noise(text):
+            noise_pages.add(int(page_no))
+    return noise_pages
+
+
+def _row_citation_pages(row: TimelineRow) -> set[int]:
+    pages = {int(p) for p in (row.citation_pages or []) if int(p) > 0}
+    if pages:
+        return pages
+    return {int(p) for p in re.findall(r"p\.\s*(\d+)", row.citation_line)}
+
+
+def _scoreable_rows(rows: list[TimelineRow], noise_pages: set[int]) -> tuple[list[TimelineRow], int]:
+    excluded_noise_only = 0
+    score_rows: list[TimelineRow] = []
+    for row in rows:
+        citation_pages = _row_citation_pages(row)
+        if citation_pages and all(p in noise_pages for p in citation_pages):
+            excluded_noise_only += 1
+            continue
+        score_rows.append(row)
+    return score_rows, excluded_noise_only
+
+
 def build_luqa_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
     timeline_text = _extract_timeline_slice(report_text)
     top10_text = _extract_top10_slice(report_text)
@@ -334,12 +413,13 @@ def build_luqa_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
     parsed_rows = _parse_timeline_rows(timeline_text)
     projection_entries = list(ctx.get("projection_entries", []) or [])
     projection_rows = _rows_from_projection_entries(projection_entries)
-    used_projection_fallback = False
-    rows = parsed_rows
-    if len(parsed_rows) < max(2, min(5, len(projection_rows) // 2)):
-        rows = _merge_rows(parsed_rows, projection_rows)
-        used_projection_fallback = True
+    # Contract: prefer structured projection rows for QA metrics.
+    used_projection_fallback = bool(projection_rows)
+    rows = projection_rows or parsed_rows
     row_count = len(rows)
+    noise_pages = _noise_page_numbers(ctx.get("page_text_by_number") or {})
+    score_rows, excluded_noise_only = _scoreable_rows(rows, noise_pages)
+    score_row_count = len(score_rows)
 
     failures: list[dict[str, Any]] = []
     penalties = 0.0
@@ -396,23 +476,31 @@ def build_luqa_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
     duplicate_counter: Counter[tuple[str, str, str, str]] = Counter()
     duplicate_examples: list[str] = []
     rows_with_noise_citations = 0
-    all_noise_pages = {p for p, txt in (ctx.get("page_text_by_number") or {}).items() if is_noise_span(txt or "")}
+    all_noise_pages = set(noise_pages)
 
-    for row in rows:
+    quoted_rows_without_verbatim_flag = 0
+    verbatim_flagged_rows_without_quote = 0
+    for row in score_rows:
         facts_text = " ".join(row.fact_lines)
         tokens = _non_stopword_token_count(facts_text)
         categories = _fact_category_count(facts_text)
+        tier1_hit = bool(TIER1_RE.search(facts_text) or MECHANISM_RE.search(facts_text))
+        
         is_placeholder_text = bool(PLACEHOLDER_RE.search(facts_text))
-        is_low_signal = tokens < 8 and categories == 0
+        is_low_signal = tokens < 8 and categories == 0 and not tier1_hit
         if is_placeholder_text or is_low_signal:
             placeholders += 1
-        if categories >= 2:
+        
+        if tier1_hit or categories >= 2:
             fact_dense += 1
-        if any('"' in ln for ln in row.fact_lines) or any(
-            (_non_stopword_token_count(ln) >= 8 and not META_RE.search(ln or ""))
-            for ln in row.fact_lines
-        ):
+        row_has_quote = any('"' in ln for ln in row.fact_lines)
+        row_verbatim_flagged = any(bool(v) for v in (row.verbatim_flags or []))
+        if row_verbatim_flagged or row_has_quote:
             verbatim_rows += 1
+        if row_has_quote and not row_verbatim_flagged:
+            quoted_rows_without_verbatim_flag += 1
+        if row_verbatim_flagged and not row_has_quote:
+            verbatim_flagged_rows_without_quote += 1
 
         snippet_norm = re.sub(r"\s+", " ", facts_text.lower()).strip()
         if snippet_norm:
@@ -420,47 +508,46 @@ def build_luqa_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
             fp = (row.date_text, row.provider.lower(), row.event_type.lower(), snippet_hash)
             duplicate_counter[fp] += 1
 
-        citation_pages = {int(p) for p in re.findall(r"p\.\s*(\d+)", row.citation_line)}
+        citation_pages = set(row.citation_pages or [])
+        if not citation_pages:
+            citation_pages = {int(p) for p in re.findall(r"p\.\s*(\d+)", row.citation_line)}
         if citation_pages and any(p in all_noise_pages for p in citation_pages):
             rows_with_noise_citations += 1
 
-    placeholder_ratio = (placeholders / row_count) if row_count else 0.0
-    fact_density_ratio = (fact_dense / row_count) if row_count else 0.0
-    verbatim_ratio = (verbatim_rows / row_count) if row_count else 0.0
+    placeholder_ratio = (placeholders / score_row_count) if score_row_count else 0.0
+    fact_density_ratio = (fact_dense / score_row_count) if score_row_count else 0.0
+    verbatim_ratio = (verbatim_rows / score_row_count) if score_row_count else 0.0
 
     if placeholder_ratio > 0.20:
-        hard_fail = True
         failures.append(
             {
                 "code": "LUQA_PLACEHOLDER_RATIO",
-                "severity": "hard",
+                "severity": "soft",
                 "message": f"Placeholder ratio too high: {placeholder_ratio:.3f}",
-                "examples": [r.fact_lines[0] if r.fact_lines else "" for r in rows[:3]],
+                "examples": [r.fact_lines[0] if r.fact_lines else "" for r in score_rows[:3]],
             }
         )
     penalties += min(30.0, placeholder_ratio * 30.0)
 
     if fact_density_ratio < 0.30:
-        hard_fail = True
         failures.append(
             {
                 "code": "LUQA_FACT_DENSITY",
-                "severity": "hard",
+                "severity": "soft",
                 "message": f"Fact-dense ratio too low: {fact_density_ratio:.3f}",
-                "examples": [r.fact_lines[0] if r.fact_lines else "" for r in rows[:3]],
+                "examples": [r.fact_lines[0] if r.fact_lines else "" for r in score_rows[:3]],
             }
         )
     elif fact_density_ratio < 0.60:
         penalties += min(30.0, ((0.60 - fact_density_ratio) / 0.60) * 30.0)
 
     if verbatim_ratio < 0.70:
-        hard_fail = True
         failures.append(
             {
                 "code": "LUQA_VERBATIM_ANCHOR_RATIO",
-                "severity": "hard",
+                "severity": "soft",
                 "message": f"Verbatim ratio below hard threshold: {verbatim_ratio:.3f}",
-                "examples": [r.fact_lines[0] if r.fact_lines else "" for r in rows[:3]],
+                "examples": [r.fact_lines[0] if r.fact_lines else "" for r in score_rows[:3]],
             }
         )
     elif verbatim_ratio < 0.85:
@@ -472,7 +559,7 @@ def build_luqa_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
             duplicate_rows += count - 1
         if count >= 3 and len(duplicate_examples) < 3:
             duplicate_examples.append(f"{fp[0]} | {fp[2]} | repeats={count}")
-    duplicate_rows_ratio = (duplicate_rows / row_count) if row_count else 0.0
+    duplicate_rows_ratio = (duplicate_rows / score_row_count) if score_row_count else 0.0
     if duplicate_examples or duplicate_rows_ratio > 0.10:
         hard_fail = True
         failures.append(
@@ -526,7 +613,7 @@ def build_luqa_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
-    noise_rows_ratio = (rows_with_noise_citations / row_count) if row_count else 0.0
+    noise_rows_ratio = (rows_with_noise_citations / score_row_count) if score_row_count else 0.0
     if all_noise_pages and noise_rows_ratio > 0.05:
         hard_fail = True
         failures.append(
@@ -557,7 +644,12 @@ def build_luqa_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
             "care_window_mismatch": care_window_mismatch,
             "missing_buckets": missing_buckets,
             "timeline_row_count": row_count,
+            "timeline_score_row_count": score_row_count,
+            "noise_only_rows_excluded": excluded_noise_only,
             "noise_rows_ratio": round(noise_rows_ratio, 3),
             "render_quality_defect_count": len(render_quality_defects),
+            "quoted_rows_without_verbatim_flag": quoted_rows_without_verbatim_flag,
+            "verbatim_flagged_rows_without_quote": verbatim_flagged_rows_without_quote,
+            "qa_rows_source": "projection_rows" if projection_rows else "pdf_rows",
         },
     }

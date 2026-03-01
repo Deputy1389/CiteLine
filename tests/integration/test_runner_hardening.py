@@ -33,8 +33,8 @@ def test_atomic_claim(db_session, setup_data):
     matter_id = setup_data
     
     # Create 2 pending runs
-    run1 = Run(matter_id=matter_id, status="pending", config_json="{}")
-    run2 = Run(matter_id=matter_id, status="pending", config_json="{}")
+    run1 = Run(matter_id=matter_id, status="pending", config_json={})
+    run2 = Run(matter_id=matter_id, status="pending", config_json={})
     db_session.add(run1)
     db_session.add(run2)
     db_session.commit()
@@ -65,7 +65,7 @@ def test_stale_recovery(db_session, setup_data):
     run_stale = Run(
         matter_id=matter_id, 
         status="running", 
-        config_json="{}",
+        config_json={},
         worker_id="old_worker",
         heartbeat_at=stale_time
     )
@@ -92,7 +92,7 @@ def test_stale_retry_limit(db_session, setup_data, monkeypatch):
     run_stale = Run(
         matter_id=matter_id,
         status="running",
-        config_json="{}",
+        config_json={},
         worker_id="old_worker",
         heartbeat_at=stale_time,
         retry_count=1,

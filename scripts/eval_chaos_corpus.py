@@ -31,7 +31,7 @@ def _tier_from_path(pdf_path: Path) -> str:
 
 def evaluate_case(pdf_path: Path, eval_dir: Path) -> dict:
     run_id = f"eval-chaos-{uuid4().hex[:8]}"
-    out_pdf_path, ctx = run_sample_pipeline(pdf_path, run_id)
+    out_pdf_path, ctx = run_sample_pipeline(pdf_path, run_id, export_mode="INTERNAL")
     case_dir = eval_dir / pdf_path.stem
     case_dir.mkdir(parents=True, exist_ok=True)
     output_pdf = case_dir / "output.pdf"

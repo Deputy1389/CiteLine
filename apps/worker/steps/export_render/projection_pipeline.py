@@ -29,6 +29,7 @@ def prepare_projection_bundle(
     enrich_projection_procedure_entries: Callable,
     ensure_mri_bucket_entry: Callable,
     ensure_procedure_bucket_entry: Callable,
+    ensure_ed_bucket_entry: Callable,
     ensure_ortho_bucket_entry: Callable,
     normalize_projection_patient_labels: Callable,
     merge_projection_entries_same_day: Callable,
@@ -67,6 +68,11 @@ def prepare_projection_bundle(
         page_map=page_map
     )
     projection = ensure_procedure_bucket_entry(
+        projection,
+        page_text_by_number=page_text_by_number,
+        page_map=page_map
+    )
+    projection = ensure_ed_bucket_entry(
         projection,
         page_text_by_number=page_text_by_number,
         page_map=page_map

@@ -6,13 +6,15 @@ It does not run new extraction.
 """
 from __future__ import annotations
 
+import hashlib
 import re
 from difflib import SequenceMatcher
 from datetime import datetime
 from datetime import date
 from typing import Any
 
-from packages.shared.models import Citation, Event, RendererManifest, RendererDoiField, RendererCitationValue, RendererPtSummary, PromotedFinding
+from packages.shared.models import Citation, Event, RendererManifest, RendererDoiField, RendererCitationValue, RendererPtSummary, PromotedFinding, BucketEvidence
+from packages.shared.utils.scoring_utils import is_ed_event
 
 
 _SENTINEL_DATES = {"1900-01-01", "0001-01-01", "unknown", "undated", ""}
@@ -45,6 +47,12 @@ _NEGATIVE_IMAGING_PATTERNS = [
     re.compile(r"\bdisc spaces?:\s*preserved\b", re.I),
     re.compile(r"\bpreserved\b", re.I),
 ]
+_SNAP_NUMERIC_PAT = re.compile(r"\b\d{1,3}(?:/\d{1,3})?\b")
+_SNAP_PAIN_PAT = re.compile(r"\b(pain(?:\s*(?:score|level|severity))?\s*[:=]?\s*\d{1,2}\s*/\s*10)\b", re.I)
+_SNAP_VITALS_PAT = re.compile(r"\b(?:bp|blood pressure|hr|heart rate|rr|respiratory rate|spo2)\b", re.I)
+_SNAP_ROM_PAT = re.compile(r"\b(?:rom|range of motion|strength|weakness|diminished reflex|spasm)\b", re.I)
+_SNAP_MEDS_PAT = re.compile(r"\b(?:mg|mcg|ml|toradol|ketorolac|ibuprofen|acetaminophen|lidocaine|depo-?medrol|flexeril|gabapentin|naproxen)\b", re.I)
+_SNAP_DISPO_PAT = re.compile(r"\b(?:discharge|home care|return precautions|follow-?up|final pain)\b", re.I)
 
 _OBJECTIVE_DEFICIT_PAT = re.compile(r"\b(weakness|strength|reflex|diminished|range of motion|rom|spasm|lordosis|[0-5]/5)\b", re.I)
 _STRUCTURAL_IMAGING_PAT = re.compile(r"\b(disc|foramen|foraminal|radicul|stenosis|herniat|protrusion|compression|displacement|tear|fracture)\b", re.I)
@@ -53,6 +61,37 @@ _TRAILING_FRAGMENT_PATTERNS = [
     re.compile(r"\bThis indicates\b.*$", re.I),
     re.compile(r"\bThis demonstrates\b.*$", re.I),
 ]
+
+_CLAIM_GATE_STOPWORDS = {
+    "the", "and", "for", "with", "this", "that", "into", "from", "page",
+    "patient", "record", "records", "documented", "noted", "impression",
+    "assessment", "diagnosis", "finding", "findings",
+}
+
+_META_LANGUAGE_RE = re.compile(
+    r"\b("
+    r"identified from source|documented in cited records|markers|extracted|encounter identified|"
+    r"not stated in records|packet|summaries vary|observed range|intensity reference|"
+    r"reconciliation|displays? the|reference only|not available|unknown provider|date not documented|"
+    r"chronology eval|litigation safety check|verified in extracted chronology|not yet litigation-safe|"
+    r"attorney-facing chronology|recommended attorney action|defense vulnerabilities|case readiness|"
+    r"defense may exploit|review recommended|qa_[a-z0-9_]+|ar_[a-z0-9_]+"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def clean_meta_language(text: str | None) -> str:
+    if not text:
+        return ""
+    low = text.strip().lower()
+    if low in {"not available", "unknown provider", "date not documented", "unknown", "undated"}:
+        return ""
+    if _META_LANGUAGE_RE.search(text):
+        if len(text) < 150:
+            return ""
+        return _META_LANGUAGE_RE.sub("", text).strip()
+    return text.strip()
 
 
 def _iso_from_event(event: Event) -> tuple[str | None, str | None]:
@@ -360,6 +399,151 @@ def _consolidate_promoted_findings(items: list[PromotedFinding]) -> list[Promote
 
 
 def _build_mechanism(events: list[Event]) -> RendererCitationValue:
+    mechanism, _audit = _build_mechanism_from_events(events, None)
+    return mechanism
+
+
+def _mechanism_keywords_present(text: str) -> bool:
+    return bool(re.search(r"\b(motor vehicle|collision|mva|mvc|rear[- ]end|crash|auto accident)\b", text or "", re.I))
+
+
+def _mechanism_normalize_for_overlap(text: str) -> str:
+    s = str(text or "").lower()
+    s = re.sub(r"\b(mva|mvc)\b", "motor vehicle collision", s)
+    s = re.sub(r"\bcar accident\b", "motor vehicle collision", s)
+    s = re.sub(r"\bauto accident\b", "motor vehicle collision", s)
+    s = re.sub(r"\bcrash\b", "collision", s)
+    s = re.sub(r"\brear[- ]end(?:ed)?\b", "rear end collision", s)
+    return s
+
+
+def _mechanism_overlap_ratio(a: str, b: str) -> float:
+    return _lexical_overlap_ratio(_mechanism_normalize_for_overlap(a), _mechanism_normalize_for_overlap(b))
+
+
+def _mechanism_snippet_priority(snippet: str) -> int:
+    sn = str(snippet or "").lower()
+    if re.search(r"\b(hpi|history of present illness|chief complaint|presented with)\b", sn):
+        return 0
+    if re.search(r"\b(emergency department|emergency room|er visit|ed visit|trauma center)\b", sn):
+        return 1
+    if re.search(r"\b(initial evaluation|intake|initial consult|urgent care)\b", sn):
+        return 2
+    if re.search(r"\b(consult|orthopedic|neurology)\b", sn):
+        return 3
+    if re.search(r"\b(pt evaluation|physical therapy evaluation|plan of care)\b", sn):
+        return 4
+    return 5
+
+
+def _mechanism_contradiction_penalty(label: str, snippet: str) -> int:
+    low_label = (label or "").lower()
+    low_sn = (snippet or "").lower()
+    mva_like = bool(re.search(r"\b(motor vehicle|mvc|mva|rear[- ]end|collision|auto accident|car accident)\b", low_sn))
+    fall_like = bool(re.search(r"\b(fall|trip and fall|slip and fall)\b", low_sn))
+    work_like = bool(re.search(r"\b(work(?:place)? injury|on the job|lifting injury)\b", low_sn))
+    if "motor vehicle" in low_label and (fall_like or work_like):
+        return 1
+    if "fall" in low_label and mva_like:
+        return 1
+    if "work injury" in low_label and mva_like:
+        return 1
+    return 0
+
+
+_MECH_CITATION_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
+    (re.compile(r"\b(rear[- ]end(?:ed)?)\b", re.I), "rear-end motor vehicle collision", "rear-end"),
+    (re.compile(r"\b(motor vehicle collision|motor vehicle accident|mvc|mva|auto accident|car accident|collision|crash|impact)\b", re.I), "motor vehicle collision", "vehicle"),
+    (re.compile(r"\b(slip and fall|trip and fall|ground[- ]level fall|glf|fall|fell|slipped|trip(?:ped)?)\b", re.I), "fall", "fall"),
+    (re.compile(r"\b(pedestrian (?:struck|hit)|struck by vehicle|hit by vehicle|struck by)\b", re.I), "pedestrian struck", "struck_by"),
+    (re.compile(r"\b(work(?:place)? injury|on the job|lifting injury|overexertion|twisting injury)\b", re.I), "work injury", "work"),
+]
+
+
+def _mechanism_is_negated(snippet: str, start_idx: int) -> bool:
+    low = (snippet or "").lower()
+    window = low[max(0, start_idx - 40): start_idx]
+    return bool(re.search(r"\b(denies?|no|not|without|negative for)\b", window, re.I))
+
+
+def _build_mechanism_from_citations_with_audit(citations: list[Citation] | None) -> tuple[RendererCitationValue, dict[str, Any]]:
+    if not citations:
+        return RendererCitationValue(value=None, citation_ids=[]), {
+            "selected_label": None,
+            "selected_citation_ids": [],
+            "selected_candidate": None,
+            "candidate_count": 0,
+            "top_candidates": [],
+        }
+    candidates: list[dict[str, Any]] = []
+    for c in citations:
+        sn = _clean_citation_snippet_for_finding(str(getattr(c, "snippet", "") or "").strip())
+        if not sn:
+            continue
+        for pat, label, trig in _MECH_CITATION_PATTERNS:
+            m = pat.search(sn)
+            if not m:
+                continue
+            if _mechanism_is_negated(sn, m.start()):
+                continue
+            sn_pri = _mechanism_snippet_priority(sn)
+            score = 0
+            score += 5 if sn_pri <= 1 else 3 if sn_pri <= 3 else 1
+            score += 3 if label == "rear-end motor vehicle collision" else 0
+            score += 2 if re.search(r"\b(today|yesterday|earlier today|\d{1,2}/\d{1,2}/\d{4}|20\d{2}-\d{2}-\d{2})\b", sn, re.I) else 0
+            score += 2 if re.search(r"\b(neck|back|cervical|lumbar|shoulder|knee|head)\b", sn, re.I) else 0
+            overlap = _mechanism_overlap_ratio(label, sn)
+            if overlap < 0.20:
+                continue
+            candidates.append(
+                {
+                    "label": label,
+                    "trigger": trig,
+                    "citation_id": str(c.citation_id),
+                    "page_number": int(getattr(c, "page_number", 999999) or 999999),
+                    "snippet_priority": sn_pri,
+                    "overlap": round(overlap, 4),
+                    "score": score,
+                }
+            )
+            break
+    if not candidates:
+        return RendererCitationValue(value=None, citation_ids=[]), {
+            "selected_label": None,
+            "selected_citation_ids": [],
+            "selected_candidate": None,
+            "candidate_count": 0,
+            "top_candidates": [],
+        }
+    candidates.sort(
+        key=lambda x: (
+            -int(x.get("score", 0)),
+            int(x.get("snippet_priority", 99)),
+            -float(x.get("overlap", 0.0)),
+            int(x.get("page_number", 999999)),
+            str(x.get("citation_id", "")),
+        )
+    )
+    best = candidates[0]
+    return RendererCitationValue(value=str(best.get("label") or ""), citation_ids=[str(best.get("citation_id") or "")]), {
+        "selected_label": str(best.get("label") or ""),
+        "selected_citation_ids": [str(best.get("citation_id") or "")],
+        "selected_candidate": best,
+        "candidate_count": len(candidates),
+        "top_candidates": candidates[:10],
+    }
+
+
+def _iso_date_to_obj(iso: str | None) -> date | None:
+    if not iso:
+        return None
+    try:
+        return date.fromisoformat(str(iso))
+    except Exception:
+        return None
+
+
+def _build_mechanism_from_events(events: list[Event], citations: list[Citation] | None) -> tuple[RendererCitationValue, dict[str, Any]]:
     patterns = [
         (re.compile(r"\b(rear[- ]end)\b", re.I), "rear-end motor vehicle collision"),
         (re.compile(r"\b(motor vehicle collision|motor vehicle accident|mvc|mva|auto accident|car accident)\b", re.I), "motor vehicle collision"),
@@ -368,39 +552,163 @@ def _build_mechanism(events: list[Event]) -> RendererCitationValue:
         (re.compile(r"\b(motorcycle|bike accident|bicycle accident)\b", re.I), "vehicle collision"),
         (re.compile(r"\b(work(?:place)? injury|on the job|lifting injury)\b", re.I), "work injury"),
     ]
-    # Prefer earlier events because mechanism is usually documented near DOI.
-    ordered = sorted(events, key=lambda e: (_iso_from_event(e)[0] or "9999-99-99", str(getattr(e, "event_id", ""))))
+    cit_by_id = {str(c.citation_id): c for c in (citations or []) if str(getattr(c, "citation_id", "")).strip()}
+    cits_by_page: dict[int, list[Citation]] = {}
+    for c in (citations or []):
+        try:
+            pnum = int(getattr(c, "page_number", 0) or 0)
+        except Exception:
+            continue
+        if pnum <= 0:
+            continue
+        cits_by_page.setdefault(pnum, []).append(c)
+    doi_iso: str | None = None
+    for e in events:
+        s, _e = _iso_from_event(e)
+        if s and (doi_iso is None or s < doi_iso):
+            doi_iso = s
+    doi_date = _iso_date_to_obj(doi_iso)
+    candidates: list[dict[str, Any]] = []
+
+    def _event_mech_priority(e: Event) -> tuple[int, str, str]:
+        et = str(getattr(getattr(e, "event_type", None), "value", getattr(e, "event_type", ""))).lower()
+        blob = " ".join(_event_text_blobs(e)).lower()
+        if et in {"er_visit", "hospital_admission"} and re.search(r"\b(hpi|history of present illness|chief complaint|presented with)\b", blob):
+            p = 0
+        elif et in {"er_visit", "hospital_admission"}:
+            p = 1
+        elif re.search(r"\b(initial evaluation|intake|initial consult|urgent care)\b", blob):
+            p = 2
+        elif re.search(r"\b(consult|orthopedic)\b", blob):
+            p = 3
+        elif re.search(r"\b(pt evaluation|physical therapy evaluation|plan of care)\b", blob):
+            p = 4
+        else:
+            p = 5
+        return (p, _iso_from_event(e)[0] or "9999-99-99", str(getattr(e, "event_id", "")))
+
+    ordered = sorted(events, key=_event_mech_priority)
     for e in ordered:
         blob = " ".join(_event_text_blobs(e)).lower()
         if not blob:
             continue
+        event_date_iso = _iso_from_event(e)[0]
+        event_date = _iso_date_to_obj(event_date_iso)
         for pat, label in patterns:
             if pat.search(blob):
-                cids = [str(c) for c in (getattr(e, "citation_ids", []) or []) if str(c).strip()]
+                event_cids = [str(c) for c in (getattr(e, "citation_ids", []) or []) if str(c).strip()]
+                scored_strong: list[tuple[int, int, int, float, int, str, str]] = []
+                for cid in event_cids:
+                    c = cit_by_id.get(cid)
+                    sn = _clean_citation_snippet_for_finding(str(getattr(c, "snippet", "") or "").strip()) if c else ""
+                    if not sn or not _mechanism_keywords_present(sn):
+                        continue
+                    overlap = _mechanism_overlap_ratio(label, sn)
+                    if overlap < 0.20:
+                        continue
+                    page_no = int(getattr(c, "page_number", 999999) or 999999) if c else 999999
+                    event_pri = _event_mech_priority(e)[0]
+                    snippet_pri = _mechanism_snippet_priority(sn)
+                    contrad = _mechanism_contradiction_penalty(label, sn)
+                    doi_dist = abs((event_date - doi_date).days) if (event_date and doi_date) else 99999
+                    scored_strong.append((event_pri, snippet_pri, contrad, -overlap, doi_dist, page_no, cid))
+                if not scored_strong:
+                    for pnum in sorted(set(getattr(e, "source_page_numbers", []) or [])):
+                        page_cands = cits_by_page.get(int(pnum), [])
+                        scored_page_cands: list[tuple[int, int, int, float, int, str, str]] = []
+                        for pc in page_cands:
+                            sn = _clean_citation_snippet_for_finding(str(getattr(pc, "snippet", "") or "").strip())
+                            if not sn or not _mechanism_keywords_present(sn):
+                                continue
+                            overlap = _mechanism_overlap_ratio(label, sn)
+                            if overlap < 0.20:
+                                continue
+                            event_pri = _event_mech_priority(e)[0]
+                            pri = _mechanism_snippet_priority(sn)
+                            contrad = _mechanism_contradiction_penalty(label, sn)
+                            doi_dist = abs((event_date - doi_date).days) if (event_date and doi_date) else 99999
+                            scored_page_cands.append((event_pri, pri, contrad, -overlap, doi_dist, int(getattr(pc, "page_number", 999999) or 999999), str(pc.citation_id)))
+                        if scored_page_cands:
+                            scored_page_cands.sort(key=lambda t: (t[0], t[1], t[2], t[3], t[4], t[5], t[6]))
+                            scored_strong = scored_page_cands[:3]
+                            break
+                if scored_strong:
+                    scored_strong.sort(key=lambda t: (t[0], t[1], t[2], t[3], t[4], t[5], t[6]))
+                strong_cids = [cid for _event_pri, _pri, _contrad, _neg_ov, _doi_dist, _pg, cid in scored_strong]
+                for event_pri, pri, contrad, neg_ov, doi_dist, pg, cid in scored_strong[:5]:
+                    candidates.append(
+                        {
+                            "label": label,
+                            "event_id": str(getattr(e, "event_id", "") or ""),
+                            "citation_id": cid,
+                            "event_priority": event_pri,
+                            "snippet_priority": pri,
+                            "contradiction_penalty": contrad,
+                            "overlap": round(-neg_ov, 4),
+                            "doi_distance_days": doi_dist,
+                            "page_number": pg,
+                        }
+                    )
+                cids = strong_cids or event_cids
+                if cids and (not strong_cids and citations):
+                    # If we have citations loaded, avoid weak mechanism citations without mechanism keywords.
+                    continue
                 if cids:
-                    return RendererCitationValue(value=label, citation_ids=cids[:8])
-    return RendererCitationValue(value=None, citation_ids=[])
+                    cands_for_label = [c for c in candidates if c["label"] == label]
+                    best_cand = sorted(
+                        cands_for_label,
+                        key=lambda x: (
+                            int(x.get("event_priority", 99)),
+                            int(x.get("snippet_priority", 99)),
+                            int(x.get("contradiction_penalty", 99)),
+                            -float(x.get("overlap", 0.0)),
+                            int(x.get("doi_distance_days", 99999)),
+                            int(x.get("page_number", 999999)),
+                            str(x.get("citation_id", "")),
+                        ),
+                    )[0] if cands_for_label else None
+                    audit = {
+                        "selected_label": label,
+                        "selected_citation_ids": cids[:8],
+                        "selected_candidate": best_cand,
+                        "candidate_count": len(candidates),
+                        "top_candidates": sorted(
+                            candidates,
+                            key=lambda x: (
+                                int(x.get("event_priority", 99)),
+                                int(x.get("snippet_priority", 99)),
+                                int(x.get("contradiction_penalty", 99)),
+                                -float(x.get("overlap", 0.0)),
+                                int(x.get("doi_distance_days", 99999)),
+                                int(x.get("page_number", 999999)),
+                                str(x.get("citation_id", "")),
+                            ),
+                        )[:10],
+                    }
+                    return RendererCitationValue(value=label, citation_ids=cids[:8]), audit
+    return RendererCitationValue(value=None, citation_ids=[]), {
+        "selected_label": None,
+        "selected_citation_ids": [],
+        "selected_candidate": None,
+        "candidate_count": len(candidates),
+        "top_candidates": sorted(
+            candidates,
+            key=lambda x: (
+                int(x.get("event_priority", 99)),
+                int(x.get("snippet_priority", 99)),
+                int(x.get("contradiction_penalty", 99)),
+                -float(x.get("overlap", 0.0)),
+                int(x.get("doi_distance_days", 99999)),
+                int(x.get("page_number", 999999)),
+                str(x.get("citation_id", "")),
+            ),
+        )[:10],
+    }
 
 
 def _build_mechanism_from_citations(citations: list[Citation] | None) -> RendererCitationValue:
-    if not citations:
-        return RendererCitationValue(value=None, citation_ids=[])
-    patterns = [
-        (re.compile(r"\b(rear[- ]end)\b", re.I), "rear-end motor vehicle collision"),
-        (re.compile(r"\b(motor vehicle collision|motor vehicle accident|mvc|mva|auto accident|car accident)\b", re.I), "motor vehicle collision"),
-        (re.compile(r"\b(slip and fall|trip and fall|fall)\b", re.I), "fall"),
-        (re.compile(r"\b(pedestrian (?:struck|hit)|struck by vehicle)\b", re.I), "pedestrian struck"),
-        (re.compile(r"\b(work(?:place)? injury|on the job|lifting injury)\b", re.I), "work injury"),
-    ]
-    for c in sorted(citations, key=lambda x: int(getattr(x, "page_number", 999999) or 999999)):
-        sn = _clean_citation_snippet_for_finding(str(getattr(c, "snippet", "") or "").strip())
-        if not sn:
-            continue
-        low = sn.lower()
-        for pat, label in patterns:
-            if pat.search(low):
-                return RendererCitationValue(value=label, citation_ids=[str(c.citation_id)])
-    return RendererCitationValue(value=None, citation_ids=[])
+    mech, _audit = _build_mechanism_from_citations_with_audit(citations)
+    return mech
 
 
 def _build_pt_summary(events: list[Event], citations: list[Citation] | None = None, ext: dict[str, Any] | None = None) -> RendererPtSummary:
@@ -532,15 +840,16 @@ def _build_pt_summary(events: list[Event], citations: list[Citation] | None = No
     )
     if cmin is not None and cmax is not None and cmin != cmax:
         note = (
-            f"PT volume summaries vary across records ({cmin}-{cmax} encounters). "
-            f"Dated PT encounters verified in extracted chronology: {dated_pt_count}. "
-            f"This report displays the observed range and uses {cmax} as the maximum reported aggregate for treatment-intensity reference."
+            f"Treatment volume varies across records ({cmin}-{cmax} sessions). "
+            f"Chronology verifies {dated_pt_count} dated treatment sessions. "
+            f"Documentation indicates a total range of {cmin}-{cmax} visits; "
+            f"the maximum reported intensity is reflected here for clinical completeness."
         )
     elif cmax is not None and dated_pt_count and dated_pt_count != cmax:
         note = (
-            f"Dated PT encounters verified in extracted chronology: {dated_pt_count}; "
-            f"aggregate reported PT encounters in records: {cmax}. "
-            f"This report uses the aggregate-reported count for treatment-intensity reference and the dated chronology for timeline rows."
+            f"Chronology verifies {dated_pt_count} dated treatment sessions; "
+            f"aggregate clinical records report {cmax} total sessions. "
+            f"This summary uses the aggregate-reported count for treatment-intensity reference."
         )
 
     return RendererPtSummary(
@@ -550,7 +859,7 @@ def _build_pt_summary(events: list[Event], citations: list[Citation] | None = No
         date_start=min(starts) if starts else None,
         date_end=max(ends) if ends else None,
         discharge_status=discharge_status,
-        reconciliation_note=note,
+        reconciliation_note=clean_meta_language(note),
         citation_ids=citation_ids_collected[:12],
         count_source=source,
     )
@@ -576,11 +885,15 @@ def _promoted_findings_from_citations(
         key = f"{category}|{label.strip().lower()}"
         if key in seen:
             return
+        clean_lbl = clean_meta_language(label.strip())
+        if not clean_lbl:
+            return
         seen.add(key)
         out.append(PromotedFinding(
             category=category,
-            label=label.strip(),
+            label=clean_lbl,
             severity=severity, headline_eligible=headline, finding_polarity=polarity,
+            is_verbatim=True,
             citation_ids=[citation_id],
             confidence=0.75 if headline else 0.55,
         ))
@@ -701,14 +1014,106 @@ def _promoted_findings_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list
         if isinstance(support_score, (int, float)):
             conf = max(conf, min(1.0, float(support_score) / 5.0))
         severity = "high" if category in {"objective_deficit", "imaging", "diagnosis", "procedure"} and headline else ("low" if not headline else "medium")
+        is_verbatim = "VERBATIM" in {str(f).upper() for f in (row.get("flags") or [])}
+        clean_label = clean_meta_language(assertion)
+        if not clean_label:
+            continue
         out.append(PromotedFinding(
-            category=category, label=assertion, body_region=(row.get("body_region") or None),
+            category=category, label=clean_label, body_region=(row.get("body_region") or None),
             severity=severity, headline_eligible=headline, finding_polarity=polarity,
+            is_verbatim=is_verbatim,
             citation_ids=citations, confidence=conf, source_event_id=str(row.get("event_id") or "") or None
         ))
 
     _sort_promoted_findings(out)
     return out
+
+
+def _gate_tokens(text: str) -> set[str]:
+    toks = {t for t in re.findall(r"[a-z0-9]+", (text or "").lower()) if len(t) >= 2}
+    return {t for t in toks if t not in _CLAIM_GATE_STOPWORDS}
+
+
+def _lexical_overlap_ratio(a: str, b: str) -> float:
+    ta = _gate_tokens(a)
+    tb = _gate_tokens(b)
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / max(1, len(ta))
+
+
+def _normalize_promoted_citation_ids_with_hard_gate(
+    promoted: list[PromotedFinding],
+    citations: list[Citation] | None,
+) -> list[PromotedFinding]:
+    if not promoted or not citations:
+        return promoted
+
+    by_id = {str(c.citation_id): c for c in citations if str(getattr(c, "citation_id", "")).strip()}
+    by_page: dict[int, list[Citation]] = {}
+    for c in citations:
+        try:
+            pno = int(getattr(c, "page_number", 0) or 0)
+        except Exception:
+            continue
+        if pno <= 0:
+            continue
+        by_page.setdefault(pno, []).append(c)
+    for rows in by_page.values():
+        rows.sort(key=lambda c: str(getattr(c, "citation_id", "")))
+
+    gated: list[PromotedFinding] = []
+    for pf in promoted:
+        resolved: list[Citation] = []
+        for raw in list(pf.citation_ids or []):
+            s = str(raw or "").strip()
+            if not s:
+                continue
+            if s in by_id:
+                resolved.append(by_id[s])
+                continue
+            m = re.match(r"(?i)^p\.\s*(\d+)$", s)
+            if m:
+                page_no = int(m.group(1))
+                resolved.extend(by_page.get(page_no, []))
+
+        if not resolved:
+            continue  # Hard gate: no indexed citation text backing
+
+        # Prefer citations whose snippets lexically overlap the claim text.
+        ranked: list[tuple[float, Citation]] = []
+        for c in resolved:
+            snip = str(getattr(c, "snippet", "") or "").strip()
+            if not snip:
+                continue
+            overlap = _lexical_overlap_ratio(pf.label, snip)
+            ranked.append((overlap, c))
+        ranked.sort(key=lambda x: (x[0], str(getattr(x[1], "citation_id", ""))), reverse=True)
+        if not ranked:
+            continue  # Hard gate: citation ids exist but no OCR/snippet text
+
+        min_overlap = 0.15 if pf.category in {"imaging", "diagnosis", "objective_deficit", "procedure"} else 0.10
+        best_overlap = ranked[0][0]
+        if best_overlap < min_overlap:
+            continue  # Hard gate: claim text not lexically supported by cited OCR snippets
+
+        out_ids: list[str] = []
+        seen: set[str] = set()
+        for overlap, c in ranked:
+            cid = str(getattr(c, "citation_id", "") or "").strip()
+            if not cid or cid in seen:
+                continue
+            # Keep a small set, but require at least one citation meeting threshold.
+            if overlap < min_overlap and out_ids:
+                continue
+            seen.add(cid)
+            out_ids.append(cid)
+            if len(out_ids) >= 8:
+                break
+        if not out_ids:
+            continue
+        gated.append(pf.model_copy(update={"citation_ids": out_ids}))
+    return gated
 
 
 def _promoted_findings_from_events(events: list[Event], existing: list[PromotedFinding]) -> list[PromotedFinding]:
@@ -761,17 +1166,83 @@ def _promoted_findings_from_events(events: list[Event], existing: list[PromotedF
                 seen.add(key)
                 severity = "high" if fact_category in {"objective_deficit", "imaging", "diagnosis", "procedure"} and headline else ("low" if not headline else "medium")
                 eid = str(getattr(e, "event_id", "") or "").strip() or None
+                is_verbatim = bool(getattr(fact, "verbatim", False))
+                clean_txt = clean_meta_language(txt)
+                if not clean_txt:
+                    continue
                 out.append(PromotedFinding(
                     category=fact_category,
-                    label=txt,
+                    label=clean_txt,
                     body_region=body_region,
                     severity=severity,
                     headline_eligible=headline,
                     finding_polarity=polarity,
+                    is_verbatim=is_verbatim,
                     citation_ids=citation_ids[:8],
                     confidence=min(1.0, float(getattr(e, "confidence", 0) or 0) / 100.0),
                     source_event_id=eid,
                 ))
+        # Snapshot Expansion v2: harvest additional structured symptom/treatment/objective facts
+        # from already-cited event text without introducing new extraction.
+        harvest_lines: list[tuple[str, bool]] = []
+        for val in (getattr(e, "chief_complaint", None), getattr(e, "reason_for_visit", None)):
+            txt = _clean_finding_label(str(val or "").strip())
+            if txt:
+                harvest_lines.append((txt, False))
+        for fact in list(getattr(e, "facts", []) or []) + list(getattr(e, "medications", []) or []):
+            if getattr(fact, "technical_noise", False):
+                continue
+            txt = _clean_finding_label(str(getattr(fact, "text", "") or "").strip())
+            if not txt:
+                continue
+            harvest_lines.append((txt, bool(getattr(fact, "verbatim", False))))
+
+        for txt, is_verbatim in harvest_lines:
+            if any(p.search(txt) for p in _GENERIC_PLACEHOLDER_PATTERNS):
+                continue
+            clean_txt = clean_meta_language(txt)
+            if not clean_txt:
+                continue
+            category = "symptom"
+            if _SNAP_MEDS_PAT.search(clean_txt):
+                category = "treatment"
+            elif _SNAP_ROM_PAT.search(clean_txt):
+                category = "objective_deficit"
+            elif _STRUCTURAL_IMAGING_PAT.search(clean_txt):
+                category = "imaging"
+            elif re.search(r"\b(icd-?10|radiculopathy|strain|sprain|diagnosis)\b", clean_txt, re.I):
+                category = "diagnosis"
+            elif _SNAP_DISPO_PAT.search(clean_txt):
+                category = "treatment"
+            polarity, headline = _claim_to_polarity_and_headline(clean_txt, list(getattr(e, "flags", []) or []), category)
+            if not (
+                _SNAP_NUMERIC_PAT.search(clean_txt)
+                or _SNAP_PAIN_PAT.search(clean_txt)
+                or _SNAP_VITALS_PAT.search(clean_txt)
+                or _SNAP_ROM_PAT.search(clean_txt)
+                or _SNAP_MEDS_PAT.search(clean_txt)
+            ):
+                continue
+            key = f"{category}|{clean_txt.lower()}"
+            if key in seen:
+                continue
+            seen.add(key)
+            severity = "high" if category in {"objective_deficit", "imaging", "diagnosis", "procedure"} and headline else ("low" if not headline else "medium")
+            eid = str(getattr(e, "event_id", "") or "").strip() or None
+            out.append(
+                PromotedFinding(
+                    category=category,
+                    label=clean_txt,
+                    body_region=None,
+                    severity=severity,
+                    headline_eligible=headline,
+                    finding_polarity=polarity,
+                    is_verbatim=is_verbatim,
+                    citation_ids=event_cids[:8],
+                    confidence=min(1.0, float(getattr(e, "confidence", 0) or 0) / 100.0),
+                    source_event_id=eid,
+                )
+            )
     _sort_promoted_findings(out)
     return out
 
@@ -823,9 +1294,105 @@ def _top_case_drivers_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list[
             continue
         seen.add(eid)
         out.append(eid)
-        if len(out) >= 20:
+        if len(out) >= 10:
             break
     return out
+
+
+def _top_case_driver_fallback_from_events(events: list[Event], existing_ids: list[str]) -> list[str]:
+    """
+    Low-risk fallback for Top-10 parity: return citation-backed event IDs only.
+    Keeps the existing manifest contract (`top_case_drivers` as event IDs).
+    """
+    seen = {str(eid).strip() for eid in (existing_ids or []) if str(eid).strip()}
+    out = list(existing_ids or [])
+
+    def _score(e: Event) -> tuple[int, str, str]:
+        et = str(getattr(getattr(e, "event_type", None), "value", getattr(e, "event_type", "")) or "").lower()
+        txt = " ".join(_event_text_blobs(e)).lower()
+        score = 0
+        if et in {"er_visit", "hospital_admission"}:
+            score += 4
+        if getattr(e, "imaging", None):
+            score += 3
+        if getattr(e, "procedures", None):
+            score += 3
+        if getattr(e, "exam_findings", None):
+            score += 2
+        if getattr(e, "diagnoses", None):
+            score += 2
+        if re.search(r"\b(discharge|procedure|impression|assessment)\b", txt):
+            score += 1
+        if re.search(r"\b(follow-?up only|routine)\b", txt):
+            score -= 1
+        return (-score, _iso_from_event(e)[0] or "9999-99-99", str(getattr(e, "event_id", "")))
+
+    for e in sorted(events, key=_score):
+        eid = str(getattr(e, "event_id", "") or "").strip()
+        if not eid or eid in seen:
+            continue
+        if not [str(c).strip() for c in (getattr(e, "citation_ids", []) or []) if str(c).strip()]:
+            continue
+        txt = " ".join(_event_text_blobs(e)).strip()
+        if not txt or any(p.search(txt) for p in _GENERIC_PLACEHOLDER_PATTERNS):
+            continue
+        seen.add(eid)
+        out.append(eid)
+        if len(out) >= 10:
+            break
+    return out
+
+
+def _build_bucket_evidence(events: list[Event], citations: list[Citation] | None = None) -> dict[str, BucketEvidence]:
+    buckets: dict[str, BucketEvidence] = {
+        "ed": BucketEvidence(),
+        "pt_eval": BucketEvidence(),
+    }
+    citation_by_id = {
+        str(getattr(c, "citation_id", "")).strip(): c
+        for c in (citations or [])
+        if str(getattr(c, "citation_id", "")).strip()
+    }
+    for e in events:
+        eid = str(getattr(e, "event_id", "") or "").strip()
+        if not eid:
+            continue
+        et = str(getattr(getattr(e, "event_type", None), "value", getattr(e, "event_type", "")) or "").lower()
+        blobs = [str(t or "") for t in _event_text_blobs(e)]
+        for cid in (getattr(e, "citation_ids", []) or []):
+            c = citation_by_id.get(str(cid).strip())
+            if c:
+                blobs.append(str(getattr(c, "snippet", "") or ""))
+        blob = " ".join(blobs).lower()
+        event_cids = [str(c).strip() for c in (getattr(e, "citation_ids", []) or []) if str(c).strip()]
+
+        is_ed = is_ed_event(
+            text_blob=blob,
+            event_type=et,
+            provider_blob="",
+            event_class=("ed_visit" if et in {"er_visit", "hospital_admission", "hospital_discharge"} else ""),
+        )
+        if is_ed:
+            b = buckets["ed"]
+            b.detected = True
+            if eid not in b.event_ids:
+                b.event_ids.append(eid)
+            for cid in event_cids[:6]:
+                if cid not in b.citation_ids:
+                    b.citation_ids.append(cid)
+
+        pt_context = ("pt_visit" in et) or bool(re.search(r"\b(physical therapy|pt)\b", blob))
+        is_pt_eval = pt_context and bool(re.search(r"\b(initial evaluation|pt evaluation|plan of care)\b", blob))
+        if is_pt_eval:
+            b = buckets["pt_eval"]
+            b.detected = True
+            if eid not in b.event_ids:
+                b.event_ids.append(eid)
+            for cid in event_cids[:6]:
+                if cid not in b.citation_ids:
+                    b.citation_ids.append(cid)
+
+    return buckets
 
 
 def _billing_completeness(specials_summary: dict | None) -> str:
@@ -841,6 +1408,109 @@ def _billing_completeness(specials_summary: dict | None) -> str:
     return "none"
 
 
+def _alignment_claim_type_for_category(category: str) -> str | None:
+    return {
+        "diagnosis": "diagnosis",
+        "imaging": "imaging_finding",
+        "procedure": "procedure",
+        "visit_count": "pt_claim",
+    }.get(str(category or "").strip().lower())
+
+
+def _alignment_claim_id(claim_type: str, claim_text: str, hint: str) -> str:
+    base = f"{claim_type}|{claim_text}|{hint}".encode("utf-8", "ignore")
+    return hashlib.sha1(base).hexdigest()[:12]
+
+
+def _norm_alignment_text(value: Any) -> str:
+    s = re.sub(r"[^a-z0-9]+", " ", str(value or "").lower())
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _norm_alignment_citations(value: Any) -> tuple[str, ...]:
+    out: list[str] = []
+    for c in (value or []):
+        sc = str(c or "").strip().lower()
+        if not sc:
+            continue
+        sc = re.sub(r"^p\.\s*", "", sc)
+        out.append(sc)
+    return tuple(sorted(set(out)))
+
+
+def _claim_alignment_lookup(claim_alignment: dict[str, Any] | None) -> tuple[dict[str, dict[str, Any]], dict[tuple[str, str, tuple[str, ...]], dict[str, Any]]]:
+    by_id: dict[str, dict[str, Any]] = {}
+    by_norm: dict[tuple[str, str, tuple[str, ...]], dict[str, Any]] = {}
+    if not isinstance(claim_alignment, dict):
+        return by_id, by_norm
+    for row in (claim_alignment.get("claims") or []):
+        if not isinstance(row, dict):
+            continue
+        cid = str(row.get("claim_id") or "").strip()
+        if cid:
+            by_id[cid] = row
+        key = (
+            str(row.get("claim_type") or "").strip().lower(),
+            _norm_alignment_text(row.get("claim_text")),
+            _norm_alignment_citations(row.get("citations")),
+        )
+        if key[0] and key[1] and key not in by_norm:
+            by_norm[key] = row
+    return by_id, by_norm
+
+
+def annotate_renderer_manifest_claim_context_alignment(
+    renderer_manifest: RendererManifest | dict | None,
+    evidence_graph_extensions: dict[str, Any] | None,
+) -> RendererManifest | dict | None:
+    if isinstance(renderer_manifest, RendererManifest):
+        base = renderer_manifest
+        as_dict = base.model_dump(mode="json")
+    elif isinstance(renderer_manifest, dict):
+        base = None
+        as_dict = dict(renderer_manifest)
+    else:
+        return renderer_manifest
+
+    ext = evidence_graph_extensions if isinstance(evidence_graph_extensions, dict) else {}
+    claim_alignment = ext.get("claim_context_alignment")
+    if not isinstance(claim_alignment, dict):
+        return renderer_manifest
+
+    promoted = [pf for pf in (as_dict.get("promoted_findings") or []) if isinstance(pf, dict)]
+    if not promoted:
+        return renderer_manifest
+
+    claims_by_id, claims_by_norm = _claim_alignment_lookup(claim_alignment)
+    annotated: list[dict[str, Any]] = []
+    for idx, pf in enumerate(promoted):
+        item = dict(pf)
+        category = str(item.get("category") or "").strip().lower()
+        claim_type = _alignment_claim_type_for_category(category)
+        claim_row: dict[str, Any] | None = None
+        if claim_type:
+            claim_text = str(item.get("label") or "").strip()
+            stable_id = _alignment_claim_id(claim_type, claim_text, f"{category}:{idx}")
+            claim_row = claims_by_id.get(stable_id)
+            if claim_row is None:
+                key = (
+                    claim_type,
+                    _norm_alignment_text(claim_text),
+                    _norm_alignment_citations(item.get("citation_ids")),
+                )
+                claim_row = claims_by_norm.get(key)
+            if claim_row is not None:
+                item["alignment_status"] = str(claim_row.get("severity") or "PASS").upper() or "PASS"
+                item["alignment_reason"] = str(claim_row.get("reason_code") or "").strip() or None
+                item["alignment_claim_id"] = str(claim_row.get("claim_id") or stable_id).strip() or stable_id
+        annotated.append(item)
+
+    as_dict["promoted_findings"] = annotated
+    if base is None:
+        return as_dict
+    return RendererManifest.model_validate(as_dict)
+
+
 def build_renderer_manifest(
     *,
     events: list[Event],
@@ -848,24 +1518,40 @@ def build_renderer_manifest(
     specials_summary: dict | None,
     citations: list[Citation] | None = None,
 ) -> RendererManifest:
-    ext = evidence_graph_extensions or {}
+    ext = evidence_graph_extensions if isinstance(evidence_graph_extensions, dict) else {}
     claim_rows = list(ext.get("claim_rows") or [])
     promoted = _promoted_findings_from_claim_rows(claim_rows)
     promoted = _promoted_findings_from_events(events, promoted)
     promoted = _promoted_findings_from_citations(citations, promoted)
     promoted = _consolidate_promoted_findings(promoted)
-    mechanism_from_citations = _build_mechanism_from_citations(citations)
-    mechanism = _build_mechanism(events)
-    # Prefer citation-snippet mechanism when available so the citation index preview visibly supports the label.
-    if mechanism_from_citations.value:
+    promoted = _normalize_promoted_citation_ids_with_hard_gate(promoted, citations)
+    mechanism_from_citations, mechanism_citation_audit = _build_mechanism_from_citations_with_audit(citations)
+    mechanism, mechanism_audit = _build_mechanism_from_events(events, citations)
+    if not mechanism.value:
         mechanism = mechanism_from_citations
-    elif not mechanism.value:
-        mechanism = mechanism_from_citations
-    return RendererManifest(
+        if mechanism_citation_audit.get("selected_label"):
+            mechanism_audit = {
+                **(mechanism_audit or {}),
+                "fallback_selected_label": mechanism_citation_audit.get("selected_label"),
+                "fallback_selected_citation_ids": mechanism_citation_audit.get("selected_citation_ids"),
+                "fallback_selected_candidate": mechanism_citation_audit.get("selected_candidate"),
+                "fallback_candidate_count": mechanism_citation_audit.get("candidate_count"),
+                "fallback_top_candidates": mechanism_citation_audit.get("top_candidates", [])[:10],
+            }
+    top_case_drivers = _top_case_drivers_from_claim_rows(claim_rows)
+    if len(top_case_drivers) < 3:
+        top_case_drivers = _top_case_driver_fallback_from_events(events, top_case_drivers)
+    bucket_evidence = _build_bucket_evidence(events, citations)
+    manifest = RendererManifest(
         doi=_build_doi(events),
         mechanism=mechanism,
         pt_summary=_build_pt_summary(events, citations, ext),
         promoted_findings=promoted,
-        top_case_drivers=_top_case_drivers_from_claim_rows(claim_rows),
+        top_case_drivers=top_case_drivers,
+        bucket_evidence=bucket_evidence,
         billing_completeness=_billing_completeness(specials_summary),
     )
+    if isinstance(ext, dict):
+        ext["mechanism_selection_audit"] = mechanism_audit
+    annotated = annotate_renderer_manifest_claim_context_alignment(manifest, ext)
+    return annotated if isinstance(annotated, RendererManifest) else manifest

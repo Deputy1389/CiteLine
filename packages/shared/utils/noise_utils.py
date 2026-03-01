@@ -40,9 +40,23 @@ def is_flowsheet_noise(text: str) -> bool:
     if not text:
         return False
     low = text.lower()
-    timestamp_hits = len(re.findall(r"\b([01]?\d|2[0-3]):[0-5]\d\b", low))
+    tokens = re.findall(r"[a-z0-9:/.-]+", low)
+    token_count = len(tokens)
+    head_tokens = tokens[:300]
+    timestamp_hits = len(re.findall(r"\b([01]?\d|2[0-3]):[0-5]\d(?:[:][0-5]\d)?\b", low))
+    head_timestamp_hits = sum(1 for t in head_tokens if re.fullmatch(r"([01]?\d|2[0-3]):[0-5]\d(?:[:][0-5]\d)?", t))
+    time_like_hits = sum(1 for t in tokens if re.fullmatch(r"([01]?\d|2[0-3]):[0-5]\d(?:[:][0-5]\d)?|(?:\d{1,3}/\d{1,3})|\d+(?:\.\d+)?", t))
+    numeric_time_ratio = (time_like_hits / max(1, token_count)) if token_count else 0.0
     short_lines = [ln.strip() for ln in re.split(r"[\n\r]+", text) if ln.strip()]
     many_short = sum(1 for ln in short_lines if len(ln.split()) <= 6) >= 10
+    short_phrase_counts: dict[str, int] = {}
+    for ln in short_lines:
+        phrase = re.sub(r"\s+", " ", ln.lower()).strip(" :.-")
+        if not phrase:
+            continue
+        if 1 <= len(phrase.split()) <= 4:
+            short_phrase_counts[phrase] = short_phrase_counts.get(phrase, 0) + 1
+    repeated_short_phrase = any(n >= 8 for n in short_phrase_counts.values())
     medical_tokens = len(
         re.findall(
             r"\b(impression|assessment|diagnosis|fracture|tear|infection|mri|x-?ray|rom|strength|pain|medication|injection|procedure|discharge|admission)\b",
@@ -59,6 +73,26 @@ def is_flowsheet_noise(text: str) -> bool:
     }
     med_like = sum(1 for w in words if w in known_med)
     nonsense_ratio = 1.0 - (med_like / max(1, len(words)))
-    return (timestamp_hits >= 8 and many_short and medical_tokens < 3) or (
-        len(words) >= 30 and nonsense_ratio > 0.6 and medical_tokens < 3
-    )
+    timestamp_grid = head_timestamp_hits >= 20
+    mostly_numeric_time = token_count >= 40 and numeric_time_ratio > 0.50
+    low_signal_repetitive = repeated_short_phrase and medical_tokens < 4 and len(short_lines) >= 8
+    legacy_flowsheet = timestamp_hits >= 8 and many_short and medical_tokens < 3
+    low_signal_dense = len(words) >= 30 and nonsense_ratio > 0.6 and medical_tokens < 3
+    return timestamp_grid or mostly_numeric_time or low_signal_repetitive or legacy_flowsheet or low_signal_dense
+
+
+def has_narrative_sentence(text: str) -> bool:
+    if not text:
+        return False
+    for raw in re.split(r"[\n\r]+", text):
+        line = (raw or "").strip()
+        if not line:
+            continue
+        alpha_tokens = re.findall(r"[A-Za-z]{2,}", line)
+        if len(alpha_tokens) < 8:
+            continue
+        if line.endswith("."):
+            return True
+        if re.search(r"\b(reports?|denies|exam|assessment|impression|diagnosis|plan|presented|complains?)\b", line, re.I):
+            return True
+    return False

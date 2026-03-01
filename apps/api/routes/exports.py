@@ -3,7 +3,7 @@ API route: Exports
 """
 from __future__ import annotations
 
-import json
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -25,13 +25,23 @@ class ArtifactResponse(BaseModel):
 
 class ExportsResponse(BaseModel):
     run_id: str
-    status: str
+    status: Literal["pending", "running", "success", "partial", "failed", "needs_review"]
     artifacts: list[ArtifactResponse]
+
+
+def _normalize_run_status(value: str | None) -> str:
+    raw = str(value or "").strip().lower()
+    if raw == "completed":
+        return "success"
+    if raw in {"pending", "running", "success", "partial", "failed", "needs_review"}:
+        return raw
+    return "failed"
 
 
 @router.get("/matters/{matter_id}/exports/latest", response_model=ExportsResponse)
 def get_latest_exports(
     matter_id: str,
+    export_mode: Literal["INTERNAL", "MEDIATION"],
     db: Session = Depends(get_db),
     identity: RequestIdentity | None = Depends(get_request_identity),
 ):
@@ -41,19 +51,35 @@ def get_latest_exports(
         raise HTTPException(status_code=404, detail="Matter not found")
     assert_firm_access(identity, matter.firm_id)
 
-    run = (
+    runs = (
         db.query(Run)
-        .filter(Run.matter_id == matter_id, Run.status.in_(["success", "partial", "needs_review"]))
+        .filter(Run.matter_id == matter_id, Run.status.in_(["success", "partial", "needs_review", "completed"]))
         .order_by(Run.finished_at.desc())
-        .first()
+        .all()
     )
+    mode = str(export_mode or "").strip().upper()
+    run = None
+    for cand in runs:
+        cfg = cand.config_json if isinstance(cand.config_json, dict) else {}
+        cand_mode = str(cfg.get("export_mode") or "").strip().upper()
+        if cand_mode == mode:
+            run = cand
+            break
     if not run:
-        raise HTTPException(status_code=404, detail="No exportable runs found for this matter")
+        raise HTTPException(status_code=404, detail=f"No exportable runs found for mode={mode} on this matter")
 
     artifacts = db.query(Artifact).filter_by(run_id=run.id).all()
+    mode_path = f"/exports/{mode.lower()}/"
+    filtered = [
+        a for a in artifacts
+        if (mode_path in str(a.storage_uri or "").replace("\\", "/"))
+        or str(a.artifact_type).lower() != "pdf"
+    ]
+    if not filtered:
+        filtered = artifacts
     return ExportsResponse(
         run_id=run.id,
-        status=run.status,
+        status=_normalize_run_status(run.status),
         artifacts=[
             ArtifactResponse(
                 artifact_type=a.artifact_type,
@@ -61,6 +87,6 @@ def get_latest_exports(
                 sha256=a.sha256,
                 bytes=a.bytes,
             )
-            for a in artifacts
+            for a in filtered
         ],
     )

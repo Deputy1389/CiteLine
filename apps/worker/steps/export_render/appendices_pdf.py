@@ -33,7 +33,7 @@ from apps.worker.steps.export_render.extraction_utils import (
     _extract_sdoh_items,
     _contradiction_flags,
 )
-from apps.worker.steps.export_render.gap_utils import _material_gap_rows
+from apps.worker.steps.export_render.gap_utils import _material_gap_rows, build_gap_anchor_metadata_rows
 
 if TYPE_CHECKING:
     from packages.shared.models import Citation, Event, Gap, Provider
@@ -178,8 +178,22 @@ def build_projection_appendix_sections(
 
     # Appendix C1: Gap Boundary Anchors
     gap_rows = _material_gap_rows(gaps, {}, {}, page_map)
+    gap_meta_rows = build_gap_anchor_metadata_rows(missing_records_payload, all_citations, page_map)
+    use_gap_meta = bool(gap_meta_rows)
     flowables.append(Paragraph("Appendix C1: Gap Boundary Anchors", h1_style))
-    if not gap_rows:
+    if use_gap_meta:
+        anchored = [g for g in gap_meta_rows if g.get("anchors_complete")]
+        if not anchored:
+            flowables.append(Paragraph("No gap boundary anchors detected.", normal_style))
+        else:
+            for gm in anchored:
+                start_date = gm.get("start_date") or "unknown"
+                end_date = gm.get("end_date") or "unknown"
+                flowables.append(Paragraph(f"Gap: {start_date} to {end_date} ({int(gm.get('gap_days') or 0)} days)", normal_style))
+                flowables.append(Paragraph(f"Last before gap: p. {gm.get('gap_start_page')}", normal_style))
+                flowables.append(Paragraph(f"First after gap: p. {gm.get('gap_end_page')}", normal_style))
+                flowables.append(Spacer(1, 0.05 * inch))
+    elif not gap_rows:
         flowables.append(Paragraph("No gap boundary anchors detected.", normal_style))
     else:
         for gr in gap_rows:
@@ -198,7 +212,18 @@ def build_projection_appendix_sections(
 
     # Appendix C: Treatment Gaps
     flowables.append(Paragraph("Appendix C: Treatment Gaps", h1_style))
-    if not gap_rows:
+    if use_gap_meta:
+        if not gap_meta_rows:
+            flowables.append(Paragraph("No treatment gaps detected.", normal_style))
+        else:
+            for gm in gap_meta_rows:
+                label = f"{gm.get('start_date') or 'unknown'} to {gm.get('end_date') or 'unknown'}"
+                days = int(gm.get("gap_days") or 0)
+                if gm.get("anchors_complete"):
+                    flowables.append(Paragraph(f"- {label} ({days} days) | Anchors: p. {gm.get('gap_start_page')} to p. {gm.get('gap_end_page')}", normal_style))
+                else:
+                    flowables.append(Paragraph(f"- {label} ({days} days) | Anchors unavailable", normal_style))
+    elif not gap_rows:
         flowables.append(Paragraph("No treatment gaps detected.", normal_style))
     else:
         for gr in gap_rows:

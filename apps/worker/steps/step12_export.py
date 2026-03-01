@@ -75,6 +75,10 @@ def _ensure_mri_bucket_entry(*args, **kwargs):
     return projection_enrichment._ensure_mri_bucket_entry(*args, **kwargs)
 
 
+def _ensure_ed_bucket_entry(*args, **kwargs):
+    return projection_enrichment._ensure_ed_bucket_entry(*args, **kwargs)
+
+
 def _ensure_ortho_bucket_entry(*args, **kwargs):
     return projection_enrichment._ensure_ortho_bucket_entry(*args, **kwargs)
 
