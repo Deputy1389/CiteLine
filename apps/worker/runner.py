@@ -6,6 +6,7 @@ import logging
 import time
 import sys
 import os
+import random
 import uuid
 import threading
 import platform
@@ -106,6 +107,10 @@ class HeartbeatThread(threading.Thread):
 
     def run(self):
         logger.debug(f"Heartbeat started for {self.run_id}")
+        # INV-P3 (Pass 044): Jitter initial heartbeat to avoid thundering herd
+        # when multiple workers restart simultaneously after a crash.
+        jitter = random.uniform(0, HEARTBEAT_INTERVAL * 0.2)
+        self.stop_event.wait(jitter)
         while not self.stop_event.is_set():
             try:
                 with get_session() as session:
@@ -115,7 +120,7 @@ class HeartbeatThread(threading.Thread):
                     session.commit()
             except Exception as e:
                 logger.error(f"Heartbeat failed for {self.run_id}: {e}")
-            
+
             self.stop_event.wait(HEARTBEAT_INTERVAL)
         logger.debug(f"Heartbeat stopped for {self.run_id}")
 

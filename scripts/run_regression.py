@@ -1,5 +1,5 @@
 """
-run_regression.py — Full Regression Orchestrator (Pass 39)
+run_regression.py — Full Regression Orchestrator (Pass 39 / updated Pass 044)
 
 Runs the complete invariant harness across all fixture cases and performs the
 cross-run policy drift check required by govpreplan §6.
@@ -7,18 +7,21 @@ cross-run policy drift check required by govpreplan §6.
 Usage:
     python scripts/run_regression.py \
         --fixtures tests/fixtures/invariants/ \
-        --out reference/pass_039/ \
-        [--prev-out reference/pass_038/]
+        --out reference/pass_044/ \
+        [--prev-out reference/pass_043/]
 
 Exit codes:
     0 — All invariants pass, all static checks pass, no unexpected drift
     1 — Any invariant failed, static check failed, or drift detected
 
-Drift check (govpreplan §6):
-    If --prev-out is provided and policy_version is unchanged:
-        Same version + band or score differs → POLICY_DRIFT_DETECTED → exit 1
-        Version changed → write drift_report.json → exit 0 (intentional change)
-    If --prev-out not provided: drift check is skipped.
+Drift check (govpreplan §6, Pass 044 update):
+    Baseline resolution order:
+      1. <prev_out>/output/<case_id>/run_metadata.json  (per-case subdir layout)
+      2. <prev_out>/<case_id>_run_metadata.json         (legacy flat layout)
+    If --prev-out is provided and baseline exists → drift status is RUN.
+    If baseline is missing → drift status is SKIP (with reason + counter in report).
+    If --prev-out not provided: drift check is skipped entirely.
+    INV-P1: drift must never silently SKIP when a baseline exists.
 """
 from __future__ import annotations
 
@@ -38,47 +41,59 @@ from scripts.verify_invariant_harness import (
     check_D4_trajectory_signals_only,
     check_D5_renderer_display_only,
     _write_attest_artifacts,
+    _write_attest_artifacts_subdir,
     _strip_private_keys,
     _utcnow_iso,
     _SIGNAL_LAYER_VERSION,
 )
 
 
-def _load_prev_metadata(prev_out_dir: Path, case_id: str) -> dict | None:
-    """Load run_metadata.json from a previous run's attest-dir, if present."""
-    meta_path = prev_out_dir / f"{case_id}_run_metadata.json"
-    if not meta_path.exists():
-        return None
-    try:
-        with meta_path.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return None
+def _load_prev_metadata(prev_out_dir: Path, case_id: str) -> tuple["dict | None", str]:
+    """Load run_metadata.json from a previous run, trying per-case subdir first then flat.
+
+    Returns (data, source_path_str). If not found, returns (None, reason_str).
+    INV-P1: callers must not silently treat None as PASS; they must mark SKIP with reason.
+    """
+    # 1. Per-case subdir layout (standard from Pass 044 onward)
+    subdir_path = prev_out_dir / "output" / case_id / "run_metadata.json"
+    if subdir_path.exists():
+        try:
+            with subdir_path.open("r", encoding="utf-8") as f:
+                return json.load(f), str(subdir_path)
+        except Exception:
+            return None, f"parse error: {subdir_path}"
+
+    # 2. Legacy flat layout (Pass 039–043)
+    flat_path = prev_out_dir / f"{case_id}_run_metadata.json"
+    if flat_path.exists():
+        try:
+            with flat_path.open("r", encoding="utf-8") as f:
+                return json.load(f), str(flat_path)
+        except Exception:
+            return None, f"parse error: {flat_path}"
+
+    return None, f"no baseline in {prev_out_dir}/output/{case_id}/ or {prev_out_dir}/{case_id}_run_metadata.json"
 
 
 def run_drift_check(
     report: list[dict],
     prev_out_dir: Path,
-) -> tuple[bool, list[dict]]:
+) -> tuple[bool, list[dict], dict]:
     """Compare current run metadata against a previous run.
 
-    Returns (passed: bool, drift_entries: list[dict]).
-    passed=True means: no unexpected drift (either version changed, or values identical).
+    Returns (passed: bool, drift_entries: list[dict], counters: dict).
+    passed=True means: no unexpected drift (version changed or values identical).
     passed=False means: same version, values differ → POLICY_DRIFT_DETECTED.
+
+    Per INV-P1: status is RUN when a baseline exists, SKIP (with reason) when missing.
+    The counters dict tracks: run, skip, version_change, drift_detected.
     """
     drift_entries: list[dict] = []
     all_pass = True
+    counters = {"run": 0, "skip": 0, "version_change": 0, "drift_detected": 0}
 
     for result in report:
         case_id = result["case"]
-        current_meta = next(
-            (
-                a
-                for a in result.get("invariants", [])
-                if a.get("invariant") == "D2_POLICY_PINNING"
-            ),
-            None,
-        )
 
         # Get current policy version + band/score from _ext
         ext = result.get("_ext") or {}
@@ -88,26 +103,32 @@ def run_drift_check(
         curr_band = lev.get("band")
         curr_score = lev.get("score")
 
-        prev_meta = _load_prev_metadata(prev_out_dir, case_id)
+        prev_meta, meta_source = _load_prev_metadata(prev_out_dir, case_id)
         if prev_meta is None:
+            # INV-P1: explicit SKIP with reason — never silent
+            counters["skip"] += 1
             drift_entries.append({
                 "case": case_id,
                 "status": "SKIP",
-                "reason": f"no previous metadata in {prev_out_dir}",
+                "reason": meta_source,
             })
             continue
 
+        # Baseline found → RUN comparison
+        counters["run"] += 1
         prev_version = prev_meta.get("policy_version")
         prev_band = prev_meta.get("leverage_band")
         prev_score = prev_meta.get("leverage_score")
 
         if curr_version != prev_version:
-            # Intentional version change — compute drift metrics, but not a failure
+            # Intentional version change — record metrics, not a failure
+            counters["version_change"] += 1
             band_changed = curr_band != prev_band
             score_changed = curr_score != prev_score
             drift_entries.append({
                 "case": case_id,
                 "status": "VERSION_CHANGE",
+                "baseline_source": meta_source,
                 "prev_version": prev_version,
                 "curr_version": curr_version,
                 "band_changed": band_changed,
@@ -134,16 +155,19 @@ def run_drift_check(
         if band_ok and score_ok:
             drift_entries.append({
                 "case": case_id,
-                "status": "PASS",
+                "status": "RUN",
+                "baseline_source": meta_source,
                 "version": curr_version,
                 "band": curr_band,
                 "score": curr_score,
             })
         else:
             all_pass = False
+            counters["drift_detected"] += 1
             drift_entries.append({
                 "case": case_id,
                 "status": "POLICY_DRIFT_DETECTED",
+                "baseline_source": meta_source,
                 "version": curr_version,
                 "prev_band": prev_band,
                 "curr_band": curr_band,
@@ -151,7 +175,7 @@ def run_drift_check(
                 "curr_score": curr_score,
             })
 
-    return all_pass, drift_entries
+    return all_pass, drift_entries, counters
 
 
 def main() -> int:
@@ -210,23 +234,28 @@ def main() -> int:
             mark = "PASS" if inv["passed"] else "FAIL"
             print(f"       [{mark}] {inv['invariant']}: {inv['detail']}")
 
-        # Write attest artifacts for this case
+        # Write attest artifacts — flat (legacy) + per-case subdir (Pass 044 standard)
         _write_attest_artifacts(out_dir, result)
+        _write_attest_artifacts_subdir(out_dir, result)
 
     # ── Drift check ──────────────────────────────────────────────────────────
     drift_pass = True
     drift_entries: list[dict] = []
+    drift_counters: dict = {}
 
     if args.prev_out:
         prev_out_dir = Path(args.prev_out)
         print(f"\n[DRIFT CHECK] comparing against {prev_out_dir}")
-        drift_pass, drift_entries = run_drift_check(report, prev_out_dir)
+        drift_pass, drift_entries, drift_counters = run_drift_check(report, prev_out_dir)
         for entry in drift_entries:
-            mark = "PASS" if entry["status"] in ("PASS", "SKIP", "VERSION_CHANGE") else "FAIL"
+            mark = "PASS" if entry["status"] in ("RUN", "PASS", "VERSION_CHANGE") else ("WARN" if entry["status"] == "SKIP" else "FAIL")
             print(f"  [{mark}] {entry['case']}: {entry['status']}")
-            if entry["status"] == "POLICY_DRIFT_DETECTED":
+            if entry["status"] == "SKIP":
+                print(f"         reason: {entry.get('reason', 'unknown')}")
+            elif entry["status"] == "POLICY_DRIFT_DETECTED":
                 print(f"         band: {entry['prev_band']} → {entry['curr_band']}")
                 print(f"         score: {entry['prev_score']} → {entry['curr_score']}")
+        print(f"  Drift report: run={drift_counters.get('run',0)} skip={drift_counters.get('skip',0)} version_change={drift_counters.get('version_change',0)} drift_detected={drift_counters.get('drift_detected',0)}")
 
         # Write drift report
         drift_report_path = out_dir / "drift_report.json"
@@ -235,6 +264,7 @@ def main() -> int:
                 "drift_pass": drift_pass,
                 "prev_out": str(args.prev_out),
                 "run_at": _utcnow_iso(),
+                "counters": drift_counters,
                 "entries": drift_entries,
             }, f, indent=2, default=str)
         print(f"  Drift report: {drift_report_path}")
@@ -255,6 +285,7 @@ def main() -> int:
         "static_checks": [d4, d5],
         "static_pass": static_pass,
         "drift_pass": drift_pass,
+        "drift_counters": drift_counters,
         "drift_entries": drift_entries,
         "cases": _strip_private_keys(report),
     }

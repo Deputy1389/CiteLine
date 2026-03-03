@@ -332,3 +332,55 @@ The set of artifact types required for run completion is defined in exactly one 
 - **Tested in**: `tests/unit/test_queue_idempotency.py` :: `test_mark_succeeded_requires_all_required_artifacts_committed`
 - **Introduced in**: Pass 043
 - **Failure class protected**: Silent succeeded-with-missing-artifact as pipeline adds new artifact types
+
+---
+
+## Pass 044 — INV-P1: Drift Baseline Never Silent Skip
+
+**Invariant:** When a previous-pass baseline exists for a case, the drift checker must return
+status RUN (comparison was performed), not SKIP. A drift SKIP must always include
+a human-readable reason string and be counted in drift_counters.skip.
+
+**Baseline resolution order (precedence):**
+1. <prev_out>/output/<case_id>/run_metadata.json (per-case subdir layout, from Pass 044)
+2. <prev_out>/<case_id>_run_metadata.json (legacy flat layout, Pass 039–043)
+
+**Enforced in:** scripts/run_regression.py (un_drift_check, _load_prev_metadata)
+
+**Tested in:** 	ests/integration/test_parallel_uploads.py
+  - 	est_drift_baseline_run_not_skip
+  - 	est_flat_baseline_fallback
+  - 	est_missing_baseline_returns_skip_reason
+
+---
+
+## Pass 044 — INV-P2: Simulator Exits Non-Zero on Any Bad State
+
+**Invariant:** scripts/simulate_parallel_uploads.py must exit with code 1 and record the
+offending event whenever any of the following bad states are detected:
+
+| Code | Description |
+|------|-------------|
+| DOUBLE_CLAIM | Same un_id claimed by two workers with overlapping lease windows |
+| SUCCESS_WITHOUT_ARTIFACTS | status=succeeded while any REQUIRED_ARTIFACT_TYPES missing/uncommitted |
+| DUPLICATE_COMMITTED_ARTIFACT | Same (run_id, artifact_type) committed twice with different hashes |
+| IDEMPOTENCY_VIOLATION | Same idempotency_key returns different un_id while prior is queued/running/succeeded |
+| GHOST_RUNNING | status=running with lock_expires_at expired beyond 2x heartbeat interval |
+| DETERMINISM_FAILURE | Re-run of same packet yields different artifact hashes |
+
+**Enforced in:** scripts/simulate_parallel_uploads.py (detect_bad_states_once, _record_bad_state)
+
+**Tested in:** 	ests/integration/test_parallel_uploads.py::test_simulator_produces_zero_bad_states
+
+---
+
+## Pass 044 — INV-P3: Heartbeat Jitter Prevents Thundering Herd
+
+**Invariant:** Each HeartbeatThread must apply a random initial jitter of up to 20% of
+HEARTBEAT_INTERVAL before beginning its first update. This prevents all workers that
+restart simultaneously (e.g., after a crash-recovery) from hammering the database at the
+same instant.
+
+**Enforced in:** pps/worker/runner.py (HeartbeatThread.run)
+
+**No dedicated test** — operational hardening, verified by simulator under concurrent load.
