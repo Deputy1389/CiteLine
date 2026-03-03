@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
+import os
 import shutil
 from pathlib import Path
 from typing import Any
+
 
 
 _VALUATION_EXTENSION_KEYS = {
@@ -41,6 +44,10 @@ _MEDIATION_EXTENSION_ALLOWLIST = {
     "extraction_metrics",
     "page_quality_assessment",
     "llm_polish_applied",
+    "invariant_attestation",
+    "leverage_index_result",
+    "leverage_trajectory",
+    "leverage_policy",
 }
 
 
@@ -49,6 +56,70 @@ def write_artifact_json(name: str, obj: dict[str, Any], out_dir: Path) -> Path:
     path = out_dir / name
     path.write_text(json.dumps(obj, indent=2), encoding="utf-8")
     return path
+
+
+def write_artifact_atomic(
+    path: Path,
+    content: bytes | str,
+) -> str:
+    """Pass 043: Atomic artifact write (INV-Q1 prerequisite).
+
+    Writes to a .tmp file first, then renames to the final path.
+    os.replace() is atomic on Linux (POSIX rename) and best-effort on Windows
+    NTFS (atomic within the same volume). Returns the sha256 hex of the content.
+
+    Callers must separately set artifact.write_state = 'committed' in the DB
+    after this succeeds to satisfy INV-Q1.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    raw: bytes = content if isinstance(content, bytes) else content.encode("utf-8")
+    sha = hashlib.sha256(raw).hexdigest()
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_bytes(raw)
+    os.replace(str(tmp), str(path))  # atomic on POSIX; best-effort on Windows NTFS
+    return sha
+
+
+def mark_artifact_committed(
+    db: Any,
+    run_id: str,
+    artifact_type: str,
+    storage_uri: str,
+    sha256: str,
+    byte_count: int,
+) -> None:
+    """Pass 043: Upsert an artifact row and set write_state='committed'.
+
+    This is the companion call to write_artifact_atomic. Call it immediately
+    after the atomic rename succeeds. Until this call completes, mark_succeeded
+    will refuse to promote the run to succeeded (INV-Q1).
+
+    Accepts a SQLAlchemy Session (db) or None (no-op for eval paths without DB).
+    """
+    if db is None:
+        return
+    from packages.db.models import Artifact, _uuid
+    existing = (
+        db.query(Artifact)
+        .filter(Artifact.run_id == run_id, Artifact.artifact_type == artifact_type)
+        .first()
+    )
+    if existing is not None:
+        existing.storage_uri = storage_uri
+        existing.sha256 = sha256
+        existing.bytes = byte_count
+        existing.write_state = "committed"
+    else:
+        db.add(Artifact(
+            id=_uuid(),
+            run_id=run_id,
+            artifact_type=artifact_type,
+            storage_uri=storage_uri,
+            sha256=sha256,
+            bytes=byte_count,
+            write_state="committed",
+        ))
+    db.flush()
 
 
 def build_export_evidence_graph(payload: dict[str, Any], export_mode: str) -> dict[str, Any]:
@@ -80,6 +151,18 @@ def build_export_evidence_graph(payload: dict[str, Any], export_mode: str) -> di
             or "negotiation_posture" in low
         ):
             safe_ext.pop(key, None)
+    # Pass 40: Strip INTERNAL-only fields from trajectory markers for MEDIATION.
+    # run_metadata is not in the allowlist so it's already excluded above.
+    traj = safe_ext.get("leverage_trajectory")
+    if isinstance(traj, dict):
+        raw_markers = traj.get("markers") or []
+        safe_ext["leverage_trajectory"] = {
+            **traj,
+            "markers": [
+                {"date": m.get("date"), "level": m.get("level"), "kind": m.get("kind")}
+                for m in raw_markers
+            ],
+        }
     out["extensions"] = safe_ext
     return out
 

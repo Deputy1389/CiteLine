@@ -440,6 +440,20 @@ If any instruction conflicts with ad-hoc iteration, follow `reference/AgentExecu
 
 ---
 
+## Pass Protocol (Mandatory Workflow)
+
+Before proposing any implementation plan, you must follow the `PASSCHECKLISTTemplate.md`. Do not skip sections. Do not collapse categories. Do not propose features until the checklist is completed. Do not use the template file directly. Fill it out as a new `.md` file in the associated pass folder.
+
+For every new pass (major change or feature), you must:
+
+1.  **Create a dedicated pass folder:** Create a new directory in `reference/` named `pass(number)` (e.g., `reference/pass38/`). This folder will hold all planning documents (checklist, plan) and all output artifacts (PDFs, JSONs, regression reports).
+2.  **Complete the Checklist:** Create a `checklist(number).md` file in that directory (e.g., `reference/pass38/checklist38.md`) by filling out the template in `PASSCHECKLISTTemplate.md` as a new file in the pass folder.
+3.  **Submit the Plan:** Create a `plan.md` file in the same directory detailing the implementation plan derived from the checklist.
+
+The `(number)` corresponds to the pass about to be implemented. Do not proceed with code changes until the checklist and plan are documented in `reference/pass(number)/`.
+
+---
+
 ## LLM Policy (Pass34)
 
 ### MEDIATION export: LLM permanently disabled

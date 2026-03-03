@@ -6,7 +6,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone as dt_timezone
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text, JSON
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, JSON
 from sqlalchemy.orm import DeclarativeBase, relationship
 
 def _uuid():
@@ -23,9 +23,11 @@ class Firm(Base):
     __tablename__ = "firms"
     id = Column(String(120), primary_key=True, default=_uuid)
     name = Column(String(200), nullable=False)
+    status = Column(String(50), default="trial")  # trial | paid | churned
     created_at = Column(DateTime, default=utcnow)
     
     matters = relationship("Matter", back_populates="firm", cascade="all, delete-orphan")
+    sales_events = relationship("SalesEvent", back_populates="firm", cascade="all, delete-orphan")
 
 
 class Matter(Base):
@@ -74,12 +76,26 @@ class Run(Base):
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
     provenance_json = Column(JSON, nullable=True)
+    invariant_attestation_json = Column(JSON, nullable=True)  # Pass 37: InvariantGuard attestation
     retry_count = Column(Integer, default=0)
     
     # Worker management
     claimed_at = Column(DateTime, nullable=True)
     worker_id = Column(String(100), nullable=True)
     heartbeat_at = Column(DateTime, nullable=True)
+
+    # Pass 043: Queue / idempotency columns (all nullable — backward-compatible)
+    idempotency_key = Column(String(64), nullable=True, unique=True, index=True)  # sha256 hex of (firm_id|packet_sha256|export_mode|policy_version|signal_layer_version)
+    attempt = Column(Integer, default=0, nullable=False)   # increments on each retry of the same run_id
+    lock_expires_at = Column(DateTime, nullable=True)       # heartbeat extends this; sweeper requeues when expired
+
+    # Pass 042: Observability columns (all nullable — backward-compatible)
+    signal_layer_version = Column(String(20), nullable=True)   # e.g. "v36"
+    policy_version = Column(String(50), nullable=True)          # e.g. "LI_V1_2026-03-01"
+    policy_fingerprint = Column(String(16), nullable=True)      # first 16 chars of sha256
+    packet_page_count = Column(Integer, nullable=True)
+    packet_bytes = Column(Integer, nullable=True)
+    error_class = Column(String(50), nullable=True)             # RunErrorClass enum value
     
     matter = relationship("Matter", back_populates="runs")
     artifacts = relationship("Artifact", back_populates="run", cascade="all, delete-orphan")
@@ -89,6 +105,38 @@ class Run(Base):
     events = relationship("Event", back_populates="run", cascade="all, delete-orphan")
     citations = relationship("Citation", back_populates="run", cascade="all, delete-orphan")
     gaps = relationship("Gap", back_populates="run", cascade="all, delete-orphan")
+    invariant_results = relationship("InvariantResult", back_populates="run", cascade="all, delete-orphan")
+    run_metrics = relationship("RunMetric", back_populates="run", cascade="all, delete-orphan")
+
+
+class InvariantResult(Base):
+    """Pass 042: Persisted record of every invariant check result for a production run."""
+    __tablename__ = "invariant_results"
+
+    id = Column(String(120), primary_key=True, default=_uuid)
+    run_id = Column(String(120), ForeignKey("runs.id"), nullable=False, index=True)
+    check_name = Column(String(80), nullable=False)   # e.g. "CHECK-D3", "INV-E1"
+    passed = Column(Boolean, nullable=False)
+    outcome = Column(Text, nullable=True)              # short detail string from harness
+    severity = Column(String(10), nullable=False)      # "info" | "warn" | "fail"
+    created_at = Column(DateTime, default=utcnow)
+
+    run = relationship("Run", back_populates="invariant_results")
+
+
+class RunMetric(Base):
+    """Pass 042: Per-stage timing and numeric metrics for a production run."""
+    __tablename__ = "run_metrics"
+
+    id = Column(String(120), primary_key=True, default=_uuid)
+    run_id = Column(String(120), ForeignKey("runs.id"), nullable=False, index=True)
+    metric_name = Column(String(80), nullable=False)    # e.g. "extract_time_ms"
+    metric_value_num = Column(Float, nullable=True)
+    metric_value_text = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    run = relationship("Run", back_populates="run_metrics")
+
 
 
 class Artifact(Base):
@@ -96,10 +144,12 @@ class Artifact(Base):
 
     id = Column(String(120), primary_key=True, default=_uuid)
     run_id = Column(String(120), ForeignKey("runs.id"), nullable=False)
-    artifact_type = Column(String(64), nullable=False)  # pdf | csv | json | extended types
+    artifact_type = Column(String(64), nullable=False)  # evidence_graph | output_pdf | acceptance_check | etc.
     storage_uri = Column(String(500), nullable=False)
     sha256 = Column(String(64), nullable=False)
     bytes = Column(Integer, nullable=False)
+    # Pass 043: Atomic write state gate (INV-Q1)
+    write_state = Column(String(16), default="committed", nullable=False)  # "writing" | "committed"
 
     run = relationship("Run", back_populates="artifacts")
 
@@ -257,6 +307,7 @@ class SalesEvent(Base):
 
     id = Column(String(120), primary_key=True, default=_uuid)
     ts = Column(DateTime, default=utcnow)
+    firm_id = Column(String(120), ForeignKey("firms.id"), nullable=True)
     lead_id = Column(String(120), nullable=True, index=True)
     firm_name = Column(String(200), nullable=True)
     domain = Column(String(200), nullable=True, index=True)
@@ -265,6 +316,8 @@ class SalesEvent(Base):
     status = Column(String(20), nullable=False)  # success | failure
     run_id = Column(String(120), nullable=True)
     error_json = Column(JSON, nullable=True)
+    
+    firm = relationship("Firm", back_populates="sales_events")
 
 
 class SystemConfig(Base):
