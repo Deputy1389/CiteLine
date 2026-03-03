@@ -1,0 +1,53 @@
+{
+  "schema_version": "sfp.v1",
+  "has_surgery": false,
+  "has_injection": false,
+  "has_fracture": false,
+  "has_mri_positive": false,
+  "has_radiculopathy": false,
+  "has_disc_herniation": false,
+  "has_soft_tissue": false,
+  "has_emg_positive": false,
+  "has_ed_visit": false,
+  "has_imaging": true,
+  "has_pt": true,
+  "has_specialist": false,
+  "pt_total_encounters": null,
+  "pt_date_start": null,
+  "pt_date_end": null,
+  "treatment_duration_days": null,
+  "gaps": [],
+  "max_gap_days": 0,
+  "gap_count_over_30": 0,
+  "largest_gap": null,
+  "has_prior_similar_injury": false,
+  "doi": null,
+  "first_event_date": "2025-04-18",
+  "days_to_first_treatment": null,
+  "promoted_findings": [],
+  "imaging_promoted_findings": [],
+  "has_neuro_deficit_keywords": false,
+  "has_surgical_indication": false,
+  "pt_dated_encounter_count": 2,
+  "pt_undated_count_mentions": 1,
+  "has_injection_dated": false,
+  "has_injection_undated": false,
+  "has_surgery_dated": false,
+  "has_surgery_undated": false,
+  "escalation_events": [
+    {
+      "date": "2025-04-18",
+      "level": 3,
+      "kind": "IMAGING",
+      "source_anchor": "0c3ce0054fc17050",
+      "confidence": 0.9
+    },
+    {
+      "date": "2025-05-28",
+      "level": 2,
+      "kind": "PT_START",
+      "source_anchor": "20084f865928825d",
+      "confidence": 0.9
+    }
+  ]
+}

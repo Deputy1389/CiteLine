@@ -1,0 +1,32 @@
+{
+  "leverage_index_result": {
+    "enabled": true,
+    "band": "HIGH",
+    "score": 2.45,
+    "reasons": [
+      "BASE_DATED_INJECTION",
+      "BONUS_NEURO_DEFICIT"
+    ],
+    "guard_status": "PASS",
+    "policy_version": "LI_V1_2026-03-01",
+    "policy_fingerprint": "0f4771272973c03d579452730694f84dfcc15db6144595f8ef9cfca586747024"
+  },
+  "leverage_policy": {
+    "version": "LI_V1_2026-03-01",
+    "fingerprint": "0f4771272973c03d579452730694f84dfcc15db6144595f8ef9cfca586747024",
+    "params": {
+      "base_surgery": 3.0,
+      "base_injection_dated": 2.2,
+      "base_radiculopathy_or_deficit": 1.6,
+      "base_imaging_pathology": 1.2,
+      "base_none": 1.0,
+      "bonus_neuro_deficit": 0.25,
+      "bonus_long_duration": 0.2,
+      "bonus_pt_12plus": 0.15,
+      "bonus_pt_5to11": 0.05,
+      "penalty_noise_hit": 0.1,
+      "clamp_min": 0.7,
+      "clamp_max": 3.5
+    }
+  }
+}

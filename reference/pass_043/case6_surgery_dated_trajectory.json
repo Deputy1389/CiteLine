@@ -1,0 +1,24 @@
+{
+  "enabled": true,
+  "guard_status": "PASS",
+  "peak_level": 5,
+  "time_to_peak_days": 0,
+  "num_level_increases": 1,
+  "pattern": "Rising",
+  "monthly_levels": [
+    [
+      "2024-05",
+      5
+    ]
+  ],
+  "markers": [
+    {
+      "date": "2024-05-10",
+      "level": 5,
+      "kind": "SURGERY",
+      "source_anchor": "4bcb35296c471a25"
+    }
+  ],
+  "coverage_ratio": 1.0,
+  "suppressed_undated_count": 0
+}

@@ -1,0 +1,24 @@
+{
+  "enabled": true,
+  "guard_status": "PASS",
+  "peak_level": 4,
+  "time_to_peak_days": 0,
+  "num_level_increases": 1,
+  "pattern": "Rising",
+  "monthly_levels": [
+    [
+      "2024-03",
+      4
+    ]
+  ],
+  "markers": [
+    {
+      "date": "2024-03-15",
+      "level": 4,
+      "kind": "INJECTION",
+      "source_anchor": "b879dc40123c6bed"
+    }
+  ],
+  "coverage_ratio": 1.0,
+  "suppressed_undated_count": 0
+}
