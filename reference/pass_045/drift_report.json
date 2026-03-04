@@ -1,0 +1,66 @@
+{
+  "drift_pass": true,
+  "prev_out": "reference/pass_044/",
+  "run_at": "2026-03-04T04:50:18.652563+00:00",
+  "counters": {
+    "run": 6,
+    "skip": 1,
+    "version_change": 0,
+    "drift_detected": 0
+  },
+  "entries": [
+    {
+      "case": "case1",
+      "status": "RUN",
+      "baseline_source": "reference\\pass_044\\output\\case1\\run_metadata.json",
+      "version": "LI_V1_2026-03-01",
+      "band": "MODERATE",
+      "score": 1.2
+    },
+    {
+      "case": "case2",
+      "status": "RUN",
+      "baseline_source": "reference\\pass_044\\output\\case2\\run_metadata.json",
+      "version": "LI_V1_2026-03-01",
+      "band": "ELEVATED",
+      "score": 1.6
+    },
+    {
+      "case": "case3_herniation",
+      "status": "RUN",
+      "baseline_source": "reference\\pass_044\\output\\case3_herniation\\run_metadata.json",
+      "version": "LI_V1_2026-03-01",
+      "band": "ELEVATED",
+      "score": 1.6
+    },
+    {
+      "case": "case4_soft_tissue",
+      "status": "RUN",
+      "baseline_source": "reference\\pass_044\\output\\case4_soft_tissue\\run_metadata.json",
+      "version": "LI_V1_2026-03-01",
+      "band": "MODERATE",
+      "score": 1.2
+    },
+    {
+      "case": "case5_injection_dated",
+      "status": "RUN",
+      "baseline_source": "reference\\pass_044\\output\\case5_injection_dated\\run_metadata.json",
+      "version": "LI_V1_2026-03-01",
+      "band": "HIGH",
+      "score": 2.45
+    },
+    {
+      "case": "case6_surgery_dated",
+      "status": "RUN",
+      "baseline_source": "reference\\pass_044\\output\\case6_surgery_dated\\run_metadata.json",
+      "version": "LI_V1_2026-03-01",
+      "band": "TRIAL_LEVEL",
+      "score": 3.25
+    },
+    {
+      "case": "case7_cross_contamination",
+      "status": "SKIP",
+      "reason": "no baseline in reference\\pass_044/output/case7_cross_contamination/ or reference\\pass_044/case7_cross_contamination_run_metadata.json"
+    }
+  ]
+}

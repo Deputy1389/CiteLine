@@ -1,0 +1,843 @@
+{
+  "overall_pass": true,
+  "run_at": "2026-03-04T04:50:18.653558+00:00",
+  "signal_layer_version": "36",
+  "fixtures": "tests\\fixtures\\invariants",
+  "cases_total": 7,
+  "cases_pass": 7,
+  "cases_fail": 0,
+  "static_checks": [
+    {
+      "invariant": "D4_TRAJECTORY_SIGNALS_ONLY",
+      "passed": true,
+      "detail": "ok (no forbidden EvidenceGraph access)"
+    },
+    {
+      "invariant": "D5_RENDERER_DISPLAY_ONLY",
+      "passed": true,
+      "detail": "ok (renderer remains display-only)"
+    }
+  ],
+  "static_pass": true,
+  "drift_pass": true,
+  "drift_counters": {
+    "run": 6,
+    "skip": 1,
+    "version_change": 0,
+    "drift_detected": 0
+  },
+  "drift_entries": [
+    {
+      "case": "case1",
+      "status": "RUN",
+      "baseline_source": "reference\\pass_044\\output\\case1\\run_metadata.json",
+      "version": "LI_V1_2026-03-01",
+      "band": "MODERATE",
+      "score": 1.2
+    },
+    {
+      "case": "case2",
+      "status": "RUN",
+      "baseline_source": "reference\\pass_044\\output\\case2\\run_metadata.json",
+      "version": "LI_V1_2026-03-01",
+      "band": "ELEVATED",
+      "score": 1.6
+    },
+    {
+      "case": "case3_herniation",
+      "status": "RUN",
+      "baseline_source": "reference\\pass_044\\output\\case3_herniation\\run_metadata.json",
+      "version": "LI_V1_2026-03-01",
+      "band": "ELEVATED",
+      "score": 1.6
+    },
+    {
+      "case": "case4_soft_tissue",
+      "status": "RUN",
+      "baseline_source": "reference\\pass_044\\output\\case4_soft_tissue\\run_metadata.json",
+      "version": "LI_V1_2026-03-01",
+      "band": "MODERATE",
+      "score": 1.2
+    },
+    {
+      "case": "case5_injection_dated",
+      "status": "RUN",
+      "baseline_source": "reference\\pass_044\\output\\case5_injection_dated\\run_metadata.json",
+      "version": "LI_V1_2026-03-01",
+      "band": "HIGH",
+      "score": 2.45
+    },
+    {
+      "case": "case6_surgery_dated",
+      "status": "RUN",
+      "baseline_source": "reference\\pass_044\\output\\case6_surgery_dated\\run_metadata.json",
+      "version": "LI_V1_2026-03-01",
+      "band": "TRIAL_LEVEL",
+      "score": 3.25
+    },
+    {
+      "case": "case7_cross_contamination",
+      "status": "SKIP",
+      "reason": "no baseline in reference\\pass_044/output/case7_cross_contamination/ or reference\\pass_044/case7_cross_contamination_run_metadata.json"
+    }
+  ],
+  "cases": [
+    {
+      "case": "case1",
+      "signals_summary": {
+        "pt_dated_encounter_count": 2,
+        "has_radiculopathy": false,
+        "has_injection_dated": false,
+        "has_surgery_dated": false,
+        "treatment_duration_days": null
+      },
+      "invariants": [
+        {
+          "invariant": "S1_PT_DERIVATION_INTEGRITY",
+          "passed": true,
+          "detail": "derived=2, harness_recomputed=2"
+        },
+        {
+          "invariant": "A1_PT_COUNT_CONSISTENCY",
+          "passed": true,
+          "detail": "ok (pt_dated_encounter_count=2, total_encounters=54, over12_claim=True)"
+        },
+        {
+          "invariant": "A3_NOISE_NOT_IN_OBJECTIVE_OR_IMAGING",
+          "passed": true,
+          "detail": "ok"
+        },
+        {
+          "invariant": "B1_TIER_FLOOR_RADICULOPATHY",
+          "passed": true,
+          "detail": "skip (has_radiculopathy=False)"
+        },
+        {
+          "invariant": "B2_TIER_FLOOR_INJECTION_DATED",
+          "passed": true,
+          "detail": "skip (has_injection_dated=False)"
+        },
+        {
+          "invariant": "C1_MINOR_CAP_CEILING",
+          "passed": true,
+          "detail": "skip (treatment_duration_days=None)"
+        },
+        {
+          "invariant": "L1_LEVERAGE_TIER_CONSISTENCY",
+          "passed": true,
+          "detail": "skip (has_radiculopathy=False)"
+        },
+        {
+          "invariant": "L2_POLICY_FINGERPRINT",
+          "passed": true,
+          "detail": "ok (0f477127)"
+        },
+        {
+          "invariant": "L3_TRAJECTORY_CONSISTENCY",
+          "passed": true,
+          "detail": "ok (traj enabled=True)"
+        },
+        {
+          "invariant": "T2_TRAJECTORY_INJECTION_PEAK",
+          "passed": true,
+          "detail": "skip (has_injection_dated=False)"
+        },
+        {
+          "invariant": "T3_TRAJECTORY_SURGERY_PEAK",
+          "passed": true,
+          "detail": "skip (has_surgery_dated=False)"
+        },
+        {
+          "invariant": "D1_DETERMINISM_RERUN",
+          "passed": true,
+          "detail": "ok (36 signals stable across 2 calls)"
+        },
+        {
+          "invariant": "D2_POLICY_PINNING",
+          "passed": true,
+          "detail": "ok (LI_V1_2026-03-01 fp=0f477127...)"
+        },
+        {
+          "invariant": "D3_NO_MEDIATION_LEAKAGE",
+          "passed": true,
+          "detail": "ok (no leakage detected)"
+        },
+        {
+          "invariant": "E1_ESCALATION_TRACEABILITY",
+          "passed": true,
+          "detail": "skip (pre-Pass-40 run \u2014 run_metadata.pass=None)"
+        },
+        {
+          "invariant": "D6_INTERNAL_VERSION_HEADER_PRESENT",
+          "passed": true,
+          "detail": "skip (no INTERNAL PDF in fixture)"
+        },
+        {
+          "invariant": "E2_NO_ESCALATION_FROM_LOW_CONFIDENCE",
+          "passed": true,
+          "detail": "ok (all 1 markers have confidence >= 0.8)"
+        }
+      ],
+      "all_pass": true,
+      "pdf_found": true,
+      "attestation": {
+        "case_id": "case1",
+        "invariant_run_id": "1cfbdc1cae82ddfc",
+        "pass": true,
+        "artifact_fingerprint": "9a36c589444585934b6974a8a40429be55e40658234fe6a28e3ea9ea2bcbda3a",
+        "signals_fingerprint": "53465ec2b8600f22cb24cc810ab866c537f90fc3e369129e126eb2bef5ed0de4"
+      }
+    },
+    {
+      "case": "case2",
+      "signals_summary": {
+        "pt_dated_encounter_count": 1,
+        "has_radiculopathy": true,
+        "has_injection_dated": false,
+        "has_surgery_dated": false,
+        "treatment_duration_days": null
+      },
+      "invariants": [
+        {
+          "invariant": "S1_PT_DERIVATION_INTEGRITY",
+          "passed": true,
+          "detail": "derived=1, harness_recomputed=1"
+        },
+        {
+          "invariant": "A1_PT_COUNT_CONSISTENCY",
+          "passed": true,
+          "detail": "ok (pt_dated_encounter_count=1, total_encounters=141, over12_claim=True)"
+        },
+        {
+          "invariant": "A3_NOISE_NOT_IN_OBJECTIVE_OR_IMAGING",
+          "passed": true,
+          "detail": "ok"
+        },
+        {
+          "invariant": "B1_TIER_FLOOR_RADICULOPATHY",
+          "passed": true,
+          "detail": "ok (profile not conservative-only)"
+        },
+        {
+          "invariant": "B2_TIER_FLOOR_INJECTION_DATED",
+          "passed": true,
+          "detail": "skip (has_injection_dated=False)"
+        },
+        {
+          "invariant": "C1_MINOR_CAP_CEILING",
+          "passed": true,
+          "detail": "skip (treatment_duration_days=None)"
+        },
+        {
+          "invariant": "L1_LEVERAGE_TIER_CONSISTENCY",
+          "passed": true,
+          "detail": "ok (band=ELEVATED)"
+        },
+        {
+          "invariant": "L2_POLICY_FINGERPRINT",
+          "passed": true,
+          "detail": "ok (0f477127)"
+        },
+        {
+          "invariant": "L3_TRAJECTORY_CONSISTENCY",
+          "passed": true,
+          "detail": "ok (traj enabled=True)"
+        },
+        {
+          "invariant": "T2_TRAJECTORY_INJECTION_PEAK",
+          "passed": true,
+          "detail": "skip (has_injection_dated=False)"
+        },
+        {
+          "invariant": "T3_TRAJECTORY_SURGERY_PEAK",
+          "passed": true,
+          "detail": "skip (has_surgery_dated=False)"
+        },
+        {
+          "invariant": "D1_DETERMINISM_RERUN",
+          "passed": true,
+          "detail": "ok (36 signals stable across 2 calls)"
+        },
+        {
+          "invariant": "D2_POLICY_PINNING",
+          "passed": true,
+          "detail": "ok (LI_V1_2026-03-01 fp=0f477127...)"
+        },
+        {
+          "invariant": "D3_NO_MEDIATION_LEAKAGE",
+          "passed": true,
+          "detail": "ok (no leakage detected)"
+        },
+        {
+          "invariant": "E1_ESCALATION_TRACEABILITY",
+          "passed": true,
+          "detail": "skip (pre-Pass-40 run \u2014 run_metadata.pass=None)"
+        },
+        {
+          "invariant": "D6_INTERNAL_VERSION_HEADER_PRESENT",
+          "passed": true,
+          "detail": "skip (no INTERNAL PDF in fixture)"
+        },
+        {
+          "invariant": "E2_NO_ESCALATION_FROM_LOW_CONFIDENCE",
+          "passed": true,
+          "detail": "ok (all 1 markers have confidence >= 0.8)"
+        }
+      ],
+      "all_pass": true,
+      "pdf_found": true,
+      "attestation": {
+        "case_id": "case2",
+        "invariant_run_id": "beb541484b103471",
+        "pass": true,
+        "artifact_fingerprint": "2bdf039a7ab4e80dcdd9b993dd27b68b92d274c0f08ae2acb9e500c15fcc38fb",
+        "signals_fingerprint": "8785fa604736aa464192c57a7b96d8680fc2e456fef33a4895375d8ccb9377cd"
+      }
+    },
+    {
+      "case": "case3_herniation",
+      "signals_summary": {
+        "pt_dated_encounter_count": 2,
+        "has_radiculopathy": true,
+        "has_injection_dated": false,
+        "has_surgery_dated": false,
+        "treatment_duration_days": null
+      },
+      "invariants": [
+        {
+          "invariant": "S1_PT_DERIVATION_INTEGRITY",
+          "passed": true,
+          "detail": "derived=2, harness_recomputed=2"
+        },
+        {
+          "invariant": "A1_PT_COUNT_CONSISTENCY",
+          "passed": true,
+          "detail": "ok (pt_dated_encounter_count=2, total_encounters=47, over12_claim=True)"
+        },
+        {
+          "invariant": "A3_NOISE_NOT_IN_OBJECTIVE_OR_IMAGING",
+          "passed": true,
+          "detail": "ok"
+        },
+        {
+          "invariant": "B1_TIER_FLOOR_RADICULOPATHY",
+          "passed": true,
+          "detail": "ok (profile not conservative-only)"
+        },
+        {
+          "invariant": "B2_TIER_FLOOR_INJECTION_DATED",
+          "passed": true,
+          "detail": "skip (has_injection_dated=False)"
+        },
+        {
+          "invariant": "C1_MINOR_CAP_CEILING",
+          "passed": true,
+          "detail": "skip (treatment_duration_days=None)"
+        },
+        {
+          "invariant": "L1_LEVERAGE_TIER_CONSISTENCY",
+          "passed": true,
+          "detail": "ok (band=ELEVATED)"
+        },
+        {
+          "invariant": "L2_POLICY_FINGERPRINT",
+          "passed": true,
+          "detail": "ok (0f477127)"
+        },
+        {
+          "invariant": "L3_TRAJECTORY_CONSISTENCY",
+          "passed": true,
+          "detail": "ok (traj enabled=True)"
+        },
+        {
+          "invariant": "T2_TRAJECTORY_INJECTION_PEAK",
+          "passed": true,
+          "detail": "skip (has_injection_dated=False)"
+        },
+        {
+          "invariant": "T3_TRAJECTORY_SURGERY_PEAK",
+          "passed": true,
+          "detail": "skip (has_surgery_dated=False)"
+        },
+        {
+          "invariant": "D1_DETERMINISM_RERUN",
+          "passed": true,
+          "detail": "ok (36 signals stable across 2 calls)"
+        },
+        {
+          "invariant": "D2_POLICY_PINNING",
+          "passed": true,
+          "detail": "ok (LI_V1_2026-03-01 fp=0f477127...)"
+        },
+        {
+          "invariant": "D3_NO_MEDIATION_LEAKAGE",
+          "passed": true,
+          "detail": "ok (no leakage detected)"
+        },
+        {
+          "invariant": "E1_ESCALATION_TRACEABILITY",
+          "passed": true,
+          "detail": "skip (pre-Pass-40 run \u2014 run_metadata.pass=None)"
+        },
+        {
+          "invariant": "D6_INTERNAL_VERSION_HEADER_PRESENT",
+          "passed": true,
+          "detail": "skip (no INTERNAL PDF in fixture)"
+        },
+        {
+          "invariant": "E2_NO_ESCALATION_FROM_LOW_CONFIDENCE",
+          "passed": true,
+          "detail": "ok (all 2 markers have confidence >= 0.8)"
+        }
+      ],
+      "all_pass": true,
+      "pdf_found": true,
+      "attestation": {
+        "case_id": "case3_herniation",
+        "invariant_run_id": "37d232ed188bfa6f",
+        "pass": true,
+        "artifact_fingerprint": "86e872a51a38cf107eaa360b638867c2c7bea24b2e2fdf3410eb2b94831833e7",
+        "signals_fingerprint": "a985b8328a3340e61811dd36e2895a2e406c2447897a374ae6aee58891a30886"
+      }
+    },
+    {
+      "case": "case4_soft_tissue",
+      "signals_summary": {
+        "pt_dated_encounter_count": 2,
+        "has_radiculopathy": false,
+        "has_injection_dated": false,
+        "has_surgery_dated": false,
+        "treatment_duration_days": null
+      },
+      "invariants": [
+        {
+          "invariant": "S1_PT_DERIVATION_INTEGRITY",
+          "passed": true,
+          "detail": "derived=2, harness_recomputed=2"
+        },
+        {
+          "invariant": "A1_PT_COUNT_CONSISTENCY",
+          "passed": true,
+          "detail": "ok (pt_dated_encounter_count=2, total_encounters=11, over12_claim=False)"
+        },
+        {
+          "invariant": "A3_NOISE_NOT_IN_OBJECTIVE_OR_IMAGING",
+          "passed": true,
+          "detail": "ok"
+        },
+        {
+          "invariant": "B1_TIER_FLOOR_RADICULOPATHY",
+          "passed": true,
+          "detail": "skip (has_radiculopathy=False)"
+        },
+        {
+          "invariant": "B2_TIER_FLOOR_INJECTION_DATED",
+          "passed": true,
+          "detail": "skip (has_injection_dated=False)"
+        },
+        {
+          "invariant": "C1_MINOR_CAP_CEILING",
+          "passed": true,
+          "detail": "skip (treatment_duration_days=None)"
+        },
+        {
+          "invariant": "L1_LEVERAGE_TIER_CONSISTENCY",
+          "passed": true,
+          "detail": "skip (has_radiculopathy=False)"
+        },
+        {
+          "invariant": "L2_POLICY_FINGERPRINT",
+          "passed": true,
+          "detail": "ok (0f477127)"
+        },
+        {
+          "invariant": "L3_TRAJECTORY_CONSISTENCY",
+          "passed": true,
+          "detail": "ok (traj enabled=True)"
+        },
+        {
+          "invariant": "T2_TRAJECTORY_INJECTION_PEAK",
+          "passed": true,
+          "detail": "skip (has_injection_dated=False)"
+        },
+        {
+          "invariant": "T3_TRAJECTORY_SURGERY_PEAK",
+          "passed": true,
+          "detail": "skip (has_surgery_dated=False)"
+        },
+        {
+          "invariant": "D1_DETERMINISM_RERUN",
+          "passed": true,
+          "detail": "ok (36 signals stable across 2 calls)"
+        },
+        {
+          "invariant": "D2_POLICY_PINNING",
+          "passed": true,
+          "detail": "ok (LI_V1_2026-03-01 fp=0f477127...)"
+        },
+        {
+          "invariant": "D3_NO_MEDIATION_LEAKAGE",
+          "passed": true,
+          "detail": "ok (no leakage detected)"
+        },
+        {
+          "invariant": "E1_ESCALATION_TRACEABILITY",
+          "passed": true,
+          "detail": "skip (pre-Pass-40 run \u2014 run_metadata.pass=None)"
+        },
+        {
+          "invariant": "D6_INTERNAL_VERSION_HEADER_PRESENT",
+          "passed": true,
+          "detail": "skip (no INTERNAL PDF in fixture)"
+        },
+        {
+          "invariant": "E2_NO_ESCALATION_FROM_LOW_CONFIDENCE",
+          "passed": true,
+          "detail": "ok (all 1 markers have confidence >= 0.8)"
+        }
+      ],
+      "all_pass": true,
+      "pdf_found": true,
+      "attestation": {
+        "case_id": "case4_soft_tissue",
+        "invariant_run_id": "f86e92df1d99fc9a",
+        "pass": true,
+        "artifact_fingerprint": "af75875bfecf9b60f1cdadec794b2ed46b8b16634771b2a2c0e4312e49713dd1",
+        "signals_fingerprint": "439f18a07f810f40d8c0629db7b9ee2ca6e325af2727acda19152ecacaed23ea"
+      }
+    },
+    {
+      "case": "case5_injection_dated",
+      "signals_summary": {
+        "pt_dated_encounter_count": 0,
+        "has_radiculopathy": true,
+        "has_injection_dated": true,
+        "has_surgery_dated": false,
+        "treatment_duration_days": null
+      },
+      "invariants": [
+        {
+          "invariant": "S1_PT_DERIVATION_INTEGRITY",
+          "passed": true,
+          "detail": "derived=0, harness_recomputed=0"
+        },
+        {
+          "invariant": "A1_PT_COUNT_CONSISTENCY",
+          "passed": true,
+          "detail": "skip (no PDF found)"
+        },
+        {
+          "invariant": "A3_NOISE_NOT_IN_OBJECTIVE_OR_IMAGING",
+          "passed": true,
+          "detail": "skip (no PDF found)"
+        },
+        {
+          "invariant": "B1_TIER_FLOOR_RADICULOPATHY",
+          "passed": true,
+          "detail": "skip (no PDF found)"
+        },
+        {
+          "invariant": "B2_TIER_FLOOR_INJECTION_DATED",
+          "passed": true,
+          "detail": "skip (no PDF found)"
+        },
+        {
+          "invariant": "C1_MINOR_CAP_CEILING",
+          "passed": true,
+          "detail": "skip (no PDF found)"
+        },
+        {
+          "invariant": "L1_LEVERAGE_TIER_CONSISTENCY",
+          "passed": true,
+          "detail": "ok (band=HIGH)"
+        },
+        {
+          "invariant": "L2_POLICY_FINGERPRINT",
+          "passed": true,
+          "detail": "ok (0f477127)"
+        },
+        {
+          "invariant": "L3_TRAJECTORY_CONSISTENCY",
+          "passed": true,
+          "detail": "ok (traj enabled=True)"
+        },
+        {
+          "invariant": "T2_TRAJECTORY_INJECTION_PEAK",
+          "passed": true,
+          "detail": "ok (peak_level=4 >= 4)"
+        },
+        {
+          "invariant": "T3_TRAJECTORY_SURGERY_PEAK",
+          "passed": true,
+          "detail": "skip (has_surgery_dated=False)"
+        },
+        {
+          "invariant": "D1_DETERMINISM_RERUN",
+          "passed": true,
+          "detail": "ok (36 signals stable across 2 calls)"
+        },
+        {
+          "invariant": "D2_POLICY_PINNING",
+          "passed": true,
+          "detail": "ok (LI_V1_2026-03-01 fp=0f477127...)"
+        },
+        {
+          "invariant": "D3_NO_MEDIATION_LEAKAGE",
+          "passed": true,
+          "detail": "skip (no mediation PDF)"
+        },
+        {
+          "invariant": "E1_ESCALATION_TRACEABILITY",
+          "passed": true,
+          "detail": "ok (all 1 markers have source_anchor)"
+        },
+        {
+          "invariant": "D6_INTERNAL_VERSION_HEADER_PRESENT",
+          "passed": true,
+          "detail": "skip (no INTERNAL PDF in fixture)"
+        },
+        {
+          "invariant": "E2_NO_ESCALATION_FROM_LOW_CONFIDENCE",
+          "passed": true,
+          "detail": "ok (all 1 markers have confidence >= 0.8)"
+        },
+        {
+          "invariant": "FIXTURE_MANIFEST",
+          "passed": true,
+          "detail": "ok (fixture_id=case5_injection_dated)"
+        }
+      ],
+      "all_pass": true,
+      "pdf_found": false,
+      "attestation": {
+        "case_id": "case5_injection_dated",
+        "invariant_run_id": "08d965106c079f83",
+        "pass": true,
+        "artifact_fingerprint": "a0091c4567755bd0738595ce4ed9375d9eb7dd35ddf52b3c95fc189cc4399a17",
+        "signals_fingerprint": "c45a49c5c46d324d84796de99657d127a2c3546cafc6f55d837535594aa33f19"
+      }
+    },
+    {
+      "case": "case6_surgery_dated",
+      "signals_summary": {
+        "pt_dated_encounter_count": 0,
+        "has_radiculopathy": true,
+        "has_injection_dated": false,
+        "has_surgery_dated": true,
+        "treatment_duration_days": null
+      },
+      "invariants": [
+        {
+          "invariant": "S1_PT_DERIVATION_INTEGRITY",
+          "passed": true,
+          "detail": "derived=0, harness_recomputed=0"
+        },
+        {
+          "invariant": "A1_PT_COUNT_CONSISTENCY",
+          "passed": true,
+          "detail": "skip (no PDF found)"
+        },
+        {
+          "invariant": "A3_NOISE_NOT_IN_OBJECTIVE_OR_IMAGING",
+          "passed": true,
+          "detail": "skip (no PDF found)"
+        },
+        {
+          "invariant": "B1_TIER_FLOOR_RADICULOPATHY",
+          "passed": true,
+          "detail": "skip (no PDF found)"
+        },
+        {
+          "invariant": "B2_TIER_FLOOR_INJECTION_DATED",
+          "passed": true,
+          "detail": "skip (no PDF found)"
+        },
+        {
+          "invariant": "C1_MINOR_CAP_CEILING",
+          "passed": true,
+          "detail": "skip (no PDF found)"
+        },
+        {
+          "invariant": "L1_LEVERAGE_TIER_CONSISTENCY",
+          "passed": true,
+          "detail": "ok (band=TRIAL_LEVEL)"
+        },
+        {
+          "invariant": "L2_POLICY_FINGERPRINT",
+          "passed": true,
+          "detail": "ok (0f477127)"
+        },
+        {
+          "invariant": "L3_TRAJECTORY_CONSISTENCY",
+          "passed": true,
+          "detail": "ok (traj enabled=True)"
+        },
+        {
+          "invariant": "T2_TRAJECTORY_INJECTION_PEAK",
+          "passed": true,
+          "detail": "skip (has_injection_dated=False)"
+        },
+        {
+          "invariant": "T3_TRAJECTORY_SURGERY_PEAK",
+          "passed": true,
+          "detail": "ok (peak_level=5 == 5)"
+        },
+        {
+          "invariant": "D1_DETERMINISM_RERUN",
+          "passed": true,
+          "detail": "ok (36 signals stable across 2 calls)"
+        },
+        {
+          "invariant": "D2_POLICY_PINNING",
+          "passed": true,
+          "detail": "ok (LI_V1_2026-03-01 fp=0f477127...)"
+        },
+        {
+          "invariant": "D3_NO_MEDIATION_LEAKAGE",
+          "passed": true,
+          "detail": "skip (no mediation PDF)"
+        },
+        {
+          "invariant": "E1_ESCALATION_TRACEABILITY",
+          "passed": true,
+          "detail": "ok (all 1 markers have source_anchor)"
+        },
+        {
+          "invariant": "D6_INTERNAL_VERSION_HEADER_PRESENT",
+          "passed": true,
+          "detail": "skip (no INTERNAL PDF in fixture)"
+        },
+        {
+          "invariant": "E2_NO_ESCALATION_FROM_LOW_CONFIDENCE",
+          "passed": true,
+          "detail": "ok (all 1 markers have confidence >= 0.8)"
+        },
+        {
+          "invariant": "FIXTURE_MANIFEST",
+          "passed": true,
+          "detail": "ok (fixture_id=case6_surgery_dated)"
+        }
+      ],
+      "all_pass": true,
+      "pdf_found": false,
+      "attestation": {
+        "case_id": "case6_surgery_dated",
+        "invariant_run_id": "0e98d448a7a77d1a",
+        "pass": true,
+        "artifact_fingerprint": "e67c6ecaf761ea90a29c4e2446447c3962c5bed726a57b4c96f8cb9405ea0b7c",
+        "signals_fingerprint": "b5f1534f6547a0f1e7fc22348f74dd4934b59b9b494b035cba025300fe3a8716"
+      }
+    },
+    {
+      "case": "case7_cross_contamination",
+      "signals_summary": {
+        "pt_dated_encounter_count": 2,
+        "has_radiculopathy": false,
+        "has_injection_dated": false,
+        "has_surgery_dated": false,
+        "treatment_duration_days": null
+      },
+      "invariants": [
+        {
+          "invariant": "S1_PT_DERIVATION_INTEGRITY",
+          "passed": true,
+          "detail": "derived=2, harness_recomputed=2"
+        },
+        {
+          "invariant": "A1_PT_COUNT_CONSISTENCY",
+          "passed": true,
+          "detail": "skip (no PDF found)"
+        },
+        {
+          "invariant": "A3_NOISE_NOT_IN_OBJECTIVE_OR_IMAGING",
+          "passed": true,
+          "detail": "skip (no PDF found)"
+        },
+        {
+          "invariant": "B1_TIER_FLOOR_RADICULOPATHY",
+          "passed": true,
+          "detail": "skip (no PDF found)"
+        },
+        {
+          "invariant": "B2_TIER_FLOOR_INJECTION_DATED",
+          "passed": true,
+          "detail": "skip (no PDF found)"
+        },
+        {
+          "invariant": "C1_MINOR_CAP_CEILING",
+          "passed": true,
+          "detail": "skip (no PDF found)"
+        },
+        {
+          "invariant": "L1_LEVERAGE_TIER_CONSISTENCY",
+          "passed": true,
+          "detail": "skip (has_radiculopathy=False)"
+        },
+        {
+          "invariant": "L2_POLICY_FINGERPRINT",
+          "passed": true,
+          "detail": "ok (0f477127)"
+        },
+        {
+          "invariant": "L3_TRAJECTORY_CONSISTENCY",
+          "passed": true,
+          "detail": "ok (traj enabled=True)"
+        },
+        {
+          "invariant": "T2_TRAJECTORY_INJECTION_PEAK",
+          "passed": true,
+          "detail": "skip (has_injection_dated=False)"
+        },
+        {
+          "invariant": "T3_TRAJECTORY_SURGERY_PEAK",
+          "passed": true,
+          "detail": "skip (has_surgery_dated=False)"
+        },
+        {
+          "invariant": "D1_DETERMINISM_RERUN",
+          "passed": true,
+          "detail": "ok (36 signals stable across 2 calls)"
+        },
+        {
+          "invariant": "D2_POLICY_PINNING",
+          "passed": true,
+          "detail": "ok (LI_V1_2026-03-01 fp=0f477127...)"
+        },
+        {
+          "invariant": "D3_NO_MEDIATION_LEAKAGE",
+          "passed": true,
+          "detail": "skip (no mediation PDF)"
+        },
+        {
+          "invariant": "E1_ESCALATION_TRACEABILITY",
+          "passed": true,
+          "detail": "skip (pre-Pass-40 run \u2014 run_metadata.pass=None)"
+        },
+        {
+          "invariant": "D6_INTERNAL_VERSION_HEADER_PRESENT",
+          "passed": true,
+          "detail": "skip (no INTERNAL PDF in fixture)"
+        },
+        {
+          "invariant": "E2_NO_ESCALATION_FROM_LOW_CONFIDENCE",
+          "passed": true,
+          "detail": "ok (all 1 markers have confidence >= 0.8)"
+        },
+        {
+          "invariant": "FIXTURE_MANIFEST",
+          "passed": true,
+          "detail": "ok (fixture_id=case7_cross_contamination)"
+        }
+      ],
+      "all_pass": true,
+      "pdf_found": false,
+      "attestation": {
+        "case_id": "case7_cross_contamination",
+        "invariant_run_id": "e13154fd890f01e4",
+        "pass": true,
+        "artifact_fingerprint": "a6d847c62dbe4605059916ce85c83ebe41acab8d872a745aaefe9ea3f3d33198",
+        "signals_fingerprint": "439f18a07f810f40d8c0629db7b9ee2ca6e325af2727acda19152ecacaed23ea"
+      }
+    }
+  ]
+}

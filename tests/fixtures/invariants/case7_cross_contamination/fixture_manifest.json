@@ -1,0 +1,9 @@
+{
+    "fixture_id": "case7_cross_contamination",
+    "pass_introduced": 45,
+    "description": "Shoulder fracture case with unrelated renal calculus section — kidney content must not drive injury-tier signals (INV-Q6)",
+    "expects": {
+        "has_injection_dated": false,
+        "has_surgery_dated": false
+    }
+}

@@ -1,0 +1,40 @@
+{
+  "enabled": true,
+  "guard_status": "PASS",
+  "peak_level": 4,
+  "time_to_peak_days": 53,
+  "num_level_increases": 2,
+  "pattern": "Rising",
+  "monthly_levels": [
+    [
+      "2024-12",
+      3
+    ],
+    [
+      "2025-01",
+      3
+    ],
+    [
+      "2025-02",
+      4
+    ],
+    [
+      "2025-03",
+      2
+    ]
+  ],
+  "markers": [
+    {
+      "date": "2024-12-29",
+      "level": 3,
+      "kind": "IMAGING"
+    },
+    {
+      "date": "2025-02-20",
+      "level": 4,
+      "kind": "INJECTION"
+    }
+  ],
+  "coverage_ratio": 1.0,
+  "suppressed_undated_count": 0
+}

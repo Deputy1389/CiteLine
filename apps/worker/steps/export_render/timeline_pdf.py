@@ -230,6 +230,63 @@ def _entry_fact_flag_pairs(entry: Any) -> list[tuple[str, bool]]:
     return list(zip(facts, flags[: len(facts)]))
 
 
+def _pick_key_finding_page_anchored(
+    candidate_pairs: list[tuple[str, bool]],
+    refs: list[dict],
+    citation_by_id: dict,
+) -> tuple[str, bool]:
+    """
+    INV-Q4 (Pass 045): Select the key finding fact that is best anchored to the
+    event's primary citation page(s). Scores each candidate fact by token overlap
+    with the citation snippets for that event. Falls back to candidate_pairs[0]
+    when no match is found.
+
+    This prevents the bug where the first fact in the list was always chosen
+    regardless of which date/page it came from — e.g. a 2013 ED row showing
+    text from 2014 because a later citation happened to be listed first.
+    """
+    if not candidate_pairs:
+        return ("", False)
+    if len(candidate_pairs) == 1:
+        return candidate_pairs[0]
+
+    # Build combined snippet text from all citation pages for this event.
+    combined_snippets: list[str] = []
+    for ref in refs or []:
+        # refs are dicts from event_citations_by_event; look up the full citation snippet.
+        cid = str(ref.get("citation_id") or ref.get("id") or "").strip()
+        if cid and citation_by_id:
+            cit = citation_by_id.get(cid)
+            if cit:
+                sn = str(getattr(cit, "snippet", "") or "").strip()
+                if sn:
+                    combined_snippets.append(sn.lower())
+
+    if not combined_snippets:
+        # No snippet data available — fall back to original order.
+        return candidate_pairs[0]
+
+    page_corpus = " ".join(combined_snippets)
+    page_tokens = set(re.findall(r"\b[a-z]{4,}\b", page_corpus))
+
+    best_pair = candidate_pairs[0]
+    best_score = -1
+    for fact_text, is_verbatim in candidate_pairs:
+        if not fact_text:
+            continue
+        fact_tokens = set(re.findall(r"\b[a-z]{4,}\b", fact_text.lower()))
+        if not fact_tokens:
+            continue
+        overlap = len(fact_tokens & page_tokens)
+        # Normalised by fact token count to prefer concise, well-matched facts.
+        score = overlap / max(1, len(fact_tokens))
+        if score > best_score:
+            best_score = score
+            best_pair = (fact_text, is_verbatim)
+
+    return best_pair
+
+
 def _quote_if_verbatim(text: str, is_verbatim: bool) -> str:
     cleaned = _clean_line(text)
     if not cleaned:
@@ -1772,6 +1829,57 @@ def generate_pdf_from_projection(
                 ),
             )
         )
+        # Pass 37: Leverage debug block (INTERNAL only)
+        _lr_debug = ext.get("leverage_index_result") or {}
+        if _lr_debug:
+            _csi_overrides = ((ext.get("case_severity_index") or {}).get("override_reasons") or [])
+            _debug_lines = [
+                "<b>LEVERAGE DEBUG (INTERNAL)</b>",
+                f"Band: {_lr_debug.get('band')}  |  Score: {_lr_debug.get('score')}  |  Guard: {_lr_debug.get('guard_status')}",
+                f"Reasons: {', '.join(_lr_debug.get('reasons') or [])}",
+            ]
+            if _csi_overrides:
+                _debug_lines.append(f"CSI overrides: {', '.join(_csi_overrides)}")
+            flowables.append(Paragraph(
+                "<br/>".join(_debug_lines),
+                ParagraphStyle(
+                    "LeverageDebug",
+                    parent=normal_style,
+                    fontSize=7.5,
+                    fontName="Courier",
+                    backColor=colors.HexColor("#F0F9FF"),
+                    borderColor=colors.HexColor("#0369A1"),
+                    borderWidth=0.5,
+                    borderPadding=4,
+                    spaceAfter=6,
+                ),
+            ))
+        # Pass 40: Version transparency header (INTERNAL only — reads from pre-computed ext)
+        _rm = ext.get("run_metadata") or {}
+        _lp = ext.get("leverage_policy") or {}
+        _fp_short = (_lp.get("fingerprint") or "")[:16]
+        if _rm or _fp_short:
+            _version_lines = [
+                f"Signal Layer: v{_rm.get('signal_layer_version', '?')}",
+                f"Policy: {_lp.get('version', '?')}",
+                f"Fingerprint: {_fp_short}...",
+                f"Determinism: {_rm.get('determinism_check', '?')}",
+            ]
+            flowables.append(Paragraph(
+                "  |  ".join(_version_lines),
+                ParagraphStyle(
+                    "VersionHeader",
+                    parent=normal_style,
+                    fontSize=7,
+                    fontName="Courier",
+                    textColor=colors.HexColor("#374151"),
+                    backColor=colors.HexColor("#F9FAFB"),
+                    borderColor=colors.HexColor("#9CA3AF"),
+                    borderWidth=0.5,
+                    borderPadding=3,
+                    spaceAfter=4,
+                ),
+            ))
     if export_mode_norm == "MEDIATION":
         flowables.append(
             Paragraph(
@@ -2367,7 +2475,7 @@ def generate_pdf_from_projection(
     if export_mode_norm != "MEDIATION":
         if snapshot_warnings:
             warn_style = ParagraphStyle("SnapshotWarn", parent=normal_style, backColor=colors.HexColor("#FFF7ED"), borderColor=colors.HexColor("#FDBA74"), borderWidth=0.5, borderPadding=4, spaceAfter=6)
-            flowables.append(Paragraph("<b>Record limitations</b>: " + " ".join(snapshot_warnings), warn_style))
+            flowables.append(Paragraph("<b>Coverage notes</b>: " + " ".join(snapshot_warnings), warn_style))
 
         if not settlement_driver_rows:
             settlement_driver_rows.append(Paragraph("- No fully citation-supported settlement drivers were available for front-page display.", bullet_style))
@@ -2442,8 +2550,12 @@ def generate_pdf_from_projection(
             fact_pairs = _entry_fact_flag_pairs(entry)
             facts = [f for f, _is_verbatim in fact_pairs]
             candidate_pairs = [(f, is_verbatim) for f, is_verbatim in fact_pairs if not _is_meta_language(f)]
+            # INV-Q4 (Pass 045): Use page-anchored key finding selection instead of
+            # blindly picking candidate_pairs[0] — prevents wrong-date snippet bug.
             if candidate_pairs:
-                key_finding_raw, key_is_verbatim = candidate_pairs[0]
+                key_finding_raw, key_is_verbatim = _pick_key_finding_page_anchored(
+                    candidate_pairs, refs, citation_by_id
+                )
             elif fact_pairs:
                 key_finding_raw, key_is_verbatim = fact_pairs[0]
             else:
@@ -2621,6 +2733,11 @@ def generate_pdf_from_projection(
             ),
         ))
 
+        # Pass 39 (D5 fix): Renderer is display-only. leverage_index_result must be
+        # pre-computed by orchestrator.py and injected into ext before rendering.
+        # No inline compute. No fallback. If not present, build_mediation_sections
+        # renders the leverage section as "unavailable" — which is the correct signal
+        # that the orchestrator did not run. Silent fallback is forbidden (govpreplan §10).
         _med_sections = build_mediation_sections(
             ext=ext,
             rm=rm,

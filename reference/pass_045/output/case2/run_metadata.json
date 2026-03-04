@@ -1,0 +1,11 @@
+{
+  "signal_layer_version": "36",
+  "policy_version": "LI_V1_2026-03-01",
+  "policy_fingerprint": "0f4771272973c03d579452730694f84dfcc15db6144595f8ef9cfca586747024",
+  "leverage_band": "ELEVATED",
+  "leverage_score": 1.6,
+  "determinism_check_result": "PASS",
+  "harness_run_at": "2026-03-04T04:50:18.333784+00:00",
+  "govpreplan_version": "1.0",
+  "baseline_layout": "pass044_subdir"
+}

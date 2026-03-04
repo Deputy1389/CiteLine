@@ -1,0 +1,31 @@
+{
+  "enabled": true,
+  "guard_status": "PASS",
+  "peak_level": 3,
+  "time_to_peak_days": 0,
+  "num_level_increases": 1,
+  "pattern": "Rising",
+  "monthly_levels": [
+    [
+      "2024-10",
+      3
+    ],
+    [
+      "2024-11",
+      3
+    ],
+    [
+      "2025-05",
+      2
+    ]
+  ],
+  "markers": [
+    {
+      "date": "2024-10-11",
+      "level": 3,
+      "kind": "IMAGING"
+    }
+  ],
+  "coverage_ratio": 1.0,
+  "suppressed_undated_count": 0
+}

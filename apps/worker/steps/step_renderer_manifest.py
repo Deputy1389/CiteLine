@@ -15,6 +15,7 @@ from typing import Any
 
 from packages.shared.models import Citation, Event, RendererManifest, RendererDoiField, RendererCitationValue, RendererPtSummary, PromotedFinding, BucketEvidence
 from packages.shared.utils.scoring_utils import is_ed_event
+from packages.shared.utils.noise_utils import is_fax_header_noise
 
 
 _SENTINEL_DATES = {"1900-01-01", "0001-01-01", "unknown", "undated", ""}
@@ -910,6 +911,8 @@ def _promoted_findings_from_citations(
             continue
         if any(p.search(sn) for p in _GENERIC_PLACEHOLDER_PATTERNS):
             continue
+        if is_fax_header_noise(sn):
+            continue
         # Generic diagnosis fallback: ICD-coded diagnosis lines
         if need_dx and re.search(r"\bICD-10\b", sn, re.I):
             if re.search(r"\b([A-TV-Z]\d{1,2}(?:\.\d+)?)\b", sn):
@@ -990,6 +993,8 @@ def _promoted_findings_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list
         if not assertion:
             continue
         if any(p.search(assertion) for p in _GENERIC_PLACEHOLDER_PATTERNS):
+            continue
+        if is_fax_header_noise(assertion):
             continue
         claim_type = str(row.get("claim_type") or "")
         category = _claim_to_category(claim_type)
@@ -1138,6 +1143,8 @@ def _promoted_findings_from_events(events: list[Event], existing: list[PromotedF
                 fact_category = category
                 txt = _clean_finding_label(str(getattr(fact, "text", "") or "").strip())
                 if not txt or getattr(fact, "technical_noise", False):
+                    continue
+                if is_fax_header_noise(txt):
                     continue
                 citation_ids = [str(c) for c in (getattr(fact, "citation_ids", []) or []) if str(c).strip()] or event_cids
                 if not citation_ids:
@@ -1503,6 +1510,13 @@ def annotate_renderer_manifest_claim_context_alignment(
                 item["alignment_status"] = str(claim_row.get("severity") or "PASS").upper() or "PASS"
                 item["alignment_reason"] = str(claim_row.get("reason_code") or "").strip() or None
                 item["alignment_claim_id"] = str(claim_row.get("claim_id") or stable_id).strip() or stable_id
+                # INV-Q5 (Pass 045): Unverified context must never reach snapshot bullets.
+                # If alignment_status is not PASS, force headline_eligible=False so the item
+                # can only appear in Additional Findings (INTERNAL mode only), never in the
+                # main settlement driver rows or density backfill.
+                al_st = str(item.get("alignment_status") or "").strip().upper()
+                if al_st not in {"", "PASS"}:
+                    item["headline_eligible"] = False
         annotated.append(item)
 
     as_dict["promoted_findings"] = annotated
