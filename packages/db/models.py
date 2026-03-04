@@ -28,6 +28,7 @@ class Firm(Base):
     
     matters = relationship("Matter", back_populates="firm", cascade="all, delete-orphan")
     sales_events = relationship("SalesEvent", back_populates="firm", cascade="all, delete-orphan")
+    webhook_endpoints = relationship("WebhookEndpoint", back_populates="firm", cascade="all, delete-orphan")
 
 
 class Matter(Base):
@@ -327,3 +328,34 @@ class SystemConfig(Base):
     key = Column(String(100), primary_key=True)  # outbound_paused | demo_success_threshold | etc
     value_json = Column(JSON, nullable=False)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class WebhookEndpoint(Base):
+    __tablename__ = "webhook_endpoints"
+
+    id = Column(String(120), primary_key=True, default=_uuid)
+    firm_id = Column(String(120), ForeignKey("firms.id"), nullable=False, index=True)
+    callback_url = Column(String(500), nullable=False)
+    secret = Column(String(255), nullable=False)
+    active = Column(Boolean, default=True, nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    firm = relationship("Firm", back_populates="webhook_endpoints")
+    events = relationship("WebhookEvent", back_populates="endpoint", cascade="all, delete-orphan")
+
+
+class WebhookEvent(Base):
+    __tablename__ = "webhook_events"
+
+    id = Column(String(120), primary_key=True, default=_uuid)
+    endpoint_id = Column(String(120), ForeignKey("webhook_endpoints.id"), nullable=False, index=True)
+    event_type = Column(String(120), nullable=False)
+    payload_json = Column(JSON, nullable=False)
+    delivery_status = Column(String(32), default="pending", nullable=False)  # pending | delivered | failed
+    attempt_count = Column(Integer, default=0, nullable=False)
+    last_attempt_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    endpoint = relationship("WebhookEndpoint", back_populates="events")
