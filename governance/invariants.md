@@ -384,3 +384,11 @@ same instant.
 **Enforced in:** pps/worker/runner.py (HeartbeatThread.run)
 
 **No dedicated test** — operational hardening, verified by simulator under concurrent load.
+
+## Pass 045 Invariants
+
+**INV-Q4**: Key finding for a timeline row must be selected from a fact whose text has the highest token overlap with the event's primary citation page snippets -- not blindly from candidate position [0]. Enforced by _pick_key_finding_page_anchored() in 	imeline_pdf.py.
+
+**INV-Q5**: Promoted findings with lignment_status not in {None, '', 'PASS'} must have headline_eligible=False and must not appear in settlement driver snapshot bullets. Enforced in nnotate_renderer_manifest_claim_context_alignment in step_renderer_manifest.py.
+
+**INV-Q6**: Regression suite must include a cross-contamination fixture (primary injury + unrelated clinical system) with explicit expectations that unrelated content does not drive injury-tier signals. See 	ests/fixtures/invariants/case7_cross_contamination/.
