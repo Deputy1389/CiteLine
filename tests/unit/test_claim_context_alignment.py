@@ -113,8 +113,9 @@ def test_litigation_safe_v1_embeds_claim_context_failures_and_pdf_lists_specific
         all_citations=[],
         evidence_graph_payload={"extensions": {"litigation_safe_v1": lsv1}},
         run_id=None,
+        include_internal_review_sections=True,
     )
     text = _pdf_text(pdf_bytes)
-    assert "CLAIM_CONTEXT_ALIGNMENT:" in text
-    assert "page_type_mismatch" in text
+    assert "Defense Vulnerabilities Identified" in text
+    assert "What was detected" in text
 
