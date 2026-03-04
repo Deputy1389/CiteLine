@@ -41,7 +41,7 @@ def _normalize_run_status(value: str | None) -> str:
 @router.get("/matters/{matter_id}/exports/latest", response_model=ExportsResponse)
 def get_latest_exports(
     matter_id: str,
-    export_mode: Literal["INTERNAL", "MEDIATION"],
+    export_mode: Literal["INTERNAL", "MEDIATION"] = "INTERNAL",
     db: Session = Depends(get_db),
     identity: RequestIdentity | None = Depends(get_request_identity),
 ):
@@ -70,11 +70,20 @@ def get_latest_exports(
 
     artifacts = db.query(Artifact).filter_by(run_id=run.id).all()
     mode_path = f"/exports/{mode.lower()}/"
-    filtered = [
-        a for a in artifacts
-        if (mode_path in str(a.storage_uri or "").replace("\\", "/"))
-        or str(a.artifact_type).lower() != "pdf"
-    ]
+    known_mode_paths = ("/exports/internal/", "/exports/mediation/")
+    filtered = []
+    for artifact in artifacts:
+        artifact_type = str(artifact.artifact_type).lower()
+        storage_uri = str(artifact.storage_uri or "").replace("\\", "/").lower()
+        if artifact_type != "pdf":
+            filtered.append(artifact)
+            continue
+        if mode_path in storage_uri:
+            filtered.append(artifact)
+            continue
+        # Backward compatibility: keep legacy PDF paths that do not encode export mode.
+        if not any(path in storage_uri for path in known_mode_paths):
+            filtered.append(artifact)
     if not filtered:
         filtered = artifacts
     return ExportsResponse(

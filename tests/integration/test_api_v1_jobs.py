@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,7 +12,7 @@ os.environ["API_V1_JOBS_ENABLED"] = "true"
 
 from apps.api.main import app
 from packages.db.database import engine, get_session
-from packages.db.models import Artifact, Base
+from packages.db.models import Artifact, Base, Run
 
 
 @pytest.fixture(autouse=True)
@@ -100,3 +101,29 @@ def test_v1_jobs_feature_flag_disabled_returns_404(client: TestClient, monkeypat
     resp = client.get("/v1/jobs/does-not-exist")
     assert resp.status_code == 404
     assert resp.json()["detail"] == "Not found"
+
+
+def test_v1_jobs_status_normalization_and_download_artifact(client: TestClient):
+    _, matter_id = _create_firm_matter_with_document(client)
+    create_resp = client.post("/v1/jobs", json={"matter_id": matter_id})
+    assert create_resp.status_code == 202
+    job_id = create_resp.json()["job_id"]
+
+    with get_session() as session:
+        run = session.query(Run).filter_by(id=job_id).first()
+        assert run is not None
+        run.status = "completed"
+
+    status_resp = client.get(f"/v1/jobs/{job_id}")
+    assert status_resp.status_code == 200
+    payload = status_resp.json()
+    assert payload["status"] == "success"
+
+    artifact_dir = Path(os.environ["DATA_DIR"]) / "artifacts" / job_id
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    artifact_path = artifact_dir / "sample.txt"
+    artifact_path.write_text("artifact-content", encoding="utf-8")
+
+    download_resp = client.get(f"/v1/jobs/{job_id}/artifacts/{artifact_path.name}")
+    assert download_resp.status_code == 200
+    assert download_resp.content == b"artifact-content"

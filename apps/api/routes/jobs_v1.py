@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,7 @@ from apps.api.authz import RequestIdentity, assert_firm_access, get_request_iden
 from packages.db.database import get_db
 from packages.db.models import Artifact, Matter, Run, SourceDocument
 from packages.shared.models import RunConfig
+from packages.shared.storage import get_artifact_path
 
 router = APIRouter(prefix="/v1", tags=["jobs-v1"])
 _RUNCFG_DEFAULTS = RunConfig()
@@ -217,6 +219,52 @@ def list_job_artifacts(
             )
             for a in artifacts
         ],
+    )
+
+
+@router.get("/jobs/{job_id}/artifacts/{filename}")
+def download_job_artifact(
+    job_id: str,
+    filename: str,
+    export_mode: Literal["INTERNAL", "MEDIATION"] | None = None,
+    db: Session = Depends(get_db),
+    identity: RequestIdentity | None = Depends(get_request_identity),
+):
+    _assert_v1_jobs_enabled()
+
+    run = db.query(Run).filter_by(id=job_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    _assert_job_access(run, db, identity)
+
+    safe_name = Path(filename).name
+    if safe_name != filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    if safe_name.lower().endswith(".pdf"):
+        if export_mode is None:
+            raise HTTPException(
+                status_code=422,
+                detail="export_mode is required for PDF artifact download",
+            )
+        run_mode = ""
+        if isinstance(run.config_json, dict):
+            run_mode = str(run.config_json.get("export_mode") or "").strip().upper()
+        if run_mode and run_mode != str(export_mode).upper():
+            raise HTTPException(
+                status_code=409,
+                detail=f"Run export mode is {run_mode}; requested {export_mode}",
+            )
+
+    file_path = get_artifact_path(job_id, safe_name)
+    if not file_path or not Path(file_path).exists():
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    return FileResponse(
+        path=str(file_path),
+        filename=safe_name,
+        media_type="application/octet-stream",
     )
 
 

@@ -58,6 +58,6 @@ def test_path_traversal(db_session, setup_run):
     db_session.add(artifact)
     db_session.commit()
     
-    response = client.get(f"/runs/{run_id}/artifacts/pdf")
+    response = client.get(f"/runs/{run_id}/artifacts/pdf?export_mode=INTERNAL")
     # Should get 404 because of path traversal check
     assert response.status_code == 404

@@ -110,7 +110,10 @@ class TestApiE2E:
 
         # 7. Download all required artifacts via API
         for artifact_type in REQUIRED_PIPELINE_ARTIFACT_TYPES:
-            resp = client.get(f"/runs/{run_id}/artifacts/{artifact_type}")
+            path = f"/runs/{run_id}/artifacts/{artifact_type}"
+            if artifact_type == "pdf":
+                path = f"{path}?export_mode=INTERNAL"
+            resp = client.get(path)
             assert resp.status_code == 200, f"Failed to download {artifact_type}"
             assert len(resp.content) > 0
             assert resp.headers["content-type"] == "application/octet-stream"

@@ -49,7 +49,7 @@ class CreateRunRequest(BaseModel):
     llm_reasoning_min_confidence: int = _RUNCFG_DEFAULTS.llm_reasoning_min_confidence
     narrative_min_confidence: int = _RUNCFG_DEFAULTS.narrative_min_confidence
     chronology_min_score: int = _RUNCFG_DEFAULTS.chronology_min_score
-    export_mode: Literal["INTERNAL", "MEDIATION"]
+    export_mode: Literal["INTERNAL", "MEDIATION"] = "INTERNAL"
 
 
 class RunResponse(BaseModel):
