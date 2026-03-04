@@ -1,5 +1,21 @@
 import re
 
+_FAX_HEADER_PATTERNS = [
+    re.compile(r"^FROM:\s*\(", re.I),
+    re.compile(r"^TO:\s*(RECORDS|FAX|DEPT)", re.I),
+    re.compile(r"\bPAGE:\s*\d+\s*$", re.I | re.M),
+    re.compile(r"^\(\d{3}\)\s*\d{3}-\d{4}", re.I),
+    re.compile(r"\bRECORDS\s+DEPT\b", re.I),
+    re.compile(r"\bCONFIDENTIAL.*FAX\b", re.I),
+]
+
+
+def is_fax_header_noise(text: str) -> bool:
+    """Return True if text matches fax transmission header patterns."""
+    stripped = (text or "").strip()
+    return any(p.search(stripped) for p in _FAX_HEADER_PATTERNS)
+
+
 def is_vitals_heavy(text: str) -> bool:
     low = text.lower()
     vital_markers = [
@@ -33,6 +49,8 @@ def is_header_noise_fact(text: str) -> bool:
     if re.search(r"\bfax\s*(id|#)\s*:", low):
         return True
     if re.search(r"^type of case\s*$", low) or re.search(r"^personal injury\s*/\s*mva\s*$", low):
+        return True
+    if is_fax_header_noise(text):
         return True
     return False
 
