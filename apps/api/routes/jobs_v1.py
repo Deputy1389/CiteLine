@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from apps.api.authz import RequestIdentity, assert_firm_access, get_request_identity
+from apps.api.routes.webhooks_v1 import emit_job_webhook_events
 from packages.db.database import get_db
 from packages.db.models import Artifact, Matter, Run, SourceDocument
 from packages.shared.models import RunConfig
@@ -226,6 +227,18 @@ def create_job(
         _assert_job_access(existing, db, identity)
         return _to_job_accepted(existing)
 
+    emit_job_webhook_events(
+        db,
+        firm_id=matter.firm_id,
+        event_type="job.pending",
+        payload={
+            "job_id": run.id,
+            "matter_id": run.matter_id,
+            "status": _normalize_run_status(run.status),
+            "created_at": run.created_at.isoformat() if run.created_at else None,
+        },
+    )
+
     return _to_job_accepted(run)
 
 
@@ -347,5 +360,19 @@ def cancel_job(
     run.status = "failed"
     run.finished_at = datetime.now(timezone.utc)
     run.error_message = "Cancelled by user"
+    matter = db.query(Matter).filter_by(id=run.matter_id).first()
+    if matter:
+        emit_job_webhook_events(
+            db,
+            firm_id=matter.firm_id,
+            event_type="job.cancelled",
+            payload={
+                "job_id": run.id,
+                "matter_id": run.matter_id,
+                "status": "cancelled",
+                "error_message": run.error_message,
+                "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+            },
+        )
 
     return _to_job_status(run)
