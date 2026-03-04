@@ -170,14 +170,18 @@ def build_projection_appendix_sections(
 
     # Appendix A: Medications
     med_changes = _extract_medication_changes(entries)
-    _render_list_appendix("Appendix A: Medications", med_changes, flowables)
+    _render_list_appendix("Appendix A: Medications (material changes)", med_changes, flowables)
 
     # Appendix B: Diagnoses/Problems
     dx_items = _extract_diagnosis_items(entries)
     _render_list_appendix("Appendix B: Diagnoses/Problems", dx_items, flowables)
 
     # Appendix C1: Gap Boundary Anchors
-    gap_rows = _material_gap_rows(gaps, {}, {}, page_map)
+    entries_by_patient: dict[str, list] = {}
+    for entry in entries:
+        plabel = getattr(entry, "patient_label", None) or "Unknown Patient"
+        entries_by_patient.setdefault(plabel, []).append(entry)
+    gap_rows = _material_gap_rows(gaps, entries_by_patient, {}, page_map)
     gap_meta_rows = build_gap_anchor_metadata_rows(missing_records_payload, all_citations, page_map)
     use_gap_meta = bool(gap_meta_rows)
     flowables.append(Paragraph("Appendix C1: Gap Boundary Anchors", h1_style))
@@ -202,7 +206,9 @@ def build_projection_appendix_sections(
             if lb and fa:
                 lb_date = lb.get('date_display', '').split(' ')[0]
                 fa_date = fa.get('date_display', '').split(' ')[0]
-                flowables.append(Paragraph(f"Gap: {lb_date} to {fa_date}", normal_style))
+                duration = int(getattr(gr.get("gap"), "duration_days", None) or 0)
+                rtag = gr.get("rationale_tag") or "routine_continuity_gap"
+                flowables.append(Paragraph(f"Gap: {lb_date} to {fa_date} ({duration} days) [{rtag}]", normal_style))
                 flowables.append(Paragraph(f"Last before gap: {lb_date}", normal_style))
                 flowables.append(Paragraph(f"First after gap: {fa_date}", normal_style))
                 if gr.get("collapse_label"):

@@ -35,6 +35,8 @@ from apps.worker.steps.export_render.common import (
     _clean_narrative_text,
     _clean_direct_snippet,
     _is_meta_language,
+    _is_sdoh_noise,
+    _sanitize_render_sentence,
     parse_date_string,
     is_sentinel_date,
 )
@@ -1386,7 +1388,13 @@ def _build_timeline_table(
             continue
         fact_pairs = _entry_fact_flag_pairs(entry)
         facts = [f for f, _is_verbatim in fact_pairs]
-        candidate_pairs = [(f, is_verbatim) for f, is_verbatim in fact_pairs if not _is_meta_language(f)]
+        candidate_pairs = [
+            (s, is_verbatim)
+            for f, is_verbatim in fact_pairs
+            if not _is_meta_language(f) and not _is_sdoh_noise(f)
+            for s in [_sanitize_render_sentence(f)]
+            if s
+        ]
         key_finding = ""
         key_is_verbatim = False
         for fact_text, is_verbatim in candidate_pairs:

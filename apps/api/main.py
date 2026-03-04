@@ -242,10 +242,11 @@ from apps.api.routes.documents import router as docs_router  # noqa: E402
 from apps.api.routes.exports import router as exports_router  # noqa: E402
 from apps.api.routes.firms import router as firms_router  # noqa: E402
 from apps.api.routes.matters import router as matters_router  # noqa: E402
+from apps.api.routes.jobs_v1 import router as jobs_v1_router  # noqa: E402
 from apps.api.routes.runs import router as runs_router  # noqa: E402
 from apps.api.routes.ops import router as ops_router  # noqa: E402
 
-for router in (firms_router, matters_router, docs_router, runs_router, exports_router, ops_router):
+for router in (firms_router, matters_router, docs_router, runs_router, exports_router, ops_router, jobs_v1_router):
     # Backward-compatible legacy paths (e.g. /firms/{firm_id}/matters)
     app.include_router(router)
     # Canonical prefixed paths expected by frontend/proxy (e.g. /api/citeline/...)
