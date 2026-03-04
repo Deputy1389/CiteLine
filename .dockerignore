@@ -1,0 +1,46 @@
+# VCS
+.git
+.gitignore
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Node / frontend build deps
+node_modules/
+
+# Local environment and tool folders
+.venv/
+.env
+.env.*
+.agent/
+.agent_sync/
+.claude/
+.codebuddy/
+.codex/
+.continue/
+.cursor/
+.gemini/
+.kiro/
+.opencode/
+.playwright-cli/
+.qoder/
+.roo/
+.trae/
+.windsurf/
+
+# Large local artifacts / scratch
+tmp/
+test-results/
+output/
+archive/
+
+# Local docs and exports not needed in runtime image
+reference/output/
+
+# Windows special/invalid path that can break context packaging
+nul
