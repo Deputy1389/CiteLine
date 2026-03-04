@@ -127,3 +127,47 @@ def test_v1_jobs_status_normalization_and_download_artifact(client: TestClient):
     download_resp = client.get(f"/v1/jobs/{job_id}/artifacts/{artifact_path.name}")
     assert download_resp.status_code == 200
     assert download_resp.content == b"artifact-content"
+
+
+def test_v1_jobs_create_idempotency_reuses_existing_job(client: TestClient):
+    _, matter_id = _create_firm_matter_with_document(client)
+    headers = {"Idempotency-Key": "idem-create-1"}
+
+    first = client.post(
+        "/v1/jobs",
+        json={"matter_id": matter_id, "max_pages": 5, "export_mode": "INTERNAL"},
+        headers=headers,
+    )
+    assert first.status_code == 202
+    first_job = first.json()
+
+    second = client.post(
+        "/v1/jobs",
+        json={"matter_id": matter_id, "max_pages": 5, "export_mode": "INTERNAL"},
+        headers=headers,
+    )
+    assert second.status_code == 202
+    second_job = second.json()
+
+    assert second_job["job_id"] == first_job["job_id"]
+    assert second_job["matter_id"] == first_job["matter_id"]
+
+
+def test_v1_jobs_create_idempotency_payload_mismatch_returns_409(client: TestClient):
+    _, matter_id = _create_firm_matter_with_document(client)
+    headers = {"Idempotency-Key": "idem-create-2"}
+
+    first = client.post(
+        "/v1/jobs",
+        json={"matter_id": matter_id, "max_pages": 5, "export_mode": "INTERNAL"},
+        headers=headers,
+    )
+    assert first.status_code == 202
+
+    second = client.post(
+        "/v1/jobs",
+        json={"matter_id": matter_id, "max_pages": 10, "export_mode": "INTERNAL"},
+        headers=headers,
+    )
+    assert second.status_code == 409
+    assert "different request payload" in second.json()["detail"]

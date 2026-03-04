@@ -3,14 +3,16 @@ API route: Versioned jobs facade (/v1/jobs)
 """
 from __future__ import annotations
 
+import hashlib
 import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from apps.api.authz import RequestIdentity, assert_firm_access, get_request_identity
@@ -99,6 +101,48 @@ class JobArtifactsListResponse(BaseModel):
     artifacts: list[JobArtifactResponse]
 
 
+def _build_create_config(req: JobCreateRequest) -> dict:
+    return {
+        "max_pages": req.max_pages,
+        "pt_mode": req.pt_mode,
+        "pt_aggregate_window_days": req.pt_aggregate_window_days,
+        "gap_threshold_days": req.gap_threshold_days,
+        "event_confidence_min_export": req.event_confidence_min_export,
+        "low_confidence_event_behavior": req.low_confidence_event_behavior,
+        "enable_llm_reasoning": req.enable_llm_reasoning,
+        "gemini_model": req.gemini_model,
+        "llm_reasoning_min_confidence": req.llm_reasoning_min_confidence,
+        "narrative_min_confidence": req.narrative_min_confidence,
+        "chronology_min_score": req.chronology_min_score,
+        "export_mode": req.export_mode,
+    }
+
+
+def _normalize_idempotency_key(value: str | None) -> str | None:
+    if value is None:
+        return None
+    key = value.strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="Idempotency-Key cannot be empty")
+    if len(key) > 128:
+        raise HTTPException(status_code=400, detail="Idempotency-Key must be <= 128 chars")
+    return key
+
+
+def _v1_jobs_idempotency_fingerprint(matter_id: str, key: str) -> str:
+    raw = f"v1_jobs:{matter_id}:{key}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _to_job_accepted(run: Run) -> JobAcceptedResponse:
+    return JobAcceptedResponse(
+        job_id=run.id,
+        matter_id=run.matter_id,
+        status=_normalize_run_status(run.status),
+        created_at=run.created_at.isoformat() if run.created_at else None,
+    )
+
+
 def _assert_job_access(run: Run, db: Session, identity: RequestIdentity | None) -> None:
     matter = db.query(Matter).filter_by(id=run.matter_id).first()
     if not matter:
@@ -125,6 +169,7 @@ def _to_job_status(run: Run) -> JobStatusResponse:
 @router.post("/jobs", response_model=JobAcceptedResponse, status_code=202)
 def create_job(
     req: JobCreateRequest,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     db: Session = Depends(get_db),
     identity: RequestIdentity | None = Depends(get_request_identity),
 ):
@@ -139,35 +184,49 @@ def create_job(
     if doc_count == 0:
         raise HTTPException(status_code=400, detail="No documents uploaded for this matter")
 
-    config = {
-        "max_pages": req.max_pages,
-        "pt_mode": req.pt_mode,
-        "pt_aggregate_window_days": req.pt_aggregate_window_days,
-        "gap_threshold_days": req.gap_threshold_days,
-        "event_confidence_min_export": req.event_confidence_min_export,
-        "low_confidence_event_behavior": req.low_confidence_event_behavior,
-        "enable_llm_reasoning": req.enable_llm_reasoning,
-        "gemini_model": req.gemini_model,
-        "llm_reasoning_min_confidence": req.llm_reasoning_min_confidence,
-        "narrative_min_confidence": req.narrative_min_confidence,
-        "chronology_min_score": req.chronology_min_score,
-        "export_mode": req.export_mode,
-    }
+    config = _build_create_config(req)
+    normalized_key = _normalize_idempotency_key(idempotency_key)
+    run_idempotency_key: str | None = None
+
+    if normalized_key is not None:
+        run_idempotency_key = _v1_jobs_idempotency_fingerprint(req.matter_id, normalized_key)
+        existing = db.query(Run).filter_by(idempotency_key=run_idempotency_key).first()
+        if existing:
+            existing_config = existing.config_json if isinstance(existing.config_json, dict) else {}
+            if existing.matter_id != req.matter_id or existing_config != config:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Idempotency-Key already used with a different request payload",
+                )
+            _assert_job_access(existing, db, identity)
+            return _to_job_accepted(existing)
 
     run = Run(
         matter_id=req.matter_id,
         status="pending",
         config_json=config,
+        idempotency_key=run_idempotency_key,
     )
     db.add(run)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        if run_idempotency_key is None:
+            raise
+        db.rollback()
+        existing = db.query(Run).filter_by(idempotency_key=run_idempotency_key).first()
+        if not existing:
+            raise
+        existing_config = existing.config_json if isinstance(existing.config_json, dict) else {}
+        if existing.matter_id != req.matter_id or existing_config != config:
+            raise HTTPException(
+                status_code=409,
+                detail="Idempotency-Key already used with a different request payload",
+            )
+        _assert_job_access(existing, db, identity)
+        return _to_job_accepted(existing)
 
-    return JobAcceptedResponse(
-        job_id=run.id,
-        matter_id=run.matter_id,
-        status=_normalize_run_status(run.status),
-        created_at=run.created_at.isoformat() if run.created_at else None,
-    )
+    return _to_job_accepted(run)
 
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)
