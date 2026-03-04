@@ -67,10 +67,6 @@ def get_engine():
     global _engine
     if _engine is None:
         url = get_database_url()
-        # Ensure we use psycopg 3 driver for PostgreSQL
-        if url.startswith("postgresql://"):
-            url = url.replace("postgresql://", "postgresql+psycopg://", 1)
-            
         connect_args = {}
         if "sqlite" in url:
             connect_args = {"check_same_thread": False}
