@@ -92,14 +92,43 @@ def init_db() -> None:
 def _apply_schema_migrations() -> None:
     """Apply lightweight schema fixes."""
     url = get_database_url()
+    engine = get_engine()
+    
     if "sqlite" in url:
+        with engine.connect() as conn:
+            # Table: runs
+            res = conn.execute(text("PRAGMA table_info(runs)")).fetchall()
+            cols = [r[1] for r in res]
+            if "invariant_attestation_json" not in cols:
+                conn.execute(text("ALTER TABLE runs ADD COLUMN invariant_attestation_json JSON"))
+                conn.commit()
+            if "retry_count" not in cols:
+                conn.execute(text("ALTER TABLE runs ADD COLUMN retry_count INTEGER DEFAULT 0"))
+                conn.commit()
+            
+            # Table: firms
+            res = conn.execute(text("PRAGMA table_info(firms)")).fetchall()
+            cols = [r[1] for r in res]
+            if "status" not in cols:
+                conn.execute(text("ALTER TABLE firms ADD COLUMN status VARCHAR(50) DEFAULT 'trial'"))
+                conn.commit()
+                
+            # Table: sales_events
+            res = conn.execute(text("PRAGMA table_info(sales_events)")).fetchall()
+            cols = [r[1] for r in res]
+            if "firm_id" not in cols:
+                conn.execute(text("ALTER TABLE sales_events ADD COLUMN firm_id VARCHAR(120)"))
+                conn.commit()
         return
     
     try:
-        engine = get_engine()
         with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE artifacts ALTER COLUMN artifact_type TYPE VARCHAR(64)"))
+            # Keep startup migrations strictly non-blocking for rolling deploy safety.
+            # Type-alter DDL can request ACCESS EXCLUSIVE locks and stall health checks.
             conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS retry_count INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS invariant_attestation_json JSONB"))
+            conn.execute(text("ALTER TABLE firms ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'trial'"))
+            conn.execute(text("ALTER TABLE sales_events ADD COLUMN IF NOT EXISTS firm_id VARCHAR(120)"))
     except Exception:
         pass
 
