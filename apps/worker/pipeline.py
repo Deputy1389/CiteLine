@@ -1,4 +1,4 @@
-"""
+﻿"""
 Pipeline orchestrator - runs the extraction pipeline in sequence.
 """
 from __future__ import annotations
@@ -84,6 +84,7 @@ from apps.worker.steps.step15a_missing_record_requests import (
 from apps.worker.steps.step16_billing_lines import extract_billing_lines, render_billing_lines
 from apps.worker.steps.step17_specials_summary import compute_specials_summary, render_specials_summary
 from apps.worker.steps.step_renderer_manifest import build_renderer_manifest, annotate_renderer_manifest_claim_context_alignment
+from apps.worker.steps.step_visit_abstraction_registry import build_competitive_registries
 from apps.worker.steps.step18_paralegal_chronology import (
     build_paralegal_chronology_payload, generate_extraction_notes_md, render_paralegal_chronology_artifacts,
 )
@@ -336,6 +337,27 @@ def run_pipeline(run_id: str) -> None:
             citations=all_citations,
         )
         evidence_graph.extensions["renderer_manifest"] = renderer_manifest.model_dump(mode="json")
+        registry_payload = build_competitive_registries(
+            events=chronology_events,
+            providers=providers,
+            citations=all_citations,
+            mechanism=str(getattr(renderer_manifest.mechanism, "value", "") or ""),
+        )
+        evidence_graph.extensions.update(registry_payload)
+        rm_with_registry = renderer_manifest.model_dump(mode="json")
+        for key in (
+            "visit_abstraction_registry",
+            "provider_role_registry",
+            "diagnosis_registry",
+            "injury_clusters",
+            "injury_cluster_severity",
+            "treatment_escalation_path",
+            "causation_timeline_registry",
+            "visit_bucket_quality",
+            "registry_contract_version",
+        ):
+            rm_with_registry[key] = registry_payload.get(key)
+        evidence_graph.extensions["renderer_manifest"] = rm_with_registry
 
         # Ã¢â€â‚¬Ã¢â€â‚¬ Step 18: Paralegal artifacts Ã¢â€â‚¬Ã¢â€â‚¬
         page_map = build_page_map(all_pages, source_documents)
@@ -364,7 +386,20 @@ def run_pipeline(run_id: str) -> None:
         )
         if isinstance(annotated_manifest, type(renderer_manifest)):
             renderer_manifest = annotated_manifest
-            evidence_graph.extensions["renderer_manifest"] = renderer_manifest.model_dump(mode="json")
+            rm_with_registry = renderer_manifest.model_dump(mode="json")
+            for key in (
+                "visit_abstraction_registry",
+                "provider_role_registry",
+                "diagnosis_registry",
+                "injury_clusters",
+                "injury_cluster_severity",
+                "treatment_escalation_path",
+                "causation_timeline_registry",
+                "visit_bucket_quality",
+                "registry_contract_version",
+            ):
+                rm_with_registry[key] = evidence_graph.extensions.get(key)
+            evidence_graph.extensions["renderer_manifest"] = rm_with_registry
         billing_status_upper = str(renderer_manifest.billing_completeness or "none").strip().upper()
         pt_recon = (
             evidence_graph.extensions.get("pt_reconciliation")
@@ -463,7 +498,11 @@ def run_pipeline(run_id: str) -> None:
             evidence_graph_payload=evidence_graph.model_dump(mode="json"),
             specials_summary=specials_payload,
             config=config,
-            renderer_manifest=renderer_manifest.model_dump(mode="json"),
+            renderer_manifest=(
+                evidence_graph.extensions.get("renderer_manifest")
+                if isinstance(evidence_graph.extensions.get("renderer_manifest"), dict)
+                else renderer_manifest.model_dump(mode="json")
+            ),
         )
         patient_chronologies_json_ref = render_patient_chronology_reports(
             run_id=run_id,
@@ -504,6 +543,7 @@ def run_pipeline(run_id: str) -> None:
             gaps=list(gaps),
             source_pdf=(str(get_upload_path(valid_docs[0].document_id)) if valid_docs else None),
             quality_mode=str(config.quality_mode or "strict"),
+            visit_bucket_quality=evidence_graph.extensions.get("visit_bucket_quality"),
         )
         parity_report = build_pipeline_parity_report(
             mode="production",
@@ -581,6 +621,7 @@ def _run_production_quality_gates(
     gaps,
     source_pdf: str | None = None,
     quality_mode: str = "strict",
+    visit_bucket_quality: dict[str, Any] | None = None,
 ) -> dict:
     """
     Run quality gates on the production pipeline output.
@@ -624,6 +665,7 @@ def _run_production_quality_gates(
             gaps=list(gaps or []),
             source_pdf=source_pdf,
             quality_mode=quality_mode,
+            visit_bucket_quality=visit_bucket_quality,
         )
         
         logger.info(f"Quality gates: overall_pass={results.get('overall_pass')}, "

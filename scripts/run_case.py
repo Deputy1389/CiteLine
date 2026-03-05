@@ -194,6 +194,7 @@ def run_case(
         gaps=list(ctx.get("gaps") or []),
         source_pdf=str(input_pdf),
         quality_mode=quality_mode,
+        visit_bucket_quality=(ctx.get("visit_bucket_quality") if isinstance(ctx.get("visit_bucket_quality"), dict) else None),
     )
     gate_report = gate_results.get("gate_report") if isinstance(gate_results.get("gate_report"), dict) else {}
     luqa = gate_report.get("luqa") if isinstance(gate_report.get("luqa"), dict) else {"luqa_pass": True, "luqa_score_0_100": 100, "failures": [], "metrics": {}}

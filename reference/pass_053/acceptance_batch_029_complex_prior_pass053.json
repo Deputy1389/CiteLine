@@ -1,0 +1,344 @@
+{
+  "evidence_graph": "data\\evals\\batch_029_complex_prior\\evidence_graph.json",
+  "pdf": "data\\evals\\batch_029_complex_prior\\output_MEDIATION.pdf",
+  "all_pass": true,
+  "failing_gate_codes": [
+    "visit_bucket_quality:VISIT_BUCKET_REQUIRED_MISSING"
+  ],
+  "canonical_gate_snapshot": {
+    "overall_pass": true,
+    "failure_codes": [
+      "visit_bucket_quality:VISIT_BUCKET_REQUIRED_MISSING"
+    ],
+    "failures_count": 1
+  },
+  "computed_checks_all_pass": false,
+  "checks": [
+    {
+      "name": "A_gap_statement_truth",
+      "max_gap_days": 179,
+      "pdf_says_no_gaps_gt45": false,
+      "pdf_mentions_gap": true,
+      "PASS": true
+    },
+    {
+      "name": "B_pt_count_consistency",
+      "pt_events_computed_primary": 0,
+      "pt_verified_counts_in_pdf": [],
+      "export_status": "BLOCKED",
+      "PASS": true
+    },
+    {
+      "name": "PT_count_defensible",
+      "pdf_verified_pt_count": null,
+      "pdf_reported_pt_count": null,
+      "pt_events_computed_primary": 0,
+      "ledger_rows": 0,
+      "reported_counts_evidence_graph": [],
+      "has_pt_visit_ledger": false,
+      "severe_variance_flag": false,
+      "pt_encounter_clinical_note_rows": [],
+      "export_status": "BLOCKED",
+      "PASS": true
+    },
+    {
+      "name": "PT_same_day_inflation_guard",
+      "pt_verified_count": 0,
+      "max_date": null,
+      "max_date_count": 0,
+      "max_date_ratio": 0.0,
+      "anomaly_triggered": false,
+      "export_status": "BLOCKED",
+      "visible_pdf_warning": false,
+      "PASS": true
+    },
+    {
+      "name": "C_high_volume_provider_requirement",
+      "threshold": 20,
+      "violations": [],
+      "PASS": true
+    },
+    {
+      "name": "G3_no_undated_invasive_in_timeline",
+      "tier": "HARD",
+      "severity": "BLOCKED",
+      "outcome": "PASS",
+      "undated_invasive_rows_main_timeline": 0,
+      "moved_to_unresolved": 0,
+      "samples_main_timeline": [],
+      "PASS": true
+    },
+    {
+      "name": "E_no_garbage_text",
+      "garbage_hits": 0,
+      "samples": [],
+      "export_status": "BLOCKED",
+      "visible_integrity_notice": false,
+      "PASS": true
+    },
+    {
+      "name": "new_worker_marker_provider_resolution_quality",
+      "present": true,
+      "value": {
+        "version": "1.0",
+        "scope": "export_projection_rows",
+        "rows_total": 9,
+        "rows_resolved": 9,
+        "rows_unresolved": 0,
+        "resolved_ratio": 1.0,
+        "unresolved_by_family": {},
+        "by_family": {
+          "discharge_transfer": {
+            "rows_total": 1,
+            "rows_resolved": 1,
+            "rows_unresolved": 0,
+            "resolved_ratio": 1.0
+          },
+          "ed_visit": {
+            "rows_total": 2,
+            "rows_resolved": 2,
+            "rows_unresolved": 0,
+            "resolved_ratio": 1.0
+          },
+          "imaging_impression": {
+            "rows_total": 3,
+            "rows_resolved": 3,
+            "rows_unresolved": 0,
+            "resolved_ratio": 1.0
+          },
+          "other": {
+            "rows_total": 1,
+            "rows_resolved": 1,
+            "rows_unresolved": 0,
+            "resolved_ratio": 1.0
+          },
+          "surgery_procedure": {
+            "rows_total": 1,
+            "rows_resolved": 1,
+            "rows_unresolved": 0,
+            "resolved_ratio": 1.0
+          },
+          "therapy": {
+            "rows_total": 1,
+            "rows_resolved": 1,
+            "rows_unresolved": 0,
+            "resolved_ratio": 1.0
+          }
+        },
+        "pt_ledger": {
+          "pt_ledger_rows_total": 0,
+          "pt_facility_resolved": 0,
+          "pt_provider_resolved": 0,
+          "pt_facility_resolved_ratio": 1.0,
+          "pt_provider_resolved_ratio": 1.0,
+          "pt_provider_facility_gate": {
+            "status": "warn",
+            "reason": null
+          },
+          "top_unresolved_examples": []
+        }
+      },
+      "PASS": true
+    },
+    {
+      "name": "G4_provider_resolution",
+      "tier": "HARD",
+      "severity": "BLOCKED",
+      "outcome": "PASS",
+      "threshold": 0.8,
+      "rows_total": 9,
+      "rows_resolved": 9,
+      "resolved_ratio": 1.0,
+      "PASS": true
+    },
+    {
+      "name": "provider_resolution_quality",
+      "pt_ledger_rows_total": 0,
+      "pt_facility_resolved": 0,
+      "pt_provider_resolved": 0,
+      "pt_facility_resolved_ratio": 1.0,
+      "pt_provider_resolved_ratio": 1.0,
+      "gate_status": "WARN",
+      "export_status": "BLOCKED",
+      "top_unresolved_examples": [],
+      "PASS": true
+    },
+    {
+      "name": "PAGE1_PROMOTED_PARITY_GUARD",
+      "tier": "HARD",
+      "severity": "BLOCKED",
+      "outcome": "PASS",
+      "promoted_considered": 0,
+      "promoted_rendered": 0,
+      "fallback_used": false,
+      "PASS": true
+    },
+    {
+      "name": "G1_promotion_integrity",
+      "tier": "HARD",
+      "severity": "BLOCKED",
+      "outcome": "PASS",
+      "blocked_failures_count": 0,
+      "blocked_mechanism": false,
+      "mechanism_promoted_phrase": false,
+      "mechanism_header_strong": true,
+      "mechanism_disclosure_present": false,
+      "PASS": true
+    },
+    {
+      "name": "claim_context_alignment",
+      "present": true,
+      "claims_total": 9,
+      "claims_fail": 2,
+      "export_status_claim_context": "REVIEW_REQUIRED",
+      "blocked_failures": [],
+      "review_failures": [
+        {
+          "claim_id": "32a0bd16b050",
+          "claim_type": "imaging_finding",
+          "claim_text": "Cervical Disc Displacement (ICD-10 M50.20) with Radiculopathy (M54.12)",
+          "citations": [
+            113,
+            112,
+            113
+          ],
+          "page_types": [
+            "clinical_note"
+          ],
+          "candidate_pages": [
+            {
+              "page": 113,
+              "page_type": "clinical_note",
+              "score": 1.0
+            },
+            {
+              "page": 112,
+              "page_type": "clinical_note",
+              "score": 1.0
+            },
+            {
+              "page": 113,
+              "page_type": "clinical_note",
+              "score": 0.5452
+            }
+          ],
+          "best_page": 113,
+          "best_page_type": "clinical_note",
+          "best_score": 1.0,
+          "reason_code": "page_type_mismatch_soft",
+          "severity": "REVIEW_REQUIRED"
+        },
+        {
+          "claim_id": "f6892708dc3e",
+          "claim_type": "imaging_finding",
+          "claim_text": "Lumbar Intervertebral Disc Displacement (M51.26) without Myelopathy",
+          "citations": [
+            113,
+            113,
+            112
+          ],
+          "page_types": [
+            "clinical_note"
+          ],
+          "candidate_pages": [
+            {
+              "page": 113,
+              "page_type": "clinical_note",
+              "score": 1.0
+            },
+            {
+              "page": 113,
+              "page_type": "clinical_note",
+              "score": 0.5516
+            },
+            {
+              "page": 112,
+              "page_type": "clinical_note",
+              "score": 0.5516
+            }
+          ],
+          "best_page": 113,
+          "best_page_type": "clinical_note",
+          "best_score": 1.0,
+          "reason_code": "page_type_mismatch_soft",
+          "severity": "REVIEW_REQUIRED"
+        }
+      ],
+      "pdf_has_defense_vulnerabilities_section": false,
+      "export_status": "BLOCKED",
+      "PASS": true
+    },
+    {
+      "name": "SNAPSHOT_COHERENCE_GUARD",
+      "claim_context_alignment_present": true,
+      "promoted_findings_total": 31,
+      "promoted_findings_annotated": 8,
+      "page1_has_snapshot_assurance_line": false,
+      "page1_has_additional_findings_section": false,
+      "expected_additional_findings_section": false,
+      "snapshot_failed_alignment_labels": [],
+      "snapshot_claims_in_defense_vulnerabilities": [],
+      "raw_internal_code_hits_in_pdf": [],
+      "raw_export_status_line_visible": false,
+      "PASS": false
+    },
+    {
+      "name": "AR_TIMELINE_SUPPRESSION_OVERSHOT",
+      "candidate_narrative_event_count": 10,
+      "timeline_rows_rendered": 5,
+      "PASS": true
+    },
+    {
+      "name": "SUBSTANTIVE_METRIC_AUDIT",
+      "candidate_narrative_event_count": 10,
+      "events_excluded_flowsheet_like": 0,
+      "events_retained_narrative": 1,
+      "substantive_event_count": 2,
+      "high_substance_ratio": 0.2,
+      "substantive_event_ids": [
+        "f10f40e006b9463d",
+        "3380ad1a3d304f48"
+      ],
+      "flowsheet_excluded_event_ids": [],
+      "retained_narrative_event_ids": [
+        "ddce10dc84164b3a"
+      ],
+      "export_status": "BLOCKED",
+      "PASS": true
+    },
+    {
+      "name": "REQUIRED_BUCKET_DETECTION_AUDIT",
+      "detected_buckets": [
+        "ed"
+      ],
+      "missing_required_buckets": [],
+      "rendered_bucket_hits": {
+        "ed": true,
+        "pt_eval": false
+      },
+      "rendered_bucket_gaps": [],
+      "bucket_event_ids": {
+        "ed": [
+          "f2052c259d364eec",
+          "b6391d64085c40ac"
+        ],
+        "pt_eval": []
+      },
+      "manifest_bucket_evidence_present": true,
+      "rendered_buckets_meta": [],
+      "PASS": true
+    },
+    {
+      "name": "TOP10_INTEGRITY_AUDIT",
+      "top10_item_count": 4,
+      "duplicate_count": 0,
+      "missing_citation_rows": 0,
+      "PASS": true
+    },
+    {
+      "name": "META_LANGUAGE_CLEANROOM",
+      "meta_language_hits": [],
+      "PASS": true
+    }
+  ]
+}

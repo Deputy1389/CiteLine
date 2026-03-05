@@ -51,6 +51,7 @@ _SOFT_FAILURE_CODES: set[str] = {
     "LUQA_FACT_DENSITY",
     "LUQA_VERBATIM_ANCHOR_RATIO",
     "NOT_AVAILABLE",
+    "VISIT_BUCKET_REQUIRED_MISSING",
 }
 
 
@@ -238,6 +239,7 @@ def run_quality_gates(
     gaps: list[Any] | None = None,
     source_pdf: str | None = None,
     quality_mode: str = "strict",
+    visit_bucket_quality: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Run all quality gates and return a unified report.
@@ -355,6 +357,39 @@ def run_quality_gates(
                 "projection": projection_cite_telemetry,
                 "top10": top10_cite_telemetry,
             },
+        }
+
+    vbq = visit_bucket_quality if isinstance(visit_bucket_quality, dict) else {}
+    miss_ratio = float(vbq.get("missing_required_bucket_ratio") or 0.0)
+    miss_count = int(vbq.get("required_bucket_miss_count") or 0)
+    encounter_missing = int(vbq.get("encounters_with_missing_required_buckets") or 0)
+    total_encounters = int(vbq.get("total_encounters") or 0)
+    threshold_ratio = 0.35
+    threshold_count = 5
+    if total_encounters > 0 and (miss_ratio > threshold_ratio or miss_count >= threshold_count):
+        vbq_find = {
+            "source": "visit_bucket_quality",
+            "code": "VISIT_BUCKET_REQUIRED_MISSING",
+            "severity": "soft",
+            "message": (
+                "Encounter required bucket completeness threshold exceeded: "
+                f"encounters_missing={encounter_missing}/{total_encounters}, "
+                f"required_bucket_miss_count={miss_count}, ratio={miss_ratio:.4f}"
+            ),
+            "threshold_ratio": threshold_ratio,
+            "threshold_count": threshold_count,
+        }
+        results["failures"].append(vbq_find)
+        results["gate_report"]["visit_bucket_quality"] = {
+            "pass": False,
+            "failures": [vbq_find],
+            "telemetry": vbq,
+        }
+    else:
+        results["gate_report"]["visit_bucket_quality"] = {
+            "pass": True,
+            "failures": [],
+            "telemetry": vbq,
         }
 
     hard_failures, soft_failures = _classify_failures(

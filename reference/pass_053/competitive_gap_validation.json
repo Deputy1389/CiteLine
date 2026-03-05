@@ -1,0 +1,73 @@
+{
+    "pass":  "053",
+    "timestamp_utc":  "2026-03-05T09:02:26.0297974Z",
+    "summary":  [
+                    {
+                        "case":  "batch_029_complex_prior",
+                        "acceptance_all_pass":  true,
+                        "failing_gate_codes":  [
+                                                   "visit_bucket_quality:VISIT_BUCKET_REQUIRED_MISSING"
+                                               ],
+                        "registries":  {
+                                           "visit_abstraction_registry_rows":  10,
+                                           "provider_role_registry_rows":  6,
+                                           "diagnosis_registry_rows":  1,
+                                           "injury_clusters_rows":  1,
+                                           "injury_cluster_severity_rows":  1,
+                                           "treatment_escalation_path_rows":  3,
+                                           "causation_timeline_rungs":  6,
+                                           "registry_contract_version":  "pass53.v1"
+                                       },
+                        "renderer_manifest_mirrors":  {
+                                                          "has_visit_abstraction_registry":  true,
+                                                          "has_provider_role_registry":  true,
+                                                          "has_diagnosis_registry":  true,
+                                                          "has_injury_clusters":  true,
+                                                          "has_injury_cluster_severity":  true,
+                                                          "has_treatment_escalation_path":  true,
+                                                          "has_causation_timeline_registry":  true,
+                                                          "has_visit_bucket_quality":  true
+                                                      },
+                        "visit_bucket_quality":  {
+                                                     "total_encounters":  10,
+                                                     "encounters_with_missing_required_buckets":  10,
+                                                     "required_bucket_miss_count":  22,
+                                                     "missing_required_bucket_ratio":  1
+                                                 }
+                    },
+                    {
+                        "case":  "05_minor_quick",
+                        "acceptance_all_pass":  true,
+                        "failing_gate_codes":  [
+                                                   "visit_bucket_quality:VISIT_BUCKET_REQUIRED_MISSING"
+                                               ],
+                        "registries":  {
+                                           "visit_abstraction_registry_rows":  7,
+                                           "provider_role_registry_rows":  5,
+                                           "diagnosis_registry_rows":  0,
+                                           "injury_clusters_rows":  0,
+                                           "injury_cluster_severity_rows":  0,
+                                           "treatment_escalation_path_rows":  3,
+                                           "causation_timeline_rungs":  6,
+                                           "registry_contract_version":  "pass53.v1"
+                                       },
+                        "renderer_manifest_mirrors":  {
+                                                          "has_visit_abstraction_registry":  true,
+                                                          "has_provider_role_registry":  true,
+                                                          "has_diagnosis_registry":  true,
+                                                          "has_injury_clusters":  true,
+                                                          "has_injury_cluster_severity":  true,
+                                                          "has_treatment_escalation_path":  true,
+                                                          "has_causation_timeline_registry":  true,
+                                                          "has_visit_bucket_quality":  true
+                                                      },
+                        "visit_bucket_quality":  {
+                                                     "total_encounters":  7,
+                                                     "encounters_with_missing_required_buckets":  7,
+                                                     "required_bucket_miss_count":  16,
+                                                     "missing_required_bucket_ratio":  1
+                                                 }
+                    }
+                ],
+    "non_spine_packet_status":  "NOT_AVAILABLE_IN_CURRENT_GOLDEN_SET"
+}

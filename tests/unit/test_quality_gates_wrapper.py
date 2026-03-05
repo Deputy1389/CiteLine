@@ -115,3 +115,29 @@ def test_quality_mode_strict_keeps_luqa_meta_language_ban_hard(monkeypatch) -> N
     assert res["overall_pass"] is False
     assert res["export_status"] == "BLOCKED"
     assert "LUQA_META_LANGUAGE_BAN" in {f.get("code") for f in (res.get("hard_failures") or [])}
+
+
+def test_visit_bucket_quality_threshold_triggers_review_recommended(monkeypatch) -> None:
+    monkeypatch.setattr(
+        luqa_mod,
+        "build_luqa_report",
+        lambda report_text, ctx: {"luqa_pass": True, "luqa_score_0_100": 100, "failures": []},
+    )
+    monkeypatch.setattr(
+        attorney_mod,
+        "build_attorney_readiness_report",
+        lambda report_text, ctx: {"attorney_ready_pass": True, "attorney_ready_score_0_100": 100, "failures": []},
+    )
+    res = run_quality_gates(
+        report_text="ok",
+        page_text_by_number={},
+        visit_bucket_quality={
+            "total_encounters": 8,
+            "encounters_with_missing_required_buckets": 4,
+            "required_bucket_miss_count": 6,
+            "missing_required_bucket_ratio": 0.5,
+        },
+    )
+    assert res["overall_pass"] is True
+    assert res["export_status"] == "REVIEW_RECOMMENDED"
+    assert "VISIT_BUCKET_REQUIRED_MISSING" in {f.get("code") for f in (res.get("soft_failures") or [])}

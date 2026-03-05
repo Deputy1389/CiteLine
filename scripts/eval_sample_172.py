@@ -65,6 +65,7 @@ from apps.worker.steps.step12_export import (
 )
 from apps.worker.steps.step15_missing_records import detect_missing_records
 from apps.worker.steps.step_renderer_manifest import build_renderer_manifest
+from apps.worker.steps.step_visit_abstraction_registry import build_competitive_registries
 from apps.worker.lib.provider_normalize import normalize_provider_entities
 from apps.worker.lib.claim_ledger_lite import build_claim_edges, select_top_claim_rows
 from apps.worker.lib.causation_ladder import build_causation_ladders
@@ -308,6 +309,28 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str, export_mode: str) -> tupl
         specials_summary=None,
         citations=all_citations,
     )
+    graph.extensions["renderer_manifest"] = renderer_manifest.model_dump(mode="json")
+    registry_payload = build_competitive_registries(
+        events=chronology_events,
+        providers=providers,
+        citations=all_citations,
+        mechanism=str(getattr(renderer_manifest.mechanism, "value", "") or ""),
+    )
+    graph.extensions.update(registry_payload)
+    rm_with_registry = renderer_manifest.model_dump(mode="json")
+    for key in (
+        "visit_abstraction_registry",
+        "provider_role_registry",
+        "diagnosis_registry",
+        "injury_clusters",
+        "injury_cluster_severity",
+        "treatment_escalation_path",
+        "causation_timeline_registry",
+        "visit_bucket_quality",
+        "registry_contract_version",
+    ):
+        rm_with_registry[key] = registry_payload.get(key)
+    graph.extensions["renderer_manifest"] = rm_with_registry
     # ── Settlement intelligence extensions ────────────────────────────────────
     _rm_payload = renderer_manifest.model_dump(mode="json")
     _eg_payload_for_slm = graph.model_dump(mode="json")
@@ -400,7 +423,11 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str, export_mode: str) -> tupl
         evidence_graph_payload=evidence_graph_payload,
         patient_partitions_payload=patient_partitions_payload,
         missing_records_payload=missing_payload,
-        renderer_manifest=renderer_manifest.model_dump(mode="json"),
+        renderer_manifest=(
+            graph.extensions.get("renderer_manifest")
+            if isinstance(graph.extensions.get("renderer_manifest"), dict)
+            else renderer_manifest.model_dump(mode="json")
+        ),
         config=config,
     )
     patient_manifest_ref = render_patient_chronology_reports(
@@ -458,6 +485,7 @@ def run_sample_pipeline(sample_pdf: Path, run_id: str, export_mode: str) -> tupl
         "event_weighting": weight_summary,
         "source_pages": len(pages),
         "page_text_by_number": page_text_by_number,
+        "visit_bucket_quality": graph.extensions.get("visit_bucket_quality"),
         "artifact_manifest": {
             "evidence_graph.json": str((artifact_dir / "evidence_graph.json").resolve()),
             "patient_partitions.json": str((artifact_dir / "patient_partitions.json").resolve()),
