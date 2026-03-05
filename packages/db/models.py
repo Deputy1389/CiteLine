@@ -347,6 +347,21 @@ class WebhookEndpoint(Base):
     events = relationship("WebhookEvent", back_populates="endpoint", cascade="all, delete-orphan")
 
 
+class DraftDemand(Base):
+    """Pass 055: Attorney-editable demand narrative draft, persisted per matter/run."""
+    __tablename__ = "draft_demands"
+
+    id = Column(String(120), primary_key=True, default=_uuid)
+    case_id = Column(String(120), nullable=False, index=True)    # matter_id
+    run_id = Column(String(120), ForeignKey("runs.id"), nullable=False)
+    sections = Column(JSON, nullable=False)  # {liability, injuries, treatment, specials, demand_amount}
+    tone = Column(String(20), nullable=False, default="moderate")
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    run = relationship("Run")
+
+
 class WebhookEvent(Base):
     __tablename__ = "webhook_events"
 

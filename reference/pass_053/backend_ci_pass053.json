@@ -1,0 +1,22 @@
+{
+  "pass": "053",
+  "date": "2026-03-05",
+  "git_head": "dd32737",
+  "ci_scope": [
+    "tests/unit/test_visit_abstraction_registry.py",
+    "tests/unit/test_quality_gates_wrapper.py",
+    "tests/unit/test_run_case_wiring.py",
+    "tests/unit/test_pipeline_litigation_extensions.py",
+    "tests/unit/test_mediation_sections.py",
+    "tests/unit/test_production_grade.py",
+    "tests/integration/test_api_exports_latest_status_compat.py"
+  ],
+  "result": {
+    "passed": 98,
+    "failed": 0,
+    "warnings": 2
+  },
+  "notes": [
+    "Integration test stability fix: per-run SQLite file with teardown cleanup to avoid stale schema contamination."
+  ]
+}
