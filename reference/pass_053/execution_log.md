@@ -86,8 +86,7 @@
   - `reference/pass_053/artifacts/pipeline_parity_05_minor_quick_pass053.json`
 
 ## Remaining
-- Add at least one non-spine golden packet to close explicit case-type coverage gap.
-- Cloud deployment + smoke validation on committed Pass 053 revision.
+- Backend CI confirmation on latest `main` head.
 
 ## Cloud deployment + smoke (completed)
 
@@ -133,3 +132,17 @@
   - `reference/pass_053/artifacts/cloud_run_cd7412deb3384c4f899daa39f5eaf6ca_pdf.pdf`
 - Review snapshot:
   - `reference/pass_053/review_case_check_55c5bb1c3519466e85ab8b1c77bf3cf9.json`
+
+14. Non-spine regression coverage added (shoulder-dominant packet):
+- Packet: `testdata/sample-medical-chronology172.pdf`
+- Eval case id: `non_spine_shoulder_172`
+- Run: `pass053` (MEDIATION / strict)
+- Acceptance:
+  - `reference/pass_053/acceptance_non_spine_shoulder_172_pass053.json`
+  - Result: `all_pass=true`
+- Artifacts copied:
+  - `reference/pass_053/artifacts/evidence_graph_non_spine_shoulder_172_pass053.json`
+  - `reference/pass_053/artifacts/output_non_spine_shoulder_172_pass053.pdf`
+  - `reference/pass_053/artifacts/pipeline_parity_non_spine_shoulder_172_pass053.json`
+- Competitive validation refreshed with non-spine case:
+  - `reference/pass_053/competitive_gap_validation.json`

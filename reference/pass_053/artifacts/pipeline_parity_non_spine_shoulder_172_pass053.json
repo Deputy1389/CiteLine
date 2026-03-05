@@ -1,0 +1,33 @@
+{
+  "schema_version": "pipeline_parity.v1",
+  "mode": "eval",
+  "canonical_quality_gate_api": "apps.worker.lib.quality_gates.run_quality_gates",
+  "entrypoints": {
+    "eval": "scripts.run_case.run_case",
+    "production": "apps.worker.pipeline.run_pipeline"
+  },
+  "quality_gate_contract_keys": [
+    "report_text",
+    "page_text_by_number",
+    "projection_entries",
+    "chronology_events",
+    "gaps",
+    "source_pdf"
+  ],
+  "eval_run_quality_gates_kwargs": {
+    "source_pdf": "testdata\\sample-medical-chronology172.pdf",
+    "page_text_pages": 172,
+    "projection_entries": 19,
+    "chronology_events": 33,
+    "gaps": 0
+  },
+  "intentional_deltas": [],
+  "gate_outcome_snapshot": {
+    "overall_pass": true,
+    "failures_count": 2,
+    "failure_codes": [
+      "attorney:AR_FACT_DENSITY_LOW",
+      "visit_bucket_quality:VISIT_BUCKET_REQUIRED_MISSING"
+    ]
+  }
+}
