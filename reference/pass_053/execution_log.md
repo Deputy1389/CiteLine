@@ -120,3 +120,16 @@
 12. Cloud artifacts copied to pass folder:
 - `reference/pass_053/artifacts/cloud_run_16708572a9164e6fa4208f9d2437eca0_evidence_graph.json`
 - `reference/pass_053/artifacts/cloud_run_16708572a9164e6fa4208f9d2437eca0_pdf.pdf`
+
+13. Second cloud packet run completed (05_minor_quick):
+- Matter: `55c5bb1c3519466e85ab8b1c77bf3cf9`
+- Run: `cd7412deb3384c4f899daa39f5eaf6ca`
+- Review UI: non-zero events rendered (`eventCount=7`)
+- Acceptance:
+  - `reference/pass_053/run_cd7412deb3384c4f899daa39f5eaf6ca_acceptance_check.json`
+  - Result: `all_pass=true`
+- Artifacts copied:
+  - `reference/pass_053/artifacts/cloud_run_cd7412deb3384c4f899daa39f5eaf6ca_evidence_graph.json`
+  - `reference/pass_053/artifacts/cloud_run_cd7412deb3384c4f899daa39f5eaf6ca_pdf.pdf`
+- Review snapshot:
+  - `reference/pass_053/review_case_check_55c5bb1c3519466e85ab8b1c77bf3cf9.json`
