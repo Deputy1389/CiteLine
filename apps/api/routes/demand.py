@@ -183,36 +183,36 @@ SECTION DEFINITIONS:
     return system, user
 
 
-def _call_claude(system: str, user: str) -> dict[str, Any]:
-    """Call Claude Sonnet and return parsed JSON response."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+def _call_gemini(system: str, user: str) -> dict[str, Any]:
+    """Call Gemini Flash and return parsed JSON response."""
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
         raise HTTPException(
             status_code=503,
-            detail="Demand generation requires ANTHROPIC_API_KEY to be configured on the server.",
+            detail="Demand generation requires GEMINI_API_KEY to be configured on the server.",
         )
 
     try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=api_key)
-        message = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
-            system=system,
-            messages=[{"role": "user", "content": user}],
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=f"{system}\n\n{user}",
+            config=types.GenerateContentConfig(response_mime_type="application/json"),
         )
-        raw_text = message.content[0].text.strip()
-        # Strip markdown code fences if present
-        if raw_text.startswith("```"):
-            raw_text = raw_text.split("```")[1]
-            if raw_text.startswith("json"):
-                raw_text = raw_text[4:]
+        raw_text = response.text.strip()
+        if "```json" in raw_text:
+            raw_text = raw_text.split("```json")[1].split("```")[0].strip()
+        elif raw_text.startswith("```"):
+            raw_text = raw_text.split("```")[1].split("```")[0].strip()
         return json.loads(raw_text)
     except json.JSONDecodeError as e:
-        logger.error("Claude returned non-JSON: %s", e)
+        logger.error("Gemini returned non-JSON: %s", e)
         raise HTTPException(status_code=502, detail="LLM returned malformed response. Please retry.")
     except Exception as e:
-        logger.error("Claude API error: %s", e)
+        logger.error("Gemini API error: %s", e)
         raise HTTPException(status_code=502, detail=f"LLM call failed: {type(e).__name__}")
 
 
@@ -342,7 +342,7 @@ def generate_demand_narrative(
 
     # Build prompt and call Claude (retry once on citation validation failure)
     system, user = _build_prompt(ctx, matter.title, tone, section, existing_draft)
-    raw_response = _call_claude(system, user)
+    raw_response = _call_gemini(system, user)
     raw_sections = (raw_response.get("sections") or raw_response) if isinstance(raw_response, dict) else {}
 
     new_sections = _validate_and_clean_sections(raw_sections, ctx["citation_map"], section)
