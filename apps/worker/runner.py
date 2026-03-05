@@ -11,6 +11,7 @@ import uuid
 import threading
 import platform
 from datetime import datetime, timezone, timedelta
+from sqlalchemy import text
 
 # Add project root to path if needed (though usually handled by python -m)
 sys.path.append(os.getcwd())
