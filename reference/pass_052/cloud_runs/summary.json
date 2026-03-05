@@ -1,0 +1,192 @@
+[
+  {
+    "index": 1,
+    "label": "05_minor_quick",
+    "packet": "C:\\Citeline\\PacketIntake\\05_minor_quick\\packet.pdf",
+    "run_dir": "C:\\citeline\\reference\\pass_052\\cloud_runs\\run01_05_minor_quick_1772686189",
+    "firm_id": "8f79131afaa34359aa56bcaf5e4fe347",
+    "matter_id": "58c18d729bfa4de09de3cb447aaa0cfe",
+    "run_id": "bcb0d80d51ca4b5695b38ce9fae89e69",
+    "run_status": "needs_review",
+    "run_create_status_code": 202,
+    "exports_latest_status_code": 200,
+    "artifacts_attempted": 20,
+    "artifacts_downloaded_ok": 20,
+    "required_artifacts": {
+      "evidence_graph.json": true,
+      "chronology.pdf": true,
+      "missing_records.csv": true
+    }
+  },
+  {
+    "index": 2,
+    "label": "batch_029_complex_prior",
+    "packet": "C:\\Citeline\\PacketIntake\\batch_029_complex_prior\\packet.pdf",
+    "run_dir": "C:\\citeline\\reference\\pass_052\\cloud_runs\\run02_batch_029_complex_prior_1772686260",
+    "firm_id": "61b30b78cf61491ca67579ee87b5b561",
+    "matter_id": "ae019c79e9f8448d9a7c3b31338f4eaf",
+    "run_id": "1506f83807f84c78b77b6d4f399e4790",
+    "run_status": "needs_review",
+    "run_create_status_code": 202,
+    "exports_latest_status_code": 200,
+    "artifacts_attempted": 20,
+    "artifacts_downloaded_ok": 20,
+    "required_artifacts": {
+      "evidence_graph.json": true,
+      "chronology.pdf": true,
+      "missing_records.csv": true
+    }
+  },
+  {
+    "index": 3,
+    "label": "05_minor_quick",
+    "packet": "C:\\Citeline\\PacketIntake\\05_minor_quick\\packet.pdf",
+    "run_dir": "C:\\citeline\\reference\\pass_052\\cloud_runs\\run03_05_minor_quick_1772686330",
+    "firm_id": "9014b2fe0ac24a5082a96c587dd5b295",
+    "matter_id": "35f3743bd98e4c7185ea1c80b0665cea",
+    "run_id": "88fa13e7e0224befb853fb88b0cf96cb",
+    "run_status": "needs_review",
+    "run_create_status_code": 202,
+    "exports_latest_status_code": 200,
+    "artifacts_attempted": 20,
+    "artifacts_downloaded_ok": 20,
+    "required_artifacts": {
+      "evidence_graph.json": true,
+      "chronology.pdf": true,
+      "missing_records.csv": true
+    }
+  },
+  {
+    "index": 4,
+    "label": "batch_029_complex_prior",
+    "packet": "C:\\Citeline\\PacketIntake\\batch_029_complex_prior\\packet.pdf",
+    "run_dir": "C:\\citeline\\reference\\pass_052\\cloud_runs\\run04_batch_029_complex_prior_1772686362",
+    "firm_id": "1322ad2798f8438ab19a4bb99ece8e27",
+    "matter_id": "5fadf9ff94cf4223b1d275946f049a49",
+    "run_id": "6830bae767544a6aa66284adefaeb0b6",
+    "run_status": "needs_review",
+    "run_create_status_code": 202,
+    "exports_latest_status_code": 200,
+    "artifacts_attempted": 20,
+    "artifacts_downloaded_ok": 20,
+    "required_artifacts": {
+      "evidence_graph.json": true,
+      "chronology.pdf": true,
+      "missing_records.csv": true
+    }
+  },
+  {
+    "index": 5,
+    "label": "05_minor_quick",
+    "packet": "C:\\Citeline\\PacketIntake\\05_minor_quick\\packet.pdf",
+    "run_dir": "C:\\citeline\\reference\\pass_052\\cloud_runs\\run05_05_minor_quick_1772686430",
+    "firm_id": "c79894a7e7874dd380960e3e4d738b42",
+    "matter_id": "4c3b41df06704c49b59bdad2d0e108ff",
+    "run_id": "bf9e60da327b49b3b898d54c33bcda0a",
+    "run_status": "needs_review",
+    "run_create_status_code": 202,
+    "exports_latest_status_code": 200,
+    "artifacts_attempted": 20,
+    "artifacts_downloaded_ok": 20,
+    "required_artifacts": {
+      "evidence_graph.json": true,
+      "chronology.pdf": true,
+      "missing_records.csv": true
+    }
+  },
+  {
+    "index": 6,
+    "label": "batch_029_complex_prior",
+    "packet": "C:\\Citeline\\PacketIntake\\batch_029_complex_prior\\packet.pdf",
+    "run_dir": "C:\\citeline\\reference\\pass_052\\cloud_runs\\run06_batch_029_complex_prior_1772686463",
+    "firm_id": "17f9d48c04bb43a49cb1e70eec2f9a04",
+    "matter_id": "a7dc0042754044bda74e765ad4772528",
+    "run_id": "56f8daca8ad44435a02e12adce2b721d",
+    "run_status": "needs_review",
+    "run_create_status_code": 202,
+    "exports_latest_status_code": 200,
+    "artifacts_attempted": 20,
+    "artifacts_downloaded_ok": 20,
+    "required_artifacts": {
+      "evidence_graph.json": true,
+      "chronology.pdf": true,
+      "missing_records.csv": true
+    }
+  },
+  {
+    "index": 7,
+    "label": "05_minor_quick",
+    "packet": "C:\\Citeline\\PacketIntake\\05_minor_quick\\packet.pdf",
+    "run_dir": "C:\\citeline\\reference\\pass_052\\cloud_runs\\run07_05_minor_quick_1772686529",
+    "firm_id": "0364b94428504d6bbc88ec5ac67f72ea",
+    "matter_id": "551bdd1197c44d79af53397b0716cb23",
+    "run_id": "93cedfb9f7f64d3c93c0eb1ee734453c",
+    "run_status": "needs_review",
+    "run_create_status_code": 202,
+    "exports_latest_status_code": 200,
+    "artifacts_attempted": 20,
+    "artifacts_downloaded_ok": 20,
+    "required_artifacts": {
+      "evidence_graph.json": true,
+      "chronology.pdf": true,
+      "missing_records.csv": true
+    }
+  },
+  {
+    "index": 8,
+    "label": "batch_029_complex_prior",
+    "packet": "C:\\Citeline\\PacketIntake\\batch_029_complex_prior\\packet.pdf",
+    "run_dir": "C:\\citeline\\reference\\pass_052\\cloud_runs\\run08_batch_029_complex_prior_1772686563",
+    "firm_id": "cb6c37a4c5b048eaa03c9c46c8beda01",
+    "matter_id": "57814c2f6d0b446cb045fdb939339e60",
+    "run_id": "f010bed8d7e54b6a815264ab96951223",
+    "run_status": "needs_review",
+    "run_create_status_code": 202,
+    "exports_latest_status_code": 200,
+    "artifacts_attempted": 20,
+    "artifacts_downloaded_ok": 20,
+    "required_artifacts": {
+      "evidence_graph.json": true,
+      "chronology.pdf": true,
+      "missing_records.csv": true
+    }
+  },
+  {
+    "index": 9,
+    "label": "05_minor_quick",
+    "packet": "C:\\Citeline\\PacketIntake\\05_minor_quick\\packet.pdf",
+    "run_dir": "C:\\citeline\\reference\\pass_052\\cloud_runs\\run09_05_minor_quick_1772686627",
+    "firm_id": "0831a46c84d240b1956ba1d37e2d7036",
+    "matter_id": "8912756d047c4261947cd7934882ce54",
+    "run_id": "88ec373a89344b3e80905ab82b01ae0b",
+    "run_status": "needs_review",
+    "run_create_status_code": 202,
+    "exports_latest_status_code": 200,
+    "artifacts_attempted": 20,
+    "artifacts_downloaded_ok": 20,
+    "required_artifacts": {
+      "evidence_graph.json": true,
+      "chronology.pdf": true,
+      "missing_records.csv": true
+    }
+  },
+  {
+    "index": 10,
+    "label": "batch_029_complex_prior",
+    "packet": "C:\\Citeline\\PacketIntake\\batch_029_complex_prior\\packet.pdf",
+    "run_dir": "C:\\citeline\\reference\\pass_052\\cloud_runs\\run10_batch_029_complex_prior_1772686661",
+    "firm_id": "876b4d76a8d14c2bbb5cf0c795f71388",
+    "matter_id": "7853845556ad4bdcb0cbb787e02034a0",
+    "run_id": "c270a21c53dd4ec8bdda8dfa9cba65be",
+    "run_status": "needs_review",
+    "run_create_status_code": 202,
+    "exports_latest_status_code": 200,
+    "artifacts_attempted": 20,
+    "artifacts_downloaded_ok": 20,
+    "required_artifacts": {
+      "evidence_graph.json": true,
+      "chronology.pdf": true,
+      "missing_records.csv": true
+    }
+  }
+]

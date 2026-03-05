@@ -503,6 +503,7 @@ def run_pipeline(run_id: str) -> None:
             chronology_events=chronology_events,
             gaps=list(gaps),
             source_pdf=(str(get_upload_path(valid_docs[0].document_id)) if valid_docs else None),
+            quality_mode=str(config.quality_mode or "strict"),
         )
         parity_report = build_pipeline_parity_report(
             mode="production",
@@ -579,6 +580,7 @@ def _run_production_quality_gates(
     chronology_events,
     gaps,
     source_pdf: str | None = None,
+    quality_mode: str = "strict",
 ) -> dict:
     """
     Run quality gates on the production pipeline output.
@@ -621,6 +623,7 @@ def _run_production_quality_gates(
             chronology_events=list(chronology_events or []),
             gaps=list(gaps or []),
             source_pdf=source_pdf,
+            quality_mode=quality_mode,
         )
         
         logger.info(f"Quality gates: overall_pass={results.get('overall_pass')}, "

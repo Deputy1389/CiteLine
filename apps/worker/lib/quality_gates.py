@@ -54,9 +54,17 @@ _SOFT_FAILURE_CODES: set[str] = {
 }
 
 
-def _is_hard_failure(row: dict[str, Any]) -> bool:
+def _normalize_quality_mode(value: str | None) -> str:
+    mode = str(value or "").strip().lower()
+    return mode if mode in {"strict", "pilot"} else "strict"
+
+
+def _is_hard_failure(row: dict[str, Any], *, quality_mode: str = "strict") -> bool:
     code = str(row.get("code") or "").strip().upper()
     sev = str(row.get("severity") or "").strip().lower()
+    mode = _normalize_quality_mode(quality_mode)
+    if mode == "pilot" and code == "LUQA_META_LANGUAGE_BAN":
+        return False
     if code in _SOFT_FAILURE_CODES:
         return False
     if code in _HARD_FAILURE_CODES:
@@ -69,11 +77,15 @@ def _is_hard_failure(row: dict[str, Any]) -> bool:
     return True
 
 
-def _classify_failures(failures: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _classify_failures(
+    failures: list[dict[str, Any]],
+    *,
+    quality_mode: str = "strict",
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     hard: list[dict[str, Any]] = []
     soft: list[dict[str, Any]] = []
     for row in failures:
-        if _is_hard_failure(row):
+        if _is_hard_failure(row, quality_mode=quality_mode):
             hard.append(row)
         else:
             soft.append(row)
@@ -225,6 +237,7 @@ def run_quality_gates(
     chronology_events: list[Any] | None = None,
     gaps: list[Any] | None = None,
     source_pdf: str | None = None,
+    quality_mode: str = "strict",
 ) -> dict[str, Any]:
     """
     Run all quality gates and return a unified report.
@@ -250,6 +263,7 @@ def run_quality_gates(
         "projection_entries": projection_entries or [],
     }
     
+    normalized_quality_mode = _normalize_quality_mode(quality_mode)
     results = {
         "overall_pass": True,
         "attorney_ready_pass": True,
@@ -263,6 +277,7 @@ def run_quality_gates(
         "soft_failures": [],
         "review_required": False,
         "export_status": "VERIFIED",
+        "quality_mode": normalized_quality_mode,
         "gate_report": {},
     }
     
@@ -342,7 +357,10 @@ def run_quality_gates(
             },
         }
 
-    hard_failures, soft_failures = _classify_failures(list(results.get("failures") or []))
+    hard_failures, soft_failures = _classify_failures(
+        list(results.get("failures") or []),
+        quality_mode=normalized_quality_mode,
+    )
     results["hard_failures"] = hard_failures
     results["soft_failures"] = soft_failures
     results["review_required"] = bool(soft_failures)
@@ -352,8 +370,14 @@ def run_quality_gates(
         if hard_failures
         else ("REVIEW_RECOMMENDED" if soft_failures else "VERIFIED")
     )
-    results["attorney_ready_pass"] = not any((f.get("source") == "attorney" and _is_hard_failure(f)) for f in results["failures"])
-    results["luqa_pass"] = not any((f.get("source") == "luqa" and _is_hard_failure(f)) for f in results["failures"])
+    results["attorney_ready_pass"] = not any(
+        (f.get("source") == "attorney" and _is_hard_failure(f, quality_mode=normalized_quality_mode))
+        for f in results["failures"]
+    )
+    results["luqa_pass"] = not any(
+        (f.get("source") == "luqa" and _is_hard_failure(f, quality_mode=normalized_quality_mode))
+        for f in results["failures"]
+    )
     
     return results
 

@@ -124,7 +124,13 @@ def _build_run_delta(previous: dict | None, current: dict) -> dict:
     }
 
 
-def run_case(input_pdf: Path, case_id: str, run_label: str | None = None, export_mode: str | None = None) -> dict:
+def run_case(
+    input_pdf: Path,
+    case_id: str,
+    run_label: str | None = None,
+    export_mode: str | None = None,
+    quality_mode: str = "strict",
+) -> dict:
     if not input_pdf.exists():
         raise FileNotFoundError(f"Input PDF not found: {input_pdf}")
     mode = str(export_mode or "").strip().upper()
@@ -187,6 +193,7 @@ def run_case(input_pdf: Path, case_id: str, run_label: str | None = None, export
         chronology_events=list(ctx.get("events") or []),
         gaps=list(ctx.get("gaps") or []),
         source_pdf=str(input_pdf),
+        quality_mode=quality_mode,
     )
     gate_report = gate_results.get("gate_report") if isinstance(gate_results.get("gate_report"), dict) else {}
     luqa = gate_report.get("luqa") if isinstance(gate_report.get("luqa"), dict) else {"luqa_pass": True, "luqa_score_0_100": 100, "failures": [], "metrics": {}}
@@ -252,6 +259,7 @@ def run_case(input_pdf: Path, case_id: str, run_label: str | None = None, export
     context_path = eval_dir / "context.json"
     context_payload = {
         "export_mode": mode,
+        "quality_mode": quality_mode,
         "run_id": run_id,
         "input_pdf": str(input_pdf),
         "output_pdf": str(out_pdf),
@@ -341,9 +349,16 @@ def main() -> int:
     parser.add_argument("--case-id", required=True, help="Eval case id, used under data/evals/<case-id>.")
     parser.add_argument("--run-label", help="Optional deterministic run label.")
     parser.add_argument("--export-mode", required=True, choices=["INTERNAL", "MEDIATION"])
+    parser.add_argument("--quality-mode", choices=["strict", "pilot"], default="strict")
     args = parser.parse_args()
 
-    payload = run_case(Path(args.input), args.case_id, args.run_label, export_mode=args.export_mode)
+    payload = run_case(
+        Path(args.input),
+        args.case_id,
+        args.run_label,
+        export_mode=args.export_mode,
+        quality_mode=args.quality_mode,
+    )
     print(json.dumps(payload, indent=2))
     if payload.get("overall_pass"):
         return 0

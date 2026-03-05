@@ -49,6 +49,7 @@ class CreateRunRequest(BaseModel):
     llm_reasoning_min_confidence: int = _RUNCFG_DEFAULTS.llm_reasoning_min_confidence
     narrative_min_confidence: int = _RUNCFG_DEFAULTS.narrative_min_confidence
     chronology_min_score: int = _RUNCFG_DEFAULTS.chronology_min_score
+    quality_mode: Literal["strict", "pilot"] = _RUNCFG_DEFAULTS.quality_mode
     export_mode: Literal["INTERNAL", "MEDIATION"] = "INTERNAL"
 
 
@@ -97,6 +98,7 @@ def start_run(
         "llm_reasoning_min_confidence": req.llm_reasoning_min_confidence,
         "narrative_min_confidence": req.narrative_min_confidence,
         "chronology_min_score": req.chronology_min_score,
+        "quality_mode": req.quality_mode,
         "export_mode": req.export_mode,
     }
 

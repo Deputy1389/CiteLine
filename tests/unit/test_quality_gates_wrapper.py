@@ -1,4 +1,6 @@
 from apps.worker.lib.quality_gates import run_quality_gates
+import apps.worker.lib.luqa as luqa_mod
+import apps.worker.lib.attorney_readiness as attorney_mod
 
 
 def test_quality_gates_flags_attorney_placeholder_leaks() -> None:
@@ -60,3 +62,56 @@ def test_quality_gates_flags_uncited_top10_item() -> None:
     codes = {f.get("code") for f in (res.get("failures") or [])}
     assert "EXPORT_UNCITED_TOP10_ITEM" in codes
     assert res["gate_report"]["export_citation_integrity"]["pass"] is False
+
+
+def test_quality_mode_pilot_demotes_luqa_meta_language_ban(monkeypatch) -> None:
+    monkeypatch.setattr(
+        luqa_mod,
+        "build_luqa_report",
+        lambda report_text, ctx: {
+            "luqa_pass": False,
+            "luqa_score_0_100": 10,
+            "failures": [{"code": "LUQA_META_LANGUAGE_BAN", "message": "meta", "severity": "hard"}],
+        },
+    )
+    monkeypatch.setattr(
+        attorney_mod,
+        "build_attorney_readiness_report",
+        lambda report_text, ctx: {
+            "attorney_ready_pass": True,
+            "attorney_ready_score_0_100": 100,
+            "failures": [],
+        },
+    )
+
+    res = run_quality_gates(report_text="ok", page_text_by_number={}, quality_mode="pilot")
+    assert res["overall_pass"] is True
+    assert res["export_status"] == "REVIEW_RECOMMENDED"
+    assert len(res.get("hard_failures") or []) == 0
+    assert "LUQA_META_LANGUAGE_BAN" in {f.get("code") for f in (res.get("soft_failures") or [])}
+
+
+def test_quality_mode_strict_keeps_luqa_meta_language_ban_hard(monkeypatch) -> None:
+    monkeypatch.setattr(
+        luqa_mod,
+        "build_luqa_report",
+        lambda report_text, ctx: {
+            "luqa_pass": False,
+            "luqa_score_0_100": 10,
+            "failures": [{"code": "LUQA_META_LANGUAGE_BAN", "message": "meta", "severity": "hard"}],
+        },
+    )
+    monkeypatch.setattr(
+        attorney_mod,
+        "build_attorney_readiness_report",
+        lambda report_text, ctx: {
+            "attorney_ready_pass": True,
+            "attorney_ready_score_0_100": 100,
+            "failures": [],
+        },
+    )
+
+    res = run_quality_gates(report_text="ok", page_text_by_number={}, quality_mode="strict")
+    assert res["overall_pass"] is False
+    assert res["export_status"] == "BLOCKED"
+    assert "LUQA_META_LANGUAGE_BAN" in {f.get("code") for f in (res.get("hard_failures") or [])}

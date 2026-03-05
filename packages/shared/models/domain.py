@@ -50,6 +50,7 @@ class RunConfig(BaseModel):
     chronology_merged_facts_max: int = 4
     chronology_appendix_facts_max: int = 10
     chronology_min_score: int = 60
+    quality_mode: Literal["strict", "pilot"] = "strict"
     export_mode: Literal["INTERNAL", "MEDIATION"] = "INTERNAL"
     chronology_selection_hard_max_rows: int = 250
     litigation_defense_paths_limit: int = 6
