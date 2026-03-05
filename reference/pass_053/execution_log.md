@@ -88,3 +88,35 @@
 ## Remaining
 - Add at least one non-spine golden packet to close explicit case-type coverage gap.
 - Cloud deployment + smoke validation on committed Pass 053 revision.
+
+## Cloud deployment + smoke (completed)
+
+9. Deployed Pass 053 commits to cloud:
+- GitHub `main` advanced to:
+  - `db38e6f` (Pass 053 payload)
+  - `c9da51c` (worker hotfix: SQLAlchemy `text` import in `runner.py`)
+- Oracle worker host updated and restarted:
+  - `~/citeline` at `c9da51c`
+  - `linecite-worker` active
+
+10. Cloud blocker found and fixed during smoke:
+- Worker crash-loop after deploy:
+  - `NameError: name 'text' is not defined` in `apps/worker/runner.py::claim_run`
+- Fix:
+  - add `from sqlalchemy import text`
+  - redeploy + restart worker
+
+11. Cloud smoke evidence (post-fix):
+- Matter: `355ee9b4d7df45618fd042255c94d42f`
+- Run: `16708572a9164e6fa4208f9d2437eca0`
+- Review UI: non-zero events rendered (`eventCount=8`)
+- Artifacts fetched successfully:
+  - evidence graph
+  - PDF
+- Acceptance check file:
+  - `reference/pass_053/run_16708572a9164e6fa4208f9d2437eca0_acceptance_check.json`
+  - Result: `all_pass=true`
+
+12. Cloud artifacts copied to pass folder:
+- `reference/pass_053/artifacts/cloud_run_16708572a9164e6fa4208f9d2437eca0_evidence_graph.json`
+- `reference/pass_053/artifacts/cloud_run_16708572a9164e6fa4208f9d2437eca0_pdf.pdf`
