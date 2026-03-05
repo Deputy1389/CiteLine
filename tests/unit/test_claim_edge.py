@@ -19,6 +19,7 @@ def test_claim_edge_round_trip_preserves_json_shape() -> None:
         "flags": [],
         "materiality_weight": 2,
         "selection_score": 10,
+        "citation_anchors": [],
     }
     edge = ClaimEdge.model_validate(payload)
     assert edge.model_dump(mode="json") == payload
