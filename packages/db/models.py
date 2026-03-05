@@ -24,6 +24,7 @@ class Firm(Base):
     id = Column(String(120), primary_key=True, default=_uuid)
     name = Column(String(200), nullable=False)
     status = Column(String(50), default="trial")  # trial | paid | churned
+    tier = Column(String(50), default="starter")   # starter | pro | enterprise
     created_at = Column(DateTime, default=utcnow)
     
     matters = relationship("Matter", back_populates="firm", cascade="all, delete-orphan")

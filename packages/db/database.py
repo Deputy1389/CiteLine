@@ -108,6 +108,9 @@ def _apply_schema_migrations() -> None:
             if "status" not in cols:
                 conn.execute(text("ALTER TABLE firms ADD COLUMN status VARCHAR(50) DEFAULT 'trial'"))
                 conn.commit()
+            if "tier" not in cols:
+                conn.execute(text("ALTER TABLE firms ADD COLUMN tier VARCHAR(50) DEFAULT 'starter'"))
+                conn.commit()
                 
             # Table: sales_events
             res = conn.execute(text("PRAGMA table_info(sales_events)")).fetchall()
@@ -124,6 +127,7 @@ def _apply_schema_migrations() -> None:
             conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS retry_count INTEGER DEFAULT 0"))
             conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS invariant_attestation_json JSONB"))
             conn.execute(text("ALTER TABLE firms ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'trial'"))
+            conn.execute(text("ALTER TABLE firms ADD COLUMN IF NOT EXISTS tier VARCHAR(50) DEFAULT 'starter'"))
             conn.execute(text("ALTER TABLE sales_events ADD COLUMN IF NOT EXISTS firm_id VARCHAR(120)"))
     except Exception:
         pass

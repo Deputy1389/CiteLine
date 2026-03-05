@@ -26,7 +26,15 @@ class CreateFirmRequest(BaseModel):
 class FirmResponse(BaseModel):
     id: str
     name: str
+    status: str
+    tier: str
     created_at: str
+
+
+class UpdateFirmRequest(BaseModel):
+    name: str | None = None
+    status: str | None = None
+    tier: str | None = None
 
 
 @router.post("", response_model=FirmResponse, status_code=201)
@@ -43,6 +51,8 @@ def create_firm(
     return FirmResponse(
         id=firm.id,
         name=firm.name,
+        status=firm.status,
+        tier=firm.tier,
         created_at=firm.created_at.isoformat(),
     )
 
@@ -60,6 +70,8 @@ def list_firms(
         FirmResponse(
             id=f.id,
             name=f.name,
+            status=f.status,
+            tier=f.tier,
             created_at=f.created_at.isoformat(),
         )
         for f in firms
@@ -80,5 +92,40 @@ def get_firm(
     return FirmResponse(
         id=firm.id,
         name=firm.name,
+        status=firm.status,
+        tier=firm.tier,
+        created_at=firm.created_at.isoformat(),
+    )
+
+
+@router.patch("/{firm_id}", response_model=FirmResponse)
+def update_firm(
+    firm_id: str,
+    req: UpdateFirmRequest,
+    db: Session = Depends(get_db),
+    identity: RequestIdentity | None = Depends(get_request_identity),
+):
+    """Update firm details."""
+    # Allow system level updates (no identity) or check firm access
+    if identity:
+        assert_firm_access(identity, firm_id)
+    
+    firm = db.query(Firm).filter_by(id=firm_id).first()
+    if not firm:
+        raise HTTPException(status_code=404, detail="Firm not found")
+    
+    if req.name is not None:
+        firm.name = req.name
+    if req.status is not None:
+        firm.status = req.status
+    if req.tier is not None:
+        firm.tier = req.tier
+        
+    db.flush()
+    return FirmResponse(
+        id=firm.id,
+        name=firm.name,
+        status=firm.status,
+        tier=firm.tier,
         created_at=firm.created_at.isoformat(),
     )

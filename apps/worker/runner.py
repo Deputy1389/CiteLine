@@ -34,10 +34,12 @@ def get_utc_now():
 def claim_run() -> str | None:
     """Find and atomically claim a pending run."""
     with get_session() as session:
-        # 1. Find a pending run (FIFO)
+        from packages.db.models import Matter, Firm
+        
+        # 1. Find a pending run (Priority: Stale > Pro Tier > Starter Tier)
         # We look for pending runs OR stale runs
         stale_cutoff = get_utc_now() - timedelta(minutes=STALE_THRESHOLD_MINUTES)
-        
+
         # Check for stale runs first (recovery)
         stale_run = (
             session.query(Run)
@@ -45,7 +47,7 @@ def claim_run() -> str | None:
             .filter(Run.heartbeat_at < stale_cutoff)
             .first()
         )
-        
+
         target_run = None
         if stale_run:
             logger.warning(f"Found stale run {stale_run.id} (last heartbeat {stale_run.heartbeat_at}). Reclaiming.")
@@ -59,12 +61,24 @@ def claim_run() -> str | None:
             stale_run.retry_count = (stale_run.retry_count or 0) + 1
             target_run = stale_run
         else:
-            # Normal pending run
-            target_run = session.query(Run).filter_by(status="pending").order_by(Run.created_at).first()
+            # Normal pending run with priority for Pro tier
+            # Tier ordering: pro > starter (alphabetical 'pro' comes after 'starter' normally, 
+            # so we use a case or specific order)
+            target_run = (
+                session.query(Run)
+                .join(Matter, Run.matter_id == Matter.id)
+                .join(Firm, Matter.firm_id == Firm.id)
+                .filter(Run.status == "pending")
+                .order_by(
+                    # Pro tier first
+                    text("CASE WHEN firms.tier = 'pro' THEN 0 WHEN firms.tier = 'enterprise' THEN 0 ELSE 1 END"),
+                    Run.created_at
+                )
+                .first()
+            )
 
         if not target_run:
-            return None
-            
+            return None            
         run_id = target_run.id
         
         # 2. Atomic Update

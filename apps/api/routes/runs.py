@@ -82,6 +82,28 @@ def start_run(
 
     assert_firm_access(identity, matter.firm_id)
 
+    # Pass 053: Enforce tier limits
+    from packages.db.models import Firm
+    from datetime import datetime, timedelta, timezone
+    
+    firm = db.query(Firm).filter_by(id=matter.firm_id).first()
+    if firm:
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        matter_count = db.query(Matter).filter(
+            Matter.firm_id == matter.firm_id,
+            Matter.created_at >= thirty_days_ago
+        ).count()
+        
+        limit = 5 if firm.tier == "starter" else 20
+        if firm.tier == "enterprise":
+            limit = 1000000
+            
+        if matter_count > limit:
+            raise HTTPException(
+                status_code=402, 
+                detail=f"Matter limit reached for {firm.tier} tier ({limit}/mo). Please upgrade your plan."
+            )
+
     doc_count = db.query(SourceDocument).filter_by(matter_id=matter_id).count()
     if doc_count == 0:
         raise HTTPException(status_code=400, detail="No documents uploaded for this matter")
