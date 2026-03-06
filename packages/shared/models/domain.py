@@ -1,5 +1,7 @@
+from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Optional, Literal, Union
+from enum import Enum
+from typing import List, Optional, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -311,6 +313,18 @@ class BucketEvidence(BaseModel):
     citation_ids: list[str] = Field(default_factory=list)
 
 
+class RendererCaseSkeletonItem(BaseModel):
+    label: str = Field(min_length=1, max_length=120)
+    value: str = Field(min_length=1, max_length=300)
+    citation_ids: list[str] = Field(default_factory=list)
+
+
+class RendererCaseSkeleton(BaseModel):
+    active: bool = False
+    items: list[RendererCaseSkeletonItem] = Field(default_factory=list)
+    care_phases: list[RendererCaseSkeletonItem] = Field(default_factory=list)
+
+
 class RendererManifest(BaseModel):
     manifest_version: str = "1.0"
     doi: RendererDoiField = Field(default_factory=RendererDoiField)
@@ -319,6 +333,7 @@ class RendererManifest(BaseModel):
     promoted_findings: list[PromotedFinding] = Field(default_factory=list)
     top_case_drivers: list[str] = Field(default_factory=list)
     bucket_evidence: dict[str, BucketEvidence] = Field(default_factory=dict)
+    case_skeleton: RendererCaseSkeleton = Field(default_factory=RendererCaseSkeleton)
     billing_completeness: Literal["complete", "partial", "none"] = "none"
 
 
@@ -431,6 +446,64 @@ class SlmProvenance(BaseModel):
 class SlmSignalAudit(BaseModel):
     value: Optional[Union[bool, float, int]] = None  # None = UNKNOWN
     provenance: SlmProvenance
+
+
+# ── Pass 37: Leverage Index typed contracts ───────────────────────────────────
+
+class LeverageBand(str, Enum):
+    LOW         = "LOW"
+    MODERATE    = "MODERATE"
+    ELEVATED    = "ELEVATED"
+    HIGH        = "HIGH"
+    TRIAL_LEVEL = "TRIAL_LEVEL"
+
+
+@dataclass(frozen=True)
+class InvariantGuard:
+    case_id: str
+    invariant_run_id: str      # deterministic sha256 id binding run to inputs
+    pass_status: bool          # True only if ALL invariants passed
+    artifact_fingerprint: str  # sha256(evidence_graph bytes + mediation pdf bytes)
+    signals_fingerprint: str   # sha256(json.dumps(signals, sort_keys=True))
+
+
+@dataclass(frozen=True)
+class LeverageIndexResult:
+    enabled: bool
+    band: Optional[LeverageBand]
+    score: Optional[float]
+    reasons: List[str]
+    guard_status: str  # "PASS" | "GUARD_FAIL" | "GUARD_MISSING" | "GUARD_STALE_SIGNALS" | "GUARD_STALE_ARTIFACTS"
+
+
+# ── Pass 38: Leverage Trajectory typed contracts ──────────────────────────────
+
+@dataclass(frozen=True)
+class EscalationEvent:
+    date: str                          # ISO YYYY-MM-DD — must be a known date
+    level: int                         # 0..5 ordinal
+    kind: str                          # "ED", "PT_START", "IMAGING", "SPECIALIST",
+                                       #   "NEURO_DEFICIT", "INJECTION", "SURGERY"
+    source_anchor: Optional[str] = None  # sha256(date|kind|sorted_pages)[:16]
+                                         # INTERNAL only — not emitted in MEDIATION
+
+
+@dataclass(frozen=True)
+class LeverageTrajectory:
+    enabled: bool
+    guard_status: str                              # same semantics as LeverageIndexResult
+    peak_level: Optional[int]                      # None if no dated events
+    time_to_peak_days: Optional[int]               # days from first event to peak
+    num_level_increases: Optional[int]
+    pattern: Optional[str]                         # "Flat"|"Rising"|"Stepped"|"Late Escalation"|None
+    monthly_levels: List[tuple]                    # [("2024-10", 2), ...]
+    markers: List[EscalationEvent]                 # up to 5 key events for rendering
+    coverage_ratio: Optional[float]                # INTERNAL only: months_with_events / total_months
+    suppressed_undated_count: int                  # count of undated events excluded
+    suppressed_low_confidence_count: int = 0       # INV-E2 (Pass 41): events excluded due to confidence < 0.80
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 class SettlementLeverageModel(BaseModel):

@@ -2494,6 +2494,40 @@ def generate_pdf_from_projection(
             flowables.extend(additional_findings_rows[:4])
         flowables.append(Spacer(1, 0.1 * inch))
 
+    case_skeleton = (rm.get("case_skeleton") or {}) if isinstance(rm, dict) else {}
+    if not (rm.get("top_case_drivers") or []) and bool(case_skeleton.get("active")):
+        flowables.append(Paragraph("Case Skeleton", h2_style))
+        flowables.append(Paragraph(
+            "Structured orientation for sparse packets when no headline anchors qualify.",
+            ParagraphStyle("CaseSkeletonMeta", parent=normal_style, fontSize=8.5, textColor=colors.HexColor("#475569"), spaceAfter=4),
+        ))
+        skeleton_bullet_style = ParagraphStyle("CaseSkeletonBullet", parent=normal_style, leftIndent=12, bulletIndent=0, spaceAfter=2)
+        for item in list(case_skeleton.get("items") or []):
+            label = _clean_line(str(item.get("label") or ""))
+            value = _clean_line(str(item.get("value") or ""))
+            if not label or not value:
+                continue
+            refs = _refs_from_citation_ids(list(item.get("citation_ids") or []), citation_by_id)
+            _links, cite_text = _citation_links_and_text(refs, row_anchor=None, manifest=manifest)
+            body = f"- {escape(label)}: {escape(value)}"
+            if cite_text:
+                body += f' <font size="8">{escape(cite_text)}</font>'
+            flowables.append(Paragraph(body, skeleton_bullet_style))
+        care_phases = list(case_skeleton.get("care_phases") or [])
+        if care_phases:
+            flowables.append(Paragraph("Documented care phases", ParagraphStyle("CaseSkeletonSubhead", parent=normal_style, fontName="Helvetica-Bold", spaceBefore=3, spaceAfter=2)))
+            for item in care_phases:
+                value = _clean_line(str(item.get("value") or ""))
+                if not value:
+                    continue
+                refs = _refs_from_citation_ids(list(item.get("citation_ids") or []), citation_by_id)
+                _links, cite_text = _citation_links_and_text(refs, row_anchor=None, manifest=manifest)
+                body = f"- {escape(value)}"
+                if cite_text:
+                    body += f' <font size="8">{escape(cite_text)}</font>'
+                flowables.append(Paragraph(body, skeleton_bullet_style))
+        flowables.append(Spacer(1, 0.08 * inch))
+
     flowables.append(Paragraph("Top 10 Case-Driving Events", h2_style))
     flowables.append(Paragraph("Top Record Anchors (citation-backed)", ParagraphStyle("Top10AliasNote", parent=normal_style, fontSize=8.5, textColor=colors.HexColor("#475569"), spaceAfter=3)))
     top_anchor_rows: list[Paragraph] = []

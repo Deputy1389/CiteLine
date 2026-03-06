@@ -335,6 +335,73 @@ def test_snapshot_promoted_findings_follow_manifest_order() -> None:
     assert idx_img < idx_obj
 
 
+def test_pdf_renders_case_skeleton_for_sparse_packet_when_top_anchors_absent() -> None:
+    projection = ChronologyProjection(
+        generated_at=datetime.now(timezone.utc),
+        entries=[
+            ChronologyProjectionEntry(
+                event_id="evt-admit",
+                date_display="2025-01-01",
+                event_type_display="Hospital Admission",
+                provider_display="General Hospital",
+                facts=["Admitted for observation."],
+                citation_display="records.pdf p. 1",
+            ),
+            ChronologyProjectionEntry(
+                event_id="evt-discharge",
+                date_display="2025-01-01",
+                event_type_display="Discharge Summary",
+                provider_display="General Hospital",
+                facts=["Discharged home with instructions."],
+                citation_display="records.pdf p. 2",
+            ),
+        ],
+    )
+    citations = [
+        Citation(citation_id="c1", source_document_id="doc-1", page_number=1, snippet="Admitted for observation.", bbox=BBox(x=1, y=1, w=1, h=1)),
+        Citation(citation_id="c2", source_document_id="doc-1", page_number=2, snippet="Discharged home with instructions.", bbox=BBox(x=1, y=1, w=1, h=1)),
+    ]
+    renderer_manifest = {
+        "top_case_drivers": [],
+        "promoted_findings": [],
+        "case_skeleton": {
+            "active": True,
+            "items": [
+                {"label": "Earliest encounter", "value": "2025-01-01", "citation_ids": ["c1"]},
+                {"label": "Encounter type", "value": "Hospital Admission", "citation_ids": ["c1"]},
+                {"label": "Disposition", "value": "Discharged same day", "citation_ids": ["c2"]},
+                {"label": "Providers documented", "value": "1 documented", "citation_ids": ["c1", "c2"]},
+                {"label": "Pages analyzed", "value": "2", "citation_ids": ["c1", "c2"]},
+            ],
+            "care_phases": [
+                {"label": "Care phase", "value": "Hospital admission", "citation_ids": ["c1"]},
+                {"label": "Care phase", "value": "Discharge instructions", "citation_ids": ["c2"]},
+            ],
+        },
+    }
+    pdf_bytes = generate_pdf_from_projection(
+        matter_title="Skeleton Case",
+        projection=projection,
+        gaps=[],
+        appendix_entries=projection.entries,
+        raw_events=[],
+        all_citations=citations,
+        page_map={1: ("records.pdf", 1), 2: ("records.pdf", 2)},
+        renderer_manifest=renderer_manifest,
+        evidence_graph_payload={},
+        run_id=None,
+    )
+    text = _pdf_text(pdf_bytes)
+    assert "Case Skeleton" in text
+    assert "Earliest encounter: 2025-01-01" in text
+    assert "Encounter type: Hospital Admission" in text
+    assert "Disposition: Discharged same day" in text
+    assert "Documented care phases" in text
+    assert "Hospital admission" in text
+    assert "Discharge instructions" in text
+    assert "No citation-supported top anchors were available for promotion." in text
+
+
 def test_pdf_pt_verified_reported_reconciliation_and_ledger() -> None:
     projection = ChronologyProjection(generated_at=datetime.now(timezone.utc), entries=[])
     citations = [

@@ -456,3 +456,16 @@ Compact packets that preserve a small number of clinically distinct phases must 
 - **Failure class protected**: Trust erosion risk
 
 ---
+
+## Sparse Packet Fallback Invariants (Pass 62)
+
+### INV-CS1 - CASE_SKELETON_ONLY_WHEN_SPARSE
+
+If `renderer_manifest.top_case_drivers` is empty and structured sparse-packet facts exist, `renderer_manifest.case_skeleton.active` must be true and the manifest must provide deterministic citation-backed orientation items.
+
+- **Enforced in**: `apps/worker/steps/step_renderer_manifest.py` :: `_build_case_skeleton()` and `build_renderer_manifest()`
+- **Tested in**: `tests/unit/test_renderer_manifest.py` :: `test_renderer_manifest_builds_case_skeleton_for_sparse_packet`, `test_renderer_manifest_omits_case_skeleton_when_substantive_top_drivers_exist`; `tests/unit/test_pdf_quality_gate.py` :: `test_pdf_renders_case_skeleton_for_sparse_packet_when_top_anchors_absent`
+- **Introduced in**: Pass 62
+- **Failure class protected**: Trust erosion risk
+
+---

@@ -13,7 +13,7 @@ from datetime import datetime
 from datetime import date
 from typing import Any
 
-from packages.shared.models import Citation, Event, RendererManifest, RendererDoiField, RendererCitationValue, RendererPtSummary, PromotedFinding, BucketEvidence
+from packages.shared.models import Citation, Event, RendererManifest, RendererDoiField, RendererCitationValue, RendererPtSummary, PromotedFinding, BucketEvidence, RendererCaseSkeleton, RendererCaseSkeletonItem
 from packages.shared.utils.scoring_utils import is_ed_event
 from packages.shared.utils.noise_utils import is_fax_header_noise
 
@@ -94,7 +94,7 @@ _TIMING_ONLY_TREATMENT_RE = re.compile(
     re.IGNORECASE,
 )
 _LOW_VALUE_TREATMENT_RE = re.compile(
-    r"\b(?:admission record|discharge summary|discharged home in stable condition|presented with worsening medical condition|patient remained hemodynamically stable)\b",
+    r"\b(?:admission record|discharge summary|discharged home(?: with instructions)?|discharged in stable condition|admitted for observation|presented with worsening medical condition|patient remained hemodynamically stable)\b",
     re.IGNORECASE,
 )
 _SUBSTANTIVE_DIAGNOSIS_RE = re.compile(
@@ -156,9 +156,10 @@ def _is_low_value_claim_for_promotion(
         return True
     if _HEADER_ONLY_RE.match(text):
         return True
+    if _LOW_VALUE_TREATMENT_RE.search(text) and not _SUBSTANTIVE_TREATMENT_RE.search(text):
+        return True
     if category == "treatment":
-        if _LOW_VALUE_TREATMENT_RE.search(text) and not _SUBSTANTIVE_TREATMENT_RE.search(text):
-            return True
+        pass
     if category == "diagnosis":
         if ("medical condition" in low or "condition " in low) and not _SUBSTANTIVE_DIAGNOSIS_RE.search(text):
             return True
@@ -1562,6 +1563,181 @@ def _build_bucket_evidence(events: list[Event], citations: list[Citation] | None
     return buckets
 
 
+def _dedupe_citation_ids(items: list[str] | None, limit: int = 8) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in items or []:
+        cid = str(item or "").strip()
+        if not cid or cid in seen:
+            continue
+        seen.add(cid)
+        out.append(cid)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _event_type_value(event: Event) -> str:
+    return str(getattr(getattr(event, "event_type", None), "value", getattr(event, "event_type", "")) or "").lower()
+
+
+def _encounter_class_label(event: Event, bucket_evidence: dict[str, BucketEvidence] | None = None) -> str:
+    et = _event_type_value(event)
+    if et == "er_visit":
+        return "Emergency Department"
+    if et == "hospital_admission":
+        return "Hospital Admission"
+    if et == "hospital_discharge":
+        if (bucket_evidence or {}).get("ed", BucketEvidence()).detected:
+            return "Emergency Department / Hospital Discharge"
+        return "Hospital Discharge"
+    if et == "inpatient_daily_note":
+        return "Inpatient Hospital Care"
+    if et == "office_visit":
+        return "Office Visit"
+    if et == "pt_visit":
+        return "Physical Therapy"
+    if et == "imaging_study":
+        return "Imaging Study"
+    if et == "procedure":
+        return "Procedure"
+    if et == "lab_result":
+        return "Laboratory Testing"
+    return et.replace("_", " ").title() or "Clinical Encounter"
+
+
+def _care_phase_label(event: Event, bucket_evidence: dict[str, BucketEvidence] | None = None) -> str | None:
+    et = _event_type_value(event)
+    ed_detected = bool((bucket_evidence or {}).get("ed", BucketEvidence()).detected)
+    if et in {"er_visit", "hospital_admission"}:
+        return "Emergency department evaluation" if ed_detected else "Hospital admission"
+    if et in {"hospital_discharge", "discharge"}:
+        return "Discharge instructions"
+    if et == "inpatient_daily_note":
+        return "Inpatient monitoring"
+    if et == "imaging_study":
+        return "Diagnostic testing"
+    if et == "lab_result":
+        return "Laboratory testing"
+    if et == "procedure":
+        return "Procedure"
+    if et == "pt_visit":
+        return "Physical therapy"
+    if et == "office_visit":
+        return "Follow-up care"
+    return None
+
+
+def _build_case_skeleton(
+    events: list[Event],
+    citations: list[Citation] | None,
+    *,
+    promoted: list[PromotedFinding],
+    top_case_drivers: list[str],
+    bucket_evidence: dict[str, BucketEvidence],
+    mechanism: RendererCitationValue,
+) -> RendererCaseSkeleton:
+    if top_case_drivers:
+        return RendererCaseSkeleton()
+
+    dated_events = [(start, event) for event in events if (start := _iso_from_event(event)[0])]
+    dated_events.sort(key=lambda item: item[0])
+    items: list[RendererCaseSkeletonItem] = []
+    care_phases: list[RendererCaseSkeletonItem] = []
+
+    unique_pages = sorted({
+        int(getattr(c, "page_number", 0) or 0)
+        for c in (citations or [])
+        if int(getattr(c, "page_number", 0) or 0) > 0
+    })
+    unique_citation_ids = _dedupe_citation_ids([str(getattr(c, "citation_id", "") or "") for c in (citations or [])], limit=8)
+    provider_ids = sorted({
+        str(getattr(e, "provider_id", "") or "").strip()
+        for e in events
+        if str(getattr(e, "provider_id", "") or "").strip()
+    })
+
+    if dated_events:
+        start_date, first_event = dated_events[0]
+        items.append(
+            RendererCaseSkeletonItem(
+                label="Earliest encounter",
+                value=start_date,
+                citation_ids=_dedupe_citation_ids(list(getattr(first_event, "citation_ids", []) or [])),
+            )
+        )
+        items.append(
+            RendererCaseSkeletonItem(
+                label="Encounter type",
+                value=_encounter_class_label(first_event, bucket_evidence),
+                citation_ids=_dedupe_citation_ids(list(getattr(first_event, "citation_ids", []) or [])),
+            )
+        )
+
+    discharge_events = [e for e in events if _event_type_value(e) in {"hospital_discharge", "discharge"}]
+    if discharge_events:
+        discharge_event = sorted(discharge_events, key=lambda e: _iso_from_event(e)[0] or "9999-99-99")[0]
+        discharge_date = _iso_from_event(discharge_event)[0]
+        first_date = dated_events[0][0] if dated_events else None
+        disposition = "Discharged same day" if first_date and discharge_date == first_date else "Discharged after inpatient stay"
+        items.append(
+            RendererCaseSkeletonItem(
+                label="Disposition",
+                value=disposition,
+                citation_ids=_dedupe_citation_ids(list(getattr(discharge_event, "citation_ids", []) or [])),
+            )
+        )
+
+    if provider_ids:
+        items.append(
+            RendererCaseSkeletonItem(
+                label="Providers documented",
+                value=f"{len(provider_ids)} documented",
+                citation_ids=_dedupe_citation_ids([
+                    cid for e in events for cid in list(getattr(e, "citation_ids", []) or [])
+                ]),
+            )
+        )
+
+    if unique_pages:
+        items.append(
+            RendererCaseSkeletonItem(
+                label="Pages analyzed",
+                value=str(len(unique_pages)),
+                citation_ids=unique_citation_ids,
+            )
+        )
+
+    if mechanism.value and mechanism.citation_ids:
+        items.append(
+            RendererCaseSkeletonItem(
+                label="Mechanism documented",
+                value="Yes",
+                citation_ids=_dedupe_citation_ids(list(mechanism.citation_ids or [])),
+            )
+        )
+
+    seen_phase_labels: set[str] = set()
+    for _event_date, event in dated_events:
+        label = _care_phase_label(event, bucket_evidence)
+        if not label or label in seen_phase_labels:
+            continue
+        seen_phase_labels.add(label)
+        care_phases.append(
+            RendererCaseSkeletonItem(
+                label="Care phase",
+                value=label,
+                citation_ids=_dedupe_citation_ids(list(getattr(event, "citation_ids", []) or [])),
+            )
+        )
+        if len(care_phases) >= 4:
+            break
+
+    if not items and not care_phases:
+        return RendererCaseSkeleton()
+    return RendererCaseSkeleton(active=True, items=items, care_phases=care_phases)
+
+
 def _billing_completeness(specials_summary: dict | None) -> str:
     if not isinstance(specials_summary, dict):
         return "none"
@@ -1716,6 +1892,14 @@ def build_renderer_manifest(
     if len(top_case_drivers) < 3:
         top_case_drivers = _top_case_driver_fallback_from_events(events, top_case_drivers)
     bucket_evidence = _build_bucket_evidence(events, citations)
+    case_skeleton = _build_case_skeleton(
+        events,
+        citations,
+        promoted=promoted,
+        top_case_drivers=top_case_drivers,
+        bucket_evidence=bucket_evidence,
+        mechanism=mechanism,
+    )
     manifest = RendererManifest(
         doi=_build_doi(events),
         mechanism=mechanism,
@@ -1723,6 +1907,7 @@ def build_renderer_manifest(
         promoted_findings=promoted,
         top_case_drivers=top_case_drivers,
         bucket_evidence=bucket_evidence,
+        case_skeleton=case_skeleton,
         billing_completeness=_billing_completeness(specials_summary),
     )
     if isinstance(ext, dict):

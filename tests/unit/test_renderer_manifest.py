@@ -466,3 +466,61 @@ def test_renderer_manifest_top_case_driver_event_fallback_skips_low_value_events
     )
     manifest = build_renderer_manifest(events=[evt], evidence_graph_extensions={}, specials_summary=None)
     assert manifest.top_case_drivers == []
+
+
+def test_renderer_manifest_builds_case_skeleton_for_sparse_packet() -> None:
+    events = [
+        Event(
+            event_id="admit-1",
+            provider_id="prov-er",
+            event_type=EventType.HOSPITAL_ADMISSION,
+            date=EventDate(kind=DateKind.SINGLE, value=date(2025, 1, 1), source=DateSource.TIER1),
+            facts=[Fact(text="Admitted for observation.", kind=FactKind.OTHER, citation_ids=["c1"], verbatim=False)],
+            confidence=88,
+            citation_ids=["c1"],
+            source_page_numbers=[1],
+        ),
+        Event(
+            event_id="disch-1",
+            provider_id="prov-hosp",
+            event_type=EventType.HOSPITAL_DISCHARGE,
+            date=EventDate(kind=DateKind.SINGLE, value=date(2025, 1, 1), source=DateSource.TIER1),
+            facts=[Fact(text="Discharged home with instructions.", kind=FactKind.OTHER, citation_ids=["c2"], verbatim=False)],
+            confidence=88,
+            citation_ids=["c2"],
+            source_page_numbers=[2],
+        ),
+    ]
+    citations = [
+        Citation(citation_id="c1", source_document_id="doc-1", page_number=1, snippet="Admitted for observation.", bbox=BBox(x=1, y=1, w=1, h=1)),
+        Citation(citation_id="c2", source_document_id="doc-1", page_number=2, snippet="Discharged home with instructions.", bbox=BBox(x=1, y=1, w=1, h=1)),
+    ]
+    manifest = build_renderer_manifest(events=events, evidence_graph_extensions={}, specials_summary=None, citations=citations)
+    assert manifest.top_case_drivers == []
+    assert manifest.case_skeleton.active is True
+    labels = [item.label for item in manifest.case_skeleton.items]
+    assert "Earliest encounter" in labels
+    assert "Encounter type" in labels
+    assert "Disposition" in labels
+    assert "Providers documented" in labels
+    assert "Pages analyzed" in labels
+    phase_values = [item.value for item in manifest.case_skeleton.care_phases]
+    assert "Emergency department evaluation" in phase_values
+    assert "Discharge instructions" in phase_values
+
+
+def test_renderer_manifest_omits_case_skeleton_when_substantive_top_drivers_exist() -> None:
+    claim_rows = [
+        {
+            "event_id": "e1",
+            "claim_type": "INJURY_DX",
+            "assertion": "C5-C6 disc protrusion with left foraminal narrowing",
+            "citations": ["packet.pdf p. 12"],
+            "selection_score": 92,
+            "support_score": 3,
+            "body_region": "cervical",
+        }
+    ]
+    manifest = build_renderer_manifest(events=[], evidence_graph_extensions={"claim_rows": claim_rows}, specials_summary=None)
+    assert manifest.top_case_drivers == ["e1"]
+    assert manifest.case_skeleton.active is False
