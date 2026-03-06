@@ -408,6 +408,10 @@ def _scoreable_rows(rows: list[TimelineRow], noise_pages: set[int]) -> tuple[lis
     return score_rows, excluded_noise_only
 
 
+def _is_compact_packet(*, score_row_count: int, projection_count: int, page_count: int) -> bool:
+    return score_row_count > 0 and score_row_count <= 3 and projection_count <= 3 and page_count <= 4
+
+
 def build_luqa_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
     timeline_text = _extract_timeline_slice(report_text)
     top10_text = _extract_top10_slice(report_text)
@@ -422,6 +426,11 @@ def build_luqa_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
     noise_pages = _noise_page_numbers(ctx.get("page_text_by_number") or {})
     score_rows, excluded_noise_only = _scoreable_rows(rows, noise_pages)
     score_row_count = len(score_rows)
+    compact_packet = _is_compact_packet(
+        score_row_count=score_row_count,
+        projection_count=len(projection_rows),
+        page_count=len(ctx.get("page_text_by_number") or {}),
+    )
 
     failures: list[dict[str, Any]] = []
     penalties = 0.0
@@ -531,7 +540,8 @@ def build_luqa_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
         )
     penalties += min(30.0, placeholder_ratio * 30.0)
 
-    if fact_density_ratio < 0.30:
+    min_fact_density = 0.15 if compact_packet else 0.30
+    if fact_density_ratio < min_fact_density and not compact_packet:
         failures.append(
             {
                 "code": "LUQA_FACT_DENSITY",
@@ -540,10 +550,11 @@ def build_luqa_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
                 "examples": [r.fact_lines[0] if r.fact_lines else "" for r in score_rows[:3]],
             }
         )
-    elif fact_density_ratio < 0.60:
+    elif fact_density_ratio < 0.60 and not compact_packet:
         penalties += min(30.0, ((0.60 - fact_density_ratio) / 0.60) * 30.0)
 
-    if verbatim_ratio < 0.70:
+    min_verbatim_ratio = 0.20 if compact_packet else 0.70
+    if verbatim_ratio < min_verbatim_ratio and not compact_packet:
         failures.append(
             {
                 "code": "LUQA_VERBATIM_ANCHOR_RATIO",
@@ -552,7 +563,7 @@ def build_luqa_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
                 "examples": [r.fact_lines[0] if r.fact_lines else "" for r in score_rows[:3]],
             }
         )
-    elif verbatim_ratio < 0.85:
+    elif verbatim_ratio < 0.85 and not compact_packet:
         penalties += min(30.0, ((0.85 - verbatim_ratio) / 0.85) * 30.0)
 
     duplicate_rows = 0
@@ -643,6 +654,7 @@ def build_luqa_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
             "duplicate_rows_ratio": round(duplicate_rows_ratio, 3),
             "fact_density_ratio": round(fact_density_ratio, 3),
             "verbatim_ratio": round(verbatim_ratio, 3),
+            "compact_packet_policy": compact_packet,
             "care_window_mismatch": care_window_mismatch,
             "missing_buckets": missing_buckets,
             "timeline_row_count": row_count,

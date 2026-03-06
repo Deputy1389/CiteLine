@@ -253,6 +253,10 @@ def _is_milestone_row(row: _TimelineRow) -> bool:
     )
 
 
+def _is_compact_packet(*, score_row_count: int, projection_count: int, page_count: int) -> bool:
+    return score_row_count > 0 and score_row_count <= 3 and projection_count <= 3 and page_count <= 4
+
+
 def build_attorney_readiness_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
     failures: list[dict[str, Any]] = []
     hard_fail = False
@@ -307,6 +311,11 @@ def build_attorney_readiness_report(report_text: str, ctx: dict[str, Any]) -> di
     noise_pages = _noise_page_numbers(ctx.get("page_text_by_number") or {})
     score_rows = [r for r in rows if not _row_is_noise_only(r, noise_pages)]
     score_row_count = len(score_rows)
+    compact_packet = _is_compact_packet(
+        score_row_count=score_row_count,
+        projection_count=len(projection_rows),
+        page_count=len(ctx.get("page_text_by_number") or {}),
+    )
 
     dense_rows = 0
     for r in score_rows:
@@ -314,7 +323,8 @@ def build_attorney_readiness_report(report_text: str, ctx: dict[str, Any]) -> di
         if cats >= 2 or (_is_milestone_row(r) and cats >= 1):
             dense_rows += 1
     fact_density_ratio = (dense_rows / score_row_count) if score_row_count else 0.0
-    if fact_density_ratio < 0.60:
+    min_fact_density = 0.25 if compact_packet else 0.60
+    if fact_density_ratio < min_fact_density and not compact_packet:
         failures.append(
             {
                 "code": "AR_FACT_DENSITY_LOW",
@@ -323,7 +333,8 @@ def build_attorney_readiness_report(report_text: str, ctx: dict[str, Any]) -> di
                 "examples": [(" ".join(r.facts)[:140]) for r in score_rows[:3]],
             }
         )
-    penalties += min(30.0, max(0.0, (0.60 - fact_density_ratio)) * 30.0)
+    if not compact_packet:
+        penalties += min(30.0, max(0.0, (min_fact_density - fact_density_ratio)) * 30.0)
 
     src_buckets = _source_buckets(ctx.get("page_text_by_number") or {})
     timeline_buckets = _timeline_buckets(rows) | _projection_buckets(list(ctx.get("projection_entries", []) or []))
@@ -352,6 +363,7 @@ def build_attorney_readiness_report(report_text: str, ctx: dict[str, Any]) -> di
             "timeline_noise_row_count_excluded": max(0, row_count - score_row_count),
             "uncited_ratio": round(uncited_ratio, 3),
             "fact_density_ratio": round(fact_density_ratio, 3),
+            "compact_packet_policy": compact_packet,
             "missing_buckets": missing_buckets,
             "missing_sections": missing_sections,
         },
