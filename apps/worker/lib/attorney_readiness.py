@@ -58,9 +58,14 @@ def _extract_timeline_slice(report_text: str) -> str:
         start = low.find("medical timeline (litigation ready)")
     if start < 0:
         return report_text
-    end = low.find("top 10 case-driving events", start + 1)
-    if end < 0:
-        end = len(report_text)
+    end_candidates = [
+        low.find("top 10 case-driving events", start + 1),
+        low.find("billing / specials", start + 1),
+        low.find("billing/specials", start + 1),
+        low.find("appendix a:", start + 1),
+    ]
+    ends = [e for e in end_candidates if e > start]
+    end = min(ends) if ends else len(report_text)
     return report_text[start:end]
 
 

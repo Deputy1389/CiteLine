@@ -214,3 +214,36 @@ def test_luqa_projection_bucket_presence_recognizes_ed_from_event_type():
     luqa = build_luqa_report(report, _ctx(entries=entries, page_text=page_text))
     codes = {f["code"] for f in luqa["failures"]}
     assert "LUQA_REQUIRED_BUCKETS_WHEN_PRESENT" not in codes
+
+
+def test_luqa_timeline_slice_stops_before_billing_diagnostics() -> None:
+    report = """
+Medical Chronology Analysis
+CASE SNAPSHOT (30-SECOND READ)
+Top 10 Case-Driving Events
+- 2025-01-01 | Emergency Visit | neck pain after MVC. | Citation(s): p. 1
+Medical Timeline (Litigation Ready)
+2025-01-01 | Encounter: Emergency Visit
+Facility/Clinician: General Hospital
+"Chief complaint: neck pain after MVC."
+Citation(s): packet.pdf p. 1
+Billing / Specials
+Billing extraction status: No billing data extracted from packet.
+Billing pages detected: 0
+Flags: NO_BILLING_DATA
+Appendix A:
+"""
+    entries = [
+        _entry(
+            "2025-01-01",
+            ['Chief complaint: neck pain after MVC.'],
+            "packet.pdf p. 1",
+            event_type_display="Emergency Visit",
+            verbatim_flags=[True],
+        )
+    ]
+
+    luqa = build_luqa_report(report, _ctx(entries=entries))
+    codes = {f["code"] for f in luqa["failures"]}
+
+    assert "LUQA_META_LANGUAGE_BAN" not in codes
