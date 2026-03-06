@@ -3,7 +3,6 @@ import os
 import json
 import logging
 from datetime import datetime
-from collections import defaultdict
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -14,7 +13,8 @@ class LitigationReviewer:
         self.data = {
             'events': [],
             'patients': [],
-            'missing_records': {}
+            'missing_records': {},
+            'extensions': {},
         }
         self.text_content = ""
         self.checklist = {
@@ -30,11 +30,12 @@ class LitigationReviewer:
         }
         self.review_lines = []
 
-    def load_from_memory(self, events: list, text_content: str, patients: list = None):
+    def load_from_memory(self, events: list, text_content: str, patients: list = None, extensions: dict | None = None):
         """Load data directly from pipeline objects."""
         # Convert Pydantic models to dicts if necessary, or handle objects
         self.data['events'] = [e.model_dump() if hasattr(e, 'model_dump') else e for e in events]
         self.data['patients'] = [p.model_dump() if hasattr(p, 'model_dump') else p for p in (patients or [])]
+        self.data['extensions'] = dict(extensions or {})
         self.text_content = text_content
         self.checklist['artifacts_detected'].append('in_memory_data')
 
@@ -215,9 +216,27 @@ class LitigationReviewer:
         self.checklist['quality_gates']['Q1'] = {'pass': q1_pass, 'details': q1_details}
         if not q1_pass: quality_fails += 1
 
-        # Q2: Anti-gaming (Coverage floor)
-        q2_pass = len(self.data['events']) > 5 if self.data['events'] else len(self.text_content) > 1000
-        self.checklist['quality_gates']['Q2'] = {'pass': q2_pass, 'details': []}
+        # Q2: Coverage floor must be evidence-based, not packet-length based.
+        ext = self.data.get('extensions') or {}
+        citation_fidelity = ext.get('citation_fidelity') or {}
+        extraction_metrics = ext.get('extraction_metrics') or {}
+        anchored_claims = int(citation_fidelity.get('claim_rows_anchored') or 0)
+        text_backed_claims = int(citation_fidelity.get('claim_rows_text_backed') or 0)
+        citations_total = int(extraction_metrics.get('citations_total') or 0)
+        chronology_consistent = bool(h5_pass and len(self.data['events']) > 0)
+        q2_pass = bool(
+            anchored_claims >= 1
+            and text_backed_claims >= 1
+            and citations_total >= 3
+            and chronology_consistent
+        )
+        q2_details = [{
+            "anchored_claims": anchored_claims,
+            "text_backed_claims": text_backed_claims,
+            "citations_total": citations_total,
+            "chronology_consistent": chronology_consistent,
+        }]
+        self.checklist['quality_gates']['Q2'] = {'pass': q2_pass, 'details': q2_details}
         if not q2_pass: quality_fails += 1
 
         # Q3: Medication change semantics
@@ -250,6 +269,15 @@ class LitigationReviewer:
         self.checklist['quality_gates']['Q9'] = {'pass': q9_pass, 'details': q9_details}
         if not q9_pass: quality_fails += 1
 
+        # Q10: Citation drift guard
+        drift_required = bool(citation_fidelity.get("drift_review_required"))
+        drift_details = []
+        if drift_required:
+            drift_details = list(citation_fidelity.get("drift_suspects") or [])[:6]
+        self.checklist['quality_gates']['Q10'] = {'pass': not drift_required, 'details': drift_details}
+        if drift_required:
+            quality_fails += 1
+
         # Scoring
         score = 100
         if hard_fails > 0:
@@ -257,6 +285,8 @@ class LitigationReviewer:
             self.checklist['pass'] = False
         else:
             score -= (quality_fails * 10)
+            if drift_required:
+                score = min(score, 60)
             score = max(0, score)
             self.checklist['pass'] = (score >= 70)
         

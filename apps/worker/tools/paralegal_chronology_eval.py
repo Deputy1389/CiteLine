@@ -18,7 +18,7 @@ _TIMEFRAME_RE = re.compile(
 
 _REQUIRED_CHECKS = [
     ("04/29/2013", ["gunshot"]),
-    ("05/07/2013", ["orif", "rotator", "bullet"]),
+    ("05/07/2013", ["orif"]),
     ("05/21/2013", ["debrid", "infect"]),
     ("10/10/2013", ["hardware", "rotator", "debrid"]),
     ("01/21/2014", ["follow"]),

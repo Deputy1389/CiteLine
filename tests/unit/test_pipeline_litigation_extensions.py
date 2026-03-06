@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from apps.worker.pipeline import _build_litigation_extensions
+from packages.shared.models import BBox, Citation
+from packages.shared.models import RunConfig
 
 
 def test_build_litigation_extensions_contract() -> None:
@@ -44,7 +46,11 @@ def test_build_litigation_extensions_contract() -> None:
             "score": 10,
         },
     ]
-    ext = _build_litigation_extensions(claim_rows)
+    citations = [
+        Citation(citation_id="cit-1", source_document_id="doc-1", page_number=5, snippet="History of chronic lumbar pain prior to incident.", bbox=BBox(x=0, y=0, w=1, h=1)),
+        Citation(citation_id="cit-2", source_document_id="doc-1", page_number=20, snippet="Treatment gap of 120 days identified.", bbox=BBox(x=0, y=0, w=1, h=1)),
+    ]
+    ext = _build_litigation_extensions(claim_rows, citations, RunConfig())
     assert "claim_rows" in ext
     assert "causation_chains" in ext
     assert "citation_fidelity" in ext
@@ -57,5 +63,6 @@ def test_build_litigation_extensions_contract() -> None:
     assert "narrative_duality" in ext
     assert "comparative_pattern_engine" in ext
     assert isinstance(ext["quote_lock_rows"], list)
+    assert ext["citation_fidelity"]["claim_rows_text_backed"] >= 1
     if ext["quote_lock_rows"]:
         assert all("quote" in q for q in ext["quote_lock_rows"])

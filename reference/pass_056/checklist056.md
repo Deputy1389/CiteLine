@@ -289,3 +289,11 @@ Confirm none of the following are introduced by this pass:
 
 Checklist is complete and internally consistent.
 Implementation plan is in `reference/pass_056/plan.md`.
+
+## Follow-Up Triage
+
+Cloud MIMIC validation refined the remaining pass-56 risk:
+
+- Real defect: production chronology contamination from hardcoded milestone injection
+- Policy defect: litigation `Q2` coverage gate was packet-volume based instead of evidence-based
+- Hidden high-risk class: citation drift requires immutable evidence alignment checks, not page-number presence alone

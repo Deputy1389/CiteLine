@@ -195,7 +195,7 @@ def test_renderer_manifest_suppresses_sentinel_doi_display() -> None:
     text = _pdf_text(pdf_bytes)
     pre_appendix = text.split("Citation Index & Record Appendix")[0]
     assert "1900-01-01" not in pre_appendix
-    assert "Not clearly stated in chart documentation" in text
+    assert "Date of injury could not be confirmed from available records." in text
 
 
 def test_timeline_omits_uncited_rows() -> None:

@@ -10,7 +10,9 @@ logger = logging.getLogger(__name__)
 def run_litigation_review(
     run_id: str,
     events: list[Event],
-    page_text_by_number: dict[int, str]
+    page_text_by_number: dict[int, str],
+    *,
+    extensions: dict | None = None,
 ) -> tuple[dict, list[Warning]]:
     """
     Execute Litigation Grade Review on the extracted events.
@@ -29,7 +31,7 @@ def run_litigation_review(
     if events:
         print(f"DEBUG_FIRST_EVENT_CITATIONS: {events[0].event_id} -> {events[0].citation_ids}")
     reviewer = LitigationReviewer(run_id)
-    reviewer.load_from_memory(events=events, text_content=full_text)
+    reviewer.load_from_memory(events=events, text_content=full_text, extensions=extensions)
     
     # 3. Run Checks
     checklist = reviewer.run_checks()

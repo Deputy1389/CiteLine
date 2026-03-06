@@ -145,3 +145,23 @@ Introduce a shared robustness policy with four layers:
 - Page classification is score-based and resistant to keyword flooding.
 - Content-shape invariants degrade status instead of crashing the export path.
 - Tests cover unusual era, unusual format, and unusual density cases.
+
+## Follow-Up Hardening
+
+Cloud MIMIC reruns exposed three follow-up items that are now part of pass 56 closeout:
+
+1. Remove production chronology contamination.
+- Delete hardcoded milestone injection from `apps/worker/steps/step18_paralegal_chronology.py`.
+- Keep any packet-specific milestone expectations in test fixtures only.
+
+2. Replace litigation-review `Q2` with evidence sufficiency.
+- Stop using packet/event volume as the coverage floor.
+- Pass compact packets when they have citation-backed substantive claims and coherent chronology.
+
+3. Add deterministic citation-drift protection.
+- Compute claim-to-citation snippet overlap in pipeline extensions.
+- Flag low-overlap or polarity-mismatched claim rows as `drift_review_required`.
+- Feed drift findings into litigation review instead of relying on page-number presence alone.
+
+4. Tighten export fallback wording.
+- Replace internal diagnostic placeholder phrasing with structured disclosures suitable for non-debug export paths.

@@ -124,3 +124,25 @@ Recommended mitigation:
 - `reference/pass_056/checklist056.md`
 - `reference/pass_056/plan.md`
 - `reference/pass_056/robustness_sweep_report.md`
+
+## Follow-Up From Cloud MIMIC Validation
+
+Three fresh cloud MIMIC reruns proved:
+
+- future-dated synthetic records no longer crash the pipeline
+- structured lab/value rows survive extraction and rendering
+- remaining `needs_review` outcomes were driven by downstream policy and artifact hygiene, not parser failure
+
+The follow-up hardening items are:
+
+1. Remove production chronology contamination
+- `apps/worker/steps/step18_paralegal_chronology.py`
+- Hardcoded 2013/2014 milestones must not be injected into unrelated packets.
+
+2. Replace packet-volume `Q2` gating
+- `apps/worker/lib/litigation_review.py`
+- Coverage sufficiency must be anchored-claim based, not `len(events) > 5`.
+
+3. Add citation-drift invariant
+- Claim rows must be text-backed by citation snippets, not just page-backed.
+- Low-overlap or polarity-mismatched claim/citation pairs should trigger review.

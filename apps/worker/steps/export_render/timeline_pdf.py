@@ -302,7 +302,7 @@ def _attorney_placeholder_text(text: str | None) -> str:
         return ""
     low = s.lower()
     if low == "see patient header":
-        return "Patient name not reliably extracted from packet"
+        return "Identity fields could not be confirmed from available records."
     return s
 
 
@@ -1910,10 +1910,10 @@ def generate_pdf_from_projection(
         flowables.append(Paragraph("Internal review chronology summary generated from citation-anchored records.", ParagraphStyle("ChronologyAnalysisMeta", parent=normal_style, fontSize=8.5, textColor=colors.HexColor("#475569"), spaceAfter=4)))
     flowables.append(Paragraph("CASE SNAPSHOT (30-SECOND READ)", h1_style))
 
-    patient_label = next((str(getattr(e, "patient_label", "")).strip() for e in projection.entries if str(getattr(e, "patient_label", "")).strip() and "unknown" not in str(getattr(e, "patient_label", "")).lower()), "Patient name not reliably extracted from packet")
+    patient_label = next((str(getattr(e, "patient_label", "")).strip() for e in projection.entries if str(getattr(e, "patient_label", "")).strip() and "unknown" not in str(getattr(e, "patient_label", "")).lower()), "Identity fields could not be confirmed from available records.")
     if patient_label.strip().lower() == "see patient header":
-        patient_label = "Patient name not reliably extracted from packet"
-    if patient_label == "Patient name not reliably extracted from packet":
+        patient_label = "Identity fields could not be confirmed from available records."
+    if patient_label == "Identity fields could not be confirmed from available records.":
         mrn_fallback = _mrn_display_from_citations(all_citations)
         if mrn_fallback:
             patient_label = mrn_fallback
@@ -1974,9 +1974,9 @@ def generate_pdf_from_projection(
     if rm_doi and not is_sentinel_date(rm_doi) and str(rm_doi_source or "").lower() != "not_found":
         doi_display = str(rm_doi)
     else:
-        doi_display = doi if doi and not is_sentinel_date(doi) else "Not clearly stated in chart documentation"
+        doi_display = doi if doi and not is_sentinel_date(doi) else "Date of injury could not be confirmed from available records."
     rm_mechanism = ((rm.get("mechanism") or {}).get("value") if isinstance(rm, dict) else None)
-    mechanism_display = str(rm_mechanism) if rm_mechanism else (mechanism or "Injury mechanism is not expressly documented in chart notes.")
+    mechanism_display = str(rm_mechanism) if rm_mechanism else (mechanism or "Mechanism could not be confirmed from cited records.")
     export_status_internal = _export_status_internal(ext, rm)
     export_status = attorney_tier_label(export_status_internal)
     if not include_internal_review_sections and export_status in {"Attorney Review Recommended", "Not Yet Litigation-Safe"}:
@@ -1984,7 +1984,7 @@ def generate_pdf_from_projection(
     cca = _claim_context_alignment_payload(ext)
     mechanism_alignment_status, _mechanism_alignment_claim_id = _mechanism_alignment_status(cca, rm if isinstance(rm, dict) else {})
     if (mechanism_alignment_status == "BLOCKED") or _mechanism_blocked_in_alignment(cca):
-        mechanism_display = "Injury mechanism is not expressly documented in chart notes."
+        mechanism_display = "Mechanism could not be confirmed from cited records."
 
     header_rows = [
         ["Case", display_matter_title],
@@ -2468,8 +2468,8 @@ def generate_pdf_from_projection(
         ))
 
     snapshot_warnings: list[str] = []
-    if mechanism_display == "Injury mechanism is not expressly documented in chart notes.":
-        snapshot_warnings.append("Injury mechanism is not expressly documented in chart notes.")
+    if mechanism_display == "Mechanism could not be confirmed from cited records.":
+        snapshot_warnings.append("Mechanism could not be confirmed from cited records.")
     has_img = bool(promoted_by_cat.get("imaging"))
     has_dx = bool(promoted_by_cat.get("diagnosis"))
     if not has_img:

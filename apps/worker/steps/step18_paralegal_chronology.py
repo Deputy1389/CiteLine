@@ -141,38 +141,13 @@ def _extract_event_records(
     return by_date
 
 
-def _inject_required_milestones(by_date: dict[str, list[dict]], selected_pages: list[int], page_map: dict[int, tuple[str, int]]) -> None:
-    default_citation = _page_ref(page_map, selected_pages[0]) if selected_pages else "Source chronology section"
-    required = {
-        "05/07/2013": "Surgery: ORIF + rotator cuff repair + bullet removal.",
-        "05/21/2013": "Surgery/procedure: wound irrigation/debridement and infection management.",
-        "10/10/2013": "Surgery: hardware removal + rotator cuff repair + debridement.",
-    }
-    for date_str, summary in required.items():
-        have = " ".join(r["summary"].lower() for r in by_date.get(date_str, []))
-        if date_str == "05/07/2013":
-            ok = all(k in have for k in ["orif", "rotator", "bullet"])
-        elif date_str == "05/21/2013":
-            ok = (("debrid" in have) or ("i&d" in have) or ("irrig" in have)) and ("infect" in have)
-        else:
-            ok = ("hardware" in have) and ("rotator" in have) and ("debrid" in have)
-        if not ok:
-            by_date[date_str].append({"summary": summary, "citation": default_citation})
-
-    if "01/21/2014" not in by_date:
-        by_date["01/21/2014"].append({
-            "summary": "Follow-up encounter documented in packet chronology.",
-            "citation": default_citation,
-        })
-
-
 def build_paralegal_chronology_payload(
     evidence_graph: EvidenceGraph,
     events_for_chronology: list[Event],
     providers: list[Provider],
     page_map: dict[int, tuple[str, int]],
 ) -> dict:
-    gold_records, tf_start, tf_end, selected_pages = _extract_gold_records(evidence_graph, page_map)
+    gold_records, tf_start, tf_end, _selected_pages = _extract_gold_records(evidence_graph, page_map)
     event_records = _extract_event_records(events_for_chronology, providers, page_map)
 
     combined: dict[str, list[dict]] = defaultdict(list)
@@ -180,8 +155,6 @@ def build_paralegal_chronology_payload(
         combined[date_str].extend(rows)
     for date_str, rows in gold_records.items():
         combined[date_str].extend(rows)
-
-    _inject_required_milestones(combined, selected_pages, page_map)
 
     # Deterministic sort and de-dup.
     entries: list[dict] = []

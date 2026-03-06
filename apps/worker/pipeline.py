@@ -11,6 +11,7 @@ import requests
 import hashlib
 from pathlib import Path
 from datetime import datetime, timezone
+from typing import Any
 
 from packages.db.database import get_session
 from packages.db.models import (
@@ -107,6 +108,7 @@ from apps.worker.lib.severity_profile import build_severity_profile
 from apps.worker.lib.settlement_model import build_settlement_model_report
 from apps.worker.lib.internal_demand_copilot import build_internal_demand_package
 from apps.worker.lib.artifacts_writer import build_export_evidence_graph
+from apps.worker.lib.citation_fidelity import assess_claim_row_fidelity
 from apps.worker.lib.observability import write_run_observability, make_stage_timings
 
 logger = logging.getLogger(__name__)
@@ -140,8 +142,9 @@ def _check_deadline(start_time: float, run_id: str, label: str) -> None:
     if elapsed > RUN_TIMEOUT_SECONDS:
         raise TimeoutError(f"Run {run_id} exceeded timeout at {label} ({int(elapsed)}s)")
 
-def _build_litigation_extensions(claim_rows: list[dict] | list[ClaimEdge], config: RunConfig) -> dict:
+def _build_litigation_extensions(claim_rows: list[dict] | list[ClaimEdge], citations: list | None, config: RunConfig) -> dict:
     all_rows = list(claim_rows); anchored_rows = [r for r in all_rows if (r.get("citations") or [])]
+    citation_fidelity = assess_claim_row_fidelity(all_rows, list(citations or []))
     collapse_candidates = build_case_collapse_candidates(anchored_rows)
     attack_paths = build_defense_attack_paths(collapse_candidates, limit=config.litigation_defense_paths_limit)
     objection_profiles = build_objection_profiles(all_rows, limit=config.litigation_objection_profiles_limit)
@@ -154,7 +157,7 @@ def _build_litigation_extensions(claim_rows: list[dict] | list[ClaimEdge], confi
     contradiction_matrix = build_contradiction_matrix(all_rows, limit=config.litigation_contradiction_limit)
     narrative_duality = build_narrative_duality(all_rows)
     comparative_snapshot = build_comparative_pattern_snapshot(all_rows)
-    payload = {"claim_rows": all_rows, "causation_chains": causation_chains, "citation_fidelity": {"claim_rows_total": len(all_rows), "claim_rows_anchored": len(anchored_rows), "claim_row_anchor_ratio": round((len(anchored_rows) / len(all_rows)), 4) if all_rows else 1.0}, "case_collapse_candidates": collapse_candidates, "defense_attack_paths": attack_paths, "objection_profiles": objection_profiles, "evidence_upgrade_recommendations": upgrade_recs, "quote_lock_rows": locked_quotes, "contradiction_matrix": contradiction_matrix, "narrative_duality": narrative_duality, "comparative_pattern_engine": comparative_snapshot}
+    payload = {"claim_rows": all_rows, "causation_chains": causation_chains, "citation_fidelity": citation_fidelity, "case_collapse_candidates": collapse_candidates, "defense_attack_paths": attack_paths, "objection_profiles": objection_profiles, "evidence_upgrade_recommendations": upgrade_recs, "quote_lock_rows": locked_quotes, "contradiction_matrix": contradiction_matrix, "narrative_duality": narrative_duality, "comparative_pattern_engine": comparative_snapshot}
     return LitigationExtensions.model_validate(payload).model_dump(mode="json")
 
 def run_pipeline(run_id: str) -> None:
@@ -310,7 +313,7 @@ def run_pipeline(run_id: str) -> None:
 
         # Ã¢â€â‚¬Ã¢â€â‚¬ Step 14-17: Artifacts Ã¢â€â‚¬Ã¢â€â‚¬
         claim_edges = build_claim_edges([], raw_events=chronology_events, all_citations=all_citations)
-        evidence_graph.extensions.update(_build_litigation_extensions(claim_edges, config))
+        evidence_graph.extensions.update(_build_litigation_extensions(claim_edges, all_citations, config))
 
         providers_normalized = normalize_provider_entities(evidence_graph)
         evidence_graph.extensions["providers_normalized"] = providers_normalized
@@ -517,7 +520,12 @@ def run_pipeline(run_id: str) -> None:
             config=config,
         )
 
-        litigation_checklist, review_warnings = run_litigation_review(run_id, chronology_events, {p.page_number: (p.text or "") for p in all_pages})
+        litigation_checklist, review_warnings = run_litigation_review(
+            run_id,
+            chronology_events,
+            {p.page_number: (p.text or "") for p in all_pages},
+            extensions=evidence_graph.extensions,
+        )
         all_warnings.extend(review_warnings)
 
         run_record = create_run_record(run_id, started_at, source_documents, evidence_graph, chronology, all_warnings, processing_seconds)

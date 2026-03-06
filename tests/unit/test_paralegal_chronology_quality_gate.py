@@ -64,3 +64,29 @@ def test_quality_gate_fails_when_required_milestones_missing():
     report = evaluate_paralegal_chronology(md_text, _sample_pdf_path())
     assert report["passed"] is False
     assert report["checks"]["required_dates_and_milestones"] is False
+
+
+def test_payload_does_not_inject_sample_milestones_into_unrelated_packets() -> None:
+    graph = EvidenceGraph(
+        pages=[
+            Page(
+                page_id="p1",
+                source_document_id="mimic.pdf",
+                page_number=1,
+                text="ADMITTED: 2180-05-06 22:23:00 | DISCHARGED: 2180-05-07 17:15:00",
+                text_source="embedded",
+            )
+        ]
+    )
+    page_map = {1: ("mimic.pdf", 1)}
+    payload = build_paralegal_chronology_payload(
+        evidence_graph=graph,
+        events_for_chronology=[],
+        providers=[],
+        page_map=page_map,
+    )
+    rendered = generate_paralegal_chronology_md(payload).decode("utf-8")
+
+    assert "ORIF + rotator cuff repair + bullet removal" not in rendered
+    assert "05/07/2013" not in rendered
+    assert "Source chronology section" not in rendered
