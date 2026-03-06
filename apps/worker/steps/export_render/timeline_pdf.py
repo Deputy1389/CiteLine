@@ -3155,7 +3155,13 @@ def generate_pdf_from_projection(
     pdf_bytes = buffer.getvalue()
     inv = ext.get("sprint4d_invariants") if isinstance(ext, dict) else None
     if isinstance(inv, dict) and bool(inv.get("ED_EXISTS_BUT_NOT_RENDERED")):
-        raise RuntimeError("ED_EXISTS_BUT_NOT_RENDERED")
+        render_blockers = ext.get("render_blockers") if isinstance(ext.get("render_blockers"), list) else []
+        render_blockers.append({
+            "code": "ED_EXISTS_BUT_NOT_RENDERED",
+            "severity": "hard",
+            "message": "ED evidence exists but was not rendered; export degraded instead of crashing.",
+        })
+        ext["render_blockers"] = render_blockers
     _enforce_export_cleanroom(
         pdf_bytes,
         include_internal_review_sections=include_internal_review_sections,

@@ -17,6 +17,7 @@ import fitz  # PyMuPDF
 from packages.shared.models import Page, Warning
 from packages.db.database import get_session
 from packages.db.models import SourceDocument, Run, OCRCache
+from apps.worker.quality.text_quality import is_structured_medical_signal
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,8 @@ def _is_meaningful(text: str) -> bool:
     if not stripped:
         return False
     stripped = _CID_ARTIFACT_RE.sub("", stripped).strip()
+    if is_structured_medical_signal(stripped):
+        return True
     if len(stripped) < _MIN_TEXT_LENGTH:
         return False
     # Check if mostly whitespace
@@ -90,6 +93,8 @@ def _page_needs_ocr(page_text: str, fitz_page: fitz.Page) -> bool:
         pass
     # Low density text layer: likely headers/watermarks only
     non_ws = re.sub(r"\s+", "", stripped)
+    if is_structured_medical_signal(stripped):
+        return False
     if 0 < len(non_ws) < 200:
         return True
     return True
@@ -151,13 +156,15 @@ def _quality_warning(text: str) -> bool:
     if not text:
         return True
     clean = re.sub(r"\s+", " ", text).strip()
+    if is_structured_medical_signal(clean):
+        return False
     if len(clean) < 40:
         return True
     non_ascii = sum(1 for ch in clean if ord(ch) > 127)
     if non_ascii / max(1, len(clean)) > 0.2:
         return True
     alpha_num = re.sub(r"[^A-Za-z0-9]", "", clean)
-    if len(alpha_num) / max(1, len(clean)) < 0.3:
+    if len(alpha_num) / max(1, len(clean)) < 0.2:
         return True
     return False
 

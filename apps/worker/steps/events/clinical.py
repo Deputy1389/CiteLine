@@ -15,7 +15,7 @@ from packages.shared.models import (
 )
 from apps.worker.steps.events.common import _make_citation, _make_fact, _find_section
 from apps.worker.steps.step06_dates import make_partial_date
-from apps.worker.quality.text_quality import _EMR_LABEL_PREFIX_RE, is_garbage
+from apps.worker.quality.text_quality import _EMR_LABEL_PREFIX_RE, clean_text, is_garbage, is_structured_medical_signal
 from apps.worker.lib.grouping import group_clinical_pages
 
 # Modular Imports
@@ -61,11 +61,13 @@ def extract_clinical_events(
 
     # 1. Group pages into blocks
     blocks = group_clinical_pages(pages, dates, providers, page_provider_map)
+    print(f"DEBUG: extract_clinical_events: grouped into {len(blocks)} blocks")
 
     max_facts = max(1, int(config.clinical_max_facts))
 
-    for block in blocks:
+    for i, block in enumerate(blocks):
         block_events, block_citations = _extract_block_events(block, page_provider_map, providers)
+        print(f"DEBUG:   - Block {i} (pages {block.page_numbers}): extracted {len(block_events)} events")
         
         if not block_events:
             block_facts: list[Fact] = []
@@ -145,16 +147,28 @@ def extract_clinical_events(
         if not events[0].extensions: events[0].extensions = {}
         events[0].extensions["assessment_findings"] = assessment_findings
 
+    for e in events:
+        if not e.date or getattr(e.date, "status", None) == "undated":
+            if "MISSING_DATE" not in e.flags:
+                e.flags.append("MISSING_DATE")
+
     return events, citations, warnings, skipped
 
 def _extract_page_content(page: Page) -> tuple[list[Fact], list[Citation]]:
     facts, citations = [], []
     lines = page.text.split("\n")
     for line in lines:
-        if is_boilerplate_line(line) or is_garbage(line): continue
-        cit = _make_citation(page, line)
+        normalized = clean_text(line).strip() or line.strip()
+        if not normalized:
+            continue
+        if is_boilerplate_line(normalized):
+            continue
+        if is_garbage(normalized) and not is_structured_medical_signal(normalized):
+            continue
+        cit = _make_citation(page, normalized)
         citations.append(cit)
-        facts.append(_make_fact(line, FactKind.OTHER, cit.citation_id))
+        fact_kind = FactKind.LAB if is_structured_medical_signal(normalized) else FactKind.OTHER
+        facts.append(_make_fact(normalized, fact_kind, cit.citation_id))
     return facts, citations
 
 def _extract_block_events(block, page_provider_map, providers):
@@ -177,12 +191,17 @@ def _extract_block_events(block, page_provider_map, providers):
     for page in block.pages:
         lines = page.text.split("\n")
         for line in lines:
-            if is_boilerplate_line(line) or is_garbage(line):
+            normalized = clean_text(line).strip() or line.strip()
+            if not normalized:
+                continue
+            if is_boilerplate_line(normalized):
+                continue
+            if is_garbage(normalized) and not is_structured_medical_signal(normalized):
                 continue
             
             # 1. Detect Date/Time transitions
             # "9/24 1600 ..."
-            dt_match = DATE_TIME_LINE_RE.search(line)
+            dt_match = DATE_TIME_LINE_RE.search(normalized)
             if dt_match:
                 # Close current event
                 current_event = None
@@ -206,14 +225,14 @@ def _extract_block_events(block, page_provider_map, providers):
                 current_event = Event(
                     event_id=uuid.uuid4().hex[:16],
                     provider_id=provider_id,
-                    event_type=detect_encounter_type(line),
+                    event_type=detect_encounter_type(normalized),
                     date=current_date,
                     facts=[],
                     confidence=85,
                     source_page_numbers=[page.page_number],
                 )
                 events.append(current_event)
-                append_to_event(current_event, line, page, citations)
+                append_to_event(current_event, normalized, page, citations)
                 continue
 
             # 2. Add to existing or create default
@@ -221,7 +240,7 @@ def _extract_block_events(block, page_provider_map, providers):
                 current_event = Event(
                     event_id=uuid.uuid4().hex[:16],
                     provider_id=provider_id,
-                    event_type=detect_encounter_type(line),
+                    event_type=detect_encounter_type(normalized),
                     date=current_date,
                     facts=[],
                     confidence=80,
@@ -229,7 +248,7 @@ def _extract_block_events(block, page_provider_map, providers):
                 )
                 events.append(current_event)
             
-            append_to_event(current_event, line, page, citations)
+            append_to_event(current_event, normalized, page, citations)
 
     # Filter out empty events
     return [e for e in events if e.facts], citations
@@ -240,3 +259,4 @@ def _extract_assessment_findings(pages: list[Page]) -> list[str]:
         assessment = _find_section(page.text, "Assessment")
         if assessment: findings.append(assessment)
     return findings
+

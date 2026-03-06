@@ -1,5 +1,5 @@
 """
-Shared Clinical Utilities — Canonicalization, sanitization, and report-quality guards.
+Shared Clinical Utilities - Canonicalization, sanitization, and report-quality guards.
 """
 from __future__ import annotations
 import re
@@ -38,9 +38,23 @@ def sanitize_for_report(text: str) -> str:
     cleaned = NUM_TWO_ARTIFACT_RE.sub("", cleaned)
     return re.sub(r"\s+", " ", cleaned).strip(" .;,-")
 
+_MIN_PLAUSIBLE_YEAR = 1800
+_MAX_PLAUSIBLE_YEAR = 2500
+_SENTINEL_YEARS = {1, 1900, 9999}
+
+
+def is_placeholder_date(value: date | None) -> bool:
+    if value is None:
+        return True
+    return value.year in _SENTINEL_YEARS or value.year < _MIN_PLAUSIBLE_YEAR or value.year >= 9000
+
+
 def date_sanity(value: date | None) -> bool:
-    if value is None: return False
-    return 1901 < value.year <= date.today().year
+    if value is None:
+        return False
+    if is_placeholder_date(value):
+        return False
+    return _MIN_PLAUSIBLE_YEAR <= value.year <= _MAX_PLAUSIBLE_YEAR
 
 def procedure_canonicalization(text: str) -> list[str]:
     return [label for label, pat in _PROCEDURE_PATTERNS if pat.search(text or "")]

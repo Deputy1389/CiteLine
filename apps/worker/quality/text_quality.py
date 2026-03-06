@@ -28,6 +28,10 @@ _MEDICAL_TERMS = {
     "spasm","trigger","points","manipulation","adjustment","exercise","activities",
     "functional","ambulation","mobility","balance","transfer","weight","bearing",
     "extremity","bilateral","distal","proximal","superior","inferior","lateral","medial",
+    # Short-form labs / vitals
+    "na","k","cl","co2","bun","cr","creat","glu","ca","mg","phos",
+    "wbc","rbc","hgb","hct","plt","esr","crp","alt","ast","alp","tsh",
+    "bp","hr","rr","temp","spo2","o2sat",
 }
 _STOPWORDS = {
     "the","and","or","of","to","in","for","with","on","at","by","from","as","an","a","is","was","were","be","been","are",
@@ -61,6 +65,15 @@ _FAX_INLINE_RE = re.compile(
 _REPEATED_LABEL_RE = re.compile(r"(pain assessment:?\s*){2,}", re.IGNORECASE)
 _NON_WORD_RE = re.compile(r"[^A-Za-z0-9]+")
 _CID_ARTIFACT_RE = re.compile(r"\(cid:\d+\)", re.IGNORECASE)
+_SHORTFORM_VALUE_RE = re.compile(
+    r"\b(?:na|k|cl|co2|bun|cr|creat|glu|ca|mg|phos|wbc|rbc|hgb|hct|plt|esr|crp|alt|ast|alp|tsh|bp|hr|rr|temp|spo2|o2sat)\b"
+    r"\s*[:=]?\s*(?:\d+(?:\.\d+)?(?:/\d+(?:\.\d+)?)?|\d{2,3}/\d{2,3})\b",
+    re.IGNORECASE,
+)
+_STRUCTURED_PAIR_RE = re.compile(
+    r"\b[A-Za-z][A-Za-z0-9/+-]{0,10}\b\s*[:=]?\s*(?:\d+(?:\.\d+)?(?:/\d+(?:\.\d+)?)?|positive|negative|normal|abnormal)\b",
+    re.IGNORECASE,
+)
 
 # EMR label prefixes that should be stripped before quality analysis
 # e.g. "Pain Assessment: gibberish" → analyze "gibberish" only
@@ -75,6 +88,22 @@ _EMR_LABEL_PREFIX_RE = re.compile(
 
 def _tokenize(text: str) -> list[str]:
     return [t for t in re.split(r"\s+", text.strip()) if t]
+
+
+def is_structured_medical_signal(text: str) -> bool:
+    if not text:
+        return False
+    cleaned = clean_text(text)
+    if not cleaned:
+        return False
+    if _SHORTFORM_VALUE_RE.search(cleaned):
+        return True
+    if cleaned.count(":") >= 2 and _STRUCTURED_PAIR_RE.search(cleaned):
+        return True
+    rows = [row.strip() for row in cleaned.splitlines() if row.strip()]
+    if len(rows) >= 2 and sum(1 for row in rows if _STRUCTURED_PAIR_RE.search(row)) >= max(2, len(rows) // 2):
+        return True
+    return False
 
 
 def _medical_density(tokens: Iterable[str]) -> float:
@@ -119,6 +148,8 @@ def clean_text(text: str) -> str:
 def quality_score(text: str) -> float:
     if not text:
         return 0.0
+    if is_structured_medical_signal(text):
+        return 0.65
     tokens = _tokenize(text)
     if len(tokens) < 4:
         return 0.0
@@ -132,6 +163,8 @@ def explain_flags(text: str) -> list[str]:
     flags = []
     if not text or len(text.strip()) < 20:
         flags.append("too_short")
+    if is_structured_medical_signal(text):
+        return flags
     if _FAX_ARTIFACT_RE.search(text):
         flags.append("fax_artifact")
     if _REPEATED_LABEL_RE.search(text):
@@ -167,6 +200,8 @@ def should_quarantine_fact(text: str) -> bool:
     """
     if not text or len(text.strip()) < 4:
         return False
+    if is_structured_medical_signal(text):
+        return False
 
     # Strip leading EMR flowsheet timestamp before label/body analysis
     stripped = _TIMESTAMP_PREFIX_RE.sub("", text).strip()
@@ -200,6 +235,8 @@ def should_quarantine_fact(text: str) -> bool:
 def is_garbage(text: str) -> bool:
     if not text:
         return True
+    if is_structured_medical_signal(text):
+        return False
     
     # If it's a multi-line block, check if a significant portion of it is garbage
     lines = [l.strip() for l in text.splitlines() if l.strip()]
@@ -221,6 +258,8 @@ def is_garbage(text: str) -> bool:
 def _is_line_garbage(line: str) -> bool:
     if not line:
         return True
+    if is_structured_medical_signal(line):
+        return False
     if _FAX_ARTIFACT_RE.search(line):
         return True
 

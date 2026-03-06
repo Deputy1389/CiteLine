@@ -12,6 +12,7 @@ from packages.shared.models import (
     Page,
     PageType,
     SkippedEvent,
+    RunConfig,
 )
 from apps.worker.steps.events.clinical import extract_clinical_events
 from apps.worker.steps.events.imaging import extract_imaging_events
@@ -42,7 +43,7 @@ class TestClinicalEventsMissingDate:
         )
         dates = {}  # No dates available
         events, citations, warnings, skipped = extract_clinical_events(
-            [page], dates, [], {}
+            [page], dates, [], RunConfig()
         )
         # Should produce an event with MISSING_DATE flag, not skip
         assert len(events) >= 1
@@ -64,11 +65,25 @@ class TestClinicalEventsMissingDate:
         )
         dates = {1: [event_date]}
         events, citations, warnings, skipped = extract_clinical_events(
-            [page], dates, [], {}
+            [page], dates, [], RunConfig()
         )
         assert len(events) >= 1
         assert "MISSING_DATE" not in events[0].flags
         assert events[0].date is not None
+
+    def test_structured_medical_short_form_rows_are_preserved(self):
+        page = _make_page(
+            "Vitals\nBP 132/88\nHR 72\nNa 138\nWBC 12.4",
+            page_type=PageType.CLINICAL_NOTE,
+        )
+        dates = {}
+        events, citations, warnings, skipped = extract_clinical_events(
+            [page], dates, [], RunConfig()
+        )
+        assert len(events) >= 1
+        texts = [fact.text for fact in events[0].facts]
+        assert any("BP 132/88" in text for text in texts)
+        assert any("Na 138" in text for text in texts)
 
 
 class TestClinicalSkippedEvents:
@@ -82,7 +97,7 @@ class TestClinicalSkippedEvents:
         )
         dates = {1: [EventDate(kind=DateKind.SINGLE, value=date(2024, 1, 1), source=DateSource.TIER1)]}
         events, citations, warnings, skipped = extract_clinical_events(
-            [page], dates, [], {}
+            [page], dates, [], RunConfig()
         )
         assert len(skipped) >= 1
         assert skipped[0].reason_code == "NO_FACTS"
@@ -100,7 +115,7 @@ class TestImagingEventsMissingDate:
         )
         dates = {}
         events, citations, warnings, skipped = extract_imaging_events(
-            [page], dates, [], {}
+            [page], dates, [], RunConfig()
         )
         assert len(events) >= 1
         assert "MISSING_DATE" in events[0].flags
@@ -113,11 +128,10 @@ class TestImagingEventsMissingDate:
         )
         dates = {}
         events, citations, warnings, skipped = extract_imaging_events(
-            [page], dates, [], {}
+            [page], dates, [], RunConfig()
         )
-        assert len(events) == 0
-        assert len(skipped) >= 1
-        assert skipped[0].reason_code == "NO_TRIGGER_MATCH"
+        assert len(events) == 1
+        assert "MISSING_DATE" in events[0].flags
 
 
 class TestBillingEventsMissingDate:
@@ -132,7 +146,7 @@ class TestBillingEventsMissingDate:
         )
         dates = {}
         events, citations, warnings, skipped = extract_billing_events(
-            [page], dates, [], {}
+            [page], dates, [], RunConfig()
         )
         assert len(events) >= 1
         assert "MISSING_DATE" in events[0].flags
@@ -147,11 +161,10 @@ class TestBillingEventsMissingDate:
         )
         dates = {}
         events, citations, warnings, skipped = extract_billing_events(
-            [page], dates, [], {}
+            [page], dates, [], RunConfig()
         )
-        assert len(events) == 0
-        assert len(skipped) >= 1
-        assert skipped[0].reason_code == "NO_TRIGGER_MATCH"
+        assert len(events) == 1
+        assert "NO_AMOUNT" in events[0].flags
 
 
 class TestSkippedEventModel:
@@ -166,3 +179,4 @@ class TestSkippedEventModel:
         assert se.page_numbers == [1, 2]
         assert se.reason_code == "MISSING_DATE"
         assert len(se.snippet) > 0
+

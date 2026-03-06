@@ -29,8 +29,8 @@ _ABBREV_MONTHS = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec"
 _DATE_PATTERNS = [
     # 0: MM/DD/YYYY or MM-DD-YYYY
     r"(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})",
-    # 1: YYYY-MM-DD
-    r"(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})",
+    # 1: YYYY-MM-DD (with optional time)
+    r"(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})(?:\s+\d{1,2}:\d{1,2}(?::\d{1,2})?)?",
     # 2: Month DD, YYYY  (e.g. March 14, 2024)
     rf"({_FULL_MONTHS})\s+(\d{{1,2}}),?\s+(\d{{4}})",
     # 3: Mon DD, YYYY  (e.g. Mar 14, 2024)
@@ -87,8 +87,10 @@ _TIER1_LABELS = [
     r"exam date\s*:?\s*",
     r"study date\s*:?\s*",
     r"admit date\s*:?\s*",
+    r"admitted\s*:?\s*",
     r"admission date\s*:?\s*",
     r"discharge date\s*:?\s*",
+    r"discharged\s*:?\s*",
     r"date of injury\s*:?\s*",
     r"service date\s*:?\s*",
     r"date of exam\s*:?\s*",
@@ -183,7 +185,7 @@ def _parse_date_from_match(match: re.Match, pattern_index: int) -> date | None:
             month, day, year = int(groups[0]), int(groups[1]), int(groups[2])
             if pattern_index == 8 and year < 100:
                 year += 2000 if year < 50 else 1900
-        elif pattern_index == 1:  # YYYY-MM-DD
+        elif pattern_index == 1:  # YYYY-MM-DD (with optional time)
             year, month, day = int(groups[0]), int(groups[1]), int(groups[2])
         elif pattern_index in (2, 3, 4, 5):  # Month DD YYYY variants
             month = _MONTH_MAP.get(groups[0].lower(), 0)
@@ -199,7 +201,7 @@ def _parse_date_from_match(match: re.Match, pattern_index: int) -> date | None:
         else:
             return None
 
-        if 1 <= month <= 12 and 1 <= day <= 31 and 1990 <= year <= 2200:
+        if 1 <= month <= 12 and 1 <= day <= 31 and 1800 <= year <= 2500:
             return date(year, month, day)
     except (ValueError, IndexError):
         pass
@@ -404,10 +406,13 @@ def extract_dates(page: Page) -> list[tuple[EventDate, str]]:
     text = page.text
     results: list[tuple[EventDate, str]] = []
     found_dates = _find_dates_in_text(text)
+    if found_dates:
+        print(f"DEBUG: Page {page.page_number}: _find_dates_in_text found {len(found_dates)} dates: {[d.isoformat() for d, _, _ in found_dates]}")
 
     for d, pos, line_num in found_dates:
         # Find best label in context
         label_type = _find_best_label(text, pos)
+        print(f"DEBUG:   - Date {d.isoformat()} at pos {pos} has label_type: {label_type}")
 
         if label_type == "reject":
             continue

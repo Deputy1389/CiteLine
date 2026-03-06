@@ -31,7 +31,7 @@ def get_injury_summary(events: List[ClinicalEvent]) -> List[str]:
 
 def get_treatment_phases(events: List[ClinicalEvent]) -> Dict[str, Any]:
     """Groups therapy and clinical events into Acute, Subacute, and Recovery phases."""
-    dates = sorted([e.date for e in events if e.date and e.date.year >= 1970])
+    dates = sorted([e.date for e in events if e.date and e.date.year > 1900])
     if not dates:
         return {}
     
@@ -106,7 +106,7 @@ def get_surgical_summary_rows(events: List[ClinicalEvent]) -> List[dict]:
     return rows
 
 def get_case_summary_data(events: List[ClinicalEvent]) -> Dict[str, Any]:
-    dates = [e.date for e in events if e.date and e.date.year >= 1970]
+    dates = [e.date for e in events if e.date and e.date.year > 1900]
     timeframe = f"{min(dates)} -> {max(dates)}" if dates else "Unknown"
     
     # Calculate pain progression

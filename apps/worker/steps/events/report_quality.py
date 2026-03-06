@@ -4,10 +4,10 @@ Deterministic report-quality guards and canonicalizers.
 from __future__ import annotations
 
 import re
-from datetime import date
 from typing import Iterable
 
 from packages.shared.models import Event, EventType
+from packages.shared.utils.clinical_utils import date_sanity
 
 
 UUID_RE = re.compile(
@@ -70,16 +70,6 @@ def sanitize_for_report(text: str) -> str:
     cleaned = NUM_TWO_ARTIFACT_RE.sub("", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" .;,-")
     return cleaned
-
-
-def date_sanity(value: date | None) -> bool:
-    """Accept only modern dates for this dataset."""
-    if value is None:
-        return False
-    if value.year < 1901:
-        return False
-    return value <= date.today()
-
 
 def procedure_canonicalization(text: str) -> list[str]:
     """Extract deterministic surgery/procedure concepts from text."""

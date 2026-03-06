@@ -123,7 +123,7 @@ def extract_billing_date(text: str) -> Optional[date]:
                 month, day, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
                 if year < 100:
                     year += 2000
-                if 1 <= month <= 12 and 1 <= day <= 31 and 1900 <= year <= 2100:
+                if 1 <= month <= 12 and 1 <= day <= 31 and 1800 <= year <= 2500:
                     return date(year, month, day)
             except (ValueError, OverflowError):
                 continue

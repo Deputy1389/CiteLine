@@ -1,7 +1,8 @@
 from __future__ import annotations
 from datetime import date
 import re
-from apps.worker.steps.events.report_quality import date_sanity, sanitize_for_report
+from apps.worker.steps.events.report_quality import sanitize_for_report
+from packages.shared.utils.clinical_utils import date_sanity
 from packages.shared.models import Event, Provider
 
 def projection_date_display(event: Event) -> str:

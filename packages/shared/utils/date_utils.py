@@ -1,6 +1,6 @@
 import re
 from datetime import date
-from apps.worker.steps.events.report_quality import date_sanity
+from packages.shared.utils.clinical_utils import date_sanity
 
 def parse_fact_dates(text: str) -> list[date]:
     if not text:

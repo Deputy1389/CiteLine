@@ -73,3 +73,20 @@ class TestClassifyPage:
         updated, warnings = classify_pages(pages)
         assert updated[0].page_type == PageType.CLINICAL_NOTE
         assert updated[1].page_type == PageType.BILLING
+
+    def test_discharge_summary_not_drowned_by_lab_density(self):
+        page = _make_page(
+            "Discharge Summary\nHospital Course: improved\nDischarge Diagnosis: concussion\n"
+            "Lab results show sodium value potassium value glucose value WBC platelet creatinine."
+        )
+        ptype, conf = classify_page(page)
+        assert ptype == PageType.DISCHARGE_SUMMARY
+        assert conf >= 60
+
+    def test_header_priority_breaks_keyword_density_tie(self):
+        page = _make_page(
+            "Clinical Summary\nAdmission record\nDischarge instructions\n"
+            "CBC BMP reference range specimen collected date value glucose sodium potassium WBC."
+        )
+        ptype, _ = classify_page(page)
+        assert ptype == PageType.DISCHARGE_SUMMARY

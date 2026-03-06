@@ -41,6 +41,7 @@ def test_sanitize_for_report_removes_artifacts():
 def test_date_sanity():
     assert date_sanity(date(2013, 5, 7)) is True
     assert date_sanity(date(1969, 12, 31)) is True
+    assert date_sanity(date(2180, 5, 7)) is True
     assert date_sanity(date(1900, 1, 1)) is False
     assert date_sanity(None) is False
 

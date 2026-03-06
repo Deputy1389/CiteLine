@@ -1,4 +1,4 @@
-﻿"""
+"""
 Pipeline orchestrator - runs the extraction pipeline in sequence.
 """
 from __future__ import annotations
@@ -107,6 +107,7 @@ from apps.worker.lib.severity_profile import build_severity_profile
 from apps.worker.lib.settlement_model import build_settlement_model_report
 from apps.worker.lib.internal_demand_copilot import build_internal_demand_package
 from apps.worker.lib.artifacts_writer import build_export_evidence_graph
+from apps.worker.lib.observability import write_run_observability, make_stage_timings
 
 logger = logging.getLogger(__name__)
 RUN_TIMEOUT_SECONDS = int(os.getenv("RUN_TIMEOUT_SECONDS", "1800"))
@@ -158,6 +159,7 @@ def _build_litigation_extensions(claim_rows: list[dict] | list[ClaimEdge], confi
 
 def run_pipeline(run_id: str) -> None:
     started_at = datetime.now(timezone.utc); start_time = time.time(); all_warnings = []
+    stage_timings = make_stage_timings()
     try:
         with get_session() as session:
             run_row = session.query(RunORM).filter_by(id=run_id).first()
@@ -560,6 +562,8 @@ def run_pipeline(run_id: str) -> None:
         parity_sha = hashlib.sha256(parity_bytes).hexdigest()
         parity_ref = ArtifactRef(uri=str(parity_path), sha256=parity_sha, bytes=len(parity_bytes))
 
+        gate_results = _apply_render_blockers_to_gate_results(gate_results, evidence_graph.extensions)
+
         # Update status based on quality gates
         gate_export_status = str(gate_results.get("export_status") or "").strip().upper()
         if gate_export_status in {"BLOCKED", "REVIEW_RECOMMENDED"}:
@@ -607,11 +611,22 @@ def run_pipeline(run_id: str) -> None:
             parity_ref,
         )
 
-        persist_pipeline_state(run_id, status, processing_seconds, run_record, all_warnings, evidence_graph, artifact_entries, gate_results)
+        # Compute total packet bytes for observability
+        total_packet_bytes = sum(getattr(d, "bytes", 0) or 0 for d in source_documents)
+
+        persist_pipeline_state(
+            run_id, status, processing_seconds, run_record, all_warnings,
+            evidence_graph, artifact_entries, gate_results,
+            config=config,
+            page_count=len(all_pages),
+            packet_bytes=total_packet_bytes,
+            stage_timings=stage_timings.as_dict(),
+        )
         logger.info(f"[{run_id}] Pipeline complete: {status}")
 
     except Exception as exc:
-        logger.exception(f"[{run_id}] Pipeline failed: {exc}"); _fail_run(run_id, str(exc))
+        logger.exception(f"[{run_id}] Pipeline failed: {exc}")
+        _fail_run(run_id, str(exc), exc=exc)
 
 def _run_production_quality_gates(
     chronology,
@@ -671,18 +686,46 @@ def _run_production_quality_gates(
         logger.info(f"Quality gates: overall_pass={results.get('overall_pass')}, "
                    f"attorney={results.get('attorney_ready_pass')}({results.get('attorney_ready_score')}), "
                    f"luqa={results.get('luqa_pass')}({results.get('luqa_score')})")
-        
         return results
-        
+
     except Exception as e:
         logger.exception(f"Quality gates failed with error: {e}")
         return {"overall_pass": True, "skipped": True, "error": str(e)}
 
 
-def _fail_run(run_id: str, error: str) -> None:
+def _apply_render_blockers_to_gate_results(
+    gate_results: dict,
+    evidence_graph_extensions: dict | None,
+) -> dict:
+    if not isinstance(gate_results, dict):
+        gate_results = {}
+    render_blockers = evidence_graph_extensions.get("render_blockers") if isinstance(evidence_graph_extensions, dict) else None
+    if not isinstance(render_blockers, list) or not render_blockers:
+        return gate_results
+    gate_results.setdefault("hard_failures", [])
+    for blocker in render_blockers:
+        if isinstance(blocker, dict):
+            gate_results["hard_failures"].append(blocker)
+    gate_results["export_status"] = "BLOCKED"
+    gate_results["render_blocker_count"] = len(render_blockers)
+    return gate_results
+
+
+def _fail_run(run_id: str, error: str, exc: Exception | None = None) -> None:
     with get_session() as session:
         run_row = session.query(RunORM).filter_by(id=run_id).first()
-        if run_row: run_row.status = "failed"; run_row.finished_at = datetime.now(timezone.utc); run_row.error_message = error[:ERROR_MESSAGE_MAX_LEN]
+        if run_row:
+            run_row.status = "failed"                                         # authoritative first
+            run_row.finished_at = datetime.now(timezone.utc)
+            run_row.error_message = error[:ERROR_MESSAGE_MAX_LEN]
+            session.flush()
+            # Pass 042: observability — never blocks run completion
+            write_run_observability(
+                run_id=run_id,
+                session=session,
+                run_row=run_row,
+                exc=exc,
+            )
 
 
 def _assess_page_quality(pages) -> dict[int, dict]:

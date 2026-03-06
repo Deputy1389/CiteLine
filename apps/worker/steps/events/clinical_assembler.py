@@ -10,6 +10,7 @@ from packages.shared.models import (
 from apps.worker.steps.events.common import _make_citation, _make_fact
 from apps.worker.steps.events.clinical_patterns import CLINICAL_INDICATORS
 from apps.worker.steps.events.encounter_classifier import detect_encounter_type, PRIORITY_MAP
+from apps.worker.quality.text_quality import clean_text, is_structured_medical_signal
 
 
 _MECHANISM_RE = re.compile(r"\b(motor vehicle|mvc|mva|collision|rear[- ]end|crash|auto accident|car accident)\b", re.IGNORECASE)
@@ -30,11 +31,12 @@ def _is_ed_verbatim_line(event: Event, text: str) -> bool:
 
 def append_to_event(event: Event, text: str, page: Page, citations: list[Citation], author_name=None, author_role=None):
     """Append a clinical line to an existing event fact list."""
-    cit = _make_citation(page, text)
+    cleaned_text = clean_text(text).strip() or text
+    cit = _make_citation(page, cleaned_text)
     citations.append(cit)
     
     # Update encounter type if new text is stronger
-    new_etype = detect_encounter_type(text)
+    new_etype = detect_encounter_type(cleaned_text)
     if PRIORITY_MAP.get(new_etype, 0) > PRIORITY_MAP.get(event.event_type, 0):
         event.event_type = new_etype
 
@@ -44,12 +46,13 @@ def append_to_event(event: Event, text: str, page: Page, citations: list[Citatio
         event.author_role = author_role
 
     # Check if this line contains new indicators
-    fact_text = text
+    fact_text = cleaned_text
+    fact_kind = FactKind.LAB if is_structured_medical_signal(cleaned_text) else FactKind.OTHER
     for pattern, label in CLINICAL_INDICATORS:
-        if re.search(pattern, text):
-            if label not in text:
-                fact_text = f"{label}: {text}"
+        if re.search(pattern, cleaned_text):
+            if label not in cleaned_text:
+                fact_text = f"{label}: {cleaned_text}"
             break
 
-    event.facts.append(_make_fact(fact_text, FactKind.OTHER, cit.citation_id, verbatim=_is_ed_verbatim_line(event, fact_text)))
+    event.facts.append(_make_fact(fact_text, fact_kind, cit.citation_id, verbatim=_is_ed_verbatim_line(event, fact_text)))
     event.citation_ids.append(cit.citation_id)

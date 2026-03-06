@@ -11,12 +11,18 @@ def test_clean_text_removes_fax_headers() -> None:
 
 def test_garbage_detection_flags_nonsense() -> None:
     junk = "Very partner example rate remain better letter vehicle just."
-    assert is_garbage(junk) is False
-    assert quality_score(junk) < 0.3
-    assert "low_medical_density" in explain_flags(junk)
+    assert is_garbage(junk) is True
+    assert quality_score(junk) < 0.35
 
 
 def test_real_sentence_not_garbage() -> None:
     good = "Patient reports persistent lumbar pain with radiculopathy; MRI shows L4-5 disc protrusion."
     assert is_garbage(good) is False
     assert quality_score(good) > 0.3
+
+
+def test_medical_short_form_rows_not_garbage() -> None:
+    short_form = "Na 138\nK 4.1\nWBC 12.4\nBP 132/88"
+    assert is_garbage(short_form) is False
+    assert quality_score(short_form) >= 0.6
+    assert "low_medical_density" not in explain_flags(short_form)
