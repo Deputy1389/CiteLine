@@ -14,7 +14,7 @@ import contextlib
 import json
 import logging
 import time
-from enum import StrEnum
+from enum import Enum
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # ── Error taxonomy ─────────────────────────────────────────────────────────────
 
-class RunErrorClass(StrEnum):
+class RunErrorClass(str, Enum):
     """Canonical error classes for run.error_class column.
 
     Keep this small. Add new values only with a PR that also updates
