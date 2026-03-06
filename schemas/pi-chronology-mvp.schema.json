@@ -121,7 +121,7 @@
   "$defs": {
     "RunConfig": {
       "type": "object",
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "max_pages": {
           "type": "integer",
