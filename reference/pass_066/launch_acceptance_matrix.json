@@ -1,0 +1,97 @@
+{
+  "generated_at": "2026-03-06T23:31:22.577006+00:00",
+  "overall": {
+    "recommended_launch_scope": "narrow_pilot",
+    "narrow_pilot_ready": true,
+    "broad_launch_ready": false,
+    "blocking_reasons": [
+      "Fully rasterized compact scans are now recoverable, but the scan class is still under-validated and slower than text-backed packets.",
+      "Broad launch remains blocked until non-spine and deeper OCR coverage are validated."
+    ]
+  },
+  "dimensions": [
+    {
+      "key": "compact_text_packets",
+      "status": "ready",
+      "launch_scope": "narrow_pilot",
+      "evidence": {
+        "validated_packets": 30,
+        "success_packets": 30,
+        "exports_latest_200": 30
+      },
+      "decision": "Validated compact text-backed hospital packets are ready for narrow-pilot use."
+    },
+    {
+      "key": "sparse_packet_page1_orientation",
+      "status": "ready",
+      "launch_scope": "narrow_pilot",
+      "evidence": {
+        "run_id": "c0e611f937cf4292a328ada3cf57d74b",
+        "top_case_drivers": 0,
+        "promoted_findings": 0,
+        "case_skeleton_active": true
+      },
+      "decision": "Sparse packets no longer render a junky or empty-feeling Page 1 when anchors are absent."
+    },
+    {
+      "key": "ocr_degraded_packets",
+      "status": "limited",
+      "launch_scope": "narrow_pilot",
+      "evidence": {
+        "validated_packets": 3,
+        "ocr_positive_packets": 3,
+        "non_empty_event_packets": 2,
+        "open_issue": "Fully rasterized compact MIMIC pages still hit live Tesseract timeouts on 4/5 pages and collapse to zero events; synthetic image-only and noisy corpus OCR paths complete."
+      },
+      "decision": "OCR is proven on some degraded packets but not yet across the full scan class."
+    },
+    {
+      "key": "fully_rasterized_scan_packets",
+      "status": "limited",
+      "launch_scope": "broad_launch",
+      "evidence": {
+        "packet": "packet_mimic_10002930_rasterized_clean.pdf",
+        "status": "needs_review",
+        "pages_total": 5,
+        "pages_ocr": 5,
+        "events_total": 6
+      },
+      "decision": "Fully rasterized compact scans are now recoverable, but the scan class is still under-validated and slower than text-backed packets."
+    },
+    {
+      "key": "rich_chronology_semantics",
+      "status": "pilot_ready",
+      "launch_scope": "narrow_pilot",
+      "evidence": {
+        "validated_packets": 3,
+        "event_counts_preserved": true,
+        "office_visit_packets": 3,
+        "min_events_total": 8,
+        "pass64_validated_packets": 4
+      },
+      "decision": "Richer spine packets preserve more chronology structure and better encounter semantics on the validated slice."
+    },
+    {
+      "key": "coverage_breadth",
+      "status": "blocked",
+      "launch_scope": "broad_launch",
+      "evidence": {
+        "validated_case_buckets": [
+          "compact text-backed hospital packets",
+          "sparse synthetic packet fallback",
+          "MVA/spine fast packet",
+          "MVA/spine complex packet",
+          "procedure-heavy spine packet",
+          "noisy OCR packet"
+        ],
+        "missing_buckets": [
+          "non-spine orthopedic packet (shoulder or knee)",
+          "TBI/neuro packet",
+          "broad rasterized/OCR corpus beyond the current 3-packet sweep",
+          "explicit sparse-billing acceptance packet"
+        ]
+      },
+      "decision": "Broad launch remains blocked until non-spine and deeper OCR coverage are validated."
+    }
+  ]
+}

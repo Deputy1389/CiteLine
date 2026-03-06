@@ -133,3 +133,46 @@ def test_ocr_page_retries_at_lower_dpi_after_timeout(monkeypatch):
     text = ocr._ocr_page("dummy.pdf", 0, dpi=200, config="--psm 6", doc=_FakeDoc(page))
     assert text == "Recovered OCR"
     assert page.dpis == [200, 120]
+
+
+def test_ocr_page_uses_tiled_fallback_after_full_page_timeouts(monkeypatch):
+    class _FakePix:
+        def tobytes(self, _fmt):
+            from PIL import Image
+            import io
+
+            img = Image.new("L", (300, 900), "white")
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            return buf.getvalue()
+
+    class _FakePage:
+        def get_pixmap(self, *, dpi, colorspace, alpha):
+            return _FakePix()
+
+    class _FakeDoc:
+        def __init__(self, page):
+            self.page = page
+
+        def __getitem__(self, _idx):
+            return self.page
+
+        def close(self):
+            return None
+
+    class _FakeTesseract:
+        calls = []
+
+        @staticmethod
+        def image_to_string(img, lang, config, timeout):
+            _FakeTesseract.calls.append(img.size)
+            if img.size[1] > 400:
+                raise RuntimeError("Tesseract process timeout")
+            return f"tile-{img.size[1]}"
+
+    monkeypatch.setitem(sys.modules, "pytesseract", _FakeTesseract)
+    monkeypatch.setattr(ocr, "_OCR_RETRY_DPI", 200)
+    monkeypatch.setattr(ocr, "_OCR_TILE_ROWS", 3)
+    text = ocr._ocr_page("dummy.pdf", 0, dpi=200, config="--psm 6", doc=_FakeDoc(_FakePage()))
+    assert text == "tile-300\ntile-300\ntile-300"
+    assert _FakeTesseract.calls[0] == (300, 900)

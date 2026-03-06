@@ -31,6 +31,7 @@ _OCR_WORKERS = max(1, int(os.getenv("OCR_WORKERS", "2")))
 _OCR_MAX_PIXELS = max(1, int(os.getenv("OCR_MAX_PIXELS", "2000000")))
 _OCR_MAX_DIMENSION = max(256, int(os.getenv("OCR_MAX_DIMENSION", "1600")))
 _OCR_RETRY_DPI = max(72, int(os.getenv("OCR_RETRY_DPI", "120")))
+_OCR_TILE_ROWS = max(2, int(os.getenv("OCR_TILE_ROWS", "3")))
 _OCR_DISABLED = os.getenv("DISABLE_OCR", "").strip().lower() in {"1", "true", "yes", "on"}
 _OCR_CONFIG = os.getenv("OCR_TESSERACT_CONFIG", "--oem 1 --psm 6").strip()
 _OCR_MODE = os.getenv("OCR_MODE", "full").strip().lower()
@@ -119,6 +120,7 @@ def _ocr_page(pdf_path: str, page_index: int, *, dpi: int, config: str, doc: fit
             attempt_dpis = [dpi]
             if _OCR_RETRY_DPI < dpi:
                 attempt_dpis.append(_OCR_RETRY_DPI)
+            saw_timeout = False
             for attempt_index, attempt_dpi in enumerate(attempt_dpis):
                 try:
                     pix = page.get_pixmap(dpi=attempt_dpi, colorspace=fitz.csGRAY, alpha=False)
@@ -129,12 +131,18 @@ def _ocr_page(pdf_path: str, page_index: int, *, dpi: int, config: str, doc: fit
                 img = Image.open(io.BytesIO(img_data))
                 img = _normalize_ocr_image(img)
                 try:
-                    text = pytesseract.image_to_string(img, lang="eng", config=config, timeout=_OCR_TIMEOUT_SECONDS)
+                    text = _ocr_image_to_text(img, pytesseract_module=pytesseract, config=config)
                     return text.strip()
                 except RuntimeError as exc:
+                    saw_timeout = True
                     logger.error(f"OCR timeout for page {page_index} at dpi {attempt_dpi}: {exc}")
                     if attempt_index == len(attempt_dpis) - 1:
-                        return ""
+                        tiled_text = _ocr_image_tiled(img, pytesseract_module=pytesseract, config=config)
+                        if tiled_text:
+                            logger.info(
+                                f"OCR recovered page {page_index} with tiled fallback after timeout at dpi {attempt_dpi}"
+                            )
+                            return tiled_text
                 finally:
                     try:
                         del img
@@ -148,6 +156,8 @@ def _ocr_page(pdf_path: str, page_index: int, *, dpi: int, config: str, doc: fit
                         del pix
                     except Exception:
                         pass
+            if saw_timeout:
+                logger.error(f"OCR timeout persisted for page {page_index} after whole-page and tiled fallback")
             return ""
         finally:
             try:
@@ -191,6 +201,36 @@ def _normalize_ocr_image(img):
     new_height = max(1, int(height * scale))
     resample = getattr(getattr(Image, "Resampling", Image), "LANCZOS", Image.LANCZOS)
     return img.resize((new_width, new_height), resample)
+
+
+def _ocr_image_to_text(img, *, pytesseract_module, config: str) -> str:
+    return pytesseract_module.image_to_string(
+        img,
+        lang="eng",
+        config=config,
+        timeout=_OCR_TIMEOUT_SECONDS,
+    ).strip()
+
+
+def _ocr_image_tiled(img, *, pytesseract_module, config: str) -> str:
+    if img.height <= 1:
+        return ""
+    rows = min(_OCR_TILE_ROWS, max(2, img.height))
+    parts: list[str] = []
+    for row in range(rows):
+        top = int(img.height * row / rows)
+        bottom = int(img.height * (row + 1) / rows)
+        if bottom <= top:
+            continue
+        tile = img.crop((0, top, img.width, bottom))
+        try:
+            text = _ocr_image_to_text(tile, pytesseract_module=pytesseract_module, config=config)
+        except RuntimeError as exc:
+            logger.error(f"OCR tile timeout for rows {top}:{bottom}: {exc}")
+            continue
+        if text:
+            parts.append(text)
+    return "\n".join(parts).strip()
 
 
 def _quality_warning(text: str) -> bool:

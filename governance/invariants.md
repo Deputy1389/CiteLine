@@ -469,3 +469,27 @@ If `renderer_manifest.top_case_drivers` is empty and structured sparse-packet fa
 - **Failure class protected**: Trust erosion risk
 
 ---
+
+---
+
+## Launch Governance Invariants (Pass 66)
+
+### INV-LA1 - LAUNCH_SCOPE_BOUND_BY_VALIDATED_MATRIX
+
+Launch scope claims must be derived from the generated launch acceptance matrix and cannot exceed the packet classes and failure modes actually validated in pass artifacts.
+
+- **Enforced in**: `scripts/build_launch_acceptance_matrix.py` :: `build_matrix()`
+- **Tested in**: `tests/unit/test_build_launch_acceptance_matrix.py` :: `test_build_matrix_marks_narrow_pilot_ready_but_broad_launch_blocked`
+- **Introduced in**: Pass 66
+- **Failure class protected**: Trust erosion risk
+
+## OCR Recovery Invariants (Pass 67)
+
+### INV-OV2 - OCR_TIMEOUT_MUST_ATTEMPT_TILED_FALLBACK
+
+When whole-page OCR times out, the OCR path must attempt deterministic tiled recovery before returning empty text.
+
+- **Enforced in**: `apps/worker/steps/step02_text_acquire.py` :: `_ocr_page()`
+- **Tested in**: `tests/unit/test_ocr_acquire_text.py` :: `test_ocr_page_uses_tiled_fallback_after_full_page_timeouts`
+- **Introduced in**: Pass 67
+- **Failure class protected**: Performance bottleneck / Signal distortion

@@ -1,0 +1,35 @@
+﻿{
+  "pass": 67,
+  "objective": "Reduce full-page OCR timeout collapse on rasterized compact scans by adding deterministic tiled OCR fallback.",
+  "result": {
+    "validated_packets": 1,
+    "pages_ocr": 5,
+    "events_total": 6,
+    "citations_total": 68,
+    "terminal_status": "needs_review",
+    "processing_seconds": 238.19
+  },
+  "packets": [
+    {
+      "packet": "packet_mimic_10002930_rasterized_clean.pdf",
+      "run_dir": "pass_067/cloud_rerun_mimic_10002930_rasterized_clean",
+      "run_id": "52985ff3dac3483d8147de21143eef25",
+      "matter_id": "b0adb327b5fa4e9ea23becebc6ea40d2",
+      "status": "needs_review",
+      "pages_total": 5,
+      "pages_ocr": 5,
+      "events_total": 6,
+      "citations_total": 68,
+      "event_types": {
+        "hospital_admission": 3,
+        "hospital_discharge": 3
+      },
+      "warnings": [
+        "QUALITY_GATE_FAILED"
+      ],
+      "exports_latest_status": 404,
+      "pdf_status": 200
+    }
+  ],
+  "finding": "The rasterized compact packet no longer collapses at OCR time. Whole-page OCR timed out on 4/5 pages, tiled fallback recovered all timed-out pages, and the run produced 6 events with 68 citations. The remaining issue is review policy / broader scan validation, not OCR zero-output collapse."
+}
