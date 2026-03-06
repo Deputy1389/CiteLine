@@ -419,3 +419,14 @@ Citation-backed clinically distinct phases in one packet must remain separate ch
 - **Failure class protected**: Narrative inconsistency / Trust erosion risk
 
 ---
+
+### INV-CP2 - SEGMENTED_COMPACT_PACKET_NOT_REPENALIZED
+
+Compact packets that preserve a small number of clinically distinct phases must not lose compact-policy protection solely because segmentation improved.
+
+- **Enforced in**: `apps/worker/lib/compact_packet_policy.py`
+- **Tested in**: `tests/unit/test_attorney_readiness.py` :: `test_attorney_density_soft_gate_is_relaxed_for_four_phase_compact_packets`; `tests/unit/test_luqa.py` :: `test_luqa_relaxes_density_and_verbatim_soft_gates_for_four_phase_compact_packets`; `tests/unit/test_quality_gates_wrapper.py` :: `test_four_phase_compact_packet_visit_bucket_quality_does_not_trigger_review`
+- **Introduced in**: Pass 59
+- **Failure class protected**: Review burden inflation
+
+---

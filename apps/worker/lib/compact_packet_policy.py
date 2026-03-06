@@ -17,7 +17,7 @@ def is_compact_packet(
     substantive_count = int(total_encounters if total_encounters is not None else score_row_count)
     return (
         substantive_count > 0
-        and substantive_count <= 3
-        and projection_count <= 3
+        and substantive_count <= 4
+        and projection_count <= 4
         and page_count <= 5
     )

@@ -326,3 +326,44 @@ Appendix A:
 
     assert "LUQA_FACT_DENSITY" not in codes
     assert "LUQA_VERBATIM_ANCHOR_RATIO" not in codes
+
+
+def test_luqa_relaxes_density_and_verbatim_soft_gates_for_four_phase_compact_packets() -> None:
+    report = """
+Medical Chronology Analysis
+Medical Timeline (Litigation Ready)
+2025-01-01 | Encounter: Emergency Visit
+Facility/Clinician: General Hospital
+Chief complaint: chest pain after MVC.
+Citation(s): packet.pdf p. 1
+2025-01-01 | Encounter: Hospital Admission
+Facility/Clinician: General Hospital
+Admitted for monitoring.
+Citation(s): packet.pdf p. 1
+2025-01-02 | Encounter: Hospital Admission
+Facility/Clinician: General Hospital
+Readmitted for pain control.
+Citation(s): packet.pdf p. 4
+2025-01-02 | Encounter: Discharge Summary
+Facility/Clinician: General Hospital
+Discharged home in stable condition.
+Citation(s): packet.pdf p. 5
+Billing / Specials
+Appendix A:
+"""
+    entries = [
+        _entry("2025-01-01", ["Chief complaint: chest pain after MVC."], "packet.pdf p. 1", event_type_display="Emergency Visit"),
+        _entry("2025-01-01", ["Admitted for monitoring."], "packet.pdf p. 1", event_type_display="Hospital Admission"),
+        _entry("2025-01-02", ["Readmitted for pain control."], "packet.pdf p. 4", event_type_display="Hospital Admission"),
+        _entry("2025-01-02", ["Discharged home in stable condition."], "packet.pdf p. 5", event_type_display="Discharge Summary"),
+    ]
+    luqa = build_luqa_report(
+        report,
+        _ctx(
+            entries=entries,
+            page_text={1: "Emergency Department triage.", 2: "Inpatient note.", 3: "Medication page.", 4: "Admission note.", 5: "Discharge summary."},
+        ),
+    )
+    codes = {f["code"] for f in luqa["failures"]}
+    assert "LUQA_FACT_DENSITY" not in codes
+    assert "LUQA_VERBATIM_ANCHOR_RATIO" not in codes

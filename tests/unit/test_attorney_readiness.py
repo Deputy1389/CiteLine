@@ -178,3 +178,39 @@ Appendix C
     out = build_attorney_readiness_report(report, ctx)
     codes = {f["code"] for f in out["failures"]}
     assert "AR_FACT_DENSITY_LOW" not in codes
+
+
+def test_attorney_density_soft_gate_is_relaxed_for_four_phase_compact_packets():
+    report = """
+Medical Chronology Analysis
+Medical Timeline (Litigation Ready)
+2025-01-01 | Encounter: Emergency Visit
+Facility/Clinician: ED
+Chief Complaint: "Chest pain after MVC."
+Citation(s): packet.pdf p. 1
+2025-01-01 | Encounter: Hospital Admission
+Facility/Clinician: Hospital
+Admitted for monitoring.
+Citation(s): packet.pdf p. 1
+2025-01-02 | Encounter: Hospital Admission
+Facility/Clinician: Hospital
+Readmitted for pain control.
+Citation(s): packet.pdf p. 4
+2025-01-02 | Encounter: Hospital Discharge
+Facility/Clinician: Hospital
+Discharged home in stable condition.
+Citation(s): packet.pdf p. 5
+Billing / Specials
+Appendix A:
+Appendix B:
+Appendix C
+"""
+    ctx = _ctx_with_projection(
+        page_text={1: "ED triage.", 2: "Inpatient note.", 3: "Medication page.", 4: "Admission note.", 5: "Discharge summary."},
+        projection_entries=[
+            object(), object(), object(), object()
+        ],
+    )
+    out = build_attorney_readiness_report(report, ctx)
+    codes = {f["code"] for f in out["failures"]}
+    assert "AR_FACT_DENSITY_LOW" not in codes
