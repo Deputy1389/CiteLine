@@ -1,0 +1,74 @@
+{
+  "pass": 65,
+  "objective": "Improve richer-packet chronology semantics by reducing overuse of generic inpatient_daily_note.",
+  "result": {
+    "validated_packets": 3,
+    "event_counts_preserved": true,
+    "office_visit_packets": 3,
+    "inpatient_daily_note_reduced_packets": 3
+  },
+  "packets": [
+    {
+      "packet": "05_minor_quick",
+      "run_id": "ab8192eb4fd547b8ba23f0dd11b37fe2",
+      "matter_id": "c633ad9bfdf54cb2908b80beba9e1484",
+      "status": "needs_review",
+      "pages_ocr": 0,
+      "events_total": 8,
+      "citations_total": 266,
+      "event_types": {
+        "inpatient_daily_note": 1,
+        "imaging_study": 1,
+        "office_visit": 2,
+        "hospital_discharge": 1,
+        "billing_event": 1,
+        "discharge": 1,
+        "pt_visit": 1
+      },
+      "promoted_findings": 21,
+      "top_case_drivers": 4
+    },
+    {
+      "packet": "10_surgical_standard",
+      "run_id": "db2ed994d72041b7bdf74c13b5ad4e42",
+      "matter_id": "92ae39bf633346d98ec4dfa172c590a6",
+      "status": "needs_review",
+      "pages_ocr": 17,
+      "events_total": 14,
+      "citations_total": 416,
+      "event_types": {
+        "inpatient_daily_note": 2,
+        "imaging_study": 1,
+        "office_visit": 4,
+        "procedure": 1,
+        "hospital_discharge": 2,
+        "pt_visit": 2,
+        "billing_event": 1,
+        "discharge": 1
+      },
+      "promoted_findings": 38,
+      "top_case_drivers": 10
+    },
+    {
+      "packet": "batch_029_complex_prior",
+      "run_id": "d9689e02f9ba48a9829ab46539146b9c",
+      "matter_id": "f5a686cca4d44d3abf39aac12f344596",
+      "status": "needs_review",
+      "pages_ocr": 3,
+      "events_total": 11,
+      "citations_total": 543,
+      "event_types": {
+        "inpatient_daily_note": 2,
+        "imaging_study": 1,
+        "office_visit": 4,
+        "pt_visit": 1,
+        "hospital_discharge": 1,
+        "billing_event": 1,
+        "discharge": 1
+      },
+      "promoted_findings": 26,
+      "top_case_drivers": 9
+    }
+  ],
+  "finding": "Encounter typing improved materially on richer packets. Office/follow-up/PT-eval semantics are now preserved without reducing event count. The next bottleneck is finer differentiation inside outpatient specialist encounters, not generic inpatient fallback."
+}

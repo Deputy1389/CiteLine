@@ -5,10 +5,10 @@ from packages.shared.models import EventType
 PRIORITY_MAP = {
     EventType.ER_VISIT: 6,
     EventType.HOSPITAL_ADMISSION: 5,
-    EventType.HOSPITAL_DISCHARGE: 4,
-    EventType.INPATIENT_DAILY_NOTE: 3,
-    EventType.PROCEDURE: 2,
-    EventType.OFFICE_VISIT: 1,
+    EventType.HOSPITAL_DISCHARGE: 5,
+    EventType.PROCEDURE: 4,
+    EventType.OFFICE_VISIT: 3,
+    EventType.INPATIENT_DAILY_NOTE: 2,
 }
 
 def detect_encounter_type(text: str) -> EventType:
@@ -82,7 +82,8 @@ def detect_encounter_type(text: str) -> EventType:
     pt_patterns = [
         "physical therapy", "pt eval", "pt note", "pt assessment", "therapist",
         "ambulation", "gait", "balance", "mobility", "range of motion", "rom",
-        "therapeutic exercise", "transfer", "walker", "cane", "assistive device"
+        "therapeutic exercise", "transfer", "walker", "cane", "assistive device",
+        "functional status", "manual therapy", "home exercise program"
     ]
     if any(kw in n for kw in pt_patterns):
         return EventType.OFFICE_VISIT
@@ -90,7 +91,9 @@ def detect_encounter_type(text: str) -> EventType:
     # 5. Office Visit
     office_patterns = [
         "office visit", "clinic visit", "outpatient", "follow-up", "follow up",
-        "consultation", "consult", "evaluation"
+        "consultation", "consult", "evaluation", "treatment plan discussion",
+        "modified duty", "work status", "return to work", "specialist follow-up",
+        "orthopedic", "orthopaedic", "pain management", "neurosurgery", "physiatry"
     ]
     if any(kw in n for kw in office_patterns):
         return EventType.OFFICE_VISIT

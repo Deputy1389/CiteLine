@@ -171,6 +171,43 @@ class TestClinicalPhaseSegmentation:
         discharge_events = [e for e in events if e.event_type == EventType.HOSPITAL_DISCHARGE]
         assert len(discharge_events) == 1
 
+    def test_pt_eval_lines_upgrade_generic_inpatient_note_to_office_visit(self):
+        page = _make_page(
+            "Elite Physical Therapy\n"
+            "Functional Status:\n"
+            "Physical Examination:\n"
+            "Range of Motion: Cervical ROM reduced.\n",
+            page_type=PageType.CLINICAL_NOTE,
+        )
+        event_date = EventDate(
+            kind=DateKind.SINGLE,
+            value=date(2024, 3, 15),
+            source=DateSource.TIER1,
+        )
+        events, citations, warnings, skipped = extract_clinical_events(
+            [page], {1: [event_date]}, [], RunConfig()
+        )
+        assert len(events) >= 1
+        assert events[0].event_type == EventType.OFFICE_VISIT
+
+    def test_treatment_plan_discussion_upgrades_to_office_visit(self):
+        page = _make_page(
+            "ASSESSMENT AND TREATMENT PLAN\n"
+            "TREATMENT PLAN DISCUSSION:\n"
+            "Modified duty. Follow up in 4 weeks with orthopedic clinic.\n",
+            page_type=PageType.CLINICAL_NOTE,
+        )
+        event_date = EventDate(
+            kind=DateKind.SINGLE,
+            value=date(2024, 3, 15),
+            source=DateSource.TIER1,
+        )
+        events, citations, warnings, skipped = extract_clinical_events(
+            [page], {1: [event_date]}, [], RunConfig()
+        )
+        assert len(events) >= 1
+        assert events[0].event_type == EventType.OFFICE_VISIT
+
 
 class TestImagingEventsMissingDate:
     """P0: Imaging events should be emitted even without dates."""

@@ -1,0 +1,16 @@
+{
+  "packetPath": "PacketIntake\\10_surgical_standard\\packet.pdf",
+  "filename": "packet.pdf",
+  "caseName": "Pass63 OCR packet.pdf 2026-03-06T22:59:50.003Z",
+  "matterId": "92ae39bf633346d98ec4dfa172c590a6",
+  "upload": {
+    "id": "5b491e03c6784fa1a674c055187aa34b",
+    "matter_id": "92ae39bf633346d98ec4dfa172c590a6",
+    "filename": "packet.pdf",
+    "mime_type": "application/pdf",
+    "sha256": "f747c6ef25aebeb131d0edeb9b88cfc668638f7e1d1c7ba48b34bb054eb3504a",
+    "bytes": 727818,
+    "storage_uri": "C:/CiteLine/data/uploads/5b491e03c6784fa1a674c055187aa34b.pdf",
+    "uploaded_at": "2026-03-06T22:59:50.396743+00:00"
+  }
+}
