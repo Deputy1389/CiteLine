@@ -111,6 +111,11 @@ _SUBSTANTIVE_TREATMENT_RE = re.compile(
     r")\b",
     re.IGNORECASE,
 )
+_LAB_PANEL_RE = re.compile(
+    r"\b(?:sodium|potassium|chloride|creatinine|glucose|bun|wbc|hgb|hemoglobin|platelets?)\s*:\s*[-+]?\d",
+    re.IGNORECASE,
+)
+_IDENTIFIER_ONLY_RE = re.compile(r"^\s*(?:patient id|account|record number)?\s*#?\d+\s*$", re.IGNORECASE)
 
 
 def clean_meta_language(text: str | None) -> str:
@@ -142,9 +147,13 @@ def _is_low_value_claim_for_promotion(
         return True
     if _ADMIN_RECORD_RE.search(text):
         return True
+    if _TIMING_ONLY_TREATMENT_RE.match(text):
+        return True
+    if _LAB_PANEL_RE.search(text):
+        return True
+    if _IDENTIFIER_ONLY_RE.match(text):
+        return True
     if category == "treatment":
-        if _TIMING_ONLY_TREATMENT_RE.match(text):
-            return True
         if _LOW_VALUE_TREATMENT_RE.search(text) and not _SUBSTANTIVE_TREATMENT_RE.search(text):
             return True
     if category == "diagnosis":
@@ -1233,6 +1242,21 @@ def _promoted_findings_from_events(events: list[Event], existing: list[PromotedF
                     continue
                 if re.search(r"\b(?:aggregated pt sessions?|pt sessions documented)\b", txt, re.I):
                     fact_category = "visit_count"
+                claim_type_hint = {
+                    "diagnosis": "INJURY_DX",
+                    "procedure": "PROCEDURE",
+                    "treatment": "TREATMENT_VISIT",
+                    "objective_deficit": "SYMPTOM",
+                    "imaging": "IMAGING_FINDING",
+                }.get(fact_category, "")
+                if _is_low_value_claim_for_promotion(
+                    txt,
+                    category=fact_category,
+                    claim_type=claim_type_hint,
+                    support_score=None,
+                    selection_score=getattr(e, "confidence", 0),
+                ):
+                    continue
                 # objective deficits are elevated by source field; generic pain-only exam items are not headline-worthy
                 polarity, headline = _claim_to_polarity_and_headline(txt, list(getattr(e, "flags", []) or []), fact_category)
                 if fact_category == "objective_deficit":
@@ -1301,6 +1325,21 @@ def _promoted_findings_from_events(events: list[Event], existing: list[PromotedF
                 category = "diagnosis"
             elif _SNAP_DISPO_PAT.search(clean_txt):
                 category = "treatment"
+            claim_type_hint = {
+                "diagnosis": "INJURY_DX",
+                "treatment": "TREATMENT_VISIT",
+                "objective_deficit": "SYMPTOM",
+                "imaging": "IMAGING_FINDING",
+                "symptom": "SYMPTOM",
+            }.get(category, "")
+            if _is_low_value_claim_for_promotion(
+                clean_txt,
+                category=category,
+                claim_type=claim_type_hint,
+                support_score=None,
+                selection_score=getattr(e, "confidence", 0),
+            ):
+                continue
             polarity, headline = _claim_to_polarity_and_headline(clean_txt, list(getattr(e, "flags", []) or []), category)
             if not (
                 _SNAP_NUMERIC_PAT.search(clean_txt)

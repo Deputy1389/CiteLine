@@ -366,3 +366,40 @@ def test_renderer_manifest_preserves_substantive_treatment_rows_when_clinically_
     assert len(manifest.promoted_findings) == 1
     assert manifest.promoted_findings[0].category in {"treatment", "objective_deficit"}
     assert "orthopedic consult" in manifest.promoted_findings[0].label.lower()
+
+
+def test_renderer_manifest_suppresses_low_value_event_fallback_findings() -> None:
+    evt = Event(
+        event_id="evt-1",
+        provider_id="prov-er",
+        event_type=EventType.HOSPITAL_ADMISSION,
+        confidence=88,
+        citation_ids=["c1", "c2", "c3"],
+        facts=[
+            Fact(text="ADMITTED: 2200-06-05 05:43:00 | DISCHARGED: 2200-06-05 10:26:00", kind=FactKind.OTHER, citation_ids=["c1"], verbatim=False),
+            Fact(text="Sodium: 143 | Potassium: 3.8 | Creatinine: 1.20", kind=FactKind.OTHER, citation_ids=["c2"], verbatim=False),
+            Fact(text="ADMISSION RECORD: #22380825", kind=FactKind.OTHER, citation_ids=["c3"], verbatim=False),
+        ],
+    )
+    manifest = build_renderer_manifest(events=[evt], evidence_graph_extensions={}, specials_summary=None)
+    assert manifest.promoted_findings == []
+
+
+def test_renderer_manifest_suppresses_generic_synthetic_event_diagnosis() -> None:
+    evt = Event(
+        event_id="evt-2",
+        provider_id="prov-er",
+        event_type=EventType.HOSPITAL_ADMISSION,
+        confidence=88,
+        citation_ids=["c1"],
+        diagnoses=[
+            Fact(
+                text="PRIMARY DIAGNOSIS: Medical Condition B20",
+                kind=FactKind.DIAGNOSIS,
+                citation_ids=["c1"],
+                verbatim=False,
+            )
+        ],
+    )
+    manifest = build_renderer_manifest(events=[evt], evidence_graph_extensions={}, specials_summary=None)
+    assert manifest.promoted_findings == []
