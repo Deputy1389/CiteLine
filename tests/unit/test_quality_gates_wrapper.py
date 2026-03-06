@@ -141,3 +141,34 @@ def test_visit_bucket_quality_threshold_triggers_review_recommended(monkeypatch)
     assert res["overall_pass"] is True
     assert res["export_status"] == "REVIEW_RECOMMENDED"
     assert "VISIT_BUCKET_REQUIRED_MISSING" in {f.get("code") for f in (res.get("soft_failures") or [])}
+
+
+def test_compact_packet_visit_bucket_quality_does_not_trigger_review(monkeypatch) -> None:
+    monkeypatch.setattr(
+        luqa_mod,
+        "build_luqa_report",
+        lambda report_text, ctx: {"luqa_pass": True, "luqa_score_0_100": 100, "failures": []},
+    )
+    monkeypatch.setattr(
+        attorney_mod,
+        "build_attorney_readiness_report",
+        lambda report_text, ctx: {"attorney_ready_pass": True, "attorney_ready_score_0_100": 100, "failures": []},
+    )
+    res = run_quality_gates(
+        report_text="Medical Timeline (Litigation Ready)\n2024-01-01 | Encounter: Admission\nCitation(s): [p. 1]\n",
+        page_text_by_number={1: "page one", 2: "page two", 3: "page three"},
+        projection_entries=[
+            {"event_id": "e1", "citation_display": "p. 1"},
+            {"event_id": "e2", "citation_display": "p. 2"},
+        ],
+        visit_bucket_quality={
+            "total_encounters": 2,
+            "encounters_with_missing_required_buckets": 2,
+            "required_bucket_miss_count": 6,
+            "missing_required_bucket_ratio": 1.0,
+        },
+    )
+    assert res["overall_pass"] is True
+    assert res["export_status"] == "VERIFIED"
+    assert "VISIT_BUCKET_REQUIRED_MISSING" not in {f.get("code") for f in (res.get("soft_failures") or [])}
+    assert res["gate_report"]["visit_bucket_quality"]["telemetry"]["compact_packet_policy"] is True

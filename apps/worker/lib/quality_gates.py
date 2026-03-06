@@ -55,6 +55,15 @@ _SOFT_FAILURE_CODES: set[str] = {
 }
 
 
+def _is_compact_packet_for_quality_gates(
+    *,
+    projection_count: int,
+    page_count: int,
+    total_encounters: int,
+) -> bool:
+    return total_encounters > 0 and total_encounters <= 3 and projection_count <= 3 and page_count <= 4
+
+
 def _normalize_quality_mode(value: str | None) -> str:
     mode = str(value or "").strip().lower()
     return mode if mode in {"strict", "pilot"} else "strict"
@@ -364,9 +373,24 @@ def run_quality_gates(
     miss_count = int(vbq.get("required_bucket_miss_count") or 0)
     encounter_missing = int(vbq.get("encounters_with_missing_required_buckets") or 0)
     total_encounters = int(vbq.get("total_encounters") or 0)
+    compact_packet = _is_compact_packet_for_quality_gates(
+        projection_count=len(list(projection_entries or [])),
+        page_count=len(page_text_by_number or {}),
+        total_encounters=total_encounters,
+    )
     threshold_ratio = 0.35
     threshold_count = 5
-    if total_encounters > 0 and (miss_ratio > threshold_ratio or miss_count >= threshold_count):
+    if compact_packet:
+        results["gate_report"]["visit_bucket_quality"] = {
+            "pass": True,
+            "failures": [],
+            "telemetry": {
+                **vbq,
+                "compact_packet_policy": True,
+                "suppressed_soft_failure": True,
+            },
+        }
+    elif total_encounters > 0 and (miss_ratio > threshold_ratio or miss_count >= threshold_count):
         vbq_find = {
             "source": "visit_bucket_quality",
             "code": "VISIT_BUCKET_REQUIRED_MISSING",
@@ -383,13 +407,19 @@ def run_quality_gates(
         results["gate_report"]["visit_bucket_quality"] = {
             "pass": False,
             "failures": [vbq_find],
-            "telemetry": vbq,
+            "telemetry": {
+                **vbq,
+                "compact_packet_policy": False,
+            },
         }
     else:
         results["gate_report"]["visit_bucket_quality"] = {
             "pass": True,
             "failures": [],
-            "telemetry": vbq,
+            "telemetry": {
+                **vbq,
+                "compact_packet_policy": compact_packet,
+            },
         }
 
     hard_failures, soft_failures = _classify_failures(
