@@ -430,3 +430,16 @@ Compact packets that preserve a small number of clinically distinct phases must 
 - **Failure class protected**: Review burden inflation
 
 ---
+
+## Promotion Hygiene Invariants (Pass 60)
+
+### INV-PF1 - PROMOTED_FINDING_SUBSTANCE_FLOOR
+
+`renderer_manifest.promoted_findings` may include only citation-backed substantive findings. Synthetic generic diagnosis labels, administrative record identifiers, and timing-only treatment boilerplate must not be promoted.
+
+- **Enforced in**: `apps/worker/steps/step_renderer_manifest.py` :: `_promoted_findings_from_claim_rows()`
+- **Tested in**: `tests/unit/test_renderer_manifest.py` :: `test_renderer_manifest_suppresses_generic_synthetic_and_admin_claim_rows`, `test_renderer_manifest_preserves_substantive_treatment_rows_when_clinically_meaningful`
+- **Introduced in**: Pass 60
+- **Failure class protected**: Trust erosion risk
+
+---

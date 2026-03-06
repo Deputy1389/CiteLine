@@ -305,3 +305,64 @@ def test_renderer_manifest_consolidates_lordosis_spasm_duplicates_but_keeps_stru
     assert lordosis_variants[0].semantic_family
     assert lordosis_variants[0].finding_source_count == 2
     assert "imaging" in (lordosis_variants[0].source_families or [])
+
+
+def test_renderer_manifest_suppresses_generic_synthetic_and_admin_claim_rows() -> None:
+    claim_rows = [
+        {
+            "event_id": "e1",
+            "claim_type": "INJURY_DX",
+            "assertion": "PRIMARY DIAGNOSIS: Medical Condition B20",
+            "citations": ["packet.pdf p. 1"],
+            "selection_score": 4,
+            "support_score": 2,
+        },
+        {
+            "event_id": "e2",
+            "claim_type": "TREATMENT_VISIT",
+            "assertion": "ADMISSION RECORD: #22380825",
+            "citations": ["packet.pdf p. 1"],
+            "selection_score": 4,
+            "support_score": 0,
+        },
+        {
+            "event_id": "e3",
+            "claim_type": "TREATMENT_VISIT",
+            "assertion": "ADMITTED: 2200-06-05 05:43:00 | DISCHARGED: 2200-06-05 10:26:00",
+            "citations": ["packet.pdf p. 4"],
+            "selection_score": 4,
+            "support_score": 0,
+        },
+        {
+            "event_id": "e4",
+            "claim_type": "INJURY_DX",
+            "assertion": "C5-C6 disc protrusion with left foraminal narrowing",
+            "citations": ["packet.pdf p. 12"],
+            "selection_score": 92,
+            "support_score": 3,
+            "body_region": "cervical",
+        },
+    ]
+    manifest = build_renderer_manifest(events=[], evidence_graph_extensions={"claim_rows": claim_rows}, specials_summary=None)
+    labels = [f.label for f in manifest.promoted_findings]
+    assert "PRIMARY DIAGNOSIS: Medical Condition B20" not in labels
+    assert "ADMISSION RECORD: #22380825" not in labels
+    assert "ADMITTED: 2200-06-05 05:43:00 | DISCHARGED: 2200-06-05 10:26:00" not in labels
+    assert any("disc protrusion" in label.lower() for label in labels)
+
+
+def test_renderer_manifest_preserves_substantive_treatment_rows_when_clinically_meaningful() -> None:
+    claim_rows = [
+        {
+            "event_id": "e1",
+            "claim_type": "TREATMENT_VISIT",
+            "assertion": "Follow-up orthopedic consult recommended due to persistent weakness and pain.",
+            "citations": ["packet.pdf p. 5"],
+            "selection_score": 35,
+            "support_score": 2,
+        }
+    ]
+    manifest = build_renderer_manifest(events=[], evidence_graph_extensions={"claim_rows": claim_rows}, specials_summary=None)
+    assert len(manifest.promoted_findings) == 1
+    assert manifest.promoted_findings[0].category in {"treatment", "objective_deficit"}
+    assert "orthopedic consult" in manifest.promoted_findings[0].label.lower()

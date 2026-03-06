@@ -81,6 +81,37 @@ _META_LANGUAGE_RE = re.compile(
     re.IGNORECASE,
 )
 
+_GENERIC_SYNTHETIC_DIAGNOSIS_RE = re.compile(
+    r"\b(?:medical condition|primary diagnosis:\s*medical condition|secondary diagnosis:\s*medical condition)\s+[a-z0-9.]+\b",
+    re.IGNORECASE,
+)
+_ADMIN_RECORD_RE = re.compile(
+    r"\b(?:admission|discharge|encounter|visit)\s+record\s*:\s*#?\d+\b",
+    re.IGNORECASE,
+)
+_TIMING_ONLY_TREATMENT_RE = re.compile(
+    r"^\s*admitted\s*:\s*\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2}(?::\d{2})?)?\s*\|\s*discharged\s*:\s*\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2}(?::\d{2})?)?\s*$",
+    re.IGNORECASE,
+)
+_LOW_VALUE_TREATMENT_RE = re.compile(
+    r"\b(?:admission record|discharge summary|discharged home in stable condition|presented with worsening medical condition|patient remained hemodynamically stable)\b",
+    re.IGNORECASE,
+)
+_SUBSTANTIVE_DIAGNOSIS_RE = re.compile(
+    r"\b("
+    r"fracture|dislocation|disc|herniat|protrusion|stenosis|radicul|sprain|strain|tear|"
+    r"weakness|deficit|neuropathy|concussion|tbi|meniscus|labral|rotator|foramen|foraminal|compression"
+    r")\b",
+    re.IGNORECASE,
+)
+_SUBSTANTIVE_TREATMENT_RE = re.compile(
+    r"\b("
+    r"injection|epidural|procedure|surgery|fusion|arthroscop|repair|open reduction|orif|"
+    r"physical therapy|therapy|work restriction|medication|follow-?up|consult"
+    r")\b",
+    re.IGNORECASE,
+)
+
 
 def clean_meta_language(text: str | None) -> str:
     if not text:
@@ -93,6 +124,47 @@ def clean_meta_language(text: str | None) -> str:
             return ""
         return _META_LANGUAGE_RE.sub("", text).strip()
     return text.strip()
+
+
+def _is_low_value_claim_for_promotion(
+    assertion: str,
+    *,
+    category: str,
+    claim_type: str,
+    support_score: float | int | None,
+    selection_score: float | int | None,
+) -> bool:
+    text = (assertion or "").strip()
+    low = text.lower()
+    if not text:
+        return True
+    if _GENERIC_SYNTHETIC_DIAGNOSIS_RE.search(text):
+        return True
+    if _ADMIN_RECORD_RE.search(text):
+        return True
+    if category == "treatment":
+        if _TIMING_ONLY_TREATMENT_RE.match(text):
+            return True
+        if _LOW_VALUE_TREATMENT_RE.search(text) and not _SUBSTANTIVE_TREATMENT_RE.search(text):
+            return True
+    if category == "diagnosis":
+        if ("medical condition" in low or "condition " in low) and not _SUBSTANTIVE_DIAGNOSIS_RE.search(text):
+            return True
+        if not _SUBSTANTIVE_DIAGNOSIS_RE.search(text):
+            sel = float(selection_score or 0)
+            sup = float(support_score or 0)
+            if sel < 20 and sup < 3:
+                return True
+    if category == "treatment" and not _SUBSTANTIVE_TREATMENT_RE.search(text):
+        sel = float(selection_score or 0)
+        sup = float(support_score or 0)
+        if sel < 20 and sup < 3:
+            return True
+    if category in {"symptom", "visit_count"}:
+        return False
+    if claim_type == "TREATMENT_VISIT" and category == "diagnosis" and not _SUBSTANTIVE_DIAGNOSIS_RE.search(text):
+        return True
+    return False
 
 
 def _iso_from_event(event: Event) -> tuple[str | None, str | None]:
@@ -1010,9 +1082,17 @@ def _promoted_findings_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list
         key = f"{category}|{assertion.lower()}"
         if key in seen_keys:
             continue
-        seen_keys.add(key)
         support_score = row.get("support_score")
         selection_score = row.get("selection_score")
+        if _is_low_value_claim_for_promotion(
+            assertion,
+            category=category,
+            claim_type=claim_type,
+            support_score=support_score,
+            selection_score=selection_score,
+        ):
+            continue
+        seen_keys.add(key)
         conf = 0.0
         if isinstance(selection_score, (int, float)):
             conf = max(conf, min(1.0, float(selection_score) / 100.0))
