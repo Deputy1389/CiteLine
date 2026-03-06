@@ -1,0 +1,812 @@
+{
+  "schema_version": "1.0",
+  "documents": [
+    {
+      "document_id": "a6a35cdf36e44026",
+      "source_document_id": "7163874c1e894bf7a2aee098e8dfcbb1",
+      "page_start": 1,
+      "page_end": 4,
+      "page_types": [
+        {
+          "page_start": 1,
+          "page_end": 4,
+          "page_type": "other"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "unknown",
+      "confidence": 70
+    },
+    {
+      "document_id": "c3dc66b097cb4fb6",
+      "source_document_id": "7163874c1e894bf7a2aee098e8dfcbb1",
+      "page_start": 5,
+      "page_end": 5,
+      "page_types": [
+        {
+          "page_start": 5,
+          "page_end": 5,
+          "page_type": "lab_report"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "medical_record",
+      "confidence": 70
+    }
+  ],
+  "pages": [
+    {
+      "page_id": "4d6bd8b458e749a9",
+      "source_document_id": "7163874c1e894bf7a2aee098e8dfcbb1",
+      "page_number": 1,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 782.0,
+        "height": 1012.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_scores": {},
+        "page_type_confidence": 30,
+        "page_quality": {
+          "is_low_quality": true,
+          "action": "exclude",
+          "score": 0.0,
+          "reason_codes": [
+            "empty_text",
+            "low_medical_signal"
+          ]
+        },
+        "page_type_downgraded_by_quality": true
+      }
+    },
+    {
+      "page_id": "cab9d1c31d974283",
+      "source_document_id": "7163874c1e894bf7a2aee098e8dfcbb1",
+      "page_number": 2,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 782.0,
+        "height": 1012.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_scores": {},
+        "page_type_confidence": 30,
+        "page_quality": {
+          "is_low_quality": true,
+          "action": "exclude",
+          "score": 0.0,
+          "reason_codes": [
+            "empty_text",
+            "low_medical_signal"
+          ]
+        },
+        "page_type_downgraded_by_quality": true
+      }
+    },
+    {
+      "page_id": "a6e5f450dbf74930",
+      "source_document_id": "7163874c1e894bf7a2aee098e8dfcbb1",
+      "page_number": 3,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 782.0,
+        "height": 1012.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_scores": {},
+        "page_type_confidence": 30,
+        "page_quality": {
+          "is_low_quality": true,
+          "action": "exclude",
+          "score": 0.0,
+          "reason_codes": [
+            "empty_text",
+            "low_medical_signal"
+          ]
+        },
+        "page_type_downgraded_by_quality": true
+      }
+    },
+    {
+      "page_id": "d494419acafc419a",
+      "source_document_id": "7163874c1e894bf7a2aee098e8dfcbb1",
+      "page_number": 4,
+      "text": "",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 782.0,
+        "height": 1012.0,
+        "orientation": "portrait"
+      },
+      "page_type": "other",
+      "extensions": {
+        "page_type_scores": {},
+        "page_type_confidence": 30,
+        "page_quality": {
+          "is_low_quality": true,
+          "action": "exclude",
+          "score": 0.0,
+          "reason_codes": [
+            "empty_text",
+            "low_medical_signal"
+          ]
+        },
+        "page_type_downgraded_by_quality": true
+      }
+    },
+    {
+      "page_id": "6f4af7106f394499",
+      "source_document_id": "7163874c1e894bf7a2aee098e8dfcbb1",
+      "page_number": 5,
+      "text": "Sodium: 139 | Potassium: 4.2 | Creatinine: 1.07",
+      "text_source": "ocr",
+      "layout": {
+        "width": 782.0,
+        "height": 1012.0,
+        "orientation": "portrait"
+      },
+      "page_type": "lab_report",
+      "extensions": {
+        "page_type_scores": {
+          "lab_report": 114
+        },
+        "page_type_score_margin": 114,
+        "page_type_confidence": 74,
+        "page_quality": {
+          "is_low_quality": true,
+          "action": "downgrade",
+          "score": 0.65,
+          "reason_codes": [
+            "too_short"
+          ]
+        }
+      }
+    }
+  ],
+  "providers": [
+    {
+      "provider_id": "d097ac16d17b4a4a",
+      "detected_name_raw": "Unknown Provider",
+      "normalized_name": "unknown provider",
+      "provider_type": "unknown",
+      "confidence": 0,
+      "evidence": []
+    }
+  ],
+  "events": [],
+  "citations": [
+    {
+      "citation_id": "c4bf9c508e1943f6",
+      "source_document_id": "7163874c1e894bf7a2aee098e8dfcbb1",
+      "page_number": 5,
+      "snippet": "Labs found: Sodium, Potassium, Creatinine",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "32c0b3f94fa8a9d9f537784b7a0046d2e6bfd29511ce72144a7cfa633e1d343e"
+    }
+  ],
+  "gaps": [],
+  "skipped_events": [],
+  "narrative_chronology": null,
+  "extensions": {
+    "case_collapse_candidates": [],
+    "causation_chains": [],
+    "causation_timeline_registry": {
+      "rungs": [
+        {
+          "rung": "incident",
+          "date": null,
+          "label": "incident not explicitly documented",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "incident_mechanism_not_explicit"
+        },
+        {
+          "rung": "first_treatment",
+          "date": null,
+          "label": "first documented treatment",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "first_treatment_not_found"
+        },
+        {
+          "rung": "first_diagnosis",
+          "date": null,
+          "label": "first diagnosis",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "first_diagnosis_not_found"
+        },
+        {
+          "rung": "imaging_confirmation",
+          "date": null,
+          "label": "first imaging confirmation",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "imaging_confirmation_not_found"
+        },
+        {
+          "rung": "specialist_confirmation",
+          "date": null,
+          "label": "first specialist confirmation",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "specialist_confirmation_not_found"
+        },
+        {
+          "rung": "surgical_repair_or_high_intensity_equivalent",
+          "date": null,
+          "label": "first surgical repair",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "surgical_repair_or_high_intensity_equivalent_not_found"
+        }
+      ],
+      "missing_rungs": [
+        {
+          "rung": "incident",
+          "date": null,
+          "label": "incident not explicitly documented",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "incident_mechanism_not_explicit"
+        },
+        {
+          "rung": "first_treatment",
+          "date": null,
+          "label": "first documented treatment",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "first_treatment_not_found"
+        },
+        {
+          "rung": "first_diagnosis",
+          "date": null,
+          "label": "first diagnosis",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "first_diagnosis_not_found"
+        },
+        {
+          "rung": "imaging_confirmation",
+          "date": null,
+          "label": "first imaging confirmation",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "imaging_confirmation_not_found"
+        },
+        {
+          "rung": "specialist_confirmation",
+          "date": null,
+          "label": "first specialist confirmation",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "specialist_confirmation_not_found"
+        },
+        {
+          "rung": "surgical_repair_or_high_intensity_equivalent",
+          "date": null,
+          "label": "first surgical repair",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "surgical_repair_or_high_intensity_equivalent_not_found"
+        }
+      ]
+    },
+    "citation_fidelity": {
+      "claim_rows_total": 0,
+      "claim_rows_anchored": 0,
+      "claim_row_anchor_ratio": 1.0,
+      "claim_rows_text_backed": 0,
+      "claim_row_text_backed_ratio": 1.0,
+      "drift_suspect_count": 0,
+      "drift_suspect_ratio": 0.0,
+      "drift_review_required": false,
+      "drift_suspects": [],
+      "min_overlap_threshold": 0.12
+    },
+    "claim_context_alignment": {
+      "name": "claim_context_alignment",
+      "version": "1.0",
+      "claims_total": 0,
+      "claims_pass": 0,
+      "claims_fail": 0,
+      "failures": [],
+      "claims": [],
+      "export_status": "PASS",
+      "PASS": true
+    },
+    "claim_rows": [],
+    "comparative_pattern_engine": {
+      "status": "insufficient_corpus_for_comparative_deviation",
+      "version": "v0_scaffold",
+      "required_min_cases": 500,
+      "current_case_features": {
+        "claim_row_count": 0,
+        "claim_type_distribution": {},
+        "avg_support_score": 0.0
+      },
+      "deviation_flags": []
+    },
+    "contradiction_matrix": [],
+    "diagnosis_registry": [],
+    "extraction_metrics": {
+      "pages_total": 5,
+      "pages_classified": {
+        "PageType.OTHER": 4,
+        "PageType.LAB_REPORT": 1
+      },
+      "providers_detected": 1,
+      "events_total": 0,
+      "events_by_type": {},
+      "events_exported": 0,
+      "facts_total": 0,
+      "citations_total": 1
+    },
+    "injury_cluster_severity": [],
+    "injury_clusters": [],
+    "litigation_safe_v1": {
+      "version": "litigation_safe_v1",
+      "status": "VERIFIED",
+      "failure_reasons": [],
+      "billing_partial_disclosed": false,
+      "checks": {
+        "mechanism_and_diagnosis_supported": true,
+        "procedure_dates_complete": true,
+        "gap_statement_consistent": true,
+        "billing_not_implied_complete": true,
+        "no_internal_contradictions": true,
+        "claim_context_alignment_pass": true
+      },
+      "computed": {
+        "max_gap_days": 0,
+        "has_gap_gt_45": false,
+        "reported_max_gap_days": null,
+        "pt_count_candidates": [],
+        "contradiction_details": [],
+        "pt_verified_count": 0,
+        "pt_reported_count_max": null,
+        "claim_context_alignment": {
+          "name": "claim_context_alignment",
+          "version": "1.0",
+          "claims_total": 0,
+          "claims_pass": 0,
+          "claims_fail": 0,
+          "failures": [],
+          "claims": [],
+          "export_status": "PASS",
+          "PASS": true
+        }
+      }
+    },
+    "llm_polish_applied": false,
+    "missing_records": {
+      "version": "1.0",
+      "generated_at": "2026-03-06T22:38:08.661835+00:00",
+      "ruleset": {
+        "provider_gap_medium_days": 30,
+        "provider_gap_high_days": 60,
+        "global_gap_medium_days": 45,
+        "global_gap_high_days": 90,
+        "care_window_start": null,
+        "care_window_end": null
+      },
+      "gaps": [],
+      "summary": {
+        "total_gaps": 0,
+        "provider_gap_count": 0,
+        "global_gap_count": 0,
+        "high_severity_count": 0,
+        "medium_severity_count": 0,
+        "patient_scope_count": 0,
+        "unassigned_events_excluded": 0
+      },
+      "priority_requests_top3": []
+    },
+    "narrative_duality": {
+      "plaintiff_narrative": {
+        "summary": "Citation-backed medical progression emphasizing objective findings and treatment escalation.",
+        "points": []
+      },
+      "defense_narrative": {
+        "summary": "Citation-backed competing medical interpretation emphasizing fragility points.",
+        "points": []
+      }
+    },
+    "page_quality_assessment": {
+      "total_pages": 5,
+      "low_quality_pages": 5,
+      "low_quality_page_numbers": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "extraction_excluded_pages": 4,
+      "extraction_excluded_page_numbers": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "reason_counts": {
+        "empty_text": 4,
+        "low_medical_signal": 4,
+        "too_short": 1
+      },
+      "details": [
+        {
+          "page_number": 1,
+          "page_type": "PageType.OTHER",
+          "text_source": "embedded_pdf_text",
+          "is_low_quality": true,
+          "action": "exclude",
+          "score": 0.0,
+          "reason_codes": [
+            "empty_text",
+            "low_medical_signal"
+          ]
+        },
+        {
+          "page_number": 2,
+          "page_type": "PageType.OTHER",
+          "text_source": "embedded_pdf_text",
+          "is_low_quality": true,
+          "action": "exclude",
+          "score": 0.0,
+          "reason_codes": [
+            "empty_text",
+            "low_medical_signal"
+          ]
+        },
+        {
+          "page_number": 3,
+          "page_type": "PageType.OTHER",
+          "text_source": "embedded_pdf_text",
+          "is_low_quality": true,
+          "action": "exclude",
+          "score": 0.0,
+          "reason_codes": [
+            "empty_text",
+            "low_medical_signal"
+          ]
+        },
+        {
+          "page_number": 4,
+          "page_type": "PageType.OTHER",
+          "text_source": "embedded_pdf_text",
+          "is_low_quality": true,
+          "action": "exclude",
+          "score": 0.0,
+          "reason_codes": [
+            "empty_text",
+            "low_medical_signal"
+          ]
+        },
+        {
+          "page_number": 5,
+          "page_type": "PageType.LAB_REPORT",
+          "text_source": "ocr",
+          "is_low_quality": true,
+          "action": "downgrade",
+          "score": 0.65,
+          "reason_codes": [
+            "too_short"
+          ]
+        }
+      ]
+    },
+    "patient_partitions": {
+      "version": "1.0",
+      "partitions": [
+        {
+          "patient_scope_id": "ps_694188ac5240",
+          "label": "Unknown Patient",
+          "page_start": 1,
+          "page_end": 5,
+          "page_count": 5,
+          "page_numbers": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "confidence": 0
+        }
+      ],
+      "unassigned_pages": [],
+      "total_pages": 5,
+      "partition_count": 1
+    },
+    "provider_resolution_quality": {
+      "version": "1.0",
+      "scope": "export_projection_rows",
+      "rows_total": 0,
+      "rows_resolved": 0,
+      "rows_unresolved": 0,
+      "resolved_ratio": 1.0,
+      "unresolved_by_family": {},
+      "by_family": {},
+      "pt_ledger": {
+        "pt_ledger_rows_total": 0,
+        "pt_facility_resolved": 0,
+        "pt_provider_resolved": 0,
+        "pt_facility_resolved_ratio": 1.0,
+        "pt_provider_resolved_ratio": 1.0,
+        "pt_provider_facility_gate": {
+          "status": "warn",
+          "reason": null
+        },
+        "top_unresolved_examples": []
+      }
+    },
+    "provider_role_registry": [],
+    "pt_count_reported": [],
+    "pt_encounters": [],
+    "pt_reconciliation": {
+      "verified_pt_count": 0,
+      "reported_pt_counts": [],
+      "reported_pt_count_min": null,
+      "reported_pt_count_max": null,
+      "variance_flag": false,
+      "severe_variance_flag": false,
+      "variance_delta_max_minus_verified": null,
+      "date_concentration_anomaly": {
+        "triggered": false,
+        "max_date": null,
+        "max_date_count": 0,
+        "max_date_ratio": 0.0,
+        "reason": null
+      }
+    },
+    "quality_gate": {
+      "num_snippets_filtered": 1,
+      "num_snippets_cleaned": 0
+    },
+    "registry_contract_version": "pass53.v1",
+    "renderer_manifest": {
+      "manifest_version": "1.0",
+      "doi": {
+        "value": null,
+        "citation_ids": [],
+        "source": "not_found"
+      },
+      "mechanism": {
+        "value": null,
+        "citation_ids": []
+      },
+      "pt_summary": {
+        "total_encounters": null,
+        "encounter_count_min": null,
+        "encounter_count_max": null,
+        "date_start": null,
+        "date_end": null,
+        "discharge_status": null,
+        "reconciliation_note": null,
+        "citation_ids": [],
+        "count_source": "not_found"
+      },
+      "promoted_findings": [],
+      "top_case_drivers": [],
+      "bucket_evidence": {
+        "ed": {
+          "detected": false,
+          "event_ids": [],
+          "citation_ids": []
+        },
+        "pt_eval": {
+          "detected": false,
+          "event_ids": [],
+          "citation_ids": []
+        }
+      },
+      "case_skeleton": {
+        "active": true,
+        "items": [
+          {
+            "label": "Pages analyzed",
+            "value": "1",
+            "citation_ids": [
+              "c4bf9c508e1943f6"
+            ]
+          }
+        ],
+        "care_phases": []
+      },
+      "billing_completeness": "none",
+      "visit_abstraction_registry": [],
+      "provider_role_registry": [],
+      "diagnosis_registry": [],
+      "injury_clusters": [],
+      "injury_cluster_severity": [],
+      "treatment_escalation_path": [],
+      "causation_timeline_registry": {
+        "rungs": [
+          {
+            "rung": "incident",
+            "date": null,
+            "label": "incident not explicitly documented",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "incident_mechanism_not_explicit"
+          },
+          {
+            "rung": "first_treatment",
+            "date": null,
+            "label": "first documented treatment",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "first_treatment_not_found"
+          },
+          {
+            "rung": "first_diagnosis",
+            "date": null,
+            "label": "first diagnosis",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "first_diagnosis_not_found"
+          },
+          {
+            "rung": "imaging_confirmation",
+            "date": null,
+            "label": "first imaging confirmation",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "imaging_confirmation_not_found"
+          },
+          {
+            "rung": "specialist_confirmation",
+            "date": null,
+            "label": "first specialist confirmation",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "specialist_confirmation_not_found"
+          },
+          {
+            "rung": "surgical_repair_or_high_intensity_equivalent",
+            "date": null,
+            "label": "first surgical repair",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "surgical_repair_or_high_intensity_equivalent_not_found"
+          }
+        ],
+        "missing_rungs": [
+          {
+            "rung": "incident",
+            "date": null,
+            "label": "incident not explicitly documented",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "incident_mechanism_not_explicit"
+          },
+          {
+            "rung": "first_treatment",
+            "date": null,
+            "label": "first documented treatment",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "first_treatment_not_found"
+          },
+          {
+            "rung": "first_diagnosis",
+            "date": null,
+            "label": "first diagnosis",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "first_diagnosis_not_found"
+          },
+          {
+            "rung": "imaging_confirmation",
+            "date": null,
+            "label": "first imaging confirmation",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "imaging_confirmation_not_found"
+          },
+          {
+            "rung": "specialist_confirmation",
+            "date": null,
+            "label": "first specialist confirmation",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "specialist_confirmation_not_found"
+          },
+          {
+            "rung": "surgical_repair_or_high_intensity_equivalent",
+            "date": null,
+            "label": "first surgical repair",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "surgical_repair_or_high_intensity_equivalent_not_found"
+          }
+        ]
+      },
+      "visit_bucket_quality": {
+        "total_encounters": 0,
+        "encounters_with_missing_required_buckets": 0,
+        "required_bucket_miss_count": 0,
+        "missing_required_bucket_ratio": 0.0,
+        "encounter_ids_with_missing_required_buckets": []
+      },
+      "registry_contract_version": "pass53.v1"
+    },
+    "severity_profile": {
+      "schema_version": "severity_profile.v1",
+      "export_intent": "mediation",
+      "provenance": {
+        "source_schema": "csi.v2",
+        "transform_version": "severity_profile.transform.v1"
+      },
+      "primary_label": "Low objective severity profile",
+      "band": "LOW",
+      "severity_drivers": [
+        {
+          "rank": 1,
+          "component": "objective",
+          "tier_key": "no_objective",
+          "label": "No objective imaging findings documented",
+          "support_citation_ids": []
+        },
+        {
+          "rank": 2,
+          "component": "intensity",
+          "tier_key": "none",
+          "label": "No treatment intensity tier documented",
+          "support_citation_ids": []
+        },
+        {
+          "rank": 3,
+          "component": "duration",
+          "tier_key": "duration_missing",
+          "label": "Duration not fully documented",
+          "support_citation_ids": []
+        }
+      ],
+      "treatment_progression": [
+        {
+          "phase": "intensity",
+          "tier_key": "none",
+          "label": "No treatment intensity tier documented",
+          "support_citation_ids": []
+        },
+        {
+          "phase": "duration",
+          "tier_key": "duration_missing",
+          "label": "Duration not fully documented",
+          "support_citation_ids": []
+        }
+      ],
+      "anticipated_defense_arguments": [],
+      "support": {
+        "citation_ids": [],
+        "page_refs": []
+      }
+    },
+    "treatment_escalation_path": [],
+    "visit_abstraction_registry": [],
+    "visit_bucket_quality": {
+      "total_encounters": 0,
+      "encounters_with_missing_required_buckets": 0,
+      "required_bucket_miss_count": 0,
+      "missing_required_bucket_ratio": 0.0,
+      "encounter_ids_with_missing_required_buckets": []
+    },
+    "export_mode": "MEDIATION"
+  }
+}

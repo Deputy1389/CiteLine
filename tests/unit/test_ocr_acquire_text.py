@@ -1,4 +1,5 @@
 import types
+import sys
 from contextlib import contextmanager
 
 import apps.worker.steps.step02_text_acquire as ocr
@@ -85,3 +86,50 @@ def test_acquire_text_budget_exceeded(monkeypatch):
 
     pages, count, warnings = ocr.acquire_text([_page("")], "dummy.pdf", run_id=None)
     assert any(w.code == "OCR_BUDGET_EXCEEDED" for w in warnings)
+
+
+def test_ocr_page_retries_at_lower_dpi_after_timeout(monkeypatch):
+    class _FakePix:
+        def tobytes(self, _fmt):
+            from PIL import Image
+            import io
+
+            img = Image.new("L", (200, 200), "white")
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            return buf.getvalue()
+
+    class _FakePage:
+        def __init__(self):
+            self.dpis = []
+
+        def get_pixmap(self, *, dpi, colorspace, alpha):
+            self.dpis.append(dpi)
+            return _FakePix()
+
+    class _FakeDoc:
+        def __init__(self, page):
+            self.page = page
+
+        def __getitem__(self, _idx):
+            return self.page
+
+        def close(self):
+            return None
+
+    calls = {"count": 0}
+
+    class _FakeTesseract:
+        @staticmethod
+        def image_to_string(_img, lang, config, timeout):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise RuntimeError("Tesseract process timeout")
+            return "Recovered OCR"
+
+    page = _FakePage()
+    monkeypatch.setitem(sys.modules, "pytesseract", _FakeTesseract)
+    monkeypatch.setattr(ocr, "_OCR_RETRY_DPI", 120)
+    text = ocr._ocr_page("dummy.pdf", 0, dpi=200, config="--psm 6", doc=_FakeDoc(page))
+    assert text == "Recovered OCR"
+    assert page.dpis == [200, 120]

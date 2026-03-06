@@ -1,7 +1,7 @@
 import re
 import textwrap
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 from packages.shared.models import (
     Citation,
     DateKind,
@@ -20,6 +20,54 @@ from packages.shared.models import (
     Warning,
 )
 from .common import _make_citation, _make_fact, _find_section
+
+
+def _resolved_pt_group_event_date(group_dates: list[EventDate]) -> EventDate | None:
+    explicit_dates: list[date] = []
+    partial_dates: list[EventDate] = []
+    fallback_dates: list[EventDate] = []
+
+    for ed in group_dates:
+        if ed is None:
+            continue
+        fallback_dates.append(ed)
+        value = ed.value
+        if isinstance(value, date):
+            if value.year > 1900:
+                explicit_dates.append(value)
+            continue
+        if isinstance(value, DateRange):
+            if value.start and value.start.year > 1900:
+                explicit_dates.append(value.start)
+            if value.end and value.end.year > 1900:
+                explicit_dates.append(value.end)
+            continue
+        ext = ed.extensions or {}
+        if ext.get("partial_date") or ed.partial_month is not None:
+            partial_dates.append(ed)
+
+    if len(explicit_dates) >= 2:
+        start = min(explicit_dates)
+        end = max(explicit_dates)
+        return EventDate(
+            kind=DateKind.RANGE,
+            value=DateRange(start=start, end=end),
+            source=group_dates[0].source,
+            status=DateStatus.RANGE,
+        )
+
+    if len(explicit_dates) == 1:
+        return EventDate(
+            kind=DateKind.SINGLE,
+            value=explicit_dates[0],
+            source=group_dates[0].source,
+            status=DateStatus.PROPAGATED,
+        )
+
+    if partial_dates:
+        return partial_dates[0]
+
+    return fallback_dates[0] if fallback_dates else None
 
 def extract_pt_events(
     pages: list[Page],
@@ -156,12 +204,7 @@ def extract_pt_events(
                     facts.append(_make_fact(progress[:400], FactKind.OTHER, prog_cit.citation_id))
 
             if visit_count > 1:
-                event_date = EventDate(
-                    kind=DateKind.RANGE,
-                    value=DateRange(start=first_date.sort_date(), end=last_date.sort_date()),
-                    source=first_date.source,
-                    status=DateStatus.RANGE,
-                )
+                event_date = _resolved_pt_group_event_date([event_date for _, event_date in group])
             else:
                 event_date = first_date
 

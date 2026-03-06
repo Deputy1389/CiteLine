@@ -28,6 +28,9 @@ _OCR_TIMEOUT_SECONDS = int(os.getenv("OCR_TIMEOUT_SECONDS", "30"))
 _OCR_TOTAL_TIMEOUT_SECONDS = int(os.getenv("OCR_TOTAL_TIMEOUT_SECONDS", "600"))
 _OCR_DPI = int(os.getenv("OCR_DPI", "200"))
 _OCR_WORKERS = max(1, int(os.getenv("OCR_WORKERS", "2")))
+_OCR_MAX_PIXELS = max(1, int(os.getenv("OCR_MAX_PIXELS", "2000000")))
+_OCR_MAX_DIMENSION = max(256, int(os.getenv("OCR_MAX_DIMENSION", "1600")))
+_OCR_RETRY_DPI = max(72, int(os.getenv("OCR_RETRY_DPI", "120")))
 _OCR_DISABLED = os.getenv("DISABLE_OCR", "").strip().lower() in {"1", "true", "yes", "on"}
 _OCR_CONFIG = os.getenv("OCR_TESSERACT_CONFIG", "--oem 1 --psm 6").strip()
 _OCR_MODE = os.getenv("OCR_MODE", "full").strip().lower()
@@ -113,32 +116,45 @@ def _ocr_page(pdf_path: str, page_index: int, *, dpi: int, config: str, doc: fit
             owned_doc = True
         try:
             page = doc[page_index]
-            try:
-                pix = page.get_pixmap(dpi=dpi)
-            except Exception as exc:
-                logger.error(f"Could not render page {page_index} for OCR: {exc}")
-                return ""
-            img_data = pix.tobytes("png")
-            img = Image.open(io.BytesIO(img_data))
-            text = pytesseract.image_to_string(img, lang="eng", config=config, timeout=_OCR_TIMEOUT_SECONDS)
-            return text.strip()
+            attempt_dpis = [dpi]
+            if _OCR_RETRY_DPI < dpi:
+                attempt_dpis.append(_OCR_RETRY_DPI)
+            for attempt_index, attempt_dpi in enumerate(attempt_dpis):
+                try:
+                    pix = page.get_pixmap(dpi=attempt_dpi, colorspace=fitz.csGRAY, alpha=False)
+                except Exception as exc:
+                    logger.error(f"Could not render page {page_index} for OCR: {exc}")
+                    return ""
+                img_data = pix.tobytes("png")
+                img = Image.open(io.BytesIO(img_data))
+                img = _normalize_ocr_image(img)
+                try:
+                    text = pytesseract.image_to_string(img, lang="eng", config=config, timeout=_OCR_TIMEOUT_SECONDS)
+                    return text.strip()
+                except RuntimeError as exc:
+                    logger.error(f"OCR timeout for page {page_index} at dpi {attempt_dpi}: {exc}")
+                    if attempt_index == len(attempt_dpis) - 1:
+                        return ""
+                finally:
+                    try:
+                        del img
+                    except Exception:
+                        pass
+                    try:
+                        del img_data
+                    except Exception:
+                        pass
+                    try:
+                        del pix
+                    except Exception:
+                        pass
+            return ""
         finally:
             try:
                 if owned_doc:
                     doc.close()
             finally:
-                try:
-                    del img
-                except Exception:
-                    pass
-                try:
-                    del img_data
-                except Exception:
-                    pass
-                try:
-                    del pix
-                except Exception:
-                    pass
+                pass
     except RuntimeError as exc:
         # pytesseract raises RuntimeError on timeout
         logger.error(f"OCR timeout for page {page_index}: {exc}")
@@ -150,6 +166,31 @@ def _ocr_page(pdf_path: str, page_index: int, *, dpi: int, config: str, doc: fit
 
 def _text_hash(text: str) -> str:
     return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
+
+
+def _normalize_ocr_image(img):
+    try:
+        from PIL import Image
+    except Exception:
+        return img
+
+    if img.mode not in {"L", "1"}:
+        img = img.convert("L")
+
+    width, height = img.size
+    if width <= 0 or height <= 0:
+        return img
+
+    pixel_scale = (_OCR_MAX_PIXELS / float(width * height)) ** 0.5 if (width * height) > _OCR_MAX_PIXELS else 1.0
+    dim_scale = min(1.0, _OCR_MAX_DIMENSION / float(max(width, height)))
+    scale = min(1.0, pixel_scale, dim_scale)
+    if scale >= 0.999:
+        return img
+
+    new_width = max(1, int(width * scale))
+    new_height = max(1, int(height * scale))
+    resample = getattr(getattr(Image, "Resampling", Image), "LANCZOS", Image.LANCZOS)
+    return img.resize((new_width, new_height), resample)
 
 
 def _quality_warning(text: str) -> bool:

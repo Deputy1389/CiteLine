@@ -1,0 +1,33 @@
+[
+  {
+    "id": "86ed2dc51de74d9581a28a1ecad0177f",
+    "matter_id": "39a88a1a519f4f30ad053a7368ea62d1",
+    "status": "needs_review",
+    "started_at": "2026-03-06T22:49:15.510994",
+    "heartbeat_at": "2026-03-06T22:49:57.178155",
+    "finished_at": "2026-03-06T22:49:55.487550",
+    "metrics": {
+      "documents": 1,
+      "pages_total": 494,
+      "pages_ocr": 3,
+      "events_total": 11,
+      "events_exported": 16,
+      "providers_total": 15,
+      "pt_events_aggregated": 1,
+      "billing_events_total": 1,
+      "processing_seconds": 24.67
+    },
+    "warnings": [
+      {
+        "code": "QUALITY_GATE_FAILED",
+        "message": "Quality gates require review: export_status=BLOCKED, attorney=True, luqa=False",
+        "page": null,
+        "document_id": null
+      }
+    ],
+    "error_message": null,
+    "processing_seconds": 24.6727335453033,
+    "quality_gate_passed": null,
+    "quality_gate_score": null
+  }
+]

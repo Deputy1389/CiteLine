@@ -1,0 +1,103 @@
+{
+  "pass": 64,
+  "objective": "Validate chronology integrity on richer packets beyond compact MIMIC admissions.",
+  "result": {
+    "validated_packets": 4,
+    "event_count_min": 8,
+    "event_count_max": 14,
+    "event_count_mean": 10.5,
+    "sentinel_1900_packets": 1
+  },
+  "packets": [
+    {
+      "packet": "05_minor_quick",
+      "run_dir": "pass_064/runs/05_minor_quick",
+      "run_id": "df32cf0980104a46aab7e9e937e5d3e9",
+      "matter_id": "509182a0012d4e59aab57c19beb93e30",
+      "status": "needs_review",
+      "pages_ocr": 0,
+      "events_total": 8,
+      "citations_total": 266,
+      "event_types": {
+        "inpatient_daily_note": 3,
+        "imaging_study": 1,
+        "hospital_discharge": 1,
+        "billing_event": 1,
+        "discharge": 1,
+        "pt_visit": 1
+      },
+      "contains_1900": false,
+      "warnings": [
+        "QUALITY_GATE_FAILED"
+      ]
+    },
+    {
+      "packet": "08_soft_tissue_noisy",
+      "run_dir": "pass_064/runs/08_soft_tissue_noisy",
+      "run_id": "e91bb431cc514be688808fafb14c4a62",
+      "matter_id": "38231250c261418186af0bd7f08edeb3",
+      "status": "needs_review",
+      "pages_ocr": 3,
+      "events_total": 9,
+      "citations_total": 274,
+      "event_types": {
+        "pt_visit": 1,
+        "inpatient_daily_note": 4,
+        "imaging_study": 1,
+        "hospital_discharge": 1,
+        "billing_event": 1,
+        "discharge": 1
+      },
+      "contains_1900": true,
+      "warnings": [
+        "QUALITY_GATE_FAILED"
+      ]
+    },
+    {
+      "packet": "10_surgical_standard_after_pt_fix",
+      "run_dir": "pass_064/runs/10_surgical_standard_after_pt_fix",
+      "run_id": "6c06166903e14e17938d4215d0d22d56",
+      "matter_id": "fb935993f22348a88fc2217198686850",
+      "status": "needs_review",
+      "pages_ocr": 17,
+      "events_total": 14,
+      "citations_total": 416,
+      "event_types": {
+        "inpatient_daily_note": 6,
+        "imaging_study": 1,
+        "procedure": 1,
+        "hospital_discharge": 2,
+        "pt_visit": 2,
+        "billing_event": 1,
+        "discharge": 1
+      },
+      "contains_1900": false,
+      "warnings": [
+        "QUALITY_GATE_FAILED"
+      ]
+    },
+    {
+      "packet": "batch_029_complex_prior_after_pt_fix",
+      "run_dir": "pass_064/runs/batch_029_complex_prior_after_pt_fix",
+      "run_id": "86ed2dc51de74d9581a28a1ecad0177f",
+      "matter_id": "39a88a1a519f4f30ad053a7368ea62d1",
+      "status": "needs_review",
+      "pages_ocr": 3,
+      "events_total": 11,
+      "citations_total": 543,
+      "event_types": {
+        "inpatient_daily_note": 6,
+        "imaging_study": 1,
+        "pt_visit": 1,
+        "hospital_discharge": 1,
+        "billing_event": 1,
+        "discharge": 1
+      },
+      "contains_1900": false,
+      "warnings": [
+        "QUALITY_GATE_FAILED"
+      ]
+    }
+  ],
+  "finding": "Richer packets no longer collapse to one event. PT aggregate sentinel dates were removed at the event layer. The next chronology bottleneck is event typing richness, because inpatient_daily_note still dominates many non-PT encounter phases."
+}

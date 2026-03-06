@@ -1,0 +1,16 @@
+{
+  "packetPath": "reference\\pass_063\\packets\\packet_noisy_corpus_08_soft_tissue_noisy.pdf",
+  "filename": "packet_noisy_corpus_08_soft_tissue_noisy.pdf",
+  "caseName": "Pass63 OCR packet_noisy_corpus_08_soft_tissue_noisy.pdf 2026-03-06T22:25:30.534Z",
+  "matterId": "c0a30cb21a2940298f579348b0985873",
+  "upload": {
+    "id": "3db9f81088ed415e90b3467c37520b15",
+    "matter_id": "c0a30cb21a2940298f579348b0985873",
+    "filename": "packet_noisy_corpus_08_soft_tissue_noisy.pdf",
+    "mime_type": "application/pdf",
+    "sha256": "5efa5817acccedc6c5a66cd7b94485fab8934964aec2638dc86ae1d63d77d74b",
+    "bytes": 907938,
+    "storage_uri": "C:/CiteLine/data/uploads/3db9f81088ed415e90b3467c37520b15.pdf",
+    "uploaded_at": "2026-03-06T22:25:31.268849+00:00"
+  }
+}

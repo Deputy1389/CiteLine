@@ -1,0 +1,54 @@
+{
+  "pass": 63,
+  "objective": "Validate OCR fallback health on packets that genuinely require OCR.",
+  "result": {
+    "validated_packets": 3,
+    "terminal_completion": 3,
+    "ocr_positive_packets": 3,
+    "non_empty_event_packets": 2
+  },
+  "packets": [
+    {
+      "packet": "packet_synthetic_image_only.pdf",
+      "run_dir": "pass_063/runs/synthetic_image_only",
+      "run_id": "cefd53d5577b427fa6efdc9be460fa49",
+      "matter_id": "e9329fe11ae647e6bd0798a72fe420f2",
+      "status": "partial",
+      "pages_total": 2,
+      "pages_ocr": 2,
+      "events_total": 2,
+      "citations_total": 6,
+      "warnings": []
+    },
+    {
+      "packet": "packet_noisy_corpus_08_soft_tissue_noisy.pdf",
+      "run_dir": "pass_063/runs/noisy_corpus_08_soft_tissue_noisy",
+      "run_id": "741b218b839441bb81fb5a2040f74fd8",
+      "matter_id": "c0a30cb21a2940298f579348b0985873",
+      "status": "needs_review",
+      "pages_total": 262,
+      "pages_ocr": 3,
+      "events_total": 9,
+      "citations_total": 274,
+      "warnings": [
+        "QUALITY_GATE_FAILED"
+      ]
+    },
+    {
+      "packet": "packet_mimic_10002930_rasterized_clean.pdf",
+      "run_dir": "pass_063/runs/mimic_10002930_rasterized_clean",
+      "run_id": "f0477d6d8aed42b592b1fd396998355d",
+      "matter_id": "e523fb74a8f242eb98d763fc54120aac",
+      "status": "needs_review",
+      "pages_total": 5,
+      "pages_ocr": 1,
+      "events_total": 0,
+      "citations_total": 1,
+      "warnings": [
+        "LITIGATION_REVIEW_FAIL",
+        "QUALITY_GATE_FAILED"
+      ]
+    }
+  ],
+  "open_issue": "Fully rasterized compact MIMIC pages still hit live Tesseract timeouts on 4/5 pages and collapse to zero events; synthetic image-only and noisy corpus OCR paths complete."
+}

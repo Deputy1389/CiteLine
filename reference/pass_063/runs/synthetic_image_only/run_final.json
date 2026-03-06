@@ -1,0 +1,24 @@
+{
+  "id": "cefd53d5577b427fa6efdc9be460fa49",
+  "matter_id": "e9329fe11ae647e6bd0798a72fe420f2",
+  "status": "partial",
+  "started_at": "2026-03-06T22:22:36.523510",
+  "heartbeat_at": "2026-03-06T22:23:07.506823",
+  "finished_at": "2026-03-06T22:23:09.091294",
+  "metrics": {
+    "documents": 1,
+    "pages_total": 2,
+    "pages_ocr": 2,
+    "events_total": 2,
+    "events_exported": 2,
+    "providers_total": 1,
+    "pt_events_aggregated": 0,
+    "billing_events_total": 0,
+    "processing_seconds": 24.2
+  },
+  "warnings": [],
+  "error_message": null,
+  "processing_seconds": 24.1985468864441,
+  "quality_gate_passed": null,
+  "quality_gate_score": null
+}

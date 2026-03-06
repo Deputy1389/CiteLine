@@ -1,4 +1,5 @@
 from apps.worker.steps import step02_text_acquire as ocr
+from PIL import Image
 
 
 class _FakePage:
@@ -38,3 +39,23 @@ def test_page_needs_ocr_skips_blank_separator() -> None:
 def test_page_needs_ocr_flags_low_density_text() -> None:
     page = _FakePage(images=1, font_spans=0)
     assert ocr._page_needs_ocr("Header only", page) is True
+
+
+def test_normalize_ocr_image_downscales_large_inputs(monkeypatch) -> None:
+    monkeypatch.setattr(ocr, "_OCR_MAX_PIXELS", 1_000_000)
+    monkeypatch.setattr(ocr, "_OCR_MAX_DIMENSION", 1200)
+    img = Image.new("RGB", (3000, 2000), "white")
+    out = ocr._normalize_ocr_image(img)
+    assert out.mode == "L"
+    assert out.size[0] <= 1200
+    assert out.size[1] <= 1200
+    assert out.size[0] * out.size[1] <= 1_000_000
+
+
+def test_normalize_ocr_image_leaves_small_inputs(monkeypatch) -> None:
+    monkeypatch.setattr(ocr, "_OCR_MAX_PIXELS", 1_000_000)
+    monkeypatch.setattr(ocr, "_OCR_MAX_DIMENSION", 1200)
+    img = Image.new("L", (600, 800), "white")
+    out = ocr._normalize_ocr_image(img)
+    assert out.mode == "L"
+    assert out.size == (600, 800)

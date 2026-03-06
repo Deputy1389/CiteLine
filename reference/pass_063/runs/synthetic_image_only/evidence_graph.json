@@ -1,0 +1,2081 @@
+{
+  "schema_version": "1.0",
+  "documents": [
+    {
+      "document_id": "adef854545334cb2",
+      "source_document_id": "cae2051b78df445f814b35d8849da77e",
+      "page_start": 1,
+      "page_end": 2,
+      "page_types": [
+        {
+          "page_start": 1,
+          "page_end": 1,
+          "page_type": "clinical_note"
+        },
+        {
+          "page_start": 2,
+          "page_end": 2,
+          "page_type": "imaging_report"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "medical_record",
+      "confidence": 70
+    }
+  ],
+  "pages": [
+    {
+      "page_id": "63585a0f797e48d8",
+      "source_document_id": "cae2051b78df445f814b35d8849da77e",
+      "page_number": 1,
+      "text": "Synthetic OCR Packet\n\nEmergency Department Visit\n\nDate: 2025-04-04\n\nPatient reports neck pain and low back pain after motor vehicle collision.\nCervical spine tenderness documented.\n\nLumbar spine tenderness documented.\n\nDischarged same day with follow-up instructions.",
+      "text_source": "ocr",
+      "layout": {
+        "width": 1100.0,
+        "height": 1420.0,
+        "orientation": "portrait"
+      },
+      "page_type": "clinical_note",
+      "extensions": {
+        "page_type_scores": {
+          "clinical_note": 164
+        },
+        "page_type_score_margin": 164,
+        "page_type_confidence": 80,
+        "page_quality": {
+          "is_low_quality": true,
+          "action": "downgrade",
+          "score": 0.4128,
+          "reason_codes": [
+            "ocr_garbage"
+          ]
+        }
+      }
+    },
+    {
+      "page_id": "9f9a3c66c6134ff3",
+      "source_document_id": "cae2051b78df445f814b35d8849da77e",
+      "page_number": 2,
+      "text": "Synthetic OCR Packet\n\nRadiology Report\n\nDate: 2025-04-04\n\nXR Cervical Spine: no acute fracture identified.\n\nXR Lumbar Spine: mild straightening noted.\n\nFollow up with physical therapy if symptoms persist.",
+      "text_source": "ocr",
+      "layout": {
+        "width": 1100.0,
+        "height": 1420.0,
+        "orientation": "portrait"
+      },
+      "page_type": "imaging_report",
+      "extensions": {
+        "page_type_scores": {
+          "imaging_report": 100
+        },
+        "page_type_score_margin": 100,
+        "page_type_confidence": 90,
+        "page_quality": {
+          "is_low_quality": true,
+          "action": "downgrade",
+          "score": 0.3797,
+          "reason_codes": [
+            "ocr_garbage"
+          ]
+        }
+      }
+    }
+  ],
+  "providers": [
+    {
+      "provider_id": "366ca028ddd54240",
+      "detected_name_raw": "Radiology Report",
+      "normalized_name": "radiology report",
+      "provider_type": "imaging",
+      "confidence": 75,
+      "evidence": [
+        {
+          "page_number": 2,
+          "snippet": "Radiology Report",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "event_id": "6a59b073613148a7",
+      "provider_id": "366ca028ddd54240",
+      "event_type": "er_visit",
+      "date": {
+        "kind": "single",
+        "value": "2025-04-04",
+        "relative_day": null,
+        "source": "tier2",
+        "status": "explicit",
+        "line_number": 5,
+        "partial_month": null,
+        "partial_day": null,
+        "extensions": {}
+      },
+      "encounter_type_raw": null,
+      "reason_for_visit": null,
+      "chief_complaint": null,
+      "author_name": null,
+      "author_role": null,
+      "facts": [
+        {
+          "text": "Emergency Department Visit",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "54156da64b7341f8",
+          "citation_ids": [
+            "54156da64b7341f8"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "Cervical spine tenderness documented.",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "d2100f408449440c",
+          "citation_ids": [
+            "d2100f408449440c"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "Lumbar spine tenderness documented.",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "211bdc2b5c5a4301",
+          "citation_ids": [
+            "211bdc2b5c5a4301"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        }
+      ],
+      "diagnoses": [],
+      "medications": [],
+      "procedures": [],
+      "exam_findings": [],
+      "treatment_plan": [],
+      "coding": {},
+      "imaging": null,
+      "billing": null,
+      "confidence": 88,
+      "flags": [],
+      "citation_ids": [
+        "211bdc2b5c5a4301",
+        "54156da64b7341f8",
+        "d2100f408449440c"
+      ],
+      "source_page_numbers": [
+        1
+      ],
+      "extensions": {
+        "patient_scope_id": "ps_694188ac5240",
+        "patient_scope_confidence": 100,
+        "event_class": "ed_visit",
+        "severity_score": 85,
+        "is_care_event": true
+      }
+    },
+    {
+      "event_id": "7f2b050ec84c4fd2",
+      "provider_id": "366ca028ddd54240",
+      "event_type": "imaging_study",
+      "date": {
+        "kind": "single",
+        "value": "2025-04-04",
+        "relative_day": null,
+        "source": "tier2",
+        "status": "explicit",
+        "line_number": 5,
+        "partial_month": null,
+        "partial_day": null,
+        "extensions": {}
+      },
+      "encounter_type_raw": null,
+      "reason_for_visit": null,
+      "chief_complaint": null,
+      "author_name": null,
+      "author_role": null,
+      "facts": [
+        {
+          "text": "XR Cervical Spine: no acute fracture identified.",
+          "kind": "impression",
+          "verbatim": true,
+          "citation_id": "13cd8ebb91c34f6c",
+          "citation_ids": [
+            "13cd8ebb91c34f6c"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        }
+      ],
+      "diagnoses": [],
+      "medications": [],
+      "procedures": [],
+      "exam_findings": [],
+      "treatment_plan": [],
+      "coding": {},
+      "imaging": {
+        "modality": "other",
+        "body_part": "cervical spine",
+        "impression": [
+          {
+            "text": "Date: 2025-04-04",
+            "kind": "impression",
+            "verbatim": true,
+            "citation_id": "5889a59c2c764ab6",
+            "citation_ids": [
+              "5889a59c2c764ab6"
+            ],
+            "confidence": null,
+            "technical_noise": false
+          },
+          {
+            "text": "XR Cervical Spine: no acute fracture identified.",
+            "kind": "impression",
+            "verbatim": true,
+            "citation_id": "13cd8ebb91c34f6c",
+            "citation_ids": [
+              "13cd8ebb91c34f6c"
+            ],
+            "confidence": null,
+            "technical_noise": false
+          },
+          {
+            "text": "XR Lumbar Spine: mild straightening noted.",
+            "kind": "impression",
+            "verbatim": true,
+            "citation_id": "882e7f6429cf4de1",
+            "citation_ids": [
+              "882e7f6429cf4de1"
+            ],
+            "confidence": null,
+            "technical_noise": false
+          }
+        ]
+      },
+      "billing": null,
+      "confidence": 72,
+      "flags": [],
+      "citation_ids": [
+        "13cd8ebb91c34f6c",
+        "5889a59c2c764ab6",
+        "882e7f6429cf4de1"
+      ],
+      "source_page_numbers": [
+        2
+      ],
+      "extensions": {
+        "patient_scope_id": "ps_694188ac5240",
+        "patient_scope_confidence": 100,
+        "event_class": "imaging_impression",
+        "severity_score": 75,
+        "is_care_event": true
+      }
+    }
+  ],
+  "citations": [
+    {
+      "citation_id": "54156da64b7341f8",
+      "source_document_id": "cae2051b78df445f814b35d8849da77e",
+      "page_number": 1,
+      "snippet": "Emergency Department Visit",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "8ea34082d85f9f1f4b03ec092308c8cdbf816b2fed5b2cbda4245339f750942d"
+    },
+    {
+      "citation_id": "d2100f408449440c",
+      "source_document_id": "cae2051b78df445f814b35d8849da77e",
+      "page_number": 1,
+      "snippet": "Cervical spine tenderness documented.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "8db5b7d70c7e49335de9f773e9bfd10f88e24504f194acab9901e8b0882cf3fb"
+    },
+    {
+      "citation_id": "211bdc2b5c5a4301",
+      "source_document_id": "cae2051b78df445f814b35d8849da77e",
+      "page_number": 1,
+      "snippet": "Lumbar spine tenderness documented.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "145b57e8fe744cae7a0cbc8adcda9f620dfaf34da0dd52032df82f9fa7908d70"
+    },
+    {
+      "citation_id": "5889a59c2c764ab6",
+      "source_document_id": "cae2051b78df445f814b35d8849da77e",
+      "page_number": 2,
+      "snippet": "Date: 2025-04-04",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "58c03c6ef21a9353c0e7c097429909b66e5cdd2d4f0ea3401f6eec4d12173a1c"
+    },
+    {
+      "citation_id": "13cd8ebb91c34f6c",
+      "source_document_id": "cae2051b78df445f814b35d8849da77e",
+      "page_number": 2,
+      "snippet": "XR Cervical Spine: no acute fracture identified.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "f3a6127e5aeac6826c59563dd4c9815eed5cfbfb668280fc03d629ef9e85e6df"
+    },
+    {
+      "citation_id": "882e7f6429cf4de1",
+      "source_document_id": "cae2051b78df445f814b35d8849da77e",
+      "page_number": 2,
+      "snippet": "XR Lumbar Spine: mild straightening noted.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "ed25b6d9ba2ddfc1e06296cb501d74870c43eb04060aa2fbc987474a0bfea952"
+    }
+  ],
+  "gaps": [],
+  "skipped_events": [],
+  "narrative_chronology": null,
+  "extensions": {
+    "case_collapse_candidates": [],
+    "causation_chains": [
+      {
+        "id": "74bff7a4291bb1b3",
+        "body_region": "cervical",
+        "rungs": [
+          {
+            "rung_order": 1,
+            "event_id": "6a59b073613148a7",
+            "rung_type": "INCIDENT",
+            "body_region": "cervical",
+            "date": "2025-04-04",
+            "citation_ids": [
+              "p. 1"
+            ],
+            "temporal_gap_from_previous_days": null,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 4,
+            "event_id": "7f2b050ec84c4fd2",
+            "rung_type": "ESCALATION",
+            "body_region": "cervical",
+            "date": "2025-04-04",
+            "citation_ids": [
+              "p. 2"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 27,
+            "provider_reliability_multiplier": 0.9
+          }
+        ],
+        "chain_integrity_score": 54,
+        "break_points": [],
+        "missing_rungs": [
+          "INITIAL_DX",
+          "TREATMENT",
+          "OUTCOME"
+        ],
+        "incident_date": "2025-04-04",
+        "temporal_decay_penalty": 0,
+        "provider_reliability_multiplier_avg": 0.9,
+        "provider_reliability_penalty": 1,
+        "max_days_from_incident": 0
+      },
+      {
+        "id": "5185b904472739b8",
+        "body_region": "lumbar",
+        "rungs": [
+          {
+            "rung_order": 3,
+            "event_id": "6a59b073613148a7",
+            "rung_type": "TREATMENT",
+            "body_region": "lumbar",
+            "date": "2025-04-04",
+            "citation_ids": [
+              "p. 1"
+            ],
+            "temporal_gap_from_previous_days": null,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 4,
+            "event_id": "7f2b050ec84c4fd2",
+            "rung_type": "ESCALATION",
+            "body_region": "lumbar",
+            "date": "2025-04-04",
+            "citation_ids": [
+              "p. 2"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          }
+        ],
+        "chain_integrity_score": 54,
+        "break_points": [],
+        "missing_rungs": [
+          "INCIDENT",
+          "INITIAL_DX",
+          "OUTCOME"
+        ],
+        "incident_date": null,
+        "temporal_decay_penalty": 0,
+        "provider_reliability_multiplier_avg": 0.9,
+        "provider_reliability_penalty": 1,
+        "max_days_from_incident": 0
+      },
+      {
+        "id": "e9c0b13adc9e3f48",
+        "body_region": "general",
+        "rungs": [
+          {
+            "rung_order": 4,
+            "event_id": "7f2b050ec84c4fd2",
+            "rung_type": "ESCALATION",
+            "body_region": "general",
+            "date": "2025-04-04",
+            "citation_ids": [
+              "p. 2"
+            ],
+            "temporal_gap_from_previous_days": null,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          }
+        ],
+        "chain_integrity_score": 39,
+        "break_points": [],
+        "missing_rungs": [
+          "INCIDENT",
+          "INITIAL_DX",
+          "TREATMENT",
+          "OUTCOME"
+        ],
+        "incident_date": null,
+        "temporal_decay_penalty": 0,
+        "provider_reliability_multiplier_avg": 0.9,
+        "provider_reliability_penalty": 1,
+        "max_days_from_incident": 0
+      }
+    ],
+    "causation_timeline_registry": {
+      "rungs": [
+        {
+          "rung": "incident",
+          "date": "2025-04-04",
+          "label": "incident not explicitly documented",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "incident_mechanism_not_explicit"
+        },
+        {
+          "rung": "first_treatment",
+          "date": "2025-04-04",
+          "label": "first documented treatment",
+          "citation_ids": [
+            "54156da64b7341f8",
+            "d2100f408449440c",
+            "211bdc2b5c5a4301"
+          ],
+          "status": "present",
+          "missing_reason": null
+        },
+        {
+          "rung": "first_diagnosis",
+          "date": "2025-04-04",
+          "label": "XR Cervical Spine: no acute fracture identified.",
+          "citation_ids": [
+            "13cd8ebb91c34f6c"
+          ],
+          "status": "present",
+          "missing_reason": null
+        },
+        {
+          "rung": "imaging_confirmation",
+          "date": "2025-04-04",
+          "label": "first imaging confirmation",
+          "citation_ids": [
+            "13cd8ebb91c34f6c"
+          ],
+          "status": "present",
+          "missing_reason": null
+        },
+        {
+          "rung": "specialist_confirmation",
+          "date": null,
+          "label": "first specialist confirmation",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "specialist_confirmation_not_found"
+        },
+        {
+          "rung": "surgical_repair_or_high_intensity_equivalent",
+          "date": null,
+          "label": "first surgical repair",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "surgical_repair_or_high_intensity_equivalent_not_found"
+        }
+      ],
+      "missing_rungs": [
+        {
+          "rung": "incident",
+          "date": "2025-04-04",
+          "label": "incident not explicitly documented",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "incident_mechanism_not_explicit"
+        },
+        {
+          "rung": "specialist_confirmation",
+          "date": null,
+          "label": "first specialist confirmation",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "specialist_confirmation_not_found"
+        },
+        {
+          "rung": "surgical_repair_or_high_intensity_equivalent",
+          "date": null,
+          "label": "first surgical repair",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "surgical_repair_or_high_intensity_equivalent_not_found"
+        }
+      ]
+    },
+    "citation_fidelity": {
+      "claim_rows_total": 5,
+      "claim_rows_anchored": 5,
+      "claim_row_anchor_ratio": 1.0,
+      "claim_rows_text_backed": 5,
+      "claim_row_text_backed_ratio": 1.0,
+      "drift_suspect_count": 0,
+      "drift_suspect_ratio": 0.0,
+      "drift_review_required": false,
+      "drift_suspects": [],
+      "min_overlap_threshold": 0.12
+    },
+    "claim_context_alignment": {
+      "name": "claim_context_alignment",
+      "version": "1.0",
+      "claims_total": 4,
+      "claims_pass": 3,
+      "claims_fail": 1,
+      "failures": [
+        {
+          "claim_id": "38af03459f6c",
+          "claim_type": "pt_claim",
+          "claim_text": "Emergency Department Visit Cervical spine tenderness documented",
+          "citations": [
+            1,
+            1,
+            1
+          ],
+          "page_types": [
+            "clinical_note"
+          ],
+          "candidate_pages": [
+            {
+              "page": 1,
+              "page_type": "clinical_note",
+              "score": 0.799
+            },
+            {
+              "page": 1,
+              "page_type": "clinical_note",
+              "score": 0.7379
+            },
+            {
+              "page": 1,
+              "page_type": "clinical_note",
+              "score": 0.6418
+            }
+          ],
+          "best_page": 1,
+          "best_page_type": "clinical_note",
+          "best_score": 0.799,
+          "reason_code": "page_type_mismatch",
+          "severity": "BLOCKED"
+        }
+      ],
+      "claims": [
+        {
+          "claim_id": "8ca14a642ada",
+          "claim_type": "imaging_finding",
+          "claim_text": "XR Lumbar Spine: mild straightening noted.",
+          "citations": [
+            2
+          ],
+          "page_types": [
+            "imaging_report"
+          ],
+          "candidate_pages": [
+            {
+              "page": 2,
+              "page_type": "imaging_report",
+              "score": 1.0
+            }
+          ],
+          "best_page": 2,
+          "best_page_type": "imaging_report",
+          "best_score": 1.0,
+          "reason_code": null,
+          "severity": "PASS",
+          "alignment_pass": true,
+          "context_pass": true,
+          "PASS": true
+        },
+        {
+          "claim_id": "d9add4cd438a",
+          "claim_type": "imaging_finding",
+          "claim_text": "XR Lumbar Spine: mild straightening noted",
+          "citations": [
+            2,
+            2
+          ],
+          "page_types": [
+            "imaging_report"
+          ],
+          "candidate_pages": [
+            {
+              "page": 2,
+              "page_type": "imaging_report",
+              "score": 1.0
+            },
+            {
+              "page": 2,
+              "page_type": "imaging_report",
+              "score": 0.5225
+            }
+          ],
+          "best_page": 2,
+          "best_page_type": "imaging_report",
+          "best_score": 1.0,
+          "reason_code": null,
+          "severity": "PASS",
+          "alignment_pass": true,
+          "context_pass": true,
+          "PASS": true
+        },
+        {
+          "claim_id": "ff59ce154317",
+          "claim_type": "imaging_finding",
+          "claim_text": "Date: 2025-04-04",
+          "citations": [
+            2
+          ],
+          "page_types": [
+            "imaging_report"
+          ],
+          "candidate_pages": [
+            {
+              "page": 2,
+              "page_type": "imaging_report",
+              "score": 1.0
+            }
+          ],
+          "best_page": 2,
+          "best_page_type": "imaging_report",
+          "best_score": 1.0,
+          "reason_code": null,
+          "severity": "PASS",
+          "alignment_pass": true,
+          "context_pass": true,
+          "PASS": true
+        },
+        {
+          "claim_id": "38af03459f6c",
+          "claim_type": "pt_claim",
+          "claim_text": "Emergency Department Visit Cervical spine tenderness documented",
+          "citations": [
+            1,
+            1,
+            1
+          ],
+          "page_types": [
+            "clinical_note"
+          ],
+          "candidate_pages": [
+            {
+              "page": 1,
+              "page_type": "clinical_note",
+              "score": 0.799
+            },
+            {
+              "page": 1,
+              "page_type": "clinical_note",
+              "score": 0.7379
+            },
+            {
+              "page": 1,
+              "page_type": "clinical_note",
+              "score": 0.6418
+            }
+          ],
+          "best_page": 1,
+          "best_page_type": "clinical_note",
+          "best_score": 0.799,
+          "reason_code": "page_type_mismatch",
+          "severity": "BLOCKED",
+          "alignment_pass": false,
+          "context_pass": false,
+          "PASS": false
+        }
+      ],
+      "export_status": "BLOCKED",
+      "PASS": false
+    },
+    "claim_rows": [
+      {
+        "id": "8c8aa7249b2795ab",
+        "event_id": "7f2b050ec84c4fd2",
+        "patient_label": "See Patient Header",
+        "claim_type": "IMAGING_FINDING",
+        "date": "2025-04-04",
+        "body_region": "cervical",
+        "provider": "366ca028ddd54240",
+        "assertion": "XR Cervical Spine: no acute fracture identified",
+        "citations": [
+          "p. 2"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "13cd8ebb91c34f6c",
+            "doc_id": "cae2051b78df445f814b35d8849da77e",
+            "page": 2,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 3,
+        "support_strength": "Medium",
+        "flags": [],
+        "materiality_weight": 3,
+        "selection_score": 9
+      },
+      {
+        "id": "e32fca93c7759fdd",
+        "event_id": "7f2b050ec84c4fd2",
+        "patient_label": "See Patient Header",
+        "claim_type": "IMAGING_FINDING",
+        "date": "2025-04-04",
+        "body_region": "lumbar",
+        "provider": "366ca028ddd54240",
+        "assertion": "XR Lumbar Spine: mild straightening noted",
+        "citations": [
+          "p. 2"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "13cd8ebb91c34f6c",
+            "doc_id": "cae2051b78df445f814b35d8849da77e",
+            "page": 2,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 3,
+        "selection_score": 0
+      },
+      {
+        "id": "e422b09dd9d33892",
+        "event_id": "7f2b050ec84c4fd2",
+        "patient_label": "See Patient Header",
+        "claim_type": "IMAGING_FINDING",
+        "date": "2025-04-04",
+        "body_region": "general",
+        "provider": "366ca028ddd54240",
+        "assertion": "Date: 2025-04-04",
+        "citations": [
+          "p. 2"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "13cd8ebb91c34f6c",
+            "doc_id": "cae2051b78df445f814b35d8849da77e",
+            "page": 2,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 3,
+        "selection_score": 0
+      },
+      {
+        "id": "35fe92d67686fed1",
+        "event_id": "6a59b073613148a7",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2025-04-04",
+        "body_region": "cervical",
+        "provider": "366ca028ddd54240",
+        "assertion": "Emergency Department Visit Cervical spine tenderness documented",
+        "citations": [
+          "p. 1"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "54156da64b7341f8",
+            "doc_id": "cae2051b78df445f814b35d8849da77e",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "d2100f408449440c",
+            "doc_id": "cae2051b78df445f814b35d8849da77e",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "211bdc2b5c5a4301",
+            "doc_id": "cae2051b78df445f814b35d8849da77e",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "dd072c301f7eba36",
+        "event_id": "6a59b073613148a7",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2025-04-04",
+        "body_region": "lumbar",
+        "provider": "366ca028ddd54240",
+        "assertion": "Lumbar spine tenderness documented",
+        "citations": [
+          "p. 1"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "54156da64b7341f8",
+            "doc_id": "cae2051b78df445f814b35d8849da77e",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "d2100f408449440c",
+            "doc_id": "cae2051b78df445f814b35d8849da77e",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "211bdc2b5c5a4301",
+            "doc_id": "cae2051b78df445f814b35d8849da77e",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      }
+    ],
+    "comparative_pattern_engine": {
+      "status": "insufficient_corpus_for_comparative_deviation",
+      "version": "v0_scaffold",
+      "required_min_cases": 500,
+      "current_case_features": {
+        "claim_row_count": 5,
+        "claim_type_distribution": {
+          "IMAGING_FINDING": 3,
+          "TREATMENT_VISIT": 2
+        },
+        "avg_support_score": 0.6
+      },
+      "deviation_flags": []
+    },
+    "contradiction_matrix": [],
+    "diagnosis_registry": [
+      {
+        "diagnosis_label": "XR Cervical Spine: no acute fracture identified.",
+        "icd_codes": [],
+        "first_seen_date": "2025-04-04",
+        "provider": "radiology report",
+        "provider_id": "366ca028ddd54240",
+        "citation_ids": [
+          "13cd8ebb91c34f6c"
+        ],
+        "cluster_name": "spine_injury",
+        "classification": "primary",
+        "event_ids": [
+          "7f2b050ec84c4fd2"
+        ]
+      }
+    ],
+    "extraction_metrics": {
+      "pages_total": 2,
+      "pages_classified": {
+        "PageType.CLINICAL_NOTE": 1,
+        "PageType.IMAGING_REPORT": 1
+      },
+      "providers_detected": 1,
+      "events_total": 2,
+      "events_by_type": {
+        "EventType.ER_VISIT": 1,
+        "EventType.IMAGING_STUDY": 1
+      },
+      "events_exported": 2,
+      "facts_total": 4,
+      "citations_total": 6
+    },
+    "injury_cluster_severity": [
+      {
+        "cluster_name": "spine_injury",
+        "classification": "primary",
+        "severity_score_0_100": 20,
+        "surgery_present": false,
+        "injection_present": false,
+        "mri_pathology_present": false,
+        "treatment_duration_days": null,
+        "pt_visit_count": 0,
+        "specialist_involvement": false,
+        "treatment_intensity_index": 0,
+        "escalation_level": 0,
+        "citation_ids": [
+          "13cd8ebb91c34f6c"
+        ]
+      }
+    ],
+    "injury_clusters": [
+      {
+        "cluster_name": "spine_injury",
+        "classification": "primary",
+        "diagnosis_labels": [
+          "XR Cervical Spine: no acute fracture identified."
+        ],
+        "diagnosis_refs": [
+          "13cd8ebb91c34f6c"
+        ],
+        "event_ids": [
+          "7f2b050ec84c4fd2"
+        ]
+      }
+    ],
+    "litigation_safe_v1": {
+      "version": "litigation_safe_v1",
+      "status": "BLOCKED",
+      "failure_reasons": [
+        {
+          "code": "MECHANISM_OR_DIAGNOSIS_UNSUPPORTED",
+          "message": "Snapshot claim context alignment failed for one or more claims.",
+          "claim_failures": [
+            {
+              "claim_id": "38af03459f6c",
+              "claim_type": "pt_claim",
+              "claim_text": "Emergency Department Visit Cervical spine tenderness documented",
+              "citations": [
+                1,
+                1,
+                1
+              ],
+              "page_types": [
+                "clinical_note"
+              ],
+              "candidate_pages": [
+                {
+                  "page": 1,
+                  "page_type": "clinical_note",
+                  "score": 0.799
+                },
+                {
+                  "page": 1,
+                  "page_type": "clinical_note",
+                  "score": 0.7379
+                },
+                {
+                  "page": 1,
+                  "page_type": "clinical_note",
+                  "score": 0.6418
+                }
+              ],
+              "best_page": 1,
+              "best_page_type": "clinical_note",
+              "best_score": 0.799,
+              "reason_code": "page_type_mismatch",
+              "severity": "BLOCKED"
+            }
+          ]
+        }
+      ],
+      "billing_partial_disclosed": false,
+      "checks": {
+        "mechanism_and_diagnosis_supported": false,
+        "procedure_dates_complete": true,
+        "gap_statement_consistent": true,
+        "billing_not_implied_complete": true,
+        "no_internal_contradictions": true,
+        "claim_context_alignment_pass": false
+      },
+      "computed": {
+        "max_gap_days": 0,
+        "has_gap_gt_45": false,
+        "reported_max_gap_days": null,
+        "pt_count_candidates": [],
+        "contradiction_details": [],
+        "pt_verified_count": 0,
+        "pt_reported_count_max": null,
+        "claim_context_alignment": {
+          "name": "claim_context_alignment",
+          "version": "1.0",
+          "claims_total": 4,
+          "claims_pass": 3,
+          "claims_fail": 1,
+          "failures": [
+            {
+              "claim_id": "38af03459f6c",
+              "claim_type": "pt_claim",
+              "claim_text": "Emergency Department Visit Cervical spine tenderness documented",
+              "citations": [
+                1,
+                1,
+                1
+              ],
+              "page_types": [
+                "clinical_note"
+              ],
+              "candidate_pages": [
+                {
+                  "page": 1,
+                  "page_type": "clinical_note",
+                  "score": 0.799
+                },
+                {
+                  "page": 1,
+                  "page_type": "clinical_note",
+                  "score": 0.7379
+                },
+                {
+                  "page": 1,
+                  "page_type": "clinical_note",
+                  "score": 0.6418
+                }
+              ],
+              "best_page": 1,
+              "best_page_type": "clinical_note",
+              "best_score": 0.799,
+              "reason_code": "page_type_mismatch",
+              "severity": "BLOCKED"
+            }
+          ],
+          "claims": [
+            {
+              "claim_id": "8ca14a642ada",
+              "claim_type": "imaging_finding",
+              "claim_text": "XR Lumbar Spine: mild straightening noted.",
+              "citations": [
+                2
+              ],
+              "page_types": [
+                "imaging_report"
+              ],
+              "candidate_pages": [
+                {
+                  "page": 2,
+                  "page_type": "imaging_report",
+                  "score": 1.0
+                }
+              ],
+              "best_page": 2,
+              "best_page_type": "imaging_report",
+              "best_score": 1.0,
+              "reason_code": null,
+              "severity": "PASS",
+              "alignment_pass": true,
+              "context_pass": true,
+              "PASS": true
+            },
+            {
+              "claim_id": "d9add4cd438a",
+              "claim_type": "imaging_finding",
+              "claim_text": "XR Lumbar Spine: mild straightening noted",
+              "citations": [
+                2,
+                2
+              ],
+              "page_types": [
+                "imaging_report"
+              ],
+              "candidate_pages": [
+                {
+                  "page": 2,
+                  "page_type": "imaging_report",
+                  "score": 1.0
+                },
+                {
+                  "page": 2,
+                  "page_type": "imaging_report",
+                  "score": 0.5225
+                }
+              ],
+              "best_page": 2,
+              "best_page_type": "imaging_report",
+              "best_score": 1.0,
+              "reason_code": null,
+              "severity": "PASS",
+              "alignment_pass": true,
+              "context_pass": true,
+              "PASS": true
+            },
+            {
+              "claim_id": "ff59ce154317",
+              "claim_type": "imaging_finding",
+              "claim_text": "Date: 2025-04-04",
+              "citations": [
+                2
+              ],
+              "page_types": [
+                "imaging_report"
+              ],
+              "candidate_pages": [
+                {
+                  "page": 2,
+                  "page_type": "imaging_report",
+                  "score": 1.0
+                }
+              ],
+              "best_page": 2,
+              "best_page_type": "imaging_report",
+              "best_score": 1.0,
+              "reason_code": null,
+              "severity": "PASS",
+              "alignment_pass": true,
+              "context_pass": true,
+              "PASS": true
+            },
+            {
+              "claim_id": "38af03459f6c",
+              "claim_type": "pt_claim",
+              "claim_text": "Emergency Department Visit Cervical spine tenderness documented",
+              "citations": [
+                1,
+                1,
+                1
+              ],
+              "page_types": [
+                "clinical_note"
+              ],
+              "candidate_pages": [
+                {
+                  "page": 1,
+                  "page_type": "clinical_note",
+                  "score": 0.799
+                },
+                {
+                  "page": 1,
+                  "page_type": "clinical_note",
+                  "score": 0.7379
+                },
+                {
+                  "page": 1,
+                  "page_type": "clinical_note",
+                  "score": 0.6418
+                }
+              ],
+              "best_page": 1,
+              "best_page_type": "clinical_note",
+              "best_score": 0.799,
+              "reason_code": "page_type_mismatch",
+              "severity": "BLOCKED",
+              "alignment_pass": false,
+              "context_pass": false,
+              "PASS": false
+            }
+          ],
+          "export_status": "BLOCKED",
+          "PASS": false
+        }
+      }
+    },
+    "llm_polish_applied": false,
+    "missing_records": {
+      "version": "1.0",
+      "generated_at": "2026-03-06T22:22:57.138539+00:00",
+      "ruleset": {
+        "provider_gap_medium_days": 30,
+        "provider_gap_high_days": 60,
+        "global_gap_medium_days": 45,
+        "global_gap_high_days": 90,
+        "care_window_start": "2025-04-04",
+        "care_window_end": "2025-04-04"
+      },
+      "gaps": [],
+      "summary": {
+        "total_gaps": 0,
+        "provider_gap_count": 0,
+        "global_gap_count": 0,
+        "high_severity_count": 0,
+        "medium_severity_count": 0,
+        "patient_scope_count": 1,
+        "unassigned_events_excluded": 0
+      },
+      "priority_requests_top3": []
+    },
+    "narrative_duality": {
+      "plaintiff_narrative": {
+        "summary": "Citation-backed medical progression emphasizing objective findings and treatment escalation.",
+        "points": [
+          {
+            "date": "2025-04-04",
+            "assertion": "XR Cervical Spine: no acute fracture identified",
+            "claim_type": "IMAGING_FINDING",
+            "support_strength": "Medium",
+            "citations": [
+              "p. 2"
+            ]
+          }
+        ]
+      },
+      "defense_narrative": {
+        "summary": "Citation-backed competing medical interpretation emphasizing fragility points.",
+        "points": []
+      }
+    },
+    "page_quality_assessment": {
+      "total_pages": 2,
+      "low_quality_pages": 2,
+      "low_quality_page_numbers": [
+        1,
+        2
+      ],
+      "extraction_excluded_pages": 0,
+      "extraction_excluded_page_numbers": [],
+      "reason_counts": {
+        "ocr_garbage": 2
+      },
+      "details": [
+        {
+          "page_number": 1,
+          "page_type": "PageType.CLINICAL_NOTE",
+          "text_source": "ocr",
+          "is_low_quality": true,
+          "action": "downgrade",
+          "score": 0.4128,
+          "reason_codes": [
+            "ocr_garbage"
+          ]
+        },
+        {
+          "page_number": 2,
+          "page_type": "PageType.IMAGING_REPORT",
+          "text_source": "ocr",
+          "is_low_quality": true,
+          "action": "downgrade",
+          "score": 0.3797,
+          "reason_codes": [
+            "ocr_garbage"
+          ]
+        }
+      ]
+    },
+    "patient_partitions": {
+      "version": "1.0",
+      "partitions": [
+        {
+          "patient_scope_id": "ps_694188ac5240",
+          "label": "Unknown Patient",
+          "page_start": 1,
+          "page_end": 2,
+          "page_count": 2,
+          "page_numbers": [
+            1,
+            2
+          ],
+          "confidence": 0
+        }
+      ],
+      "unassigned_pages": [],
+      "total_pages": 2,
+      "partition_count": 1
+    },
+    "provider_resolution_quality": {
+      "version": "1.0",
+      "scope": "export_projection_rows",
+      "rows_total": 2,
+      "rows_resolved": 2,
+      "rows_unresolved": 0,
+      "resolved_ratio": 1.0,
+      "unresolved_by_family": {},
+      "by_family": {
+        "ed_visit": {
+          "rows_total": 1,
+          "rows_resolved": 1,
+          "rows_unresolved": 0,
+          "resolved_ratio": 1.0
+        },
+        "imaging_impression": {
+          "rows_total": 1,
+          "rows_resolved": 1,
+          "rows_unresolved": 0,
+          "resolved_ratio": 1.0
+        }
+      },
+      "pt_ledger": {
+        "pt_ledger_rows_total": 0,
+        "pt_facility_resolved": 0,
+        "pt_provider_resolved": 0,
+        "pt_facility_resolved_ratio": 1.0,
+        "pt_provider_resolved_ratio": 1.0,
+        "pt_provider_facility_gate": {
+          "status": "warn",
+          "reason": null
+        },
+        "top_unresolved_examples": []
+      }
+    },
+    "provider_role_registry": [
+      {
+        "provider_id": "366ca028ddd54240",
+        "provider_name": "radiology report",
+        "provider_role": "er"
+      },
+      {
+        "provider_id": "366ca028ddd54240",
+        "provider_name": "radiology report",
+        "provider_role": "imaging"
+      }
+    ],
+    "pt_count_reported": [],
+    "pt_encounters": [],
+    "pt_reconciliation": {
+      "verified_pt_count": 0,
+      "reported_pt_counts": [],
+      "reported_pt_count_min": null,
+      "reported_pt_count_max": null,
+      "variance_flag": false,
+      "severe_variance_flag": false,
+      "variance_delta_max_minus_verified": null,
+      "date_concentration_anomaly": {
+        "triggered": false,
+        "max_date": null,
+        "max_date_count": 0,
+        "max_date_ratio": 0.0,
+        "reason": null
+      }
+    },
+    "quality_gate": {
+      "num_snippets_filtered": 2,
+      "num_snippets_cleaned": 0
+    },
+    "registry_contract_version": "pass53.v1",
+    "renderer_manifest": {
+      "manifest_version": "1.0",
+      "doi": {
+        "value": "2025-04-04",
+        "citation_ids": [
+          "54156da64b7341f8",
+          "d2100f408449440c",
+          "211bdc2b5c5a4301"
+        ],
+        "source": "inferred"
+      },
+      "mechanism": {
+        "value": null,
+        "citation_ids": []
+      },
+      "pt_summary": {
+        "total_encounters": null,
+        "encounter_count_min": null,
+        "encounter_count_max": null,
+        "date_start": null,
+        "date_end": null,
+        "discharge_status": null,
+        "reconciliation_note": null,
+        "citation_ids": [],
+        "count_source": "not_found"
+      },
+      "promoted_findings": [
+        {
+          "category": "imaging",
+          "label": "XR Lumbar Spine: mild straightening noted.",
+          "body_region": "cervical spine",
+          "severity": "high",
+          "headline_eligible": true,
+          "finding_polarity": "positive",
+          "is_verbatim": true,
+          "citation_ids": [
+            "882e7f6429cf4de1"
+          ],
+          "confidence": 0.72,
+          "source_event_id": "7f2b050ec84c4fd2",
+          "semantic_family": "imaging|cervical spine|positive|spasm_lordosis",
+          "finding_source_count": 1,
+          "source_families": [
+            "imaging"
+          ],
+          "alignment_status": "PASS",
+          "alignment_reason": null,
+          "alignment_claim_id": "8ca14a642ada"
+        },
+        {
+          "category": "imaging",
+          "label": "XR Lumbar Spine: mild straightening noted",
+          "body_region": "lumbar",
+          "severity": "high",
+          "headline_eligible": true,
+          "finding_polarity": "positive",
+          "is_verbatim": false,
+          "citation_ids": [
+            "882e7f6429cf4de1",
+            "13cd8ebb91c34f6c"
+          ],
+          "confidence": 0.0,
+          "source_event_id": "7f2b050ec84c4fd2",
+          "semantic_family": "imaging|lumbar|positive|spasm_lordosis",
+          "finding_source_count": 1,
+          "source_families": [
+            "imaging"
+          ],
+          "alignment_status": "PASS",
+          "alignment_reason": null,
+          "alignment_claim_id": "d9add4cd438a"
+        },
+        {
+          "category": "imaging",
+          "label": "Date: 2025-04-04",
+          "body_region": "general",
+          "severity": "high",
+          "headline_eligible": true,
+          "finding_polarity": "positive",
+          "is_verbatim": false,
+          "citation_ids": [
+            "5889a59c2c764ab6"
+          ],
+          "confidence": 0.0,
+          "source_event_id": "7f2b050ec84c4fd2",
+          "semantic_family": "imaging|general|positive|imaging_other",
+          "finding_source_count": 1,
+          "source_families": [
+            "imaging"
+          ],
+          "alignment_status": "PASS",
+          "alignment_reason": null,
+          "alignment_claim_id": "ff59ce154317"
+        },
+        {
+          "category": "imaging",
+          "label": "XR Cervical Spine: no acute fracture identified.",
+          "body_region": "cervical spine",
+          "severity": "low",
+          "headline_eligible": false,
+          "finding_polarity": "negative",
+          "is_verbatim": true,
+          "citation_ids": [
+            "13cd8ebb91c34f6c"
+          ],
+          "confidence": 0.72,
+          "source_event_id": "7f2b050ec84c4fd2",
+          "semantic_family": "imaging|cervical spine|negative|negative_imaging",
+          "finding_source_count": 1,
+          "source_families": [
+            "imaging"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "imaging",
+          "label": "XR Cervical Spine: no acute fracture identified",
+          "body_region": "cervical",
+          "severity": "low",
+          "headline_eligible": false,
+          "finding_polarity": "negative",
+          "is_verbatim": false,
+          "citation_ids": [
+            "13cd8ebb91c34f6c",
+            "882e7f6429cf4de1"
+          ],
+          "confidence": 0.6,
+          "source_event_id": "7f2b050ec84c4fd2",
+          "semantic_family": "imaging|cervical|negative|negative_imaging",
+          "finding_source_count": 1,
+          "source_families": [
+            "imaging"
+          ],
+          "alignment_status": null,
+          "alignment_reason": null,
+          "alignment_claim_id": null
+        },
+        {
+          "category": "visit_count",
+          "label": "Emergency Department Visit Cervical spine tenderness documented",
+          "body_region": "cervical",
+          "severity": "medium",
+          "headline_eligible": false,
+          "finding_polarity": "neutral",
+          "is_verbatim": false,
+          "citation_ids": [
+            "d2100f408449440c",
+            "54156da64b7341f8",
+            "211bdc2b5c5a4301"
+          ],
+          "confidence": 0.0,
+          "source_event_id": "6a59b073613148a7",
+          "semantic_family": "visit_count|cervical|neutral|visit_count",
+          "finding_source_count": 1,
+          "source_families": [
+            "clinical"
+          ],
+          "alignment_status": "BLOCKED",
+          "alignment_reason": "page_type_mismatch",
+          "alignment_claim_id": "38af03459f6c"
+        }
+      ],
+      "top_case_drivers": [
+        "7f2b050ec84c4fd2",
+        "6a59b073613148a7"
+      ],
+      "bucket_evidence": {
+        "ed": {
+          "detected": true,
+          "event_ids": [
+            "6a59b073613148a7"
+          ],
+          "citation_ids": [
+            "54156da64b7341f8",
+            "d2100f408449440c",
+            "211bdc2b5c5a4301"
+          ]
+        },
+        "pt_eval": {
+          "detected": false,
+          "event_ids": [],
+          "citation_ids": []
+        }
+      },
+      "case_skeleton": {
+        "active": false,
+        "items": [],
+        "care_phases": []
+      },
+      "billing_completeness": "none",
+      "visit_abstraction_registry": [
+        {
+          "event_id": "6a59b073613148a7",
+          "date": "2025-04-04",
+          "provider_id": "366ca028ddd54240",
+          "provider_name": "radiology report",
+          "provider_role": "er",
+          "encounter_type": "er",
+          "citation_ids": [
+            "54156da64b7341f8",
+            "d2100f408449440c",
+            "211bdc2b5c5a4301"
+          ],
+          "buckets": {
+            "complaints": [],
+            "objective_findings": [
+              "Emergency Department Visit Cervical spine tenderness documented.",
+              "Lumbar spine tenderness documented."
+            ],
+            "diagnostics": [],
+            "diagnoses": [],
+            "treatments": [],
+            "prescriptions_or_referrals": [],
+            "functional_limitations": [],
+            "causation_statements": []
+          },
+          "missing_required_buckets": [
+            "complaints",
+            "diagnoses",
+            "treatments"
+          ],
+          "bucket_completeness_pass": false
+        },
+        {
+          "event_id": "7f2b050ec84c4fd2",
+          "date": "2025-04-04",
+          "provider_id": "366ca028ddd54240",
+          "provider_name": "radiology report",
+          "provider_role": "imaging",
+          "encounter_type": "imaging",
+          "citation_ids": [
+            "13cd8ebb91c34f6c"
+          ],
+          "buckets": {
+            "complaints": [],
+            "objective_findings": [],
+            "diagnostics": [],
+            "diagnoses": [
+              "XR Cervical Spine: no acute fracture identified."
+            ],
+            "treatments": [],
+            "prescriptions_or_referrals": [],
+            "functional_limitations": [],
+            "causation_statements": []
+          },
+          "missing_required_buckets": [
+            "diagnostics"
+          ],
+          "bucket_completeness_pass": false
+        }
+      ],
+      "provider_role_registry": [
+        {
+          "provider_id": "366ca028ddd54240",
+          "provider_name": "radiology report",
+          "provider_role": "er"
+        },
+        {
+          "provider_id": "366ca028ddd54240",
+          "provider_name": "radiology report",
+          "provider_role": "imaging"
+        }
+      ],
+      "diagnosis_registry": [
+        {
+          "diagnosis_label": "XR Cervical Spine: no acute fracture identified.",
+          "icd_codes": [],
+          "first_seen_date": "2025-04-04",
+          "provider": "radiology report",
+          "provider_id": "366ca028ddd54240",
+          "citation_ids": [
+            "13cd8ebb91c34f6c"
+          ],
+          "cluster_name": "spine_injury",
+          "classification": "primary",
+          "event_ids": [
+            "7f2b050ec84c4fd2"
+          ]
+        }
+      ],
+      "injury_clusters": [
+        {
+          "cluster_name": "spine_injury",
+          "classification": "primary",
+          "diagnosis_labels": [
+            "XR Cervical Spine: no acute fracture identified."
+          ],
+          "diagnosis_refs": [
+            "13cd8ebb91c34f6c"
+          ],
+          "event_ids": [
+            "7f2b050ec84c4fd2"
+          ]
+        }
+      ],
+      "injury_cluster_severity": [
+        {
+          "cluster_name": "spine_injury",
+          "classification": "primary",
+          "severity_score_0_100": 20,
+          "surgery_present": false,
+          "injection_present": false,
+          "mri_pathology_present": false,
+          "treatment_duration_days": null,
+          "pt_visit_count": 0,
+          "specialist_involvement": false,
+          "treatment_intensity_index": 0,
+          "escalation_level": 0,
+          "citation_ids": [
+            "13cd8ebb91c34f6c"
+          ]
+        }
+      ],
+      "treatment_escalation_path": [
+        {
+          "stage": "er",
+          "date": "2025-04-04",
+          "event_id": "6a59b073613148a7",
+          "citation_ids": [
+            "54156da64b7341f8",
+            "d2100f408449440c",
+            "211bdc2b5c5a4301"
+          ],
+          "provider_name": "radiology report"
+        },
+        {
+          "stage": "imaging",
+          "date": "2025-04-04",
+          "event_id": "7f2b050ec84c4fd2",
+          "citation_ids": [
+            "13cd8ebb91c34f6c"
+          ],
+          "provider_name": "radiology report"
+        }
+      ],
+      "causation_timeline_registry": {
+        "rungs": [
+          {
+            "rung": "incident",
+            "date": "2025-04-04",
+            "label": "incident not explicitly documented",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "incident_mechanism_not_explicit"
+          },
+          {
+            "rung": "first_treatment",
+            "date": "2025-04-04",
+            "label": "first documented treatment",
+            "citation_ids": [
+              "54156da64b7341f8",
+              "d2100f408449440c",
+              "211bdc2b5c5a4301"
+            ],
+            "status": "present",
+            "missing_reason": null
+          },
+          {
+            "rung": "first_diagnosis",
+            "date": "2025-04-04",
+            "label": "XR Cervical Spine: no acute fracture identified.",
+            "citation_ids": [
+              "13cd8ebb91c34f6c"
+            ],
+            "status": "present",
+            "missing_reason": null
+          },
+          {
+            "rung": "imaging_confirmation",
+            "date": "2025-04-04",
+            "label": "first imaging confirmation",
+            "citation_ids": [
+              "13cd8ebb91c34f6c"
+            ],
+            "status": "present",
+            "missing_reason": null
+          },
+          {
+            "rung": "specialist_confirmation",
+            "date": null,
+            "label": "first specialist confirmation",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "specialist_confirmation_not_found"
+          },
+          {
+            "rung": "surgical_repair_or_high_intensity_equivalent",
+            "date": null,
+            "label": "first surgical repair",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "surgical_repair_or_high_intensity_equivalent_not_found"
+          }
+        ],
+        "missing_rungs": [
+          {
+            "rung": "incident",
+            "date": "2025-04-04",
+            "label": "incident not explicitly documented",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "incident_mechanism_not_explicit"
+          },
+          {
+            "rung": "specialist_confirmation",
+            "date": null,
+            "label": "first specialist confirmation",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "specialist_confirmation_not_found"
+          },
+          {
+            "rung": "surgical_repair_or_high_intensity_equivalent",
+            "date": null,
+            "label": "first surgical repair",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "surgical_repair_or_high_intensity_equivalent_not_found"
+          }
+        ]
+      },
+      "visit_bucket_quality": {
+        "total_encounters": 2,
+        "encounters_with_missing_required_buckets": 2,
+        "required_bucket_miss_count": 4,
+        "missing_required_bucket_ratio": 1.0,
+        "encounter_ids_with_missing_required_buckets": [
+          "6a59b073613148a7",
+          "7f2b050ec84c4fd2"
+        ]
+      },
+      "registry_contract_version": "pass53.v1"
+    },
+    "severity_profile": {
+      "schema_version": "severity_profile.v1",
+      "export_intent": "mediation",
+      "provenance": {
+        "source_schema": "csi.v2",
+        "transform_version": "severity_profile.transform.v1"
+      },
+      "primary_label": "Low objective severity profile",
+      "band": "LOW",
+      "severity_drivers": [
+        {
+          "rank": 1,
+          "component": "objective",
+          "tier_key": "soft_tissue",
+          "label": "Soft tissue / spasm documented",
+          "support_citation_ids": [
+            "13cd8ebb91c34f6c",
+            "211bdc2b5c5a4301",
+            "54156da64b7341f8",
+            "5889a59c2c764ab6",
+            "882e7f6429cf4de1",
+            "d2100f408449440c"
+          ]
+        },
+        {
+          "rank": 2,
+          "component": "intensity",
+          "tier_key": "ed_only",
+          "label": "ED-only treatment documented",
+          "support_citation_ids": [
+            "13cd8ebb91c34f6c",
+            "211bdc2b5c5a4301",
+            "54156da64b7341f8",
+            "5889a59c2c764ab6",
+            "882e7f6429cf4de1",
+            "d2100f408449440c"
+          ]
+        },
+        {
+          "rank": 3,
+          "component": "duration",
+          "tier_key": "duration_missing",
+          "label": "Duration not fully documented",
+          "support_citation_ids": [
+            "13cd8ebb91c34f6c",
+            "211bdc2b5c5a4301",
+            "54156da64b7341f8",
+            "5889a59c2c764ab6",
+            "882e7f6429cf4de1",
+            "d2100f408449440c"
+          ]
+        }
+      ],
+      "treatment_progression": [
+        {
+          "phase": "intensity",
+          "tier_key": "ed_only",
+          "label": "ED-only treatment documented",
+          "support_citation_ids": [
+            "13cd8ebb91c34f6c",
+            "211bdc2b5c5a4301",
+            "54156da64b7341f8",
+            "5889a59c2c764ab6",
+            "882e7f6429cf4de1",
+            "d2100f408449440c"
+          ]
+        },
+        {
+          "phase": "duration",
+          "tier_key": "duration_missing",
+          "label": "Duration not fully documented",
+          "support_citation_ids": [
+            "13cd8ebb91c34f6c",
+            "211bdc2b5c5a4301",
+            "54156da64b7341f8",
+            "5889a59c2c764ab6",
+            "882e7f6429cf4de1",
+            "d2100f408449440c"
+          ]
+        }
+      ],
+      "anticipated_defense_arguments": [],
+      "support": {
+        "citation_ids": [
+          "13cd8ebb91c34f6c",
+          "211bdc2b5c5a4301",
+          "54156da64b7341f8",
+          "5889a59c2c764ab6",
+          "882e7f6429cf4de1",
+          "d2100f408449440c"
+        ],
+        "page_refs": [
+          {
+            "source_document_id": "cae2051b78df445f814b35d8849da77e",
+            "page_number": 1
+          },
+          {
+            "source_document_id": "cae2051b78df445f814b35d8849da77e",
+            "page_number": 2
+          }
+        ]
+      }
+    },
+    "treatment_escalation_path": [
+      {
+        "stage": "er",
+        "date": "2025-04-04",
+        "event_id": "6a59b073613148a7",
+        "citation_ids": [
+          "54156da64b7341f8",
+          "d2100f408449440c",
+          "211bdc2b5c5a4301"
+        ],
+        "provider_name": "radiology report"
+      },
+      {
+        "stage": "imaging",
+        "date": "2025-04-04",
+        "event_id": "7f2b050ec84c4fd2",
+        "citation_ids": [
+          "13cd8ebb91c34f6c"
+        ],
+        "provider_name": "radiology report"
+      }
+    ],
+    "visit_abstraction_registry": [
+      {
+        "event_id": "6a59b073613148a7",
+        "date": "2025-04-04",
+        "provider_id": "366ca028ddd54240",
+        "provider_name": "radiology report",
+        "provider_role": "er",
+        "encounter_type": "er",
+        "citation_ids": [
+          "54156da64b7341f8",
+          "d2100f408449440c",
+          "211bdc2b5c5a4301"
+        ],
+        "buckets": {
+          "complaints": [],
+          "objective_findings": [
+            "Emergency Department Visit Cervical spine tenderness documented.",
+            "Lumbar spine tenderness documented."
+          ],
+          "diagnostics": [],
+          "diagnoses": [],
+          "treatments": [],
+          "prescriptions_or_referrals": [],
+          "functional_limitations": [],
+          "causation_statements": []
+        },
+        "missing_required_buckets": [
+          "complaints",
+          "diagnoses",
+          "treatments"
+        ],
+        "bucket_completeness_pass": false
+      },
+      {
+        "event_id": "7f2b050ec84c4fd2",
+        "date": "2025-04-04",
+        "provider_id": "366ca028ddd54240",
+        "provider_name": "radiology report",
+        "provider_role": "imaging",
+        "encounter_type": "imaging",
+        "citation_ids": [
+          "13cd8ebb91c34f6c"
+        ],
+        "buckets": {
+          "complaints": [],
+          "objective_findings": [],
+          "diagnostics": [],
+          "diagnoses": [
+            "XR Cervical Spine: no acute fracture identified."
+          ],
+          "treatments": [],
+          "prescriptions_or_referrals": [],
+          "functional_limitations": [],
+          "causation_statements": []
+        },
+        "missing_required_buckets": [
+          "diagnostics"
+        ],
+        "bucket_completeness_pass": false
+      }
+    ],
+    "visit_bucket_quality": {
+      "total_encounters": 2,
+      "encounters_with_missing_required_buckets": 2,
+      "required_bucket_miss_count": 4,
+      "missing_required_bucket_ratio": 1.0,
+      "encounter_ids_with_missing_required_buckets": [
+        "6a59b073613148a7",
+        "7f2b050ec84c4fd2"
+      ]
+    },
+    "export_mode": "MEDIATION"
+  }
+}

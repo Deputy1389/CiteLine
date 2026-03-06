@@ -1,0 +1,16 @@
+{
+  "packetPath": "reference\\pass_063\\packets\\packet_synthetic_image_only.pdf",
+  "filename": "packet_synthetic_image_only.pdf",
+  "caseName": "Pass63 OCR packet_synthetic_image_only.pdf 2026-03-06T22:22:33.703Z",
+  "matterId": "e9329fe11ae647e6bd0798a72fe420f2",
+  "upload": {
+    "id": "cae2051b78df445f814b35d8849da77e",
+    "matter_id": "e9329fe11ae647e6bd0798a72fe420f2",
+    "filename": "packet_synthetic_image_only.pdf",
+    "mime_type": "application/pdf",
+    "sha256": "8158e0dd2cde18daa215fb58948a8368103c25eccc204030cfd8ba64dbe83296",
+    "bytes": 63722,
+    "storage_uri": "C:/CiteLine/data/uploads/cae2051b78df445f814b35d8849da77e.pdf",
+    "uploaded_at": "2026-03-06T22:22:33.619306+00:00"
+  }
+}

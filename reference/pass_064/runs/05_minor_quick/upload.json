@@ -1,0 +1,16 @@
+{
+  "packetPath": "PacketIntake\\05_minor_quick\\packet.pdf",
+  "filename": "packet.pdf",
+  "caseName": "Pass63 OCR packet.pdf 2026-03-06T22:43:13.896Z",
+  "matterId": "509182a0012d4e59aab57c19beb93e30",
+  "upload": {
+    "id": "9eda5d9f71f04b18836aa8b090bf9fab",
+    "matter_id": "509182a0012d4e59aab57c19beb93e30",
+    "filename": "packet.pdf",
+    "mime_type": "application/pdf",
+    "sha256": "ece6ba4cec8395663b045857cc9ec239f679e932334f9a3f07f8597a8a756b0c",
+    "bytes": 41617,
+    "storage_uri": "C:/CiteLine/data/uploads/9eda5d9f71f04b18836aa8b090bf9fab.pdf",
+    "uploaded_at": "2026-03-06T22:43:13.198200+00:00"
+  }
+}

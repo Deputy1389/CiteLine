@@ -1,0 +1,16 @@
+{
+  "packetPath": "reference\\pass_063\\packets\\packet_mimic_10002930_rasterized.pdf",
+  "filename": "packet_mimic_10002930_rasterized.pdf",
+  "caseName": "Pass63 OCR packet_mimic_10002930_rasterized.pdf 2026-03-06T22:23:36.989Z",
+  "matterId": "51ecbc50ca7344dfa4854272b3e0c5e3",
+  "upload": {
+    "id": "632e175149484d1b8344330fef92ddb8",
+    "matter_id": "51ecbc50ca7344dfa4854272b3e0c5e3",
+    "filename": "packet_mimic_10002930_rasterized.pdf",
+    "mime_type": "application/pdf",
+    "sha256": "92a8d2ca743b98d76a5d48a780cc66685b988f214a35aafb345ec4531bf14a8e",
+    "bytes": 245786,
+    "storage_uri": "C:/CiteLine/data/uploads/632e175149484d1b8344330fef92ddb8.pdf",
+    "uploaded_at": "2026-03-06T22:23:36.916567+00:00"
+  }
+}
