@@ -115,7 +115,8 @@ _LAB_PANEL_RE = re.compile(
     r"\b(?:sodium|potassium|chloride|creatinine|glucose|bun|wbc|hgb|hemoglobin|platelets?)\s*:\s*[-+]?\d",
     re.IGNORECASE,
 )
-_IDENTIFIER_ONLY_RE = re.compile(r"^\s*(?:patient id|account|record number)?\s*#?\d+\s*$", re.IGNORECASE)
+_IDENTIFIER_ONLY_RE = re.compile(r"^\s*(?:patient id|account|record number)\s*:?\s*#?\d+\s*$|^\s*#?\d+\s*$", re.IGNORECASE)
+_HEADER_ONLY_RE = re.compile(r"^\s*(?:discharge summary|admission record|diagnosis|assessment|plan of care)\s*$", re.IGNORECASE)
 
 
 def clean_meta_language(text: str | None) -> str:
@@ -152,6 +153,8 @@ def _is_low_value_claim_for_promotion(
     if _LAB_PANEL_RE.search(text):
         return True
     if _IDENTIFIER_ONLY_RE.match(text):
+        return True
+    if _HEADER_ONLY_RE.match(text):
         return True
     if category == "treatment":
         if _LOW_VALUE_TREATMENT_RE.search(text) and not _SUBSTANTIVE_TREATMENT_RE.search(text):
@@ -1374,8 +1377,17 @@ def _promoted_findings_from_events(events: list[Event], existing: list[PromotedF
 
 
 def _top_case_drivers_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list[str]:
-    def _is_low_value_top_driver(assertion: str, claim_type: str) -> bool:
-        if any(p.search(assertion) for p in _GENERIC_PLACEHOLDER_PATTERNS):
+    def _is_low_value_top_driver(assertion: str, claim_type: str, row: dict[str, Any]) -> bool:
+        cat = _claim_to_category(claim_type)
+        if re.search(r"\b(?:4/5|weakness|strength|reflex|rom)\b", assertion, re.I):
+            cat = "objective_deficit"
+        if _is_low_value_claim_for_promotion(
+            assertion,
+            category=cat,
+            claim_type=claim_type,
+            support_score=row.get("support_score"),
+            selection_score=row.get("selection_score"),
+        ):
             return True
         if claim_type == "TREATMENT_VISIT" and re.search(r"\baggregated pt sessions?\b", assertion, re.I):
             return True
@@ -1408,7 +1420,7 @@ def _top_case_drivers_from_claim_rows(claim_rows: list[dict[str, Any]]) -> list[
             r for r in (claim_rows or [])
             if r.get("event_id")
             and (r.get("citations") or [])
-            and not _is_low_value_top_driver(str(r.get("assertion") or ""), str(r.get("claim_type") or ""))
+            and not _is_low_value_top_driver(str(r.get("assertion") or ""), str(r.get("claim_type") or ""), r)
         ],
         key=_row_rank,
     )
@@ -1459,8 +1471,37 @@ def _top_case_driver_fallback_from_events(events: list[Event], existing_ids: lis
             continue
         if not [str(c).strip() for c in (getattr(e, "citation_ids", []) or []) if str(c).strip()]:
             continue
-        txt = " ".join(_event_text_blobs(e)).strip()
-        if not txt or any(p.search(txt) for p in _GENERIC_PLACEHOLDER_PATTERNS):
+        candidate_blobs = [b.strip() for b in _event_text_blobs(e) if b and b.strip()]
+        substantive_blobs: list[str] = []
+        for txt in candidate_blobs:
+            low = txt.lower()
+            category = "symptom"
+            claim_type_hint = "SYMPTOM"
+            if _STRUCTURAL_IMAGING_PAT.search(txt):
+                category = "imaging"
+                claim_type_hint = "IMAGING_FINDING"
+            elif re.search(r"\b(icd-?10|radiculopathy|strain|sprain|diagnosis|fracture|herniat|stenosis)\b", txt, re.I):
+                category = "diagnosis"
+                claim_type_hint = "INJURY_DX"
+            elif _SNAP_ROM_PAT.search(txt):
+                category = "objective_deficit"
+                claim_type_hint = "SYMPTOM"
+            elif _SNAP_MEDS_PAT.search(txt) or _SUBSTANTIVE_TREATMENT_RE.search(txt):
+                category = "treatment"
+                claim_type_hint = "TREATMENT_VISIT"
+            if _is_low_value_claim_for_promotion(
+                txt,
+                category=category,
+                claim_type=claim_type_hint,
+                support_score=None,
+                selection_score=getattr(e, "confidence", 0),
+            ):
+                continue
+            if any(p.search(low) for p in _GENERIC_PLACEHOLDER_PATTERNS):
+                continue
+            substantive_blobs.append(txt)
+        txt = " ".join(substantive_blobs).strip()
+        if not txt:
             continue
         seen.add(eid)
         out.append(eid)

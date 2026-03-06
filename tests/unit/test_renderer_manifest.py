@@ -403,3 +403,66 @@ def test_renderer_manifest_suppresses_generic_synthetic_event_diagnosis() -> Non
     )
     manifest = build_renderer_manifest(events=[evt], evidence_graph_extensions={}, specials_summary=None)
     assert manifest.promoted_findings == []
+
+
+def test_renderer_manifest_top_case_drivers_skip_low_value_claim_rows() -> None:
+    claim_rows = [
+        {
+            "event_id": "e1",
+            "claim_type": "INJURY_DX",
+            "assertion": "PRIMARY DIAGNOSIS: Medical Condition B20",
+            "citations": ["packet.pdf p. 1"],
+            "selection_score": 4,
+            "support_score": 2,
+        },
+        {
+            "event_id": "e2",
+            "claim_type": "TREATMENT_VISIT",
+            "assertion": "ADMISSION RECORD: #22380825",
+            "citations": ["packet.pdf p. 1"],
+            "selection_score": 4,
+            "support_score": 0,
+        },
+    ]
+    manifest = build_renderer_manifest(events=[], evidence_graph_extensions={"claim_rows": claim_rows}, specials_summary=None)
+    assert manifest.top_case_drivers == []
+
+
+def test_renderer_manifest_top_case_drivers_preserve_substantive_claim_rows() -> None:
+    claim_rows = [
+        {
+            "event_id": "e1",
+            "claim_type": "INJURY_DX",
+            "assertion": "C5-C6 disc protrusion with left foraminal narrowing",
+            "citations": ["packet.pdf p. 12"],
+            "selection_score": 92,
+            "support_score": 3,
+            "body_region": "cervical",
+        },
+        {
+            "event_id": "e2",
+            "claim_type": "PROCEDURE",
+            "assertion": "Cervical epidural steroid injection performed",
+            "citations": ["packet.pdf p. 15"],
+            "selection_score": 85,
+            "support_score": 2,
+        },
+    ]
+    manifest = build_renderer_manifest(events=[], evidence_graph_extensions={"claim_rows": claim_rows}, specials_summary=None)
+    assert manifest.top_case_drivers == ["e1", "e2"]
+
+
+def test_renderer_manifest_top_case_driver_event_fallback_skips_low_value_events() -> None:
+    evt = Event(
+        event_id="evt-3",
+        provider_id="prov-er",
+        event_type=EventType.HOSPITAL_ADMISSION,
+        confidence=88,
+        citation_ids=["c1", "c2"],
+        facts=[
+            Fact(text="ADMISSION RECORD: #22380825", kind=FactKind.OTHER, citation_ids=["c1"], verbatim=False),
+            Fact(text="Sodium: 143 | Potassium: 3.8 | Creatinine: 1.20", kind=FactKind.OTHER, citation_ids=["c2"], verbatim=False),
+        ],
+    )
+    manifest = build_renderer_manifest(events=[evt], evidence_graph_extensions={}, specials_summary=None)
+    assert manifest.top_case_drivers == []

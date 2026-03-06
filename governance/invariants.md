@@ -443,3 +443,16 @@ Compact packets that preserve a small number of clinically distinct phases must 
 - **Failure class protected**: Trust erosion risk
 
 ---
+
+## Top Driver Hygiene Invariants (Pass 61)
+
+### INV-TD1 - TOP_CASE_DRIVERS_SUBSTANCE_FLOOR
+
+`renderer_manifest.top_case_drivers` may reference only citation-backed events with at least one substantive driver assertion. Synthetic diagnosis placeholders, record identifiers, timing-only rows, header-only rows, and lab-panel-only rows must not qualify.
+
+- **Enforced in**: `apps/worker/steps/step_renderer_manifest.py` :: `_top_case_drivers_from_claim_rows()`, `_top_case_driver_fallback_from_events()`
+- **Tested in**: `tests/unit/test_renderer_manifest.py` :: `test_renderer_manifest_top_case_drivers_skip_low_value_claim_rows`, `test_renderer_manifest_top_case_drivers_preserve_substantive_claim_rows`, `test_renderer_manifest_top_case_driver_event_fallback_skips_low_value_events`
+- **Introduced in**: Pass 61
+- **Failure class protected**: Trust erosion risk
+
+---
