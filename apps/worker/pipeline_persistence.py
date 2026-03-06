@@ -15,11 +15,14 @@ from packages.db.models import (
     DocumentSegment as DocumentSegmentORM,
     Event as EventORM,
     Gap as GapORM,
+    InvariantResult as InvariantResultORM,
     Page as PageORM,
     Provider as ProviderORM,
     Run as RunORM,
+    RunMetric as RunMetricORM,
 )
 from packages.shared.models import ArtifactRef, EvidenceGraph, RunRecord, Warning
+from apps.worker.lib.observability import write_run_observability
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +36,11 @@ def persist_pipeline_state(
     evidence_graph: EvidenceGraph,
     artifact_entries: list[tuple[str, Optional[ArtifactRef]]],
     gate_results: dict | None = None,
+    config: object | None = None,
+    page_count: int | None = None,
+    packet_bytes: int | None = None,
+    invariant_results: list[dict] | None = None,
+    stage_timings: dict[str, float] | None = None,
 ) -> None:
     try:
         with get_session() as session:
@@ -40,7 +48,7 @@ def persist_pipeline_state(
             if not run_row:
                 return
 
-            run_row.status = status
+            run_row.status = status                                     # authoritative — first
             run_row.finished_at = datetime.now(timezone.utc)
             run_row.processing_seconds = processing_seconds
             run_row.metrics_json = run_record.metrics.model_dump()
@@ -48,6 +56,26 @@ def persist_pipeline_state(
             run_row.provenance_json = run_record.provenance.model_dump()
             if gate_results and hasattr(run_row, "quality_gate_json"):
                 run_row.quality_gate_json = gate_results
+            session.flush()  # commit status before observability block
+
+            # Pass 042: observability — must never block run completion
+            ext = {}
+            try:
+                ext = evidence_graph.extensions or {}
+            except Exception:
+                pass
+            write_run_observability(
+                run_id=run_id,
+                session=session,
+                run_row=run_row,
+                config=config,
+                ext=ext if isinstance(ext, dict) else {},
+                page_count=page_count,
+                packet_bytes=packet_bytes,
+                exc=None,
+                invariant_results=invariant_results,
+                stage_timings=stage_timings,
+            )
 
             # Idempotency: clear prior rows for this run.
             session.query(PageORM).filter_by(run_id=run_id).delete()
@@ -57,6 +85,7 @@ def persist_pipeline_state(
             session.query(CitationORM).filter_by(run_id=run_id).delete()
             session.query(GapORM).filter_by(run_id=run_id).delete()
             session.query(ArtifactORM).filter_by(run_id=run_id).delete()
+            # Note: InvariantResult and RunMetric are NOT cleared — they are append-only audit logs
             session.flush()
 
             for page in evidence_graph.pages:
