@@ -1,0 +1,5592 @@
+{
+  "schema_version": "1.0",
+  "documents": [
+    {
+      "document_id": "3ac2fe8ae1a349dd",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_start": 1,
+      "page_end": 5,
+      "page_types": [
+        {
+          "page_start": 1,
+          "page_end": 1,
+          "page_type": "clinical_note"
+        },
+        {
+          "page_start": 2,
+          "page_end": 3,
+          "page_type": "lab_report"
+        },
+        {
+          "page_start": 4,
+          "page_end": 4,
+          "page_type": "clinical_note"
+        },
+        {
+          "page_start": 5,
+          "page_end": 5,
+          "page_type": "lab_report"
+        }
+      ],
+      "detected_title": null,
+      "declared_document_type": "medical_record",
+      "confidence": 70
+    }
+  ],
+  "pages": [
+    {
+      "page_id": "1546dc88d4ff48fd",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "text": "UNIVERSITY MEDICAL CENTER - CLINICAL\nSUMMARY\nPATIENT ID: 10002930\nADMISSION RECORD: #22380825\nADMITTED: 2193-08-05 06:18:00 | DISCHARGED: 2193-08-05 11:44:00\nPRIMARY DIAGNOSIS: Medical Condition V620\nDISCHARGE SUMMARY\nPatient presented with worsening medical condition v620. Physical exam notable for hypotension.\nBaseline labs reviewed. Acute medical management focused on antibiotic therapy. Patient responded\nwell to initial therapy. Secondary findings included medical condition 3559, medical condition 311,\nmedical condition 30560.\nSELECTED LABS:\nWBC: 13.7 | Hgb: 10.6 | Plt: 193\nSodium: 143 | Potassium: 3.8 | Creatinine: 1.20\nADMISSION RECORD: #23688993\nADMITTED: 2193-08-05 11:45:00 | DISCHARGED: 2193-08-11 09:25:00\nPRIMARY DIAGNOSIS: Medical Condition V6284\nDISCHARGE SUMMARY\nPatient presented with worsening medical condition v6284. Physical exam notable for crackles on lung\nexam. Baseline labs reviewed. Acute medical management focused on surgical consultation. Patient\nresponded well to initial therapy. Secondary findings included medical condition 30560, medical\ncondition 311, medical condition 30500.\nSELECTED LABS:\nWBC: 14.5 | Hgb: 13.8 | Plt: 372\nSodium: 143 | Potassium: 3.6 | Creatinine: 0.71\nADMISSION RECORD: #25696644\nADMITTED: 2196-04-14 12:25:00 | DISCHARGED: 2196-04-17 15:28:00\nPRIMARY DIAGNOSIS: Medical Condition 30500\nDISCHARGE SUMMARY\nPatient presented with worsening medical condition 30500. Physical exam notable for lower extremity\nedema. Baseline labs reviewed. Acute medical management focused on antibiotic therapy. Patient\nresponded well to initial therapy. Secondary findings included medical condition v600, medical\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "clinical_note",
+      "extensions": {
+        "page_type_scores": {
+          "clinical_note": 180,
+          "lab_report": 120,
+          "discharge_summary": 112,
+          "imaging_report": 50
+        },
+        "page_type_score_margin": 60,
+        "page_type_confidence": 82,
+        "page_quality": {
+          "is_low_quality": false,
+          "action": "allow",
+          "score": 0.65,
+          "reason_codes": []
+        }
+      }
+    },
+    {
+      "page_id": "8262d85925dc4a8f",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 2,
+      "text": "condition 30590, medical condition 33829.\nSELECTED LABS:\nWBC: 4.8 | Hgb: 13.9 | Plt: 302\nSodium: 137 | Potassium: 4.4 | Creatinine: 1.03\nADMISSION RECORD: #28477649\nADMITTED: 2197-04-07 06:56:00 | DISCHARGED: 2197-04-08 19:37:00\nPRIMARY DIAGNOSIS: Medical Condition V08\nDISCHARGE SUMMARY\nPatient presented with worsening medical condition v08. Physical exam notable for lower extremity\nedema. Baseline labs reviewed. Acute medical management focused on antibiotic therapy. Patient\nresponded well to initial therapy. Secondary findings included medical condition 07070, medical\ncondition 30500, medical condition v1552.\nSELECTED LABS:\nWBC: 14.5 | Hgb: 15.3 | Plt: 188\nSodium: 142 | Potassium: 3.6 | Creatinine: 1.15\nADMISSION RECORD: #28301173\nADMITTED: 2197-04-08 19:37:00 | DISCHARGED: 2197-04-15 12:01:00\nPRIMARY DIAGNOSIS: Medical Condition V6284\nDISCHARGE SUMMARY\nPatient presented with worsening medical condition v6284. Physical exam notable for tachycardia.\nBaseline labs reviewed. Acute medical management focused on pain management. Patient responded\nwell to initial therapy. Secondary findings included medical condition 07070, medical condition v1552,\nmedical condition 30560.\nSELECTED LABS:\nWBC: 8.5 | Hgb: 15.2 | Plt: 251\nSodium: 144 | Potassium: 3.9 | Creatinine: 0.93\nADMISSION RECORD: #25282382\nADMITTED: 2197-04-17 02:01:00 | DISCHARGED: 2197-04-17 09:48:00\nPRIMARY DIAGNOSIS: Medical Condition V620\nDISCHARGE SUMMARY\nPatient presented with worsening medical condition v620. Physical exam notable for lower extremity\nedema. Baseline labs reviewed. Acute medical management focused on pain management. Patient\nresponded well to initial therapy. Secondary findings included medical condition 07070, medical\ncondition v6284, medical condition v1552.\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "lab_report",
+      "extensions": {
+        "page_type_scores": {
+          "lab_report": 200,
+          "clinical_note": 192,
+          "discharge_summary": 112,
+          "imaging_report": 50
+        },
+        "page_type_score_margin": 8,
+        "page_type_ambiguous": true,
+        "page_type_confidence": 65,
+        "page_quality": {
+          "is_low_quality": false,
+          "action": "allow",
+          "score": 0.65,
+          "reason_codes": []
+        }
+      }
+    },
+    {
+      "page_id": "8a6e3a2c3d6a45dd",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 3,
+      "text": "SELECTED LABS:\nWBC: 10.9 | Hgb: 13.5 | Plt: 223\nSodium: 138 | Potassium: 3.5 | Creatinine: 0.91\nADMISSION RECORD: #25922998\nADMITTED: 2198-04-17 19:38:00 | DISCHARGED: 2198-04-22 16:02:00\nPRIMARY DIAGNOSIS: Medical Condition F10239\nDISCHARGE SUMMARY\nPatient presented with worsening medical condition f10239. Physical exam notable for lower extremity\nedema. Baseline labs reviewed. Acute medical management focused on diuresis. Patient responded\nwell to initial therapy. Secondary findings included medical condition f1110, medical condition r45851,\nmedical condition d72819.\nSELECTED LABS:\nWBC: 7.0 | Hgb: 14.2 | Plt: 243\nSodium: 143 | Potassium: 3.9 | Creatinine: 1.26\nADMISSION RECORD: #22733922\nADMITTED: 2198-04-22 16:17:00 | DISCHARGED: 2198-05-04 13:20:00\nPRIMARY DIAGNOSIS: Medical Condition B20\nDISCHARGE SUMMARY\nPatient presented with worsening medical condition b20. Physical exam notable for hypotension.\nBaseline labs reviewed. Acute medical management focused on surgical consultation. Patient\nresponded well to initial therapy. Secondary findings included medical condition b1920, medical\ncondition f1099, medical condition z87891.\nSELECTED LABS:\nWBC: 11.1 | Hgb: 14.8 | Plt: 186\nSodium: 136 | Potassium: 4.8 | Creatinine: 0.72\nADMISSION RECORD: #23720373\nADMITTED: 2199-02-17 21:45:00 | DISCHARGED: 2199-02-19 13:38:00\nPRIMARY DIAGNOSIS: Medical Condition F39\nDISCHARGE SUMMARY\nPatient presented with worsening medical condition f39. Physical exam notable for lower extremity\nedema. Baseline labs reviewed. Acute medical management focused on antibiotic therapy. Patient\nresponded well to initial therapy. Secondary findings included medical condition s0990xa, medical\ncondition n390, medical condition y929.\nSELECTED LABS:\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "lab_report",
+      "extensions": {
+        "page_type_scores": {
+          "lab_report": 200,
+          "clinical_note": 180,
+          "discharge_summary": 112,
+          "imaging_report": 50
+        },
+        "page_type_score_margin": 20,
+        "page_type_confidence": 85,
+        "page_quality": {
+          "is_low_quality": false,
+          "action": "allow",
+          "score": 0.65,
+          "reason_codes": []
+        }
+      }
+    },
+    {
+      "page_id": "8fd06dbc0a724767",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "text": "WBC: 10.1 | Hgb: 10.6 | Plt: 163\nSodium: 139 | Potassium: 4.7 | Creatinine: 1.40\nADMISSION RECORD: #28697806\nADMITTED: 2200-06-05 05:43:00 | DISCHARGED: 2200-06-05 10:26:00\nPRIMARY DIAGNOSIS: Medical Condition E162\nDISCHARGE SUMMARY\nPatient presented with worsening medical condition e162. Physical exam notable for crackles on lung\nexam. Baseline labs reviewed. Acute medical management focused on surgical consultation. Patient\nresponded well to initial therapy. Secondary findings included medical condition z21, medical condition\nb1920, medical condition f10129.\nSELECTED LABS:\nWBC: 8.1 | Hgb: 14.9 | Plt: 431\nSodium: 135 | Potassium: 4.8 | Creatinine: 0.86\nADMISSION RECORD: #20846853\nADMITTED: 2201-02-12 16:58:00 | DISCHARGED: 2201-02-13 11:11:00\nPRIMARY DIAGNOSIS: Medical Condition B20\nDISCHARGE SUMMARY\nPatient presented with worsening medical condition b20. Physical exam notable for tachycardia.\nBaseline labs reviewed. Acute medical management focused on pain management. Patient responded\nwell to initial therapy. Secondary findings included medical condition f10129, medical condition r4182,\nmedical condition b1920.\nSELECTED LABS:\nWBC: 6.3 | Hgb: 10.9 | Plt: 169\nSodium: 142 | Potassium: 4.0 | Creatinine: 0.72\nADMISSION RECORD: #20282368\nADMITTED: 2201-03-23 19:15:00 | DISCHARGED: 2201-03-26 14:24:00\nPRIMARY DIAGNOSIS: Medical Condition M542\nDISCHARGE SUMMARY\nPatient presented with worsening medical condition m542. Physical exam notable for crackles on lung\nexam. Baseline labs reviewed. Acute medical management focused on IV fluids. Patient responded\nwell to initial therapy. Secondary findings included medical condition d696, medical condition r45851,\nmedical condition r51.\nSELECTED LABS:\nWBC: 10.9 | Hgb: 14.1 | Plt: 192\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "clinical_note",
+      "extensions": {
+        "page_type_scores": {
+          "clinical_note": 224,
+          "lab_report": 200,
+          "discharge_summary": 112,
+          "imaging_report": 50
+        },
+        "page_type_score_margin": 24,
+        "page_type_confidence": 88,
+        "page_quality": {
+          "is_low_quality": false,
+          "action": "allow",
+          "score": 0.65,
+          "reason_codes": []
+        }
+      }
+    },
+    {
+      "page_id": "05b0c614ec5447f2",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 5,
+      "text": "Sodium: 139 | Potassium: 4.2 | Creatinine: 1.07\n",
+      "text_source": "embedded_pdf_text",
+      "layout": {
+        "width": 612.0,
+        "height": 792.0,
+        "orientation": "portrait"
+      },
+      "page_type": "lab_report",
+      "extensions": {
+        "page_type_scores": {
+          "lab_report": 114
+        },
+        "page_type_score_margin": 114,
+        "page_type_confidence": 74,
+        "page_quality": {
+          "is_low_quality": true,
+          "action": "downgrade",
+          "score": 0.65,
+          "reason_codes": [
+            "too_short"
+          ]
+        }
+      }
+    }
+  ],
+  "providers": [
+    {
+      "provider_id": "7b23c897b8244bbd",
+      "detected_name_raw": "UNIVERSITY MEDICAL CENTER - CLINICAL",
+      "normalized_name": "university medical ctr clinical",
+      "provider_type": "er",
+      "confidence": 75,
+      "evidence": [
+        {
+          "page_number": 1,
+          "snippet": "UNIVERSITY MEDICAL CENTER - CLINICAL",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "provider_id": "89b3aaedc8fc4100",
+      "detected_name_raw": "PRIMARY DIAGNOSIS: Medical Condition V620",
+      "normalized_name": "primary diagnosis medical condition v620",
+      "provider_type": "er",
+      "confidence": 75,
+      "evidence": [
+        {
+          "page_number": 1,
+          "snippet": "PRIMARY DIAGNOSIS: Medical Condition V620",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        },
+        {
+          "page_number": 2,
+          "snippet": "PRIMARY DIAGNOSIS: Medical Condition V08",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        },
+        {
+          "page_number": 3,
+          "snippet": "PRIMARY DIAGNOSIS: Medical Condition F10239",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        },
+        {
+          "page_number": 4,
+          "snippet": "PRIMARY DIAGNOSIS: Medical Condition E162",
+          "bbox": {
+            "x": 0.0,
+            "y": 0.0,
+            "w": 0.0,
+            "h": 0.0
+          }
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "event_id": "eae90d1a067e4e4e",
+      "provider_id": "7b23c897b8244bbd",
+      "event_type": "hospital_admission",
+      "date": {
+        "kind": "single",
+        "value": "2193-08-05",
+        "relative_day": null,
+        "source": "tier1",
+        "status": "explicit",
+        "line_number": 5,
+        "partial_month": null,
+        "partial_day": null,
+        "extensions": {}
+      },
+      "encounter_type_raw": null,
+      "reason_for_visit": null,
+      "chief_complaint": null,
+      "author_name": null,
+      "author_role": null,
+      "facts": [
+        {
+          "text": "PATIENT ID: 10002930",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "2e709e3e88ba41db",
+          "citation_ids": [
+            "2e709e3e88ba41db"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "ADMISSION RECORD: #22380825",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "75ee6ad963e24a69",
+          "citation_ids": [
+            "75ee6ad963e24a69"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "ADMISSION RECORD: #23688993",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "6e57c8eabec84427",
+          "citation_ids": [
+            "6e57c8eabec84427"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "ADMISSION RECORD: #25696644",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "0030db986c8e4612",
+          "citation_ids": [
+            "0030db986c8e4612"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        }
+      ],
+      "diagnoses": [],
+      "medications": [],
+      "procedures": [],
+      "exam_findings": [],
+      "treatment_plan": [],
+      "coding": {},
+      "imaging": null,
+      "billing": null,
+      "confidence": 88,
+      "flags": [],
+      "citation_ids": [
+        "2e709e3e88ba41db",
+        "75ee6ad963e24a69",
+        "6e57c8eabec84427",
+        "0030db986c8e4612"
+      ],
+      "source_page_numbers": [
+        1
+      ],
+      "extensions": {
+        "patient_scope_id": "ps_694188ac5240",
+        "patient_scope_confidence": 100,
+        "merged_from": [
+          "eae90d1a067e4e4e",
+          "e5e1e96c1fb34a47",
+          "f793aad28984456b"
+        ],
+        "event_class": "inpatient",
+        "severity_score": 90,
+        "is_care_event": true
+      }
+    },
+    {
+      "event_id": "916796adf90a47cc",
+      "provider_id": "7b23c897b8244bbd",
+      "event_type": "hospital_discharge",
+      "date": {
+        "kind": "single",
+        "value": "2193-08-05",
+        "relative_day": null,
+        "source": "tier1",
+        "status": "explicit",
+        "line_number": 5,
+        "partial_month": null,
+        "partial_day": null,
+        "extensions": {}
+      },
+      "encounter_type_raw": null,
+      "reason_for_visit": null,
+      "chief_complaint": null,
+      "author_name": null,
+      "author_role": null,
+      "facts": [
+        {
+          "text": "ADMITTED: 2193-08-05 06:18:00 | DISCHARGED: 2193-08-05 11:44:00",
+          "kind": "lab",
+          "verbatim": false,
+          "citation_id": "9d9e595e82df44ac",
+          "citation_ids": [
+            "9d9e595e82df44ac"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V620",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "ccce371b09014a9e",
+          "citation_ids": [
+            "ccce371b09014a9e"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "DISCHARGE SUMMARY",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "8300cec4956e4f9e",
+          "citation_ids": [
+            "8300cec4956e4f9e"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "Patient presented with worsening medical condition v620. Physical exam notable for hypotension.",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "a8897b4917344095",
+          "citation_ids": [
+            "a8897b4917344095"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "medical condition 30560.",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "9a192c1b6dd649ce",
+          "citation_ids": [
+            "9a192c1b6dd649ce"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "WBC: 13.7 | Hgb: 10.6 | Plt: 193",
+          "kind": "lab",
+          "verbatim": false,
+          "citation_id": "e2c52bf8551d49d7",
+          "citation_ids": [
+            "e2c52bf8551d49d7"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "Sodium: 143 | Potassium: 3.8 | Creatinine: 1.20",
+          "kind": "lab",
+          "verbatim": false,
+          "citation_id": "56f6bc3250594f1a",
+          "citation_ids": [
+            "56f6bc3250594f1a"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "ADMITTED: 2193-08-05 11:45:00 | DISCHARGED: 2193-08-11 09:25:00",
+          "kind": "lab",
+          "verbatim": false,
+          "citation_id": "b9b31803e2fc4bf3",
+          "citation_ids": [
+            "b9b31803e2fc4bf3"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V6284",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "1c52ee05d53d489c",
+          "citation_ids": [
+            "1c52ee05d53d489c"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "condition 311, medical condition 30500.",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "70d46c40899941a4",
+          "citation_ids": [
+            "70d46c40899941a4"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        }
+      ],
+      "diagnoses": [],
+      "medications": [],
+      "procedures": [],
+      "exam_findings": [],
+      "treatment_plan": [],
+      "coding": {},
+      "imaging": null,
+      "billing": null,
+      "confidence": 88,
+      "flags": [],
+      "citation_ids": [
+        "56f6bc3250594f1a",
+        "8300cec4956e4f9e",
+        "9a192c1b6dd649ce",
+        "9d9e595e82df44ac",
+        "a8897b4917344095",
+        "ccce371b09014a9e",
+        "e2c52bf8551d49d7",
+        "0466c925a87f4740",
+        "06adf6f962134366",
+        "1c52ee05d53d489c",
+        "70d46c40899941a4",
+        "b9b31803e2fc4bf3",
+        "e8e5eadfefa24158",
+        "23a72d8816f5465d",
+        "3700eb4fc30f4e07",
+        "46f95fe0425143e6",
+        "ec49e05702b14c91"
+      ],
+      "source_page_numbers": [
+        1
+      ],
+      "extensions": {
+        "patient_scope_id": "ps_694188ac5240",
+        "patient_scope_confidence": 100,
+        "merged_from": [
+          "916796adf90a47cc",
+          "16fdee15b4d34536",
+          "cb84da1621fa41d8"
+        ],
+        "event_class": "discharge_transfer",
+        "severity_score": 100,
+        "is_care_event": true
+      }
+    },
+    {
+      "event_id": "1504d36562e343c0",
+      "provider_id": "89b3aaedc8fc4100",
+      "event_type": "hospital_admission",
+      "date": {
+        "kind": "single",
+        "value": "2200-06-05",
+        "relative_day": null,
+        "source": "tier1",
+        "status": "explicit",
+        "line_number": 4,
+        "partial_month": null,
+        "partial_day": null,
+        "extensions": {}
+      },
+      "encounter_type_raw": null,
+      "reason_for_visit": null,
+      "chief_complaint": null,
+      "author_name": null,
+      "author_role": null,
+      "facts": [
+        {
+          "text": "ADMISSION RECORD: #28697806",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "665010e75a474f20",
+          "citation_ids": [
+            "665010e75a474f20"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "ADMISSION RECORD: #20846853",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "29e7205e809b46aa",
+          "citation_ids": [
+            "29e7205e809b46aa"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "ADMISSION RECORD: #20282368",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "a736911751004e54",
+          "citation_ids": [
+            "a736911751004e54"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        }
+      ],
+      "diagnoses": [],
+      "medications": [],
+      "procedures": [],
+      "exam_findings": [],
+      "treatment_plan": [],
+      "coding": {},
+      "imaging": null,
+      "billing": null,
+      "confidence": 88,
+      "flags": [],
+      "citation_ids": [
+        "665010e75a474f20",
+        "29e7205e809b46aa",
+        "a736911751004e54"
+      ],
+      "source_page_numbers": [
+        4
+      ],
+      "extensions": {
+        "patient_scope_id": "ps_694188ac5240",
+        "patient_scope_confidence": 100,
+        "merged_from": [
+          "1504d36562e343c0",
+          "e4644f59192b4b41",
+          "db4387a5bda74e0c"
+        ],
+        "event_class": "inpatient",
+        "severity_score": 90,
+        "is_care_event": true
+      }
+    },
+    {
+      "event_id": "602fa78bf62b4962",
+      "provider_id": "89b3aaedc8fc4100",
+      "event_type": "hospital_discharge",
+      "date": {
+        "kind": "single",
+        "value": "2200-06-05",
+        "relative_day": null,
+        "source": "tier1",
+        "status": "explicit",
+        "line_number": 4,
+        "partial_month": null,
+        "partial_day": null,
+        "extensions": {}
+      },
+      "encounter_type_raw": null,
+      "reason_for_visit": null,
+      "chief_complaint": null,
+      "author_name": null,
+      "author_role": null,
+      "facts": [
+        {
+          "text": "ADMITTED: 2200-06-05 05:43:00 | DISCHARGED: 2200-06-05 10:26:00",
+          "kind": "lab",
+          "verbatim": false,
+          "citation_id": "ef0a6131eccb4a88",
+          "citation_ids": [
+            "ef0a6131eccb4a88"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition E162",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "2f0a1ebb0f2a49d7",
+          "citation_ids": [
+            "2f0a1ebb0f2a49d7"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "DISCHARGE SUMMARY",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "7f861d8123604eed",
+          "citation_ids": [
+            "7f861d8123604eed"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "b1920, medical condition f10129.",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "05db16e0dfa147a6",
+          "citation_ids": [
+            "05db16e0dfa147a6"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "WBC: 8.1 | Hgb: 14.9 | Plt: 431",
+          "kind": "lab",
+          "verbatim": false,
+          "citation_id": "dbef85c46d0c4add",
+          "citation_ids": [
+            "dbef85c46d0c4add"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "Sodium: 135 | Potassium: 4.8 | Creatinine: 0.86",
+          "kind": "lab",
+          "verbatim": false,
+          "citation_id": "507955c022284002",
+          "citation_ids": [
+            "507955c022284002"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "ADMITTED: 2201-02-12 16:58:00 | DISCHARGED: 2201-02-13 11:11:00",
+          "kind": "lab",
+          "verbatim": false,
+          "citation_id": "57f0004a9e524f1a",
+          "citation_ids": [
+            "57f0004a9e524f1a"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition B20",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "b7e30ad826a2498d",
+          "citation_ids": [
+            "b7e30ad826a2498d"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "Patient presented with worsening medical condition b20. Physical exam notable for tachycardia.",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "d9deb4539e144090",
+          "citation_ids": [
+            "d9deb4539e144090"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        },
+        {
+          "text": "medical condition b1920.",
+          "kind": "other",
+          "verbatim": false,
+          "citation_id": "0bc21d869113494b",
+          "citation_ids": [
+            "0bc21d869113494b"
+          ],
+          "confidence": null,
+          "technical_noise": false
+        }
+      ],
+      "diagnoses": [],
+      "medications": [],
+      "procedures": [],
+      "exam_findings": [],
+      "treatment_plan": [],
+      "coding": {},
+      "imaging": null,
+      "billing": null,
+      "confidence": 88,
+      "flags": [],
+      "citation_ids": [
+        "05db16e0dfa147a6",
+        "2f0a1ebb0f2a49d7",
+        "507955c022284002",
+        "7f861d8123604eed",
+        "dbef85c46d0c4add",
+        "ef0a6131eccb4a88",
+        "0bc21d869113494b",
+        "57f0004a9e524f1a",
+        "609a9462598147a3",
+        "62da8039e62947c9",
+        "b7e30ad826a2498d",
+        "d9deb4539e144090",
+        "e1fd61fd1e86416e",
+        "15e7924d17974d00",
+        "26746b11adeb4873",
+        "3dd36c88fd384e48",
+        "3fe21827617f49fb",
+        "a44c898779714c2c"
+      ],
+      "source_page_numbers": [
+        4
+      ],
+      "extensions": {
+        "patient_scope_id": "ps_694188ac5240",
+        "patient_scope_confidence": 100,
+        "merged_from": [
+          "602fa78bf62b4962",
+          "449f99441d2b4e6e",
+          "a6213fdb6cb24d49"
+        ],
+        "event_class": "discharge_transfer",
+        "severity_score": 100,
+        "is_care_event": true
+      }
+    }
+  ],
+  "citations": [
+    {
+      "citation_id": "2e709e3e88ba41db",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "PATIENT ID: 10002930",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "21207e174529cab2e61808b8cee9ddbb96fe79b5270862fa8df6828a75023214"
+    },
+    {
+      "citation_id": "75ee6ad963e24a69",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "ADMISSION RECORD: #22380825",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "3cb8a42e4cff91857058964a4a81bd7890408914754366cd53e6ad8049c936f3"
+    },
+    {
+      "citation_id": "9d9e595e82df44ac",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "ADMITTED: 2193-08-05 06:18:00 | DISCHARGED: 2193-08-05 11:44:00",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "4fa75269a64518f0a00a3a6acea29c60c4c3b80a1ded94e66247e5ef33747825"
+    },
+    {
+      "citation_id": "ccce371b09014a9e",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "PRIMARY DIAGNOSIS: Medical Condition V620",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "27eda681bc1d006cc41b604349f17d40d221a9de02508e3e0f69260e11958e04"
+    },
+    {
+      "citation_id": "8300cec4956e4f9e",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "DISCHARGE SUMMARY",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "9b81c9fe321f2983ae3cf01a78d4ad97a7085e866d408ee76e4b90ea2b37d7af"
+    },
+    {
+      "citation_id": "a8897b4917344095",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "Patient presented with worsening medical condition v620. Physical exam notable for hypotension.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "b7fe3d7c4a1c1c4fa8161cacb4f71850d9830aee4b4fa70ba715793a9b076ddf"
+    },
+    {
+      "citation_id": "9a192c1b6dd649ce",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "medical condition 30560.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "2d78a6b426af7df01f1b12d0504145338980e322e9796c62189522fe1bf58dee"
+    },
+    {
+      "citation_id": "e2c52bf8551d49d7",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "WBC: 13.7 | Hgb: 10.6 | Plt: 193",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "e113a1d1cd3002f2959b77c45806916237db7e588d8355aabb85de8dfe1a12d8"
+    },
+    {
+      "citation_id": "56f6bc3250594f1a",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "Sodium: 143 | Potassium: 3.8 | Creatinine: 1.20",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "40096005fe8bdc2fa96654dba41bddd9edce42e17ad325af2fa635f1c03d8ec4"
+    },
+    {
+      "citation_id": "6e57c8eabec84427",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "ADMISSION RECORD: #23688993",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "82cc22a5194e6f422435ce3f3641bf91fa6d65f0875eb8436da4a025842d80b7"
+    },
+    {
+      "citation_id": "b9b31803e2fc4bf3",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "ADMITTED: 2193-08-05 11:45:00 | DISCHARGED: 2193-08-11 09:25:00",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "4f3eaa31e3bd846d5bd8d692632c445d71a22b2260872952d7db9d7def6c2367"
+    },
+    {
+      "citation_id": "1c52ee05d53d489c",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "PRIMARY DIAGNOSIS: Medical Condition V6284",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "cbd5dee6347b011eaa678381e1e8d3c4af972451bc100e1281968ce653ae018c"
+    },
+    {
+      "citation_id": "e8e5eadfefa24158",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "DISCHARGE SUMMARY",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "9b81c9fe321f2983ae3cf01a78d4ad97a7085e866d408ee76e4b90ea2b37d7af"
+    },
+    {
+      "citation_id": "70d46c40899941a4",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "condition 311, medical condition 30500.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "866423f4e33f809b9779c1f7a743eafc279f831d88417da2af924755cd631c31"
+    },
+    {
+      "citation_id": "0466c925a87f4740",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "WBC: 14.5 | Hgb: 13.8 | Plt: 372",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "c443a06d8dc3ef56018fdbb865358406e3651cee50a6855f7c6965614919f592"
+    },
+    {
+      "citation_id": "06adf6f962134366",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "Sodium: 143 | Potassium: 3.6 | Creatinine: 0.71",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "f65280b695efef17ab643b259f19b55d42aec217f6fc6b4c842b69f05c42af86"
+    },
+    {
+      "citation_id": "0030db986c8e4612",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "ADMISSION RECORD: #25696644",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "5e9fa6223e90e809edaef5574a9464c823957aef33ace8e7696036356c966959"
+    },
+    {
+      "citation_id": "23a72d8816f5465d",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "ADMITTED: 2196-04-14 12:25:00 | DISCHARGED: 2196-04-17 15:28:00",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "a05f490276477154ef17fe486e5c87798f42dd21a6d5d821712bb7402bd3bff5"
+    },
+    {
+      "citation_id": "3700eb4fc30f4e07",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "PRIMARY DIAGNOSIS: Medical Condition 30500",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "e53cfdd5b289dd2f8c390b95facb892e19a688b185d4b817b93a211b1841920f"
+    },
+    {
+      "citation_id": "46f95fe0425143e6",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "DISCHARGE SUMMARY",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "9b81c9fe321f2983ae3cf01a78d4ad97a7085e866d408ee76e4b90ea2b37d7af"
+    },
+    {
+      "citation_id": "ec49e05702b14c91",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 1,
+      "snippet": "Patient presented with worsening medical condition 30500. Physical exam notable for lower extremity",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "32658fa312663f32a3b93e58a5d7bc4fb415458971b1706e4ee084c48e74d402"
+    },
+    {
+      "citation_id": "c90fdcdd0bc34805",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "WBC: 10.1 | Hgb: 10.6 | Plt: 163",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "3ce6233d941fe0ef4c7277e2194852c82b282dba09dd4bdba92fb642ccc16855"
+    },
+    {
+      "citation_id": "bf903c8d331e48e0",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "Sodium: 139 | Potassium: 4.7 | Creatinine: 1.40",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "5f04e336a92d5f3dfb714a8f84af4fbd8be47f084c384a0d1aca34ff337d6df2"
+    },
+    {
+      "citation_id": "665010e75a474f20",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "ADMISSION RECORD: #28697806",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "3e1761108766f9668db5e8272b104def41b98296820ae0e670c7bb235de0367c"
+    },
+    {
+      "citation_id": "ef0a6131eccb4a88",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "ADMITTED: 2200-06-05 05:43:00 | DISCHARGED: 2200-06-05 10:26:00",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "43e170124880555d2873d4c101d3223a5fb4a8e69b78e642d6abb961dd90becc"
+    },
+    {
+      "citation_id": "2f0a1ebb0f2a49d7",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "PRIMARY DIAGNOSIS: Medical Condition E162",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "5d46934384c00b83bf91f36c35b07ea9a4d6bdb6823e9731765cd15841f29a01"
+    },
+    {
+      "citation_id": "7f861d8123604eed",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "DISCHARGE SUMMARY",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "9b81c9fe321f2983ae3cf01a78d4ad97a7085e866d408ee76e4b90ea2b37d7af"
+    },
+    {
+      "citation_id": "05db16e0dfa147a6",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "b1920, medical condition f10129.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "26c4ea70c83831e47ee1c8bf1862c85035f257fa4e41e79531ce1a8f8c18e844"
+    },
+    {
+      "citation_id": "dbef85c46d0c4add",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "WBC: 8.1 | Hgb: 14.9 | Plt: 431",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "eeb6ffca7c1a2fc716ea161c9f6a84ccc3a9e68edf03f0fc5bbeb0c1dce24f58"
+    },
+    {
+      "citation_id": "507955c022284002",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "Sodium: 135 | Potassium: 4.8 | Creatinine: 0.86",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "1e6485639032f404a46d391e49beacc8ead00942639acba84b5e07d23897c550"
+    },
+    {
+      "citation_id": "29e7205e809b46aa",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "ADMISSION RECORD: #20846853",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "486f243e6f6508b0fc244336c2565b73f82736e5167a5721200d12ca9f503460"
+    },
+    {
+      "citation_id": "57f0004a9e524f1a",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "ADMITTED: 2201-02-12 16:58:00 | DISCHARGED: 2201-02-13 11:11:00",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "0170ab6eba4a199d036c498806e4408cbfbcd72413a0bf134ac692754f36b8d1"
+    },
+    {
+      "citation_id": "b7e30ad826a2498d",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "PRIMARY DIAGNOSIS: Medical Condition B20",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "47836e9945bd2572ef0a4450ffc2815d24f20ac14e8ba6f963b914d5c44bd28f"
+    },
+    {
+      "citation_id": "62da8039e62947c9",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "DISCHARGE SUMMARY",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "9b81c9fe321f2983ae3cf01a78d4ad97a7085e866d408ee76e4b90ea2b37d7af"
+    },
+    {
+      "citation_id": "d9deb4539e144090",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "Patient presented with worsening medical condition b20. Physical exam notable for tachycardia.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "cdcfe64c8bb216272124074cb0de41a5526e3ad5a958e3e8ebb173b55302ae5b"
+    },
+    {
+      "citation_id": "0bc21d869113494b",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "medical condition b1920.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "7161f8bfd93c4050f47fed05e3888180671897f6334db3c13daf784f169c1fd9"
+    },
+    {
+      "citation_id": "e1fd61fd1e86416e",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "WBC: 6.3 | Hgb: 10.9 | Plt: 169",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "9df7487b08ca96af488ba8569c0f8ed995c9a9f6ca585a610853456d7edbf03b"
+    },
+    {
+      "citation_id": "609a9462598147a3",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "Sodium: 142 | Potassium: 4.0 | Creatinine: 0.72",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "8c7986931ddc22154599f9e514d52bc6322a0ae55595f4ae884d365c487d6aa6"
+    },
+    {
+      "citation_id": "a736911751004e54",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "ADMISSION RECORD: #20282368",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "d88248f2988522cc32e23f9ead0583849e12b4ac8eae013c8bdbbf34f137c16a"
+    },
+    {
+      "citation_id": "3fe21827617f49fb",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "ADMITTED: 2201-03-23 19:15:00 | DISCHARGED: 2201-03-26 14:24:00",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "41bf8b3a9dd79a89cbd8da09167fe35449b85c8e5b76e8093da8b071e8c3be00"
+    },
+    {
+      "citation_id": "15e7924d17974d00",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "PRIMARY DIAGNOSIS: Medical Condition M542",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "68fe4beea6daae38141b6b90fe343e97f695f0a5204be0bf839b9fc1d691f691"
+    },
+    {
+      "citation_id": "26746b11adeb4873",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "DISCHARGE SUMMARY",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "9b81c9fe321f2983ae3cf01a78d4ad97a7085e866d408ee76e4b90ea2b37d7af"
+    },
+    {
+      "citation_id": "3dd36c88fd384e48",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "medical condition r51.",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "17d51d766dda531ec21a150bb0c6ec95310255df868213b3fc5f354195e8698a"
+    },
+    {
+      "citation_id": "a44c898779714c2c",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 4,
+      "snippet": "WBC: 10.9 | Hgb: 14.1 | Plt: 192",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "afdfd62ecd2394816f8c360480206459a58adacbdf9f557cf150308f5c08d670"
+    },
+    {
+      "citation_id": "0b145d6c5060472a",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 2,
+      "snippet": "Labs found: WBC, Sodium, Potassium, Creatinine",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "255e63d84efc5e7c3618e9f354a1db60034e82171b41ad5f193aeab42ed8056b"
+    },
+    {
+      "citation_id": "f039954dbd2549ee",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 3,
+      "snippet": "Labs found: WBC, Sodium, Potassium, Creatinine",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "255e63d84efc5e7c3618e9f354a1db60034e82171b41ad5f193aeab42ed8056b"
+    },
+    {
+      "citation_id": "74d2d8f8a302411c",
+      "source_document_id": "06a0952767134e238f4f825471edee45",
+      "page_number": 5,
+      "snippet": "Labs found: Sodium, Potassium, Creatinine",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 0.0,
+        "h": 0.0
+      },
+      "text_hash": "32c0b3f94fa8a9d9f537784b7a0046d2e6bfd29511ce72144a7cfa633e1d343e"
+    }
+  ],
+  "gaps": [
+    {
+      "gap_id": "a8d1386f8a134906",
+      "start_date": "2193-08-05",
+      "end_date": "2200-06-05",
+      "duration_days": 2495,
+      "threshold_days": 90,
+      "confidence": 80,
+      "related_event_ids": [
+        "916796adf90a47cc",
+        "1504d36562e343c0"
+      ]
+    }
+  ],
+  "skipped_events": [],
+  "narrative_chronology": {
+    "generated_at": "2026-03-06T17:27:08.705460Z",
+    "entries": [],
+    "model_name": null
+  },
+  "extensions": {
+    "patient_partitions": {
+      "version": "1.0",
+      "partitions": [
+        {
+          "patient_scope_id": "ps_694188ac5240",
+          "label": "Unknown Patient",
+          "page_start": 1,
+          "page_end": 5,
+          "page_count": 5,
+          "page_numbers": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "confidence": 0
+        }
+      ],
+      "unassigned_pages": [],
+      "total_pages": 5,
+      "partition_count": 1
+    },
+    "pt_encounters": [],
+    "pt_count_reported": [],
+    "pt_reconciliation": {
+      "verified_pt_count": 0,
+      "reported_pt_counts": [],
+      "reported_pt_count_min": null,
+      "reported_pt_count_max": null,
+      "variance_flag": false,
+      "severe_variance_flag": false,
+      "variance_delta_max_minus_verified": null,
+      "date_concentration_anomaly": {
+        "triggered": false,
+        "max_date": null,
+        "max_date_count": 0,
+        "max_date_ratio": 0.0,
+        "reason": null
+      }
+    },
+    "page_identity_resolution": {
+      "1": {
+        "provider_name": null,
+        "facility_name": "UNIVERSITY MEDICAL CENTER - CLINICAL",
+        "phone": null,
+        "address": null,
+        "resolved_from": "page_header",
+        "confidence": 0.4,
+        "page_number": 1,
+        "evidence_citation_ids": [
+          "2e709e3e88ba41db",
+          "75ee6ad963e24a69",
+          "9d9e595e82df44ac",
+          "ccce371b09014a9e",
+          "8300cec4956e4f9e",
+          "a8897b4917344095",
+          "9a192c1b6dd649ce",
+          "e2c52bf8551d49d7"
+        ],
+        "resolution_reason": "pt_clinic_header_line"
+      },
+      "2": {
+        "provider_name": null,
+        "facility_name": null,
+        "phone": null,
+        "address": null,
+        "resolved_from": null,
+        "confidence": 0.0,
+        "page_number": 2,
+        "evidence_citation_ids": [],
+        "resolution_reason": "no_candidate"
+      },
+      "3": {
+        "provider_name": null,
+        "facility_name": null,
+        "phone": null,
+        "address": null,
+        "resolved_from": null,
+        "confidence": 0.0,
+        "page_number": 3,
+        "evidence_citation_ids": [],
+        "resolution_reason": "no_candidate"
+      },
+      "4": {
+        "provider_name": null,
+        "facility_name": null,
+        "phone": null,
+        "address": null,
+        "resolved_from": null,
+        "confidence": 0.0,
+        "page_number": 4,
+        "evidence_citation_ids": [],
+        "resolution_reason": "no_candidate"
+      },
+      "5": {
+        "provider_name": null,
+        "facility_name": null,
+        "phone": null,
+        "address": null,
+        "resolved_from": null,
+        "confidence": 0.0,
+        "page_number": 5,
+        "evidence_citation_ids": [],
+        "resolution_reason": "no_candidate"
+      }
+    },
+    "page_quality_assessment": {
+      "total_pages": 5,
+      "low_quality_pages": 1,
+      "low_quality_page_numbers": [
+        5
+      ],
+      "extraction_excluded_pages": 0,
+      "extraction_excluded_page_numbers": [],
+      "reason_counts": {
+        "too_short": 1
+      },
+      "details": [
+        {
+          "page_number": 1,
+          "page_type": "PageType.CLINICAL_NOTE",
+          "text_source": "embedded_pdf_text",
+          "is_low_quality": false,
+          "action": "allow",
+          "score": 0.65,
+          "reason_codes": []
+        },
+        {
+          "page_number": 2,
+          "page_type": "PageType.LAB_REPORT",
+          "text_source": "embedded_pdf_text",
+          "is_low_quality": false,
+          "action": "allow",
+          "score": 0.65,
+          "reason_codes": []
+        },
+        {
+          "page_number": 3,
+          "page_type": "PageType.LAB_REPORT",
+          "text_source": "embedded_pdf_text",
+          "is_low_quality": false,
+          "action": "allow",
+          "score": 0.65,
+          "reason_codes": []
+        },
+        {
+          "page_number": 4,
+          "page_type": "PageType.CLINICAL_NOTE",
+          "text_source": "embedded_pdf_text",
+          "is_low_quality": false,
+          "action": "allow",
+          "score": 0.65,
+          "reason_codes": []
+        },
+        {
+          "page_number": 5,
+          "page_type": "PageType.LAB_REPORT",
+          "text_source": "embedded_pdf_text",
+          "is_low_quality": true,
+          "action": "downgrade",
+          "score": 0.65,
+          "reason_codes": [
+            "too_short"
+          ]
+        }
+      ]
+    },
+    "extraction_metrics": {
+      "pages_total": 5,
+      "pages_classified": {
+        "PageType.CLINICAL_NOTE": 2,
+        "PageType.LAB_REPORT": 3
+      },
+      "providers_detected": 2,
+      "events_total": 4,
+      "events_by_type": {
+        "EventType.HOSPITAL_ADMISSION": 2,
+        "EventType.HOSPITAL_DISCHARGE": 2
+      },
+      "events_exported": 4,
+      "facts_total": 27,
+      "citations_total": 47
+    },
+    "quality_gate": {
+      "num_snippets_filtered": 3,
+      "num_snippets_cleaned": 0
+    },
+    "event_weighting": {
+      "event_count": 4,
+      "avg_severity_score": 95.0,
+      "by_class": {
+        "discharge_transfer": 2,
+        "inpatient": 2
+      }
+    },
+    "claim_rows": [
+      {
+        "id": "09e53a5e29e3ee70",
+        "event_id": "916796adf90a47cc",
+        "patient_label": "See Patient Header",
+        "claim_type": "INJURY_DX",
+        "date": "2193-08-05",
+        "body_region": "general",
+        "provider": "7b23c897b8244bbd",
+        "assertion": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V620",
+        "citations": [
+          "p. 1"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "70d46c40899941a4",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "a8897b4917344095",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "9a192c1b6dd649ce",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 2,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 2,
+        "selection_score": 4
+      },
+      {
+        "id": "87566750c1b694d4",
+        "event_id": "916796adf90a47cc",
+        "patient_label": "See Patient Header",
+        "claim_type": "INJURY_DX",
+        "date": "2193-08-05",
+        "body_region": "general",
+        "provider": "7b23c897b8244bbd",
+        "assertion": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V6284 condition 311, medical condition 30500",
+        "citations": [
+          "p. 1"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "70d46c40899941a4",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "a8897b4917344095",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "9a192c1b6dd649ce",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 2,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 2,
+        "selection_score": 4
+      },
+      {
+        "id": "08633de9346ade6e",
+        "event_id": "eae90d1a067e4e4e",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2193-08-05",
+        "body_region": "general",
+        "provider": "7b23c897b8244bbd",
+        "assertion": "ADMISSION RECORD: #22380825",
+        "citations": [
+          "p. 1"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "2e709e3e88ba41db",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "75ee6ad963e24a69",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "6e57c8eabec84427",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "3e109fddf6021715",
+        "event_id": "eae90d1a067e4e4e",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2193-08-05",
+        "body_region": "general",
+        "provider": "7b23c897b8244bbd",
+        "assertion": "ADMISSION RECORD: #23688993",
+        "citations": [
+          "p. 1"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "2e709e3e88ba41db",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "75ee6ad963e24a69",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "6e57c8eabec84427",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "48181c011f78d592",
+        "event_id": "eae90d1a067e4e4e",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2193-08-05",
+        "body_region": "general",
+        "provider": "7b23c897b8244bbd",
+        "assertion": "ADMISSION RECORD: #25696644",
+        "citations": [
+          "p. 1"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "2e709e3e88ba41db",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "75ee6ad963e24a69",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "6e57c8eabec84427",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "b57e516c9f08ce68",
+        "event_id": "916796adf90a47cc",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2193-08-05",
+        "body_region": "general",
+        "provider": "7b23c897b8244bbd",
+        "assertion": "ADMITTED: 2193-08-05 06:18:00 | DISCHARGED: 2193-08-05 11:44:00",
+        "citations": [
+          "p. 1"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "70d46c40899941a4",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "a8897b4917344095",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "9a192c1b6dd649ce",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "c1ba3d12ec06dc4b",
+        "event_id": "916796adf90a47cc",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2193-08-05",
+        "body_region": "general",
+        "provider": "7b23c897b8244bbd",
+        "assertion": "medical condition 30560",
+        "citations": [
+          "p. 1"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "70d46c40899941a4",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "a8897b4917344095",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "9a192c1b6dd649ce",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "d8173d225b677e87",
+        "event_id": "eae90d1a067e4e4e",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2193-08-05",
+        "body_region": "general",
+        "provider": "7b23c897b8244bbd",
+        "assertion": "10002930",
+        "citations": [
+          "p. 1"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "2e709e3e88ba41db",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "75ee6ad963e24a69",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "6e57c8eabec84427",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "e4163a8033ce4111",
+        "event_id": "916796adf90a47cc",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2193-08-05",
+        "body_region": "general",
+        "provider": "7b23c897b8244bbd",
+        "assertion": "Sodium: 143 | Potassium: 3.8 | Creatinine: 1.20",
+        "citations": [
+          "p. 1"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "70d46c40899941a4",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "a8897b4917344095",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "9a192c1b6dd649ce",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "e55e6c2eaefefaa8",
+        "event_id": "916796adf90a47cc",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2193-08-05",
+        "body_region": "general",
+        "provider": "7b23c897b8244bbd",
+        "assertion": "DISCHARGE SUMMARY Patient presented with worsening medical condition v620. Physical exam notable for hypotension",
+        "citations": [
+          "p. 1"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "70d46c40899941a4",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "a8897b4917344095",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "9a192c1b6dd649ce",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 1,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "34e623babf66db0c",
+        "event_id": "602fa78bf62b4962",
+        "patient_label": "See Patient Header",
+        "claim_type": "INJURY_DX",
+        "date": "2200-06-05",
+        "body_region": "general",
+        "provider": "89b3aaedc8fc4100",
+        "assertion": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition E162",
+        "citations": [
+          "p. 4"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "b7e30ad826a2498d",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "7f861d8123604eed",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "0bc21d869113494b",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 2,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 2,
+        "selection_score": 4
+      },
+      {
+        "id": "53b9e76c56d54354",
+        "event_id": "602fa78bf62b4962",
+        "patient_label": "See Patient Header",
+        "claim_type": "INJURY_DX",
+        "date": "2200-06-05",
+        "body_region": "general",
+        "provider": "89b3aaedc8fc4100",
+        "assertion": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition B20",
+        "citations": [
+          "p. 4"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "b7e30ad826a2498d",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "7f861d8123604eed",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "0bc21d869113494b",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 2,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 2,
+        "selection_score": 4
+      },
+      {
+        "id": "12102d74d9ca9275",
+        "event_id": "1504d36562e343c0",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2200-06-05",
+        "body_region": "general",
+        "provider": "89b3aaedc8fc4100",
+        "assertion": "ADMISSION RECORD: #20282368",
+        "citations": [
+          "p. 4"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "a736911751004e54",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "29e7205e809b46aa",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "665010e75a474f20",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "42c489d0e417fc9f",
+        "event_id": "602fa78bf62b4962",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2200-06-05",
+        "body_region": "general",
+        "provider": "89b3aaedc8fc4100",
+        "assertion": "DISCHARGE SUMMARY b1920, medical condition f10129",
+        "citations": [
+          "p. 4"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "b7e30ad826a2498d",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "7f861d8123604eed",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "0bc21d869113494b",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "4625548f130aa5f7",
+        "event_id": "602fa78bf62b4962",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2200-06-05",
+        "body_region": "general",
+        "provider": "89b3aaedc8fc4100",
+        "assertion": "Patient presented with worsening medical condition b20. Physical exam notable for tachycardia",
+        "citations": [
+          "p. 4"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "b7e30ad826a2498d",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "7f861d8123604eed",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "0bc21d869113494b",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "5fdf240bbfee7604",
+        "event_id": "602fa78bf62b4962",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2200-06-05",
+        "body_region": "general",
+        "provider": "89b3aaedc8fc4100",
+        "assertion": "ADMITTED: 2201-02-12 16:58:00 | DISCHARGED: 2201-02-13 11:11:00",
+        "citations": [
+          "p. 4"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "b7e30ad826a2498d",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "7f861d8123604eed",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "0bc21d869113494b",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "73a42a7aa2e9d314",
+        "event_id": "1504d36562e343c0",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2200-06-05",
+        "body_region": "general",
+        "provider": "89b3aaedc8fc4100",
+        "assertion": "ADMISSION RECORD: #20846853",
+        "citations": [
+          "p. 4"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "a736911751004e54",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "29e7205e809b46aa",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "665010e75a474f20",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "846447d88f5987b4",
+        "event_id": "1504d36562e343c0",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2200-06-05",
+        "body_region": "general",
+        "provider": "89b3aaedc8fc4100",
+        "assertion": "ADMISSION RECORD: #28697806",
+        "citations": [
+          "p. 4"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "a736911751004e54",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "29e7205e809b46aa",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "665010e75a474f20",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "b35a10c41f61fd75",
+        "event_id": "602fa78bf62b4962",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2200-06-05",
+        "body_region": "general",
+        "provider": "89b3aaedc8fc4100",
+        "assertion": "ADMITTED: 2200-06-05 05:43:00 | DISCHARGED: 2200-06-05 10:26:00",
+        "citations": [
+          "p. 4"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "b7e30ad826a2498d",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "7f861d8123604eed",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "0bc21d869113494b",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "b9ea427dd6e930e3",
+        "event_id": "602fa78bf62b4962",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2200-06-05",
+        "body_region": "general",
+        "provider": "89b3aaedc8fc4100",
+        "assertion": "Sodium: 135 | Potassium: 4.8 | Creatinine: 0.86",
+        "citations": [
+          "p. 4"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "b7e30ad826a2498d",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "7f861d8123604eed",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "0bc21d869113494b",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      },
+      {
+        "id": "b9f2ab35832affcf",
+        "event_id": "602fa78bf62b4962",
+        "patient_label": "See Patient Header",
+        "claim_type": "TREATMENT_VISIT",
+        "date": "2200-06-05",
+        "body_region": "general",
+        "provider": "89b3aaedc8fc4100",
+        "assertion": "medical condition b1920",
+        "citations": [
+          "p. 4"
+        ],
+        "citation_anchors": [
+          {
+            "citation_id": "b7e30ad826a2498d",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "7f861d8123604eed",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "citation_id": "0bc21d869113494b",
+            "doc_id": "06a0952767134e238f4f825471edee45",
+            "page": 4,
+            "bbox": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "support_score": 0,
+        "support_strength": "Weak",
+        "flags": [],
+        "materiality_weight": 1,
+        "selection_score": 0
+      }
+    ],
+    "causation_chains": [
+      {
+        "id": "5534bd9d16698ead",
+        "body_region": "general",
+        "rungs": [
+          {
+            "rung_order": 2,
+            "event_id": "916796adf90a47cc",
+            "rung_type": "INITIAL_DX",
+            "body_region": "general",
+            "date": "2193-08-05",
+            "citation_ids": [
+              "p. 1"
+            ],
+            "temporal_gap_from_previous_days": null,
+            "integrity_score": 18,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 2,
+            "event_id": "916796adf90a47cc",
+            "rung_type": "INITIAL_DX",
+            "body_region": "general",
+            "date": "2193-08-05",
+            "citation_ids": [
+              "p. 1"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 18,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "916796adf90a47cc",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2193-08-05",
+            "citation_ids": [
+              "p. 1"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "916796adf90a47cc",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2193-08-05",
+            "citation_ids": [
+              "p. 1"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "916796adf90a47cc",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2193-08-05",
+            "citation_ids": [
+              "p. 1"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "916796adf90a47cc",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2193-08-05",
+            "citation_ids": [
+              "p. 1"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "eae90d1a067e4e4e",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2193-08-05",
+            "citation_ids": [
+              "p. 1"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "eae90d1a067e4e4e",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2193-08-05",
+            "citation_ids": [
+              "p. 1"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "eae90d1a067e4e4e",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2193-08-05",
+            "citation_ids": [
+              "p. 1"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "eae90d1a067e4e4e",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2193-08-05",
+            "citation_ids": [
+              "p. 1"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 2,
+            "event_id": "602fa78bf62b4962",
+            "rung_type": "INITIAL_DX",
+            "body_region": "general",
+            "date": "2200-06-05",
+            "citation_ids": [
+              "p. 4"
+            ],
+            "temporal_gap_from_previous_days": 2495,
+            "integrity_score": 18,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 2,
+            "event_id": "602fa78bf62b4962",
+            "rung_type": "INITIAL_DX",
+            "body_region": "general",
+            "date": "2200-06-05",
+            "citation_ids": [
+              "p. 4"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 18,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "1504d36562e343c0",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2200-06-05",
+            "citation_ids": [
+              "p. 4"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "1504d36562e343c0",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2200-06-05",
+            "citation_ids": [
+              "p. 4"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "1504d36562e343c0",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2200-06-05",
+            "citation_ids": [
+              "p. 4"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "602fa78bf62b4962",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2200-06-05",
+            "citation_ids": [
+              "p. 4"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "602fa78bf62b4962",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2200-06-05",
+            "citation_ids": [
+              "p. 4"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          },
+          {
+            "rung_order": 3,
+            "event_id": "602fa78bf62b4962",
+            "rung_type": "TREATMENT",
+            "body_region": "general",
+            "date": "2200-06-05",
+            "citation_ids": [
+              "p. 4"
+            ],
+            "temporal_gap_from_previous_days": 0,
+            "integrity_score": 0,
+            "provider_reliability_multiplier": 0.9
+          }
+        ],
+        "chain_integrity_score": 46,
+        "break_points": [
+          11
+        ],
+        "missing_rungs": [
+          "INCIDENT",
+          "ESCALATION",
+          "OUTCOME"
+        ],
+        "incident_date": null,
+        "temporal_decay_penalty": 0,
+        "provider_reliability_multiplier_avg": 0.9,
+        "provider_reliability_penalty": 1,
+        "max_days_from_incident": 0
+      }
+    ],
+    "case_collapse_candidates": [],
+    "defense_attack_paths": [],
+    "objection_profiles": [
+      {
+        "claim_id": "08633de9346ade6e",
+        "event_id": "eae90d1a067e4e4e",
+        "date": "2193-08-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "ADMISSION RECORD: #22380825",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 1"
+        ]
+      },
+      {
+        "claim_id": "3e109fddf6021715",
+        "event_id": "eae90d1a067e4e4e",
+        "date": "2193-08-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "ADMISSION RECORD: #23688993",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 1"
+        ]
+      },
+      {
+        "claim_id": "48181c011f78d592",
+        "event_id": "eae90d1a067e4e4e",
+        "date": "2193-08-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "ADMISSION RECORD: #25696644",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 1"
+        ]
+      },
+      {
+        "claim_id": "b57e516c9f08ce68",
+        "event_id": "916796adf90a47cc",
+        "date": "2193-08-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "ADMITTED: 2193-08-05 06:18:00 | DISCHARGED: 2193-08-05 11:44:00",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 1"
+        ]
+      },
+      {
+        "claim_id": "c1ba3d12ec06dc4b",
+        "event_id": "916796adf90a47cc",
+        "date": "2193-08-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "medical condition 30560",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 1"
+        ]
+      },
+      {
+        "claim_id": "d8173d225b677e87",
+        "event_id": "eae90d1a067e4e4e",
+        "date": "2193-08-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "10002930",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 1"
+        ]
+      },
+      {
+        "claim_id": "e4163a8033ce4111",
+        "event_id": "916796adf90a47cc",
+        "date": "2193-08-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "Sodium: 143 | Potassium: 3.8 | Creatinine: 1.20",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 1"
+        ]
+      },
+      {
+        "claim_id": "e55e6c2eaefefaa8",
+        "event_id": "916796adf90a47cc",
+        "date": "2193-08-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "DISCHARGE SUMMARY Patient presented with worsening medical condition v620. Physical exam notable for hypotension",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 1"
+        ]
+      },
+      {
+        "claim_id": "12102d74d9ca9275",
+        "event_id": "1504d36562e343c0",
+        "date": "2200-06-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "ADMISSION RECORD: #20282368",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 4"
+        ]
+      },
+      {
+        "claim_id": "42c489d0e417fc9f",
+        "event_id": "602fa78bf62b4962",
+        "date": "2200-06-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "DISCHARGE SUMMARY b1920, medical condition f10129",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 4"
+        ]
+      },
+      {
+        "claim_id": "4625548f130aa5f7",
+        "event_id": "602fa78bf62b4962",
+        "date": "2200-06-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "Patient presented with worsening medical condition b20. Physical exam notable for tachycardia",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 4"
+        ]
+      },
+      {
+        "claim_id": "5fdf240bbfee7604",
+        "event_id": "602fa78bf62b4962",
+        "date": "2200-06-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "ADMITTED: 2201-02-12 16:58:00 | DISCHARGED: 2201-02-13 11:11:00",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 4"
+        ]
+      },
+      {
+        "claim_id": "73a42a7aa2e9d314",
+        "event_id": "1504d36562e343c0",
+        "date": "2200-06-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "ADMISSION RECORD: #20846853",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 4"
+        ]
+      },
+      {
+        "claim_id": "846447d88f5987b4",
+        "event_id": "1504d36562e343c0",
+        "date": "2200-06-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "ADMISSION RECORD: #28697806",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 4"
+        ]
+      },
+      {
+        "claim_id": "b35a10c41f61fd75",
+        "event_id": "602fa78bf62b4962",
+        "date": "2200-06-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "ADMITTED: 2200-06-05 05:43:00 | DISCHARGED: 2200-06-05 10:26:00",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 4"
+        ]
+      },
+      {
+        "claim_id": "b9ea427dd6e930e3",
+        "event_id": "602fa78bf62b4962",
+        "date": "2200-06-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "Sodium: 135 | Potassium: 4.8 | Creatinine: 0.86",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 4"
+        ]
+      },
+      {
+        "claim_id": "b9f2ab35832affcf",
+        "event_id": "602fa78bf62b4962",
+        "date": "2200-06-05",
+        "claim_type": "TREATMENT_VISIT",
+        "assertion": "medical condition b1920",
+        "support_score": 0,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation",
+          "relevance"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score.",
+          "Low materiality row may be challenged as cumulative."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment).",
+          "Tie to functional change, escalation, or diagnosis context."
+        ],
+        "citations": [
+          "p. 4"
+        ]
+      },
+      {
+        "claim_id": "09e53a5e29e3ee70",
+        "event_id": "916796adf90a47cc",
+        "date": "2193-08-05",
+        "claim_type": "INJURY_DX",
+        "assertion": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V620",
+        "support_score": 2,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment)."
+        ],
+        "citations": [
+          "p. 1"
+        ]
+      },
+      {
+        "claim_id": "87566750c1b694d4",
+        "event_id": "916796adf90a47cc",
+        "date": "2193-08-05",
+        "claim_type": "INJURY_DX",
+        "assertion": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V6284 condition 311, medical condition 30500",
+        "support_score": 2,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment)."
+        ],
+        "citations": [
+          "p. 1"
+        ]
+      },
+      {
+        "claim_id": "34e623babf66db0c",
+        "event_id": "602fa78bf62b4962",
+        "date": "2200-06-05",
+        "claim_type": "INJURY_DX",
+        "assertion": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition E162",
+        "support_score": 2,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment)."
+        ],
+        "citations": [
+          "p. 4"
+        ]
+      },
+      {
+        "claim_id": "53b9e76c56d54354",
+        "event_id": "602fa78bf62b4962",
+        "date": "2200-06-05",
+        "claim_type": "INJURY_DX",
+        "assertion": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition B20",
+        "support_score": 2,
+        "support_strength": "Weak",
+        "objection_types": [
+          "foundation"
+        ],
+        "objection_reasons": [
+          "Low deterministic support score."
+        ],
+        "foundation_requirements": [
+          "Add objective corroboration (imaging/procedure/assessment)."
+        ],
+        "citations": [
+          "p. 4"
+        ]
+      }
+    ],
+    "evidence_upgrade_recommendations": [],
+    "quote_lock_rows": [
+      {
+        "id": "e55e6c2eaefefaa8",
+        "date": "2193-08-05",
+        "claim_type": "TREATMENT_VISIT",
+        "quote": "\"DISCHARGE SUMMARY Patient presented with worsening medical condition v620. Physical exam notable for hypotension\"",
+        "citation": "p. 1",
+        "event_id": "916796adf90a47cc"
+      },
+      {
+        "id": "53b9e76c56d54354",
+        "date": "2200-06-05",
+        "claim_type": "INJURY_DX",
+        "quote": "\"Diagnosis: PRIMARY DIAGNOSIS: Medical Condition B20\"",
+        "citation": "p. 4",
+        "event_id": "602fa78bf62b4962"
+      },
+      {
+        "id": "12102d74d9ca9275",
+        "date": "2200-06-05",
+        "claim_type": "TREATMENT_VISIT",
+        "quote": "\"ADMISSION RECORD: #20282368\"",
+        "citation": "p. 4",
+        "event_id": "1504d36562e343c0"
+      }
+    ],
+    "contradiction_matrix": [],
+    "narrative_duality": {
+      "plaintiff_narrative": {
+        "summary": "Citation-backed medical progression emphasizing objective findings and treatment escalation.",
+        "points": [
+          {
+            "date": "2200-06-05",
+            "assertion": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition B20",
+            "claim_type": "INJURY_DX",
+            "support_strength": "Weak",
+            "citations": [
+              "p. 4"
+            ]
+          }
+        ]
+      },
+      "defense_narrative": {
+        "summary": "Citation-backed competing medical interpretation emphasizing fragility points.",
+        "points": []
+      }
+    },
+    "comparative_pattern_engine": {
+      "status": "insufficient_corpus_for_comparative_deviation",
+      "version": "v0_scaffold",
+      "required_min_cases": 500,
+      "current_case_features": {
+        "claim_row_count": 21,
+        "claim_type_distribution": {
+          "INJURY_DX": 4,
+          "TREATMENT_VISIT": 17
+        },
+        "avg_support_score": 0.38
+      },
+      "deviation_flags": []
+    },
+    "citation_fidelity": {
+      "claim_rows_total": 21,
+      "claim_rows_anchored": 21,
+      "claim_row_anchor_ratio": 1.0,
+      "claim_rows_text_backed": 21,
+      "claim_row_text_backed_ratio": 1.0,
+      "drift_suspect_count": 0,
+      "drift_suspect_ratio": 0.0,
+      "drift_review_required": false,
+      "drift_suspects": [],
+      "min_overlap_threshold": 0.12
+    },
+    "providers_normalized": [
+      {
+        "normalized_name": "university medical ctr clinical",
+        "display_name": "UNIVERSITY MEDICAL CENTER - CLINICAL",
+        "provider_type": "er",
+        "first_seen_date": "2193-08-05",
+        "last_seen_date": "2193-08-05",
+        "event_count": 2,
+        "citation_count": 21,
+        "source_provider_ids": [
+          "7b23c897b8244bbd"
+        ]
+      },
+      {
+        "normalized_name": "primary diagnosis medical condition v620",
+        "display_name": "PRIMARY DIAGNOSIS: Medical Condition V620",
+        "provider_type": "er",
+        "first_seen_date": "2200-06-05",
+        "last_seen_date": "2200-06-05",
+        "event_count": 2,
+        "citation_count": 21,
+        "source_provider_ids": [
+          "89b3aaedc8fc4100"
+        ]
+      }
+    ],
+    "coverage_spans": [
+      {
+        "provider_name": "UNIVERSITY MEDICAL CENTER - CLINICAL",
+        "normalized_name": "university medical ctr clinical",
+        "provider_type": "er",
+        "start_date": "2193-08-05",
+        "end_date": "2193-08-05",
+        "event_count": 2
+      },
+      {
+        "provider_name": "PRIMARY DIAGNOSIS: Medical Condition V620",
+        "normalized_name": "primary diagnosis medical condition v620",
+        "provider_type": "er",
+        "start_date": "2200-06-05",
+        "end_date": "2200-06-05",
+        "event_count": 2
+      }
+    ],
+    "missing_records": {
+      "version": "1.0",
+      "generated_at": "2026-03-06T17:27:02.410498+00:00",
+      "ruleset": {
+        "provider_gap_medium_days": 30,
+        "provider_gap_high_days": 60,
+        "global_gap_medium_days": 45,
+        "global_gap_high_days": 90,
+        "care_window_start": null,
+        "care_window_end": "2200-06-05"
+      },
+      "gaps": [
+        {
+          "gap_id": "a45f692618b8ef7d",
+          "provider_id": null,
+          "provider_display_name": null,
+          "start_date": "2193-08-05",
+          "end_date": "2200-06-05",
+          "gap_days": 2495,
+          "severity": "high",
+          "rule_name": "global_gap",
+          "rationale": "Post-acute continuity break",
+          "evidence": {
+            "last_event_id": "916796adf90a47cc",
+            "next_event_id": "1504d36562e343c0",
+            "citation_ids": [
+              "0466c925a87f4740",
+              "06adf6f962134366",
+              "1c52ee05d53d489c",
+              "23a72d8816f5465d",
+              "29e7205e809b46aa",
+              "3700eb4fc30f4e07",
+              "46f95fe0425143e6",
+              "56f6bc3250594f1a",
+              "665010e75a474f20",
+              "70d46c40899941a4",
+              "8300cec4956e4f9e",
+              "9a192c1b6dd649ce",
+              "9d9e595e82df44ac",
+              "a736911751004e54",
+              "a8897b4917344095",
+              "b9b31803e2fc4bf3",
+              "ccce371b09014a9e",
+              "e2c52bf8551d49d7",
+              "e8e5eadfefa24158",
+              "ec49e05702b14c91"
+            ]
+          },
+          "suggested_records_to_request": {
+            "provider_id": null,
+            "patient_scope_id": "ps_694188ac5240",
+            "from": "2193-08-06",
+            "to": "2200-06-04",
+            "type": "Any medical provider records"
+          },
+          "patient_scope_id": "ps_694188ac5240"
+        }
+      ],
+      "summary": {
+        "total_gaps": 1,
+        "provider_gap_count": 0,
+        "global_gap_count": 1,
+        "high_severity_count": 1,
+        "medium_severity_count": 0,
+        "patient_scope_count": 1,
+        "unassigned_events_excluded": 0
+      },
+      "priority_requests_top3": [
+        {
+          "gap_id": "a45f692618b8ef7d",
+          "priority_score": 100,
+          "priority_tier": "High",
+          "provider_display_name": "Any provider",
+          "date_range": {
+            "from": "2193-08-06",
+            "to": "2200-06-04"
+          },
+          "request_type": "Any medical provider records",
+          "rationale": "Post-acute continuity break",
+          "citation_ids": [
+            "0466c925a87f4740",
+            "06adf6f962134366",
+            "1c52ee05d53d489c"
+          ],
+          "rank": 1
+        }
+      ]
+    },
+    "specials_summary": {
+      "totals": {
+        "total_charges": "0.00",
+        "total_payments": null,
+        "total_adjustments": null,
+        "total_balance": null
+      },
+      "by_provider": [],
+      "coverage": {
+        "earliest_service_date": null,
+        "latest_service_date": null,
+        "billing_pages_count": 0
+      },
+      "dedupe": {
+        "strategy": "keyed_hash",
+        "lines_raw": 0,
+        "lines_deduped": 0
+      },
+      "confidence": 0.0,
+      "flags": [
+        "NO_BILLING_DATA"
+      ]
+    },
+    "mechanism_selection_audit": {
+      "selected_label": null,
+      "selected_citation_ids": [],
+      "selected_candidate": null,
+      "candidate_count": 0,
+      "top_candidates": []
+    },
+    "renderer_manifest": {
+      "manifest_version": "1.0",
+      "doi": {
+        "value": "2193-08-05",
+        "citation_ids": [
+          "2e709e3e88ba41db",
+          "75ee6ad963e24a69",
+          "6e57c8eabec84427",
+          "0030db986c8e4612"
+        ],
+        "source": "inferred"
+      },
+      "mechanism": {
+        "value": null,
+        "citation_ids": []
+      },
+      "pt_summary": {
+        "total_encounters": null,
+        "encounter_count_min": null,
+        "encounter_count_max": null,
+        "date_start": null,
+        "date_end": null,
+        "discharge_status": null,
+        "reconciliation_note": null,
+        "citation_ids": [],
+        "count_source": "not_found"
+      },
+      "promoted_findings": [],
+      "top_case_drivers": [
+        "916796adf90a47cc",
+        "602fa78bf62b4962",
+        "eae90d1a067e4e4e",
+        "1504d36562e343c0"
+      ],
+      "bucket_evidence": {
+        "ed": {
+          "detected": true,
+          "event_ids": [
+            "eae90d1a067e4e4e",
+            "916796adf90a47cc",
+            "1504d36562e343c0",
+            "602fa78bf62b4962"
+          ],
+          "citation_ids": [
+            "2e709e3e88ba41db",
+            "75ee6ad963e24a69",
+            "6e57c8eabec84427",
+            "0030db986c8e4612",
+            "70d46c40899941a4",
+            "a8897b4917344095",
+            "9a192c1b6dd649ce",
+            "1c52ee05d53d489c",
+            "ccce371b09014a9e",
+            "56f6bc3250594f1a",
+            "a736911751004e54",
+            "29e7205e809b46aa",
+            "665010e75a474f20",
+            "b7e30ad826a2498d",
+            "7f861d8123604eed",
+            "0bc21d869113494b",
+            "507955c022284002",
+            "57f0004a9e524f1a",
+            "ef0a6131eccb4a88"
+          ]
+        },
+        "pt_eval": {
+          "detected": false,
+          "event_ids": [],
+          "citation_ids": []
+        }
+      },
+      "billing_completeness": "none",
+      "visit_abstraction_registry": [
+        {
+          "event_id": "916796adf90a47cc",
+          "date": "2193-08-05",
+          "provider_id": "7b23c897b8244bbd",
+          "provider_name": "university medical ctr clinical",
+          "provider_role": "er",
+          "encounter_type": "er",
+          "citation_ids": [
+            "70d46c40899941a4",
+            "a8897b4917344095",
+            "9a192c1b6dd649ce",
+            "1c52ee05d53d489c",
+            "ccce371b09014a9e",
+            "56f6bc3250594f1a",
+            "b9b31803e2fc4bf3",
+            "8300cec4956e4f9e",
+            "9d9e595e82df44ac"
+          ],
+          "buckets": {
+            "complaints": [],
+            "objective_findings": [],
+            "diagnostics": [],
+            "diagnoses": [
+              "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V620",
+              "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V6284 condition 311, medical condition 30500."
+            ],
+            "treatments": [],
+            "prescriptions_or_referrals": [],
+            "functional_limitations": [],
+            "causation_statements": []
+          },
+          "missing_required_buckets": [
+            "complaints",
+            "objective_findings",
+            "treatments"
+          ],
+          "bucket_completeness_pass": false
+        },
+        {
+          "event_id": "eae90d1a067e4e4e",
+          "date": "2193-08-05",
+          "provider_id": "7b23c897b8244bbd",
+          "provider_name": "university medical ctr clinical",
+          "provider_role": "er",
+          "encounter_type": "er",
+          "citation_ids": [
+            "2e709e3e88ba41db",
+            "75ee6ad963e24a69",
+            "6e57c8eabec84427",
+            "0030db986c8e4612"
+          ],
+          "buckets": {
+            "complaints": [],
+            "objective_findings": [],
+            "diagnostics": [],
+            "diagnoses": [],
+            "treatments": [],
+            "prescriptions_or_referrals": [],
+            "functional_limitations": [],
+            "causation_statements": []
+          },
+          "missing_required_buckets": [
+            "complaints",
+            "objective_findings",
+            "diagnoses",
+            "treatments"
+          ],
+          "bucket_completeness_pass": false
+        },
+        {
+          "event_id": "1504d36562e343c0",
+          "date": "2200-06-05",
+          "provider_id": "89b3aaedc8fc4100",
+          "provider_name": "primary diagnosis medical condition v620",
+          "provider_role": "er",
+          "encounter_type": "er",
+          "citation_ids": [
+            "a736911751004e54",
+            "29e7205e809b46aa",
+            "665010e75a474f20"
+          ],
+          "buckets": {
+            "complaints": [],
+            "objective_findings": [],
+            "diagnostics": [],
+            "diagnoses": [],
+            "treatments": [],
+            "prescriptions_or_referrals": [],
+            "functional_limitations": [],
+            "causation_statements": []
+          },
+          "missing_required_buckets": [
+            "complaints",
+            "objective_findings",
+            "diagnoses",
+            "treatments"
+          ],
+          "bucket_completeness_pass": false
+        },
+        {
+          "event_id": "602fa78bf62b4962",
+          "date": "2200-06-05",
+          "provider_id": "89b3aaedc8fc4100",
+          "provider_name": "primary diagnosis medical condition v620",
+          "provider_role": "er",
+          "encounter_type": "er",
+          "citation_ids": [
+            "b7e30ad826a2498d",
+            "7f861d8123604eed",
+            "0bc21d869113494b",
+            "507955c022284002",
+            "57f0004a9e524f1a",
+            "ef0a6131eccb4a88",
+            "05db16e0dfa147a6",
+            "d9deb4539e144090",
+            "2f0a1ebb0f2a49d7"
+          ],
+          "buckets": {
+            "complaints": [],
+            "objective_findings": [],
+            "diagnostics": [],
+            "diagnoses": [
+              "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition E162",
+              "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition B20"
+            ],
+            "treatments": [],
+            "prescriptions_or_referrals": [],
+            "functional_limitations": [],
+            "causation_statements": []
+          },
+          "missing_required_buckets": [
+            "complaints",
+            "objective_findings",
+            "treatments"
+          ],
+          "bucket_completeness_pass": false
+        }
+      ],
+      "provider_role_registry": [
+        {
+          "provider_id": "89b3aaedc8fc4100",
+          "provider_name": "primary diagnosis medical condition v620",
+          "provider_role": "er"
+        },
+        {
+          "provider_id": "7b23c897b8244bbd",
+          "provider_name": "university medical ctr clinical",
+          "provider_role": "er"
+        }
+      ],
+      "diagnosis_registry": [
+        {
+          "diagnosis_label": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V620",
+          "icd_codes": [],
+          "first_seen_date": "2193-08-05",
+          "provider": "university medical ctr clinical",
+          "provider_id": "7b23c897b8244bbd",
+          "citation_ids": [
+            "70d46c40899941a4",
+            "a8897b4917344095",
+            "9a192c1b6dd649ce",
+            "1c52ee05d53d489c",
+            "ccce371b09014a9e",
+            "56f6bc3250594f1a",
+            "b9b31803e2fc4bf3",
+            "8300cec4956e4f9e",
+            "9d9e595e82df44ac"
+          ],
+          "cluster_name": "general_injury",
+          "classification": "primary",
+          "event_ids": [
+            "916796adf90a47cc"
+          ]
+        },
+        {
+          "diagnosis_label": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V6284 condition 311, medical condition 30500.",
+          "icd_codes": [],
+          "first_seen_date": "2193-08-05",
+          "provider": "university medical ctr clinical",
+          "provider_id": "7b23c897b8244bbd",
+          "citation_ids": [
+            "70d46c40899941a4",
+            "a8897b4917344095",
+            "9a192c1b6dd649ce",
+            "1c52ee05d53d489c",
+            "ccce371b09014a9e",
+            "56f6bc3250594f1a",
+            "b9b31803e2fc4bf3",
+            "8300cec4956e4f9e",
+            "9d9e595e82df44ac"
+          ],
+          "cluster_name": "general_injury",
+          "classification": "primary",
+          "event_ids": [
+            "916796adf90a47cc"
+          ]
+        },
+        {
+          "diagnosis_label": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition B20",
+          "icd_codes": [
+            "B20"
+          ],
+          "first_seen_date": "2200-06-05",
+          "provider": "primary diagnosis medical condition v620",
+          "provider_id": "89b3aaedc8fc4100",
+          "citation_ids": [
+            "b7e30ad826a2498d",
+            "7f861d8123604eed",
+            "0bc21d869113494b",
+            "507955c022284002",
+            "57f0004a9e524f1a",
+            "ef0a6131eccb4a88",
+            "05db16e0dfa147a6",
+            "d9deb4539e144090",
+            "2f0a1ebb0f2a49d7"
+          ],
+          "cluster_name": "general_injury",
+          "classification": "primary",
+          "event_ids": [
+            "602fa78bf62b4962"
+          ]
+        },
+        {
+          "diagnosis_label": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition E162",
+          "icd_codes": [
+            "B20"
+          ],
+          "first_seen_date": "2200-06-05",
+          "provider": "primary diagnosis medical condition v620",
+          "provider_id": "89b3aaedc8fc4100",
+          "citation_ids": [
+            "b7e30ad826a2498d",
+            "7f861d8123604eed",
+            "0bc21d869113494b",
+            "507955c022284002",
+            "57f0004a9e524f1a",
+            "ef0a6131eccb4a88",
+            "05db16e0dfa147a6",
+            "d9deb4539e144090",
+            "2f0a1ebb0f2a49d7"
+          ],
+          "cluster_name": "general_injury",
+          "classification": "primary",
+          "event_ids": [
+            "602fa78bf62b4962"
+          ]
+        }
+      ],
+      "injury_clusters": [
+        {
+          "cluster_name": "general_injury",
+          "classification": "primary",
+          "diagnosis_labels": [
+            "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V620",
+            "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V6284 condition 311, medical condition 30500.",
+            "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition B20",
+            "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition E162"
+          ],
+          "diagnosis_refs": [
+            "70d46c40899941a4",
+            "a8897b4917344095",
+            "9a192c1b6dd649ce",
+            "1c52ee05d53d489c",
+            "ccce371b09014a9e",
+            "56f6bc3250594f1a",
+            "b9b31803e2fc4bf3",
+            "8300cec4956e4f9e",
+            "9d9e595e82df44ac",
+            "b7e30ad826a2498d",
+            "7f861d8123604eed",
+            "0bc21d869113494b",
+            "507955c022284002",
+            "57f0004a9e524f1a",
+            "ef0a6131eccb4a88",
+            "05db16e0dfa147a6",
+            "d9deb4539e144090",
+            "2f0a1ebb0f2a49d7"
+          ],
+          "event_ids": [
+            "916796adf90a47cc",
+            "602fa78bf62b4962"
+          ]
+        }
+      ],
+      "injury_cluster_severity": [
+        {
+          "cluster_name": "general_injury",
+          "classification": "primary",
+          "severity_score_0_100": 30,
+          "surgery_present": false,
+          "injection_present": false,
+          "mri_pathology_present": false,
+          "treatment_duration_days": 2495,
+          "pt_visit_count": 0,
+          "specialist_involvement": false,
+          "treatment_intensity_index": 0,
+          "escalation_level": 0,
+          "citation_ids": [
+            "70d46c40899941a4",
+            "a8897b4917344095",
+            "9a192c1b6dd649ce",
+            "1c52ee05d53d489c",
+            "ccce371b09014a9e",
+            "56f6bc3250594f1a",
+            "b9b31803e2fc4bf3",
+            "8300cec4956e4f9e",
+            "9d9e595e82df44ac",
+            "b7e30ad826a2498d",
+            "7f861d8123604eed",
+            "0bc21d869113494b",
+            "507955c022284002",
+            "57f0004a9e524f1a",
+            "ef0a6131eccb4a88",
+            "05db16e0dfa147a6",
+            "d9deb4539e144090",
+            "2f0a1ebb0f2a49d7"
+          ]
+        }
+      ],
+      "treatment_escalation_path": [
+        {
+          "stage": "er",
+          "date": "2193-08-05",
+          "event_id": "916796adf90a47cc",
+          "citation_ids": [
+            "70d46c40899941a4",
+            "a8897b4917344095",
+            "9a192c1b6dd649ce",
+            "1c52ee05d53d489c",
+            "ccce371b09014a9e",
+            "56f6bc3250594f1a",
+            "b9b31803e2fc4bf3",
+            "8300cec4956e4f9e",
+            "9d9e595e82df44ac"
+          ],
+          "provider_name": "university medical ctr clinical"
+        }
+      ],
+      "causation_timeline_registry": {
+        "rungs": [
+          {
+            "rung": "incident",
+            "date": "2193-08-05",
+            "label": "incident not explicitly documented",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "incident_mechanism_not_explicit"
+          },
+          {
+            "rung": "first_treatment",
+            "date": "2193-08-05",
+            "label": "first documented treatment",
+            "citation_ids": [
+              "70d46c40899941a4",
+              "a8897b4917344095",
+              "9a192c1b6dd649ce",
+              "1c52ee05d53d489c",
+              "ccce371b09014a9e",
+              "56f6bc3250594f1a",
+              "b9b31803e2fc4bf3",
+              "8300cec4956e4f9e",
+              "9d9e595e82df44ac"
+            ],
+            "status": "present",
+            "missing_reason": null
+          },
+          {
+            "rung": "first_diagnosis",
+            "date": "2193-08-05",
+            "label": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V620",
+            "citation_ids": [
+              "70d46c40899941a4",
+              "a8897b4917344095",
+              "9a192c1b6dd649ce",
+              "1c52ee05d53d489c",
+              "ccce371b09014a9e",
+              "56f6bc3250594f1a",
+              "b9b31803e2fc4bf3",
+              "8300cec4956e4f9e",
+              "9d9e595e82df44ac"
+            ],
+            "status": "present",
+            "missing_reason": null
+          },
+          {
+            "rung": "imaging_confirmation",
+            "date": null,
+            "label": "first imaging confirmation",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "imaging_confirmation_not_found"
+          },
+          {
+            "rung": "specialist_confirmation",
+            "date": null,
+            "label": "first specialist confirmation",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "specialist_confirmation_not_found"
+          },
+          {
+            "rung": "surgical_repair_or_high_intensity_equivalent",
+            "date": null,
+            "label": "first surgical repair",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "surgical_repair_or_high_intensity_equivalent_not_found"
+          }
+        ],
+        "missing_rungs": [
+          {
+            "rung": "incident",
+            "date": "2193-08-05",
+            "label": "incident not explicitly documented",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "incident_mechanism_not_explicit"
+          },
+          {
+            "rung": "imaging_confirmation",
+            "date": null,
+            "label": "first imaging confirmation",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "imaging_confirmation_not_found"
+          },
+          {
+            "rung": "specialist_confirmation",
+            "date": null,
+            "label": "first specialist confirmation",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "specialist_confirmation_not_found"
+          },
+          {
+            "rung": "surgical_repair_or_high_intensity_equivalent",
+            "date": null,
+            "label": "first surgical repair",
+            "citation_ids": [],
+            "status": "missing",
+            "missing_reason": "surgical_repair_or_high_intensity_equivalent_not_found"
+          }
+        ]
+      },
+      "visit_bucket_quality": {
+        "total_encounters": 4,
+        "encounters_with_missing_required_buckets": 4,
+        "required_bucket_miss_count": 14,
+        "missing_required_bucket_ratio": 1.0,
+        "encounter_ids_with_missing_required_buckets": [
+          "916796adf90a47cc",
+          "eae90d1a067e4e4e",
+          "1504d36562e343c0",
+          "602fa78bf62b4962"
+        ]
+      },
+      "registry_contract_version": "pass53.v1"
+    },
+    "registry_contract_version": "pass53.v1",
+    "visit_abstraction_registry": [
+      {
+        "event_id": "916796adf90a47cc",
+        "date": "2193-08-05",
+        "provider_id": "7b23c897b8244bbd",
+        "provider_name": "university medical ctr clinical",
+        "provider_role": "er",
+        "encounter_type": "er",
+        "citation_ids": [
+          "70d46c40899941a4",
+          "a8897b4917344095",
+          "9a192c1b6dd649ce",
+          "1c52ee05d53d489c",
+          "ccce371b09014a9e",
+          "56f6bc3250594f1a",
+          "b9b31803e2fc4bf3",
+          "8300cec4956e4f9e",
+          "9d9e595e82df44ac"
+        ],
+        "buckets": {
+          "complaints": [],
+          "objective_findings": [],
+          "diagnostics": [],
+          "diagnoses": [
+            "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V620",
+            "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V6284 condition 311, medical condition 30500."
+          ],
+          "treatments": [],
+          "prescriptions_or_referrals": [],
+          "functional_limitations": [],
+          "causation_statements": []
+        },
+        "missing_required_buckets": [
+          "complaints",
+          "objective_findings",
+          "treatments"
+        ],
+        "bucket_completeness_pass": false
+      },
+      {
+        "event_id": "eae90d1a067e4e4e",
+        "date": "2193-08-05",
+        "provider_id": "7b23c897b8244bbd",
+        "provider_name": "university medical ctr clinical",
+        "provider_role": "er",
+        "encounter_type": "er",
+        "citation_ids": [
+          "2e709e3e88ba41db",
+          "75ee6ad963e24a69",
+          "6e57c8eabec84427",
+          "0030db986c8e4612"
+        ],
+        "buckets": {
+          "complaints": [],
+          "objective_findings": [],
+          "diagnostics": [],
+          "diagnoses": [],
+          "treatments": [],
+          "prescriptions_or_referrals": [],
+          "functional_limitations": [],
+          "causation_statements": []
+        },
+        "missing_required_buckets": [
+          "complaints",
+          "objective_findings",
+          "diagnoses",
+          "treatments"
+        ],
+        "bucket_completeness_pass": false
+      },
+      {
+        "event_id": "1504d36562e343c0",
+        "date": "2200-06-05",
+        "provider_id": "89b3aaedc8fc4100",
+        "provider_name": "primary diagnosis medical condition v620",
+        "provider_role": "er",
+        "encounter_type": "er",
+        "citation_ids": [
+          "a736911751004e54",
+          "29e7205e809b46aa",
+          "665010e75a474f20"
+        ],
+        "buckets": {
+          "complaints": [],
+          "objective_findings": [],
+          "diagnostics": [],
+          "diagnoses": [],
+          "treatments": [],
+          "prescriptions_or_referrals": [],
+          "functional_limitations": [],
+          "causation_statements": []
+        },
+        "missing_required_buckets": [
+          "complaints",
+          "objective_findings",
+          "diagnoses",
+          "treatments"
+        ],
+        "bucket_completeness_pass": false
+      },
+      {
+        "event_id": "602fa78bf62b4962",
+        "date": "2200-06-05",
+        "provider_id": "89b3aaedc8fc4100",
+        "provider_name": "primary diagnosis medical condition v620",
+        "provider_role": "er",
+        "encounter_type": "er",
+        "citation_ids": [
+          "b7e30ad826a2498d",
+          "7f861d8123604eed",
+          "0bc21d869113494b",
+          "507955c022284002",
+          "57f0004a9e524f1a",
+          "ef0a6131eccb4a88",
+          "05db16e0dfa147a6",
+          "d9deb4539e144090",
+          "2f0a1ebb0f2a49d7"
+        ],
+        "buckets": {
+          "complaints": [],
+          "objective_findings": [],
+          "diagnostics": [],
+          "diagnoses": [
+            "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition E162",
+            "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition B20"
+          ],
+          "treatments": [],
+          "prescriptions_or_referrals": [],
+          "functional_limitations": [],
+          "causation_statements": []
+        },
+        "missing_required_buckets": [
+          "complaints",
+          "objective_findings",
+          "treatments"
+        ],
+        "bucket_completeness_pass": false
+      }
+    ],
+    "provider_role_registry": [
+      {
+        "provider_id": "89b3aaedc8fc4100",
+        "provider_name": "primary diagnosis medical condition v620",
+        "provider_role": "er"
+      },
+      {
+        "provider_id": "7b23c897b8244bbd",
+        "provider_name": "university medical ctr clinical",
+        "provider_role": "er"
+      }
+    ],
+    "diagnosis_registry": [
+      {
+        "diagnosis_label": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V620",
+        "icd_codes": [],
+        "first_seen_date": "2193-08-05",
+        "provider": "university medical ctr clinical",
+        "provider_id": "7b23c897b8244bbd",
+        "citation_ids": [
+          "70d46c40899941a4",
+          "a8897b4917344095",
+          "9a192c1b6dd649ce",
+          "1c52ee05d53d489c",
+          "ccce371b09014a9e",
+          "56f6bc3250594f1a",
+          "b9b31803e2fc4bf3",
+          "8300cec4956e4f9e",
+          "9d9e595e82df44ac"
+        ],
+        "cluster_name": "general_injury",
+        "classification": "primary",
+        "event_ids": [
+          "916796adf90a47cc"
+        ]
+      },
+      {
+        "diagnosis_label": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V6284 condition 311, medical condition 30500.",
+        "icd_codes": [],
+        "first_seen_date": "2193-08-05",
+        "provider": "university medical ctr clinical",
+        "provider_id": "7b23c897b8244bbd",
+        "citation_ids": [
+          "70d46c40899941a4",
+          "a8897b4917344095",
+          "9a192c1b6dd649ce",
+          "1c52ee05d53d489c",
+          "ccce371b09014a9e",
+          "56f6bc3250594f1a",
+          "b9b31803e2fc4bf3",
+          "8300cec4956e4f9e",
+          "9d9e595e82df44ac"
+        ],
+        "cluster_name": "general_injury",
+        "classification": "primary",
+        "event_ids": [
+          "916796adf90a47cc"
+        ]
+      },
+      {
+        "diagnosis_label": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition B20",
+        "icd_codes": [
+          "B20"
+        ],
+        "first_seen_date": "2200-06-05",
+        "provider": "primary diagnosis medical condition v620",
+        "provider_id": "89b3aaedc8fc4100",
+        "citation_ids": [
+          "b7e30ad826a2498d",
+          "7f861d8123604eed",
+          "0bc21d869113494b",
+          "507955c022284002",
+          "57f0004a9e524f1a",
+          "ef0a6131eccb4a88",
+          "05db16e0dfa147a6",
+          "d9deb4539e144090",
+          "2f0a1ebb0f2a49d7"
+        ],
+        "cluster_name": "general_injury",
+        "classification": "primary",
+        "event_ids": [
+          "602fa78bf62b4962"
+        ]
+      },
+      {
+        "diagnosis_label": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition E162",
+        "icd_codes": [
+          "B20"
+        ],
+        "first_seen_date": "2200-06-05",
+        "provider": "primary diagnosis medical condition v620",
+        "provider_id": "89b3aaedc8fc4100",
+        "citation_ids": [
+          "b7e30ad826a2498d",
+          "7f861d8123604eed",
+          "0bc21d869113494b",
+          "507955c022284002",
+          "57f0004a9e524f1a",
+          "ef0a6131eccb4a88",
+          "05db16e0dfa147a6",
+          "d9deb4539e144090",
+          "2f0a1ebb0f2a49d7"
+        ],
+        "cluster_name": "general_injury",
+        "classification": "primary",
+        "event_ids": [
+          "602fa78bf62b4962"
+        ]
+      }
+    ],
+    "injury_clusters": [
+      {
+        "cluster_name": "general_injury",
+        "classification": "primary",
+        "diagnosis_labels": [
+          "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V620",
+          "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V6284 condition 311, medical condition 30500.",
+          "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition B20",
+          "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition E162"
+        ],
+        "diagnosis_refs": [
+          "70d46c40899941a4",
+          "a8897b4917344095",
+          "9a192c1b6dd649ce",
+          "1c52ee05d53d489c",
+          "ccce371b09014a9e",
+          "56f6bc3250594f1a",
+          "b9b31803e2fc4bf3",
+          "8300cec4956e4f9e",
+          "9d9e595e82df44ac",
+          "b7e30ad826a2498d",
+          "7f861d8123604eed",
+          "0bc21d869113494b",
+          "507955c022284002",
+          "57f0004a9e524f1a",
+          "ef0a6131eccb4a88",
+          "05db16e0dfa147a6",
+          "d9deb4539e144090",
+          "2f0a1ebb0f2a49d7"
+        ],
+        "event_ids": [
+          "916796adf90a47cc",
+          "602fa78bf62b4962"
+        ]
+      }
+    ],
+    "injury_cluster_severity": [
+      {
+        "cluster_name": "general_injury",
+        "classification": "primary",
+        "severity_score_0_100": 30,
+        "surgery_present": false,
+        "injection_present": false,
+        "mri_pathology_present": false,
+        "treatment_duration_days": 2495,
+        "pt_visit_count": 0,
+        "specialist_involvement": false,
+        "treatment_intensity_index": 0,
+        "escalation_level": 0,
+        "citation_ids": [
+          "70d46c40899941a4",
+          "a8897b4917344095",
+          "9a192c1b6dd649ce",
+          "1c52ee05d53d489c",
+          "ccce371b09014a9e",
+          "56f6bc3250594f1a",
+          "b9b31803e2fc4bf3",
+          "8300cec4956e4f9e",
+          "9d9e595e82df44ac",
+          "b7e30ad826a2498d",
+          "7f861d8123604eed",
+          "0bc21d869113494b",
+          "507955c022284002",
+          "57f0004a9e524f1a",
+          "ef0a6131eccb4a88",
+          "05db16e0dfa147a6",
+          "d9deb4539e144090",
+          "2f0a1ebb0f2a49d7"
+        ]
+      }
+    ],
+    "treatment_escalation_path": [
+      {
+        "stage": "er",
+        "date": "2193-08-05",
+        "event_id": "916796adf90a47cc",
+        "citation_ids": [
+          "70d46c40899941a4",
+          "a8897b4917344095",
+          "9a192c1b6dd649ce",
+          "1c52ee05d53d489c",
+          "ccce371b09014a9e",
+          "56f6bc3250594f1a",
+          "b9b31803e2fc4bf3",
+          "8300cec4956e4f9e",
+          "9d9e595e82df44ac"
+        ],
+        "provider_name": "university medical ctr clinical"
+      }
+    ],
+    "causation_timeline_registry": {
+      "rungs": [
+        {
+          "rung": "incident",
+          "date": "2193-08-05",
+          "label": "incident not explicitly documented",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "incident_mechanism_not_explicit"
+        },
+        {
+          "rung": "first_treatment",
+          "date": "2193-08-05",
+          "label": "first documented treatment",
+          "citation_ids": [
+            "70d46c40899941a4",
+            "a8897b4917344095",
+            "9a192c1b6dd649ce",
+            "1c52ee05d53d489c",
+            "ccce371b09014a9e",
+            "56f6bc3250594f1a",
+            "b9b31803e2fc4bf3",
+            "8300cec4956e4f9e",
+            "9d9e595e82df44ac"
+          ],
+          "status": "present",
+          "missing_reason": null
+        },
+        {
+          "rung": "first_diagnosis",
+          "date": "2193-08-05",
+          "label": "Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V620",
+          "citation_ids": [
+            "70d46c40899941a4",
+            "a8897b4917344095",
+            "9a192c1b6dd649ce",
+            "1c52ee05d53d489c",
+            "ccce371b09014a9e",
+            "56f6bc3250594f1a",
+            "b9b31803e2fc4bf3",
+            "8300cec4956e4f9e",
+            "9d9e595e82df44ac"
+          ],
+          "status": "present",
+          "missing_reason": null
+        },
+        {
+          "rung": "imaging_confirmation",
+          "date": null,
+          "label": "first imaging confirmation",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "imaging_confirmation_not_found"
+        },
+        {
+          "rung": "specialist_confirmation",
+          "date": null,
+          "label": "first specialist confirmation",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "specialist_confirmation_not_found"
+        },
+        {
+          "rung": "surgical_repair_or_high_intensity_equivalent",
+          "date": null,
+          "label": "first surgical repair",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "surgical_repair_or_high_intensity_equivalent_not_found"
+        }
+      ],
+      "missing_rungs": [
+        {
+          "rung": "incident",
+          "date": "2193-08-05",
+          "label": "incident not explicitly documented",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "incident_mechanism_not_explicit"
+        },
+        {
+          "rung": "imaging_confirmation",
+          "date": null,
+          "label": "first imaging confirmation",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "imaging_confirmation_not_found"
+        },
+        {
+          "rung": "specialist_confirmation",
+          "date": null,
+          "label": "first specialist confirmation",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "specialist_confirmation_not_found"
+        },
+        {
+          "rung": "surgical_repair_or_high_intensity_equivalent",
+          "date": null,
+          "label": "first surgical repair",
+          "citation_ids": [],
+          "status": "missing",
+          "missing_reason": "surgical_repair_or_high_intensity_equivalent_not_found"
+        }
+      ]
+    },
+    "visit_bucket_quality": {
+      "total_encounters": 4,
+      "encounters_with_missing_required_buckets": 4,
+      "required_bucket_miss_count": 14,
+      "missing_required_bucket_ratio": 1.0,
+      "encounter_ids_with_missing_required_buckets": [
+        "916796adf90a47cc",
+        "eae90d1a067e4e4e",
+        "1504d36562e343c0",
+        "602fa78bf62b4962"
+      ]
+    },
+    "provider_resolution_quality": {
+      "version": "1.0",
+      "scope": "export_projection_rows",
+      "rows_total": 4,
+      "rows_resolved": 4,
+      "rows_unresolved": 0,
+      "resolved_ratio": 1.0,
+      "unresolved_by_family": {},
+      "by_family": {
+        "discharge_transfer": {
+          "rows_total": 2,
+          "rows_resolved": 2,
+          "rows_unresolved": 0,
+          "resolved_ratio": 1.0
+        },
+        "inpatient": {
+          "rows_total": 2,
+          "rows_resolved": 2,
+          "rows_unresolved": 0,
+          "resolved_ratio": 1.0
+        }
+      },
+      "pt_ledger": {
+        "pt_ledger_rows_total": 0,
+        "pt_facility_resolved": 0,
+        "pt_provider_resolved": 0,
+        "pt_facility_resolved_ratio": 1.0,
+        "pt_provider_resolved_ratio": 1.0,
+        "pt_provider_facility_gate": {
+          "status": "warn",
+          "reason": null
+        },
+        "top_unresolved_examples": []
+      }
+    },
+    "claim_context_alignment": {
+      "name": "claim_context_alignment",
+      "version": "1.0",
+      "claims_total": 0,
+      "claims_pass": 0,
+      "claims_fail": 0,
+      "failures": [],
+      "claims": [],
+      "export_status": "PASS",
+      "PASS": true
+    },
+    "litigation_safe_v1": {
+      "version": "litigation_safe_v1",
+      "status": "VERIFIED",
+      "failure_reasons": [],
+      "billing_partial_disclosed": false,
+      "checks": {
+        "mechanism_and_diagnosis_supported": true,
+        "procedure_dates_complete": true,
+        "gap_statement_consistent": true,
+        "billing_not_implied_complete": true,
+        "no_internal_contradictions": true,
+        "claim_context_alignment_pass": true
+      },
+      "computed": {
+        "max_gap_days": 2495,
+        "has_gap_gt_45": true,
+        "reported_max_gap_days": 2495,
+        "pt_count_candidates": [],
+        "contradiction_details": [],
+        "pt_verified_count": 0,
+        "pt_reported_count_max": null,
+        "claim_context_alignment": {
+          "name": "claim_context_alignment",
+          "version": "1.0",
+          "claims_total": 0,
+          "claims_pass": 0,
+          "claims_fail": 0,
+          "failures": [],
+          "claims": [],
+          "export_status": "PASS",
+          "PASS": true
+        }
+      }
+    },
+    "settlement_leverage_model": {
+      "schema_version": "slm.v1",
+      "settlement_leverage_index": 0.15,
+      "liability_strength": 0.5,
+      "damages_objectivity": 0.0,
+      "escalation_signal": 0.2,
+      "treatment_continuity": 0.55,
+      "defense_risk_index": 0.3,
+      "permanency_signal": 0.0,
+      "recommended_posture": "HIGH_RISK_SETTLEMENT",
+      "confidence_score": 0.8538,
+      "input_signals": {
+        "police_report_support": {
+          "value": null,
+          "provenance": {
+            "source_type": "not_determinable",
+            "source_id": null,
+            "locator": null,
+            "confidence": "MED",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "independent_witness": {
+          "value": null,
+          "provenance": {
+            "source_type": "not_determinable",
+            "source_id": null,
+            "locator": null,
+            "confidence": "MED",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "comparative_fault_risk": {
+          "value": null,
+          "provenance": {
+            "source_type": "not_determinable",
+            "source_id": null,
+            "locator": null,
+            "confidence": "MED",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "mri_positive": {
+          "value": false,
+          "provenance": {
+            "source_type": "promoted_finding",
+            "source_id": null,
+            "locator": null,
+            "confidence": "MED",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "emg_positive": {
+          "value": false,
+          "provenance": {
+            "source_type": "event",
+            "source_id": null,
+            "locator": null,
+            "confidence": "MED",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "fracture": {
+          "value": false,
+          "provenance": {
+            "source_type": "promoted_finding",
+            "source_id": null,
+            "locator": null,
+            "confidence": "MED",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "surgery_performed": {
+          "value": false,
+          "provenance": {
+            "source_type": "event",
+            "source_id": null,
+            "locator": null,
+            "confidence": "HIGH",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "injection_performed": {
+          "value": false,
+          "provenance": {
+            "source_type": "event",
+            "source_id": null,
+            "locator": null,
+            "confidence": "HIGH",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "hardware_implanted": {
+          "value": false,
+          "provenance": {
+            "source_type": "event",
+            "source_id": null,
+            "locator": null,
+            "confidence": "MED",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "total_visits": {
+          "value": null,
+          "provenance": {
+            "source_type": "pt_summary",
+            "source_id": null,
+            "locator": null,
+            "confidence": "MED",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "treatment_duration_days": {
+          "value": null,
+          "provenance": {
+            "source_type": "pt_summary",
+            "source_id": null,
+            "locator": null,
+            "confidence": "MED",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "gap_over_30_days": {
+          "value": true,
+          "provenance": {
+            "source_type": "gap",
+            "source_id": null,
+            "locator": null,
+            "confidence": "HIGH",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "compliance_rate": {
+          "value": 0.7999999999999999,
+          "provenance": {
+            "source_type": "pt_summary",
+            "source_id": null,
+            "locator": null,
+            "confidence": "LOW",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "similar_body_part_prior": {
+          "value": false,
+          "provenance": {
+            "source_type": "event",
+            "source_id": null,
+            "locator": null,
+            "confidence": "MED",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "documentation_overlap_score": {
+          "value": null,
+          "provenance": {
+            "source_type": "extension",
+            "source_id": null,
+            "locator": null,
+            "confidence": "MED",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "future_surgery_recommended": {
+          "value": false,
+          "provenance": {
+            "source_type": "promoted_finding",
+            "source_id": null,
+            "locator": null,
+            "confidence": "MED",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "impairment_rating_present": {
+          "value": false,
+          "provenance": {
+            "source_type": "event",
+            "source_id": null,
+            "locator": null,
+            "confidence": "MED",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "documented_wage_loss": {
+          "value": false,
+          "provenance": {
+            "source_type": "extension",
+            "source_id": null,
+            "locator": null,
+            "confidence": "MED",
+            "entered_by": "SYSTEM"
+          }
+        },
+        "lost_work_days": {
+          "value": false,
+          "provenance": {
+            "source_type": "event",
+            "source_id": null,
+            "locator": null,
+            "confidence": "LOW",
+            "entered_by": "SYSTEM"
+          }
+        }
+      }
+    },
+    "settlement_feature_pack": {
+      "schema_version": "sfp.v1",
+      "has_surgery": false,
+      "has_injection": false,
+      "has_fracture": false,
+      "has_mri_positive": false,
+      "has_radiculopathy": false,
+      "has_disc_herniation": false,
+      "has_soft_tissue": false,
+      "has_emg_positive": false,
+      "has_ed_visit": false,
+      "has_imaging": false,
+      "has_pt": false,
+      "has_specialist": false,
+      "pt_total_encounters": null,
+      "pt_date_start": null,
+      "pt_date_end": null,
+      "treatment_duration_days": null,
+      "gaps": [
+        {
+          "gap_id": "a8d1386f8a134906",
+          "start_date": "2193-08-05",
+          "end_date": "2200-06-05",
+          "duration_days": 2495,
+          "threshold_days": 90,
+          "confidence": 80,
+          "related_event_ids": [
+            "916796adf90a47cc",
+            "1504d36562e343c0"
+          ]
+        }
+      ],
+      "max_gap_days": 2495,
+      "gap_count_over_30": 1,
+      "largest_gap": {
+        "gap_id": "a8d1386f8a134906",
+        "start_date": "2193-08-05",
+        "end_date": "2200-06-05",
+        "duration_days": 2495,
+        "threshold_days": 90,
+        "confidence": 80,
+        "related_event_ids": [
+          "916796adf90a47cc",
+          "1504d36562e343c0"
+        ]
+      },
+      "has_prior_similar_injury": false,
+      "doi": {
+        "value": "2193-08-05",
+        "citation_ids": [
+          "2e709e3e88ba41db",
+          "75ee6ad963e24a69",
+          "6e57c8eabec84427",
+          "0030db986c8e4612"
+        ],
+        "source": "inferred"
+      },
+      "first_event_date": "2193-08-05",
+      "days_to_first_treatment": null,
+      "promoted_findings": [],
+      "imaging_promoted_findings": [],
+      "has_neuro_deficit_keywords": false,
+      "has_surgical_indication": false
+    },
+    "defense_attack_map": {
+      "schema_version": "dam.v2",
+      "flags_triggered": 1,
+      "flags_checked": 8,
+      "flags": [
+        {
+          "flag_id": "CARE_GAP_OVER_30_DAYS",
+          "label": "Gap in Care (>30 days)",
+          "triggered": true,
+          "severity": "HIGH",
+          "detail": "2495-day gap in treatment.",
+          "defense_argument": "A 2495-day gap in treatment suggests the plaintiff's condition had resolved or was not serious enough to require ongoing care.",
+          "plaintiff_counter": "Treatment gaps are explained by scheduling constraints, insurance authorization delays, or documented symptom plateau \u2014 not resolution. Subsequent care resumption and continued objective findings confirm persistent injury.",
+          "citation_ids": [
+            "a8d1386f8a134906"
+          ],
+          "source_type": "gap"
+        },
+        {
+          "flag_id": "IMAGING_NO_FRACTURE",
+          "label": "Imaging Negative for Fracture",
+          "triggered": false,
+          "severity": "MED",
+          "detail": "",
+          "defense_argument": "",
+          "plaintiff_counter": "",
+          "citation_ids": [],
+          "source_type": "promoted_finding"
+        },
+        {
+          "flag_id": "CONSERVATIVE_CARE_ONLY",
+          "label": "Conservative Care Only (No Surgery or Injection)",
+          "triggered": false,
+          "severity": "MED",
+          "detail": "",
+          "defense_argument": "",
+          "plaintiff_counter": "",
+          "citation_ids": [],
+          "source_type": "event"
+        },
+        {
+          "flag_id": "SHORT_TREATMENT_DURATION",
+          "label": "Short Treatment Duration (<30 days)",
+          "triggered": false,
+          "severity": "MED",
+          "detail": "",
+          "defense_argument": "",
+          "plaintiff_counter": "",
+          "citation_ids": [],
+          "source_type": "pt_summary"
+        },
+        {
+          "flag_id": "LOW_PT_VISITS",
+          "label": "Low Physical Therapy Visit Count (<6)",
+          "triggered": false,
+          "severity": "MED",
+          "detail": "",
+          "defense_argument": "",
+          "plaintiff_counter": "",
+          "citation_ids": [],
+          "source_type": "pt_summary"
+        },
+        {
+          "flag_id": "DELAYED_FIRST_TREATMENT",
+          "label": "Delayed First Treatment (>7 days post-incident)",
+          "triggered": false,
+          "severity": "MED",
+          "detail": "",
+          "defense_argument": "",
+          "plaintiff_counter": "",
+          "citation_ids": [],
+          "source_type": "event"
+        },
+        {
+          "flag_id": "PRIOR_SIMILAR_INJURY",
+          "label": "Prior Similar Injury Documented",
+          "triggered": false,
+          "severity": "HIGH",
+          "detail": "",
+          "defense_argument": "",
+          "plaintiff_counter": "",
+          "citation_ids": [],
+          "source_type": "event"
+        },
+        {
+          "flag_id": "NO_OBJECTIVE_NEURO_DEFICIT",
+          "label": "No Objective Neurological Deficit Documented",
+          "triggered": false,
+          "severity": "LOW",
+          "detail": "",
+          "defense_argument": "",
+          "plaintiff_counter": "",
+          "citation_ids": [],
+          "source_type": "event"
+        }
+      ]
+    },
+    "case_severity_index": {
+      "schema_version": "csi.v2",
+      "base_csi": 1.4,
+      "risk_adjusted_csi": 0.9,
+      "score_0_100": 14,
+      "weights": {
+        "objective": 0.45,
+        "intensity": 0.35,
+        "duration": 0.2
+      },
+      "component_scores": {
+        "objective": {
+          "score": 1,
+          "tier_key": "no_objective",
+          "label": "No objective imaging findings documented"
+        },
+        "intensity": {
+          "score": 1,
+          "tier_key": "ed_only",
+          "label": "ED-only treatment documented"
+        },
+        "duration": {
+          "score": 3,
+          "tier_key": "duration_missing",
+          "label": "Duration not fully documented"
+        }
+      },
+      "selected_tiers": {
+        "objective": "no_objective",
+        "intensity": "ed_only",
+        "duration": "duration_missing"
+      },
+      "floor_applied": false,
+      "ceiling_applied": false,
+      "risk_penalty": 0.5,
+      "risk_factors": [
+        "care_gap_over_60_days"
+      ],
+      "band": "Minor soft tissue",
+      "profile": "Profile: No objective imaging findings documented; ED-only treatment documented; Duration not fully documented.",
+      "support": {
+        "citation_ids": [
+          "0030db986c8e4612",
+          "0bc21d869113494b",
+          "1c52ee05d53d489c",
+          "29e7205e809b46aa",
+          "2e709e3e88ba41db",
+          "507955c022284002",
+          "56f6bc3250594f1a",
+          "57f0004a9e524f1a",
+          "665010e75a474f20",
+          "6e57c8eabec84427",
+          "70d46c40899941a4",
+          "75ee6ad963e24a69",
+          "7f861d8123604eed",
+          "9a192c1b6dd649ce",
+          "a736911751004e54",
+          "a8897b4917344095",
+          "b7e30ad826a2498d",
+          "ccce371b09014a9e",
+          "ef0a6131eccb4a88"
+        ],
+        "page_refs": [
+          {
+            "source_document_id": "06a0952767134e238f4f825471edee45",
+            "page_number": 1
+          },
+          {
+            "source_document_id": "06a0952767134e238f4f825471edee45",
+            "page_number": 4
+          }
+        ]
+      },
+      "inputs_used": {
+        "date_start": null,
+        "date_end": null,
+        "signals_present": {
+          "promoted_findings": false,
+          "pt_summary": true,
+          "feature_pack": true
+        },
+        "risk_signals": {
+          "max_gap_days": 2495,
+          "has_prior_similar_injury": false,
+          "days_to_first_care": null
+        }
+      },
+      "case_severity_index": 1.4,
+      "duration_score": 3,
+      "treatment_intensity_score": 1,
+      "objective_finding_score": 1,
+      "component_labels": {
+        "duration": "Duration not fully documented",
+        "treatment_intensity": "ED-only treatment documented",
+        "objective_finding": "No objective imaging findings documented"
+      }
+    },
+    "severity_profile": {
+      "schema_version": "severity_profile.v1",
+      "export_intent": "mediation",
+      "provenance": {
+        "source_schema": "csi.v2",
+        "transform_version": "severity_profile.transform.v1"
+      },
+      "primary_label": "Low objective severity profile",
+      "band": "LOW",
+      "severity_drivers": [
+        {
+          "rank": 1,
+          "component": "objective",
+          "tier_key": "no_objective",
+          "label": "No objective imaging findings documented",
+          "support_citation_ids": [
+            "0030db986c8e4612",
+            "0bc21d869113494b",
+            "1c52ee05d53d489c",
+            "29e7205e809b46aa",
+            "2e709e3e88ba41db",
+            "507955c022284002",
+            "56f6bc3250594f1a",
+            "57f0004a9e524f1a",
+            "665010e75a474f20",
+            "6e57c8eabec84427",
+            "70d46c40899941a4",
+            "75ee6ad963e24a69",
+            "7f861d8123604eed",
+            "9a192c1b6dd649ce",
+            "a736911751004e54",
+            "a8897b4917344095",
+            "b7e30ad826a2498d",
+            "ccce371b09014a9e",
+            "ef0a6131eccb4a88"
+          ]
+        },
+        {
+          "rank": 2,
+          "component": "intensity",
+          "tier_key": "ed_only",
+          "label": "ED-only treatment documented",
+          "support_citation_ids": [
+            "0030db986c8e4612",
+            "0bc21d869113494b",
+            "1c52ee05d53d489c",
+            "29e7205e809b46aa",
+            "2e709e3e88ba41db",
+            "507955c022284002",
+            "56f6bc3250594f1a",
+            "57f0004a9e524f1a",
+            "665010e75a474f20",
+            "6e57c8eabec84427",
+            "70d46c40899941a4",
+            "75ee6ad963e24a69",
+            "7f861d8123604eed",
+            "9a192c1b6dd649ce",
+            "a736911751004e54",
+            "a8897b4917344095",
+            "b7e30ad826a2498d",
+            "ccce371b09014a9e",
+            "ef0a6131eccb4a88"
+          ]
+        },
+        {
+          "rank": 3,
+          "component": "duration",
+          "tier_key": "duration_missing",
+          "label": "Duration not fully documented",
+          "support_citation_ids": [
+            "0030db986c8e4612",
+            "0bc21d869113494b",
+            "1c52ee05d53d489c",
+            "29e7205e809b46aa",
+            "2e709e3e88ba41db",
+            "507955c022284002",
+            "56f6bc3250594f1a",
+            "57f0004a9e524f1a",
+            "665010e75a474f20",
+            "6e57c8eabec84427",
+            "70d46c40899941a4",
+            "75ee6ad963e24a69",
+            "7f861d8123604eed",
+            "9a192c1b6dd649ce",
+            "a736911751004e54",
+            "a8897b4917344095",
+            "b7e30ad826a2498d",
+            "ccce371b09014a9e",
+            "ef0a6131eccb4a88"
+          ]
+        }
+      ],
+      "treatment_progression": [
+        {
+          "phase": "intensity",
+          "tier_key": "ed_only",
+          "label": "ED-only treatment documented",
+          "support_citation_ids": [
+            "0030db986c8e4612",
+            "0bc21d869113494b",
+            "1c52ee05d53d489c",
+            "29e7205e809b46aa",
+            "2e709e3e88ba41db",
+            "507955c022284002",
+            "56f6bc3250594f1a",
+            "57f0004a9e524f1a",
+            "665010e75a474f20",
+            "6e57c8eabec84427",
+            "70d46c40899941a4",
+            "75ee6ad963e24a69",
+            "7f861d8123604eed",
+            "9a192c1b6dd649ce",
+            "a736911751004e54",
+            "a8897b4917344095",
+            "b7e30ad826a2498d",
+            "ccce371b09014a9e",
+            "ef0a6131eccb4a88"
+          ]
+        },
+        {
+          "phase": "duration",
+          "tier_key": "duration_missing",
+          "label": "Duration not fully documented",
+          "support_citation_ids": [
+            "0030db986c8e4612",
+            "0bc21d869113494b",
+            "1c52ee05d53d489c",
+            "29e7205e809b46aa",
+            "2e709e3e88ba41db",
+            "507955c022284002",
+            "56f6bc3250594f1a",
+            "57f0004a9e524f1a",
+            "665010e75a474f20",
+            "6e57c8eabec84427",
+            "70d46c40899941a4",
+            "75ee6ad963e24a69",
+            "7f861d8123604eed",
+            "9a192c1b6dd649ce",
+            "a736911751004e54",
+            "a8897b4917344095",
+            "b7e30ad826a2498d",
+            "ccce371b09014a9e",
+            "ef0a6131eccb4a88"
+          ]
+        }
+      ],
+      "anticipated_defense_arguments": [
+        {
+          "factor_key": "care_gap_over_60_days",
+          "argument": "Defense may argue treatment interruption weakens continuity.",
+          "context_supported_in_records": "Continuity concern appears in timeline chronology.",
+          "support_citation_ids": [
+            "0030db986c8e4612",
+            "0bc21d869113494b",
+            "1c52ee05d53d489c",
+            "29e7205e809b46aa",
+            "2e709e3e88ba41db",
+            "507955c022284002",
+            "56f6bc3250594f1a",
+            "57f0004a9e524f1a",
+            "665010e75a474f20",
+            "6e57c8eabec84427",
+            "70d46c40899941a4",
+            "75ee6ad963e24a69",
+            "7f861d8123604eed",
+            "9a192c1b6dd649ce",
+            "a736911751004e54",
+            "a8897b4917344095",
+            "b7e30ad826a2498d",
+            "ccce371b09014a9e",
+            "ef0a6131eccb4a88"
+          ]
+        }
+      ],
+      "support": {
+        "citation_ids": [
+          "0030db986c8e4612",
+          "0bc21d869113494b",
+          "1c52ee05d53d489c",
+          "29e7205e809b46aa",
+          "2e709e3e88ba41db",
+          "507955c022284002",
+          "56f6bc3250594f1a",
+          "57f0004a9e524f1a",
+          "665010e75a474f20",
+          "6e57c8eabec84427",
+          "70d46c40899941a4",
+          "75ee6ad963e24a69",
+          "7f861d8123604eed",
+          "9a192c1b6dd649ce",
+          "a736911751004e54",
+          "a8897b4917344095",
+          "b7e30ad826a2498d",
+          "ccce371b09014a9e",
+          "ef0a6131eccb4a88"
+        ],
+        "page_refs": [
+          {
+            "source_document_id": "06a0952767134e238f4f825471edee45",
+            "page_number": 1
+          },
+          {
+            "source_document_id": "06a0952767134e238f4f825471edee45",
+            "page_number": 4
+          }
+        ]
+      }
+    },
+    "settlement_model_report": {
+      "schema_version": "smr.v1",
+      "settlement_leverage_index": 0.15,
+      "recommended_posture": "HIGH_RISK_SETTLEMENT",
+      "case_severity_index": 1.4,
+      "flags_triggered": 1,
+      "strengths": [],
+      "risk_factors": [
+        "Gap in Care (>30 days) [HIGH]"
+      ],
+      "posture_text": "This case presents significant settlement risk. Defense has multiple attack vectors. Key risk: 2495-day gap in treatment. Consider early mediation and realistic demand calibration based on documented injuries only. Case Severity Index: 1.4/10."
+    },
+    "internal_demand_package": {
+      "schema_version": "internal_demand_package.v1",
+      "specials": {
+        "total": null,
+        "currency": "USD",
+        "support_citation_ids": []
+      },
+      "strength_summary": {
+        "strength_band": "LOW",
+        "confidence_score_0_100": 0,
+        "primary_drivers": [],
+        "primary_risks": [
+          "Conservative-only care, no imaging or specialist",
+          "Major gap in care (>120 days)"
+        ],
+        "confidence_drivers_ranked": []
+      },
+      "multiplier": {
+        "base_band": [
+          1.5,
+          2.5
+        ],
+        "adjustments": [
+          {
+            "key": "conservative_only_no_imaging",
+            "label": "Conservative-only care, no imaging or specialist",
+            "direction": "down",
+            "delta": -0.5,
+            "support_citation_ids": []
+          },
+          {
+            "key": "major_gap_in_care_gt_120_days",
+            "label": "Major gap in care (>120 days)",
+            "direction": "down",
+            "delta": -1.0,
+            "support_citation_ids": []
+          }
+        ],
+        "adjusted_band": [
+          1.0,
+          2.0
+        ],
+        "caps_applied": {
+          "up_cap_hit": false,
+          "down_cap_hit": false
+        }
+      },
+      "anchor": null,
+      "negotiation_strategy": {
+        "recommended_anchor_style": "ANCHOR_NEAR_SPECIALS",
+        "opening_strategy": "Anchor near specials. Emphasize continuity of care and documented mechanism.",
+        "anticipated_defense_moves": [
+          "Challenge causation entirely",
+          "Offer near-specials settlement"
+        ],
+        "counter_positioning": [
+          "Use consistency of presenting complaints as credibility anchor",
+          "Keep focus on documented objective evidence"
+        ]
+      },
+      "demand_letter_draft": {
+        "label": "INTERNAL DRAFT \u2014 DO NOT EXPORT \u2014 EDIT BEFORE SENDING",
+        "blocks": {
+          "A_LIABILITY_SUMMARY": "Based on documented records, the claimant sustained injuries requiring medical treatment.",
+          "B_MEDICAL_OVERVIEW": "Profile: No objective imaging findings documented; ED-only treatment documented; Duration not fully documented.",
+          "C_TREATMENT_COURSE": "ED-only treatment documented; Duration not fully documented",
+          "D_FUNCTIONAL_IMPACT": "Documented functional limitations on file.",
+          "E_DAMAGES": "Total documented medical expenses: [See attached billing records]"
+        }
+      },
+      "attorney_notes": [
+        "Preempt care gap by citing treating notes documenting continued symptoms, insurance delays, or financial constraints.",
+        "Anchor near documented medical expenses. Emphasize treatment consistency and mechanism."
+      ],
+      "mode": "INTERNAL_ONLY_DO_NOT_EXPORT"
+    },
+    "paralegal_chronology": {
+      "version": "1.0",
+      "generated_at": "2026-03-06T17:27:07.018089+00:00",
+      "timeframe_start": "08/05/2193",
+      "timeframe_end": "06/05/2200",
+      "entries": [
+        {
+          "date": "08/05/2193",
+          "rows": [
+            {
+              "summary": "Hospital Admission - UNIVERSITY MEDICAL CENTER - CLINICAL - PATIENT ID: 10002930; ADMISSION RECORD: #22380825",
+              "citation": "Patient_10002930.pdf p.1"
+            },
+            {
+              "summary": "Hospital Discharge - UNIVERSITY MEDICAL CENTER - CLINICAL - ADMITTED: 2193-08-05 06:18:00 | DISCHARGED: 2193-08-05 11:44:00; Diagnosis: PRIMARY DIAGNOSIS: Medical Condition V620",
+              "citation": "Patient_10002930.pdf p.1"
+            }
+          ]
+        },
+        {
+          "date": "06/05/2200",
+          "rows": [
+            {
+              "summary": "Hospital Admission - PRIMARY DIAGNOSIS: Medical Condition V620 - ADMISSION RECORD: #28697806; ADMISSION RECORD: #20846853",
+              "citation": "Patient_10002930.pdf p.4"
+            },
+            {
+              "summary": "Hospital Discharge - PRIMARY DIAGNOSIS: Medical Condition V620 - ADMITTED: 2200-06-05 05:43:00 | DISCHARGED: 2200-06-05 10:26:00; Diagnosis: PRIMARY DIAGNOSIS: Medical Condition E162",
+              "citation": "Patient_10002930.pdf p.4"
+            }
+          ]
+        }
+      ],
+      "entry_count": 4,
+      "date_count": 2
+    },
+    "llm_polish_applied": true
+  }
+}
