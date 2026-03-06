@@ -275,3 +275,54 @@ Appendix A:
 
     assert "LUQA_FACT_DENSITY" not in codes
     assert "LUQA_VERBATIM_ANCHOR_RATIO" not in codes
+
+
+def test_luqa_relaxes_density_and_verbatim_soft_gates_for_five_page_compact_packets() -> None:
+    report = """
+Medical Chronology Analysis
+Medical Timeline (Litigation Ready)
+2025-01-01 | Encounter: Emergency Visit
+Facility/Clinician: General Hospital
+Chief complaint: neck pain after MVC.
+Citation(s): packet.pdf p. 1
+2025-01-02 | Encounter: Discharge Summary
+Facility/Clinician: General Hospital
+Discharged home in stable condition.
+Citation(s): packet.pdf p. 5
+Billing / Specials
+Appendix A:
+"""
+    entries = [
+        _entry(
+            "2025-01-01",
+            ["Chief complaint: neck pain after MVC."],
+            "packet.pdf p. 1",
+            event_type_display="Emergency Visit",
+            verbatim_flags=[False],
+        ),
+        _entry(
+            "2025-01-02",
+            ["Discharged home in stable condition."],
+            "packet.pdf p. 5",
+            event_type_display="Discharge Summary",
+            verbatim_flags=[False],
+        ),
+    ]
+
+    luqa = build_luqa_report(
+        report,
+        _ctx(
+            entries=entries,
+            page_text={
+                1: "Emergency Department triage after MVC.",
+                2: "Hospital note.",
+                3: "Medication page.",
+                4: "Lab page.",
+                5: "Discharge summary.",
+            },
+        ),
+    )
+    codes = {f["code"] for f in luqa["failures"]}
+
+    assert "LUQA_FACT_DENSITY" not in codes
+    assert "LUQA_VERBATIM_ANCHOR_RATIO" not in codes

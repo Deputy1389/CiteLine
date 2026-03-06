@@ -14,6 +14,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from apps.worker.lib.compact_packet_policy import is_compact_packet
+
 logger = logging.getLogger(__name__)
 
 
@@ -53,17 +55,6 @@ _SOFT_FAILURE_CODES: set[str] = {
     "NOT_AVAILABLE",
     "VISIT_BUCKET_REQUIRED_MISSING",
 }
-
-
-def _is_compact_packet_for_quality_gates(
-    *,
-    projection_count: int,
-    page_count: int,
-    total_encounters: int,
-) -> bool:
-    return total_encounters > 0 and total_encounters <= 3 and projection_count <= 3 and page_count <= 4
-
-
 def _normalize_quality_mode(value: str | None) -> str:
     mode = str(value or "").strip().lower()
     return mode if mode in {"strict", "pilot"} else "strict"
@@ -373,7 +364,8 @@ def run_quality_gates(
     miss_count = int(vbq.get("required_bucket_miss_count") or 0)
     encounter_missing = int(vbq.get("encounters_with_missing_required_buckets") or 0)
     total_encounters = int(vbq.get("total_encounters") or 0)
-    compact_packet = _is_compact_packet_for_quality_gates(
+    compact_packet = is_compact_packet(
+        score_row_count=total_encounters,
         projection_count=len(list(projection_entries or [])),
         page_count=len(page_text_by_number or {}),
         total_encounters=total_encounters,

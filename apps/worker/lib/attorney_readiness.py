@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from apps.worker.lib.compact_packet_policy import is_compact_packet
 from apps.worker.lib.noise_filter import is_noise_span
 from packages.shared.utils.noise_utils import has_narrative_sentence, is_flowsheet_noise
 
@@ -253,10 +254,6 @@ def _is_milestone_row(row: _TimelineRow) -> bool:
     )
 
 
-def _is_compact_packet(*, score_row_count: int, projection_count: int, page_count: int) -> bool:
-    return score_row_count > 0 and score_row_count <= 3 and projection_count <= 3 and page_count <= 4
-
-
 def build_attorney_readiness_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
     failures: list[dict[str, Any]] = []
     hard_fail = False
@@ -311,7 +308,7 @@ def build_attorney_readiness_report(report_text: str, ctx: dict[str, Any]) -> di
     noise_pages = _noise_page_numbers(ctx.get("page_text_by_number") or {})
     score_rows = [r for r in rows if not _row_is_noise_only(r, noise_pages)]
     score_row_count = len(score_rows)
-    compact_packet = _is_compact_packet(
+    compact_packet = is_compact_packet(
         score_row_count=score_row_count,
         projection_count=len(projection_rows),
         page_count=len(ctx.get("page_text_by_number") or {}),

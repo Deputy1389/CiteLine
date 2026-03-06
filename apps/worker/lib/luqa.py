@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
 
+from apps.worker.lib.compact_packet_policy import is_compact_packet
 from apps.worker.lib.noise_filter import is_noise_span
 from packages.shared.utils.noise_utils import has_narrative_sentence, is_flowsheet_noise
 from packages.shared.utils.scoring_utils import bucket_for_required_coverage as _bucket_for_required_coverage
@@ -408,10 +409,6 @@ def _scoreable_rows(rows: list[TimelineRow], noise_pages: set[int]) -> tuple[lis
     return score_rows, excluded_noise_only
 
 
-def _is_compact_packet(*, score_row_count: int, projection_count: int, page_count: int) -> bool:
-    return score_row_count > 0 and score_row_count <= 3 and projection_count <= 3 and page_count <= 4
-
-
 def build_luqa_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
     timeline_text = _extract_timeline_slice(report_text)
     top10_text = _extract_top10_slice(report_text)
@@ -426,7 +423,7 @@ def build_luqa_report(report_text: str, ctx: dict[str, Any]) -> dict[str, Any]:
     noise_pages = _noise_page_numbers(ctx.get("page_text_by_number") or {})
     score_rows, excluded_noise_only = _scoreable_rows(rows, noise_pages)
     score_row_count = len(score_rows)
-    compact_packet = _is_compact_packet(
+    compact_packet = is_compact_packet(
         score_row_count=score_row_count,
         projection_count=len(projection_rows),
         page_count=len(ctx.get("page_text_by_number") or {}),

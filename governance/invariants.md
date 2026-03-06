@@ -392,3 +392,17 @@ same instant.
 **INV-Q5**: Promoted findings with lignment_status not in {None, '', 'PASS'} must have headline_eligible=False and must not appear in settlement driver snapshot bullets. Enforced in nnotate_renderer_manifest_claim_context_alignment in step_renderer_manifest.py.
 
 **INV-Q6**: Regression suite must include a cross-contamination fixture (primary injury + unrelated clinical system) with explicit expectations that unrelated content does not drive injury-tier signals. See 	ests/fixtures/invariants/case7_cross_contamination/.
+
+## Compact Packet Policy Invariants (Pass 57)
+
+### INV-CP1 - COMPACT_PACKET_NOT_VOLUME_GATED
+
+Compact citation-backed packets must not be downgraded solely by prose-density or generic
+required-bucket soft gates.
+
+- **Enforced in**: `apps/worker/lib/compact_packet_policy.py`; consumed by `apps/worker/lib/attorney_readiness.py`, `apps/worker/lib/luqa.py`, and `apps/worker/lib/quality_gates.py`
+- **Tested in**: `tests/unit/test_attorney_readiness.py` :: `test_attorney_density_soft_gate_is_relaxed_for_five_page_compact_packets`; `tests/unit/test_luqa.py` :: `test_luqa_relaxes_density_and_verbatim_soft_gates_for_five_page_compact_packets`; `tests/unit/test_quality_gates_wrapper.py` :: `test_five_page_compact_packet_visit_bucket_quality_does_not_trigger_review`
+- **Introduced in**: Pass 57
+- **Failure class protected**: Review burden inflation
+
+---

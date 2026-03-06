@@ -1,0 +1,26 @@
+{
+  "policy_version": "PASS_057_COMPACT_PACKET_V1",
+  "decision_table": [
+    {
+      "condition": "compact packet AND at least one citation-backed substantive encounter AND no hard blocker",
+      "attorney_fact_density": "suppress_soft_failure",
+      "luqa_fact_density": "suppress_soft_failure",
+      "visit_bucket_required_missing": "suppress_soft_failure",
+      "terminal_effect": "do_not_downgrade_for_volume_only"
+    },
+    {
+      "condition": "non-compact packet AND density below configured threshold",
+      "attorney_fact_density": "soft_failure",
+      "luqa_fact_density": "soft_failure",
+      "visit_bucket_required_missing": "evaluate_normally",
+      "terminal_effect": "review_recommended_if_no_hard_failures"
+    },
+    {
+      "condition": "any packet with hard integrity blocker",
+      "attorney_fact_density": "irrelevant",
+      "luqa_fact_density": "irrelevant",
+      "visit_bucket_required_missing": "irrelevant",
+      "terminal_effect": "blocked_or_needs_review_per_hard_gate"
+    }
+  ]
+}
