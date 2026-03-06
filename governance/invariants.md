@@ -406,3 +406,16 @@ required-bucket soft gates.
 - **Failure class protected**: Review burden inflation
 
 ---
+
+## Chronology Integrity Invariants (Pass 58)
+
+### INV-CI1 - CLINICALLY_DISTINCT_PHASES_NOT_COLLAPSED
+
+Citation-backed clinically distinct phases in one packet must remain separate chronology events unless a deterministic duplicate rule proves they are the same encounter.
+
+- **Enforced in**: `apps/worker/steps/events/clinical.py` :: `_extract_block_events()` and `apps/worker/steps/events/clinical_assembler.py` :: `append_to_event()`
+- **Tested in**: `tests/unit/test_event_extraction.py` :: `test_same_block_splits_ed_and_discharge_into_distinct_events`, `test_same_block_splits_admission_and_procedure_into_distinct_events`; `tests/unit/test_dedup.py` :: `test_same_page_phase_distinct_events_do_not_merge`
+- **Introduced in**: Pass 58
+- **Failure class protected**: Narrative inconsistency / Trust erosion risk
+
+---

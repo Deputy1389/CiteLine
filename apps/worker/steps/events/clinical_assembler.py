@@ -3,6 +3,7 @@ import re
 from packages.shared.models import (
     Citation,
     Event,
+    EventType,
     Fact,
     FactKind,
     Page,
@@ -16,6 +17,12 @@ from apps.worker.quality.text_quality import clean_text, is_structured_medical_s
 _MECHANISM_RE = re.compile(r"\b(motor vehicle|mvc|mva|collision|rear[- ]end|crash|auto accident|car accident)\b", re.IGNORECASE)
 _DENIAL_RE = re.compile(r"\b(denies?|no prior|without prior|prior complaints?)\b", re.IGNORECASE)
 _PAIN_SCORE_RE = re.compile(r"\bpain(?:\s*(?:score|level|severity))?\s*[:=]?\s*(\d{1,2})\s*/\s*10\b", re.IGNORECASE)
+_PHASE_LOCK_TYPES = {
+    EventType.ER_VISIT,
+    EventType.HOSPITAL_ADMISSION,
+    EventType.HOSPITAL_DISCHARGE,
+    EventType.PROCEDURE,
+}
 
 
 def _is_ed_verbatim_line(event: Event, text: str) -> bool:
@@ -37,7 +44,12 @@ def append_to_event(event: Event, text: str, page: Page, citations: list[Citatio
     
     # Update encounter type if new text is stronger
     new_etype = detect_encounter_type(cleaned_text)
-    if PRIORITY_MAP.get(new_etype, 0) > PRIORITY_MAP.get(event.event_type, 0):
+    if (
+        event.event_type in _PHASE_LOCK_TYPES
+        and new_etype not in _PHASE_LOCK_TYPES
+    ):
+        pass
+    elif PRIORITY_MAP.get(new_etype, 0) > PRIORITY_MAP.get(event.event_type, 0):
         event.event_type = new_etype
 
     # Update author if provided and currently unknown

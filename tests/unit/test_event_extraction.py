@@ -103,6 +103,75 @@ class TestClinicalSkippedEvents:
         assert skipped[0].reason_code == "NO_FACTS"
 
 
+class TestClinicalPhaseSegmentation:
+    def test_same_block_splits_ed_and_discharge_into_distinct_events(self):
+        page = _make_page(
+            "Emergency Department Note\n"
+            "Chief Complaint: chest pain after MVC\n"
+            "Pain score 8/10\n"
+            "Discharge Summary\n"
+            "Discharge Instructions: follow up with PCP in 2 days\n"
+            "Discharged home in stable condition\n",
+            page_type=PageType.CLINICAL_NOTE,
+        )
+        event_date = EventDate(
+            kind=DateKind.SINGLE,
+            value=date(2024, 3, 15),
+            source=DateSource.TIER1,
+        )
+        events, citations, warnings, skipped = extract_clinical_events(
+            [page], {1: [event_date]}, [], RunConfig()
+        )
+
+        event_types = [e.event_type for e in events]
+        assert EventType.ER_VISIT in event_types
+        assert EventType.HOSPITAL_DISCHARGE in event_types
+        assert len(events) >= 2
+
+    def test_same_block_splits_admission_and_procedure_into_distinct_events(self):
+        page = _make_page(
+            "Admission Note\n"
+            "Patient admitted for abdominal pain and monitoring\n"
+            "Operative Report\n"
+            "Procedure Performed: laparoscopic appendectomy\n"
+            "Postoperative Diagnosis: acute appendicitis\n",
+            page_type=PageType.CLINICAL_NOTE,
+        )
+        event_date = EventDate(
+            kind=DateKind.SINGLE,
+            value=date(2024, 3, 15),
+            source=DateSource.TIER1,
+        )
+        events, citations, warnings, skipped = extract_clinical_events(
+            [page], {1: [event_date]}, [], RunConfig()
+        )
+
+        event_types = [e.event_type for e in events]
+        assert EventType.HOSPITAL_ADMISSION in event_types
+        assert EventType.PROCEDURE in event_types
+        assert len(events) >= 2
+
+    def test_repeated_discharge_lines_do_not_fragment_into_multiple_discharge_events(self):
+        page = _make_page(
+            "Discharge Summary\n"
+            "Discharge Instructions: take meds as directed\n"
+            "Discharge Condition: stable\n"
+            "Discharged home with return precautions\n",
+            page_type=PageType.CLINICAL_NOTE,
+        )
+        event_date = EventDate(
+            kind=DateKind.SINGLE,
+            value=date(2024, 3, 15),
+            source=DateSource.TIER1,
+        )
+        events, citations, warnings, skipped = extract_clinical_events(
+            [page], {1: [event_date]}, [], RunConfig()
+        )
+
+        discharge_events = [e for e in events if e.event_type == EventType.HOSPITAL_DISCHARGE]
+        assert len(discharge_events) == 1
+
+
 class TestImagingEventsMissingDate:
     """P0: Imaging events should be emitted even without dates."""
 

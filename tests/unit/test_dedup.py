@@ -52,8 +52,8 @@ class TestDeduplication:
 
     def test_no_merge_different_providers(self):
         events = [
-            _make_event(provider_id="prov1"),
-            _make_event(provider_id="prov2"),
+            _make_event(provider_id="prov1", event_type=EventType.ER_VISIT),
+            _make_event(provider_id="prov2", event_type=EventType.ER_VISIT),
         ]
         result, _ = deduplicate_events(events)
         assert len(result) == 2
@@ -65,6 +65,23 @@ class TestDeduplication:
         ]
         result, _ = deduplicate_events(events)
         assert len(result) == 2
+
+    def test_same_page_phase_distinct_events_do_not_merge(self):
+        events = [
+            _make_event(
+                event_type=EventType.ER_VISIT,
+                page_numbers=[1],
+                facts_text=["Chief complaint chest pain after MVC with pain 8/10"],
+            ),
+            _make_event(
+                event_type=EventType.HOSPITAL_DISCHARGE,
+                page_numbers=[1],
+                facts_text=["Discharged home in stable condition with follow-up instructions"],
+            ),
+        ]
+        result, _ = deduplicate_events(events)
+        assert len(result) == 2
+        assert {e.event_type for e in result} == {EventType.ER_VISIT, EventType.HOSPITAL_DISCHARGE}
 
     def test_fact_cap_at_10(self):
         events = [

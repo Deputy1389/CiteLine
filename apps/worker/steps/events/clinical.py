@@ -26,6 +26,14 @@ from apps.worker.steps.events.clinical_patterns import (
 from apps.worker.steps.events.encounter_classifier import detect_encounter_type, PRIORITY_MAP
 from apps.worker.steps.events.clinical_assembler import append_to_event
 
+
+_PHASE_SPLIT_TYPES = {
+    EventType.ER_VISIT,
+    EventType.HOSPITAL_ADMISSION,
+    EventType.HOSPITAL_DISCHARGE,
+    EventType.PROCEDURE,
+}
+
 def extract_clinical_events(
     pages: list[Page],
     dates: dict[int, list[EventDate]],
@@ -188,6 +196,34 @@ def _extract_block_events(block, page_provider_map, providers):
         or (providers[0].provider_id if providers else "unknown")
     )
 
+    def _start_event(page: Page, event_type: EventType) -> Event:
+        return Event(
+            event_id=uuid.uuid4().hex[:16],
+            provider_id=provider_id,
+            event_type=event_type,
+            date=current_date,
+            facts=[],
+            confidence=85 if event_type in _PHASE_SPLIT_TYPES else 80,
+            source_page_numbers=[page.page_number],
+        )
+
+    def _should_split_on_encounter_transition(event: Event | None, new_type: EventType) -> bool:
+        if event is None:
+            return False
+        if new_type == event.event_type:
+            return False
+        if len(event.facts) == 0:
+            return False
+        current_type = event.event_type
+        # Preserve clinically distinct phase boundaries once the current event
+        # has substantive content. This avoids flattening ED/admission/discharge/
+        # procedure moments into one summary node.
+        if new_type in _PHASE_SPLIT_TYPES and current_type in _PHASE_SPLIT_TYPES:
+            return True
+        if new_type in _PHASE_SPLIT_TYPES and current_type == EventType.INPATIENT_DAILY_NOTE and len(event.facts) >= 2:
+            return True
+        return False
+
     for page in block.pages:
         lines = page.text.split("\n")
         for line in lines:
@@ -222,30 +258,19 @@ def _extract_block_events(block, page_provider_map, providers):
                     pass
                 
                 # Create new event
-                current_event = Event(
-                    event_id=uuid.uuid4().hex[:16],
-                    provider_id=provider_id,
-                    event_type=detect_encounter_type(normalized),
-                    date=current_date,
-                    facts=[],
-                    confidence=85,
-                    source_page_numbers=[page.page_number],
-                )
+                current_event = _start_event(page, detect_encounter_type(normalized))
                 events.append(current_event)
                 append_to_event(current_event, normalized, page, citations)
                 continue
 
             # 2. Add to existing or create default
+            line_event_type = detect_encounter_type(normalized)
+            if _should_split_on_encounter_transition(current_event, line_event_type):
+                current_event = _start_event(page, line_event_type)
+                events.append(current_event)
+
             if not current_event:
-                current_event = Event(
-                    event_id=uuid.uuid4().hex[:16],
-                    provider_id=provider_id,
-                    event_type=detect_encounter_type(normalized),
-                    date=current_date,
-                    facts=[],
-                    confidence=80,
-                    source_page_numbers=[page.page_number],
-                )
+                current_event = _start_event(page, line_event_type)
                 events.append(current_event)
             
             append_to_event(current_event, normalized, page, citations)
