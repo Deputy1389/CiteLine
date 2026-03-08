@@ -1,0 +1,352 @@
+{
+  "generator": "PacketGenerator",
+  "synthetic": true,
+  "profile_id": "orthopedic_shoulder",
+  "seed": 41,
+  "document_count": 49,
+  "documents": [
+    {
+      "index": 1,
+      "document_type": "fax_cover",
+      "title": "Fax Cover Sheet",
+      "variant_index": 1,
+      "filename": "01_fax_cover.txt"
+    },
+    {
+      "index": 2,
+      "document_type": "office_progress_note",
+      "title": "Office Progress Note",
+      "variant_index": 0,
+      "filename": "02_office_progress_note.txt"
+    },
+    {
+      "index": 3,
+      "document_type": "office_progress_note",
+      "title": "Office Progress Note",
+      "variant_index": 1,
+      "filename": "03_office_progress_note.txt"
+    },
+    {
+      "index": 4,
+      "document_type": "office_progress_note",
+      "title": "Office Progress Note",
+      "variant_index": 2,
+      "filename": "04_office_progress_note.txt"
+    },
+    {
+      "index": 5,
+      "document_type": "office_progress_note",
+      "title": "Office Progress Note",
+      "variant_index": 1,
+      "filename": "05_office_progress_note.txt"
+    },
+    {
+      "index": 6,
+      "document_type": "office_progress_note",
+      "title": "Office Progress Note",
+      "variant_index": 2,
+      "filename": "06_office_progress_note.txt"
+    },
+    {
+      "index": 7,
+      "document_type": "office_progress_note",
+      "title": "Office Progress Note",
+      "variant_index": 2,
+      "filename": "07_office_progress_note.txt"
+    },
+    {
+      "index": 8,
+      "document_type": "blank_page",
+      "title": "Blank Page",
+      "variant_index": 0,
+      "filename": "08_blank_page.txt"
+    },
+    {
+      "index": 9,
+      "document_type": "radiology_order",
+      "title": "Radiology Order",
+      "variant_index": 0,
+      "filename": "09_radiology_order.txt"
+    },
+    {
+      "index": 10,
+      "document_type": "radiology_report",
+      "title": "Radiology Report",
+      "variant_index": 3,
+      "filename": "10_radiology_report.txt"
+    },
+    {
+      "index": 11,
+      "document_type": "discharge_instructions",
+      "title": "Discharge Instructions",
+      "variant_index": 0,
+      "filename": "11_discharge_instructions.txt"
+    },
+    {
+      "index": 12,
+      "document_type": "er_triage_note",
+      "title": "Emergency Triage Note",
+      "variant_index": 0,
+      "filename": "12_er_triage_note.txt"
+    },
+    {
+      "index": 13,
+      "document_type": "er_physician_note",
+      "title": "Emergency Physician Note",
+      "variant_index": 1,
+      "filename": "13_er_physician_note.txt"
+    },
+    {
+      "index": 14,
+      "document_type": "fax_cover",
+      "title": "Fax Cover Sheet",
+      "variant_index": 1,
+      "filename": "14_fax_cover.txt"
+    },
+    {
+      "index": 15,
+      "document_type": "hipaa_auth",
+      "title": "HIPAA Authorization",
+      "variant_index": 1,
+      "filename": "15_hipaa_auth.txt"
+    },
+    {
+      "index": 16,
+      "document_type": "hospital_charge_sheet",
+      "title": "Hospital Charge Sheet",
+      "variant_index": 0,
+      "filename": "16_hospital_charge_sheet.txt"
+    },
+    {
+      "index": 17,
+      "document_type": "nursing_progress_note",
+      "title": "Nursing Progress Note",
+      "variant_index": 1,
+      "filename": "17_nursing_progress_note.txt"
+    },
+    {
+      "index": 18,
+      "document_type": "vitals_flowsheet",
+      "title": "Vitals Flowsheet",
+      "variant_index": 0,
+      "filename": "18_vitals_flowsheet.txt"
+    },
+    {
+      "index": 19,
+      "document_type": "discharge_instructions",
+      "title": "Discharge Instructions",
+      "variant_index": 0,
+      "filename": "19_discharge_instructions.txt"
+    },
+    {
+      "index": 20,
+      "document_type": "radiology_addendum",
+      "title": "Radiology Report Addendum",
+      "variant_index": 1,
+      "filename": "20_radiology_addendum.txt"
+    },
+    {
+      "index": 21,
+      "document_type": "er_physician_note",
+      "title": "Emergency Physician Note",
+      "variant_index": 2,
+      "filename": "21_er_physician_note.txt"
+    },
+    {
+      "index": 22,
+      "document_type": "pain_mgmt_consult",
+      "title": "Pain Management Consultation",
+      "variant_index": 0,
+      "filename": "22_pain_mgmt_consult.txt"
+    },
+    {
+      "index": 23,
+      "document_type": "radiology_order",
+      "title": "Radiology Order",
+      "variant_index": 1,
+      "filename": "23_radiology_order.txt"
+    },
+    {
+      "index": 24,
+      "document_type": "radiology_report",
+      "title": "Radiology Report",
+      "variant_index": 3,
+      "filename": "24_radiology_report.txt"
+    },
+    {
+      "index": 25,
+      "document_type": "pain_mgmt_consult",
+      "title": "Pain Management Consultation",
+      "variant_index": 0,
+      "filename": "25_pain_mgmt_consult.txt"
+    },
+    {
+      "index": 26,
+      "document_type": "fax_cover",
+      "title": "Fax Cover Sheet",
+      "variant_index": 0,
+      "filename": "26_fax_cover.txt"
+    },
+    {
+      "index": 27,
+      "document_type": "fax_cover",
+      "title": "Fax Cover Sheet",
+      "variant_index": 1,
+      "filename": "27_fax_cover.txt"
+    },
+    {
+      "index": 28,
+      "document_type": "pt_evaluation",
+      "title": "Physical Therapy Evaluation",
+      "variant_index": 1,
+      "filename": "28_pt_evaluation.txt"
+    },
+    {
+      "index": 29,
+      "document_type": "pt_intake_form",
+      "title": "Physical Therapy Intake Form",
+      "variant_index": 0,
+      "filename": "29_pt_intake_form.txt"
+    },
+    {
+      "index": 30,
+      "document_type": "pt_progress_note",
+      "title": "Physical Therapy Progress Note",
+      "variant_index": 1,
+      "filename": "30_pt_progress_note.txt"
+    },
+    {
+      "index": 31,
+      "document_type": "pt_progress_note",
+      "title": "Physical Therapy Progress Note",
+      "variant_index": 0,
+      "filename": "31_pt_progress_note.txt"
+    },
+    {
+      "index": 32,
+      "document_type": "production_index",
+      "title": "Production Index",
+      "variant_index": 1,
+      "filename": "32_production_index.txt"
+    },
+    {
+      "index": 33,
+      "document_type": "records_request_letter",
+      "title": "Records Request Letter",
+      "variant_index": 0,
+      "filename": "33_records_request_letter.txt"
+    },
+    {
+      "index": 34,
+      "document_type": "pt_progress_note",
+      "title": "Physical Therapy Progress Note",
+      "variant_index": 2,
+      "filename": "34_pt_progress_note.txt"
+    },
+    {
+      "index": 35,
+      "document_type": "pt_progress_note",
+      "title": "Physical Therapy Progress Note",
+      "variant_index": 2,
+      "filename": "35_pt_progress_note.txt"
+    },
+    {
+      "index": 36,
+      "document_type": "pt_progress_note",
+      "title": "Physical Therapy Progress Note",
+      "variant_index": 0,
+      "filename": "36_pt_progress_note.txt"
+    },
+    {
+      "index": 37,
+      "document_type": "scheduling_note",
+      "title": "Scheduling Note",
+      "variant_index": 1,
+      "filename": "37_scheduling_note.txt"
+    },
+    {
+      "index": 38,
+      "document_type": "pt_progress_note",
+      "title": "Physical Therapy Progress Note",
+      "variant_index": 2,
+      "filename": "38_pt_progress_note.txt"
+    },
+    {
+      "index": 39,
+      "document_type": "pt_progress_note",
+      "title": "Physical Therapy Progress Note",
+      "variant_index": 0,
+      "filename": "39_pt_progress_note.txt"
+    },
+    {
+      "index": 40,
+      "document_type": "pt_progress_note",
+      "title": "Physical Therapy Progress Note",
+      "variant_index": 2,
+      "filename": "40_pt_progress_note.txt"
+    },
+    {
+      "index": 41,
+      "document_type": "scheduling_note",
+      "title": "Scheduling Note",
+      "variant_index": 0,
+      "filename": "41_scheduling_note.txt"
+    },
+    {
+      "index": 42,
+      "document_type": "pt_progress_note",
+      "title": "Physical Therapy Progress Note",
+      "variant_index": 1,
+      "filename": "42_pt_progress_note.txt"
+    },
+    {
+      "index": 43,
+      "document_type": "radiology_report",
+      "title": "Radiology Report",
+      "variant_index": 3,
+      "filename": "43_radiology_report.txt"
+    },
+    {
+      "index": 44,
+      "document_type": "pt_progress_note",
+      "title": "Physical Therapy Progress Note",
+      "variant_index": 1,
+      "filename": "44_pt_progress_note.txt"
+    },
+    {
+      "index": 45,
+      "document_type": "pt_progress_note",
+      "title": "Physical Therapy Progress Note",
+      "variant_index": 2,
+      "filename": "45_pt_progress_note.txt"
+    },
+    {
+      "index": 46,
+      "document_type": "fax_cover",
+      "title": "Fax Cover Sheet",
+      "variant_index": 0,
+      "filename": "46_fax_cover.txt"
+    },
+    {
+      "index": 47,
+      "document_type": "orthopedic_follow_up",
+      "title": "Orthopedic Follow-up",
+      "variant_index": 1,
+      "filename": "47_orthopedic_follow_up.txt"
+    },
+    {
+      "index": 48,
+      "document_type": "orthopedic_follow_up",
+      "title": "Orthopedic Follow-up",
+      "variant_index": 0,
+      "filename": "48_orthopedic_follow_up.txt"
+    },
+    {
+      "index": 49,
+      "document_type": "orthopedic_follow_up",
+      "title": "Orthopedic Follow-up",
+      "variant_index": 1,
+      "filename": "49_orthopedic_follow_up.txt"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "packetPath": "reference\\pass_121\\cloud_batch\\generated\\orthopedic_shoulder_seed41\\render\\packet_clean.pdf",
+  "filename": "packet_clean.pdf",
+  "caseName": "Pass67 OCR packet_clean.pdf 2026-03-08T01:11:09.153Z",
+  "matterId": "37fdd1826d9b40e595b6a9ca7ce2935d",
+  "upload": {
+    "id": "39c701fbd581467c9d132e6944b76f9a",
+    "matter_id": "37fdd1826d9b40e595b6a9ca7ce2935d",
+    "filename": "packet_clean.pdf",
+    "mime_type": "application/pdf",
+    "sha256": "eb764f3a5ddda010508f18454810dad0e6b1a17724f972b6b4ce944387bcac67",
+    "bytes": 67064,
+    "storage_uri": "C:/CiteLine/data/uploads/39c701fbd581467c9d132e6944b76f9a.pdf",
+    "uploaded_at": "2026-03-08T01:11:08.191990+00:00"
+  }
+}

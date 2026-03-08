@@ -1,0 +1,15 @@
+Accession: ACC-853627
+
+RADIOLOGY REQUEST
+
+Facility: Valley Radiology
+Date: 03/20/2024
+Provider: Dr. Robert Kim
+Study: MRI left shoulder without contrast
+History: Left shoulder pain with reduced range of motion after the collision.
+Requested By: Dr. Robert Kim
+Scheduling Notes: First available appointment; patient advised to bring prior imaging if available.
+
+Comparison: prior imaging dated 02/12/2024.
+
+MRN: 9408232

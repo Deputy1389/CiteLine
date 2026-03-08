@@ -1,0 +1,41 @@
+Facility: Valley Medical Center
+Encounter: ENC-869306
+MRN: 5139156
+Provider: Dr. Elena Park
+Date of Service: 11/27/2024
+
+PAIN MANAGEMENT CONSULTATION
+
+HISTORY OF PRESENT ILLNESS:
+Patient referred for pain management evaluation of shoulder pain following Rear-end motor vehicle collision with the left shoulder striking the driver-side door. Current pain level 6/10. Has failed conservative management including PT and oral analgesics.
+
+PAIN ASSESSMENT:
+Location: shoulder
+Quality: Aching, sharp with movement
+Duration: Constant with activity-related exacerbation
+Intensity: 6/10 at rest, 8/10 with activity
+
+PHYSICAL EXAMINATION:
+Tenderness over the lateral shoulder with guarded active range of motion to approximately 71 degrees.
+
+IMAGING REVIEW:
+Partial-thickness supraspinatus tendon tear with subacromial bursitis. No acute fracture or dislocation.
+
+ASSESSMENT:
+Partial-thickness supraspinatus tendon tear with subacromial bursitis. with persistent pain despite conservative treatment.
+
+PLAN:
+1. Fluoroscopic-guided injection scheduled
+2. Continue PT
+3. Wean oral analgesics as tolerated
+4. Follow-up 2-4 weeks post-injection
+
+Electronically Signed by:
+Dr. Elena Park
+11/27/2024
+
+Medication Trial:
+- Naproxen held around injection date
+- Short course post-procedure analgesics reviewed
+
+Encounter ID: ENC-869306 | Page 1 of 3 | Electronically signed by Dr. Elena Park

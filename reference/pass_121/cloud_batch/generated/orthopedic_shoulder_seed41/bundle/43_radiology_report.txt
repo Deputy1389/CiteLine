@@ -1,0 +1,30 @@
+Valley Medical Center
+2011 Medical Center Dr
+Glendale, CA 91203
+Phone: (302) 555-8406  Fax: (491) 555-2041
+NPI: 1228886632
+
+Facility: Valley Medical Center
+Encounter: ENC-594745
+MRN: 5139156
+Provider: Dr. Sarah Williams
+Date: 02/12/2024
+
+MRI left shoulder without contrast
+
+Hx: Left shoulder pain with reduced range of motion after the collision. s/p Rear-end motor vehicle collision with the left shoulder striking the driver-side door.
+
+Technique: Per protocol.
+Comparison: None.
+
+Findings:
+Partial-thickness supraspinatus tendon tear with subacromial bursitis. No acute fracture or dislocation.
+No fracture. Soft tissue swelling noted.
+
+Impression:
+1. Partial-thickness supraspinatus tendon tear with subacromial bursitis. No acute fracture or dislocation.
+2. Correlation with referring clinical history is recommended.
+
+Signed: Dr. Sarah Williams, MD
+
+Printed: 02/12/2024 17:07 | Page 1 of 3 | Electronically signed by Dr. Sarah Williams

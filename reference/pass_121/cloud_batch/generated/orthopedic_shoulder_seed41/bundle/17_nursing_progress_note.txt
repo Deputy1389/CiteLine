@@ -1,0 +1,16 @@
+Encounter Summary
+Encounter: ENC-594745
+MRN: 5139156
+
+Facility: Valley Medical Center
+NURSING NOTE
+Date: 02/12/2024
+
+1430: Pt presents c/o Left shoulder pain with reduced range of motion after the collision. A&Ox4. Pain shoulder 8/10. VS: BP 140/85 HR 94 RR 18. IV access established.
+1500: Meds given per MD order. Pt resting.
+1545: Imaging done. Pt tolerated procedure.
+1630: D/C instructions given. Pt ambulatory. Pain 4/10.
+
+Sig: K. Thompson, RN
+
+Encounter ID: ENC-594745 | Page 1 of 3

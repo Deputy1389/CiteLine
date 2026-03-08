@@ -1,0 +1,17 @@
+HOSPITAL CHARGE SHEET
+FIN: ENC-949996
+MRN: 3293526
+
+Facility: Community General Hospital
+Account Number: CGH-ACCT-041-01
+Encounter ID: ENC-949996
+Date of Service: 2/12/24
+Claim Number: CLM-OCR_-0041
+
+Revenue / CPT Detai1:
+DOS 01/18/2024 | CPT/HCPCS 99283 | Revenue Code 0450 | Units 1 | Charge Amount $920.00 | Emergency department eva1uation
+D0S 01/25/2024 | CPT/HCPCS 99213 | Revenue Code 0510 | Units 1 | Charge Amount $245.00 | Office follow-up
+
+Total Charges: See itemized detail above.
+
+Printed: 2/12/24 09:42 | Electronically signed by Dr. James Chen

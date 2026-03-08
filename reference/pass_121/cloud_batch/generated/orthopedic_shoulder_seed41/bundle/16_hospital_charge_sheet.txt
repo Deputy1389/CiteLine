@@ -1,0 +1,18 @@
+HOSPITAL CHARGE SHEET
+MRN: 5139156
+
+Facility: Valley Medical Center
+Account Number: VMC-ACCT-041-01
+Encounter ID: ENC-594745
+Date of Service: 02/12/2024
+Claim Number: CLM-ORTH-0041
+
+Revenue / CPT Detail:
+DOS 01/18/2024 | CPT/HCPCS 99284 | Revenue Code 0450 | Units 1 | Charge Amount $1,250.00 | Emergency department evaluation
+DOS 01/25/2024 | CPT/HCPCS 73221 | Revenue Code 0351 | Units 1 | Charge Amount $1,480.00 | MRI shoulder without contrast
+DOS 02/01/2024 | CPT/HCPCS 99213 | Revenue Code 0510 | Units 1 | Charge Amount $280.00 | Orthopedic follow-up
+DOS 02/08/2024 | CPT/HCPCS 97110 | Revenue Code 0420 | Units 2 | Charge Amount $180.00 | Therapeutic exercise
+
+Total Charges: See itemized detail above.
+
+Page 1 of 1

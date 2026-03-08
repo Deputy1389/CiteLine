@@ -1,0 +1,201 @@
+{
+  "mode": "rasterized_scan",
+  "pages": [
+    {
+      "page_number": 1,
+      "mode": "rasterized_scan",
+      "dpi": 102,
+      "artifacts": [
+        {
+          "type": "fax_header",
+          "text": [
+            "Fax Sent: 08/23/24 12:33",
+            "Page 1 of 15",
+            "From: Valley Medical Center"
+          ]
+        },
+        {
+          "type": "shadow_band",
+          "width_px": 18
+        }
+      ]
+    },
+    {
+      "page_number": 2,
+      "mode": "rasterized_scan",
+      "dpi": 120,
+      "artifacts": [
+        {
+          "type": "skew",
+          "angle_degrees": -0.68
+        }
+      ]
+    },
+    {
+      "page_number": 3,
+      "mode": "rasterized_scan",
+      "dpi": 109,
+      "artifacts": [
+        {
+          "type": "skew",
+          "angle_degrees": 1.054
+        },
+        {
+          "type": "fax_header",
+          "text": [
+            "Fax Sent: 07/11/24 10:21",
+            "Page 3 of 15",
+            "From: Regional Imaging"
+          ]
+        }
+      ]
+    },
+    {
+      "page_number": 4,
+      "mode": "rasterized_scan",
+      "dpi": 117,
+      "artifacts": [
+        {
+          "type": "scanner_noise",
+          "sigma": 9.328
+        }
+      ]
+    },
+    {
+      "page_number": 5,
+      "mode": "rasterized_scan",
+      "dpi": 125,
+      "artifacts": [
+        {
+          "type": "skew",
+          "angle_degrees": -0.681
+        }
+      ]
+    },
+    {
+      "page_number": 6,
+      "mode": "rasterized_scan",
+      "dpi": 122,
+      "artifacts": []
+    },
+    {
+      "page_number": 7,
+      "mode": "rasterized_scan",
+      "dpi": 113,
+      "artifacts": [
+        {
+          "type": "skew",
+          "angle_degrees": -0.144
+        },
+        {
+          "type": "low_contrast",
+          "contrast": 0.755,
+          "brightness": 1.042
+        }
+      ]
+    },
+    {
+      "page_number": 8,
+      "mode": "rasterized_scan",
+      "dpi": 117,
+      "artifacts": [
+        {
+          "type": "shadow_band",
+          "width_px": 23
+        }
+      ]
+    },
+    {
+      "page_number": 9,
+      "mode": "rasterized_scan",
+      "dpi": 112,
+      "artifacts": [
+        {
+          "type": "low_contrast",
+          "contrast": 0.89,
+          "brightness": 1.025
+        },
+        {
+          "type": "edge_crop",
+          "edge": "left",
+          "crop_px": 27
+        }
+      ]
+    },
+    {
+      "page_number": 10,
+      "mode": "rasterized_scan",
+      "dpi": 121,
+      "artifacts": [
+        {
+          "type": "skew",
+          "angle_degrees": -1.631
+        },
+        {
+          "type": "shadow_band",
+          "width_px": 30
+        }
+      ]
+    },
+    {
+      "page_number": 11,
+      "mode": "rasterized_scan",
+      "dpi": 103,
+      "artifacts": [
+        {
+          "type": "scanner_noise",
+          "sigma": 6.079
+        }
+      ]
+    },
+    {
+      "page_number": 12,
+      "mode": "rasterized_scan",
+      "dpi": 113,
+      "artifacts": [
+        {
+          "type": "skew",
+          "angle_degrees": 1.574
+        },
+        {
+          "type": "edge_crop",
+          "edge": "right",
+          "crop_px": 18
+        }
+      ]
+    },
+    {
+      "page_number": 13,
+      "mode": "rasterized_scan",
+      "dpi": 106,
+      "artifacts": []
+    },
+    {
+      "page_number": 14,
+      "mode": "rasterized_scan",
+      "dpi": 103,
+      "artifacts": [
+        {
+          "type": "skew",
+          "angle_degrees": -2.208
+        },
+        {
+          "type": "low_contrast",
+          "contrast": 0.846,
+          "brightness": 1.031
+        }
+      ]
+    },
+    {
+      "page_number": 15,
+      "mode": "rasterized_scan",
+      "dpi": 103,
+      "artifacts": [
+        {
+          "type": "skew",
+          "angle_degrees": -1.795
+        }
+      ]
+    }
+  ]
+}

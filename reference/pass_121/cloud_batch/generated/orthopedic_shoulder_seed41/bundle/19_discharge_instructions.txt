@@ -1,0 +1,35 @@
+Encounter Summary
+Encounter: ENC-889888
+MRN: 5139156
+
+Facility: Valley Medical Center
+DISCHARGE INSTRUCTIONS
+Date: 02/13/2024
+
+Diagnosis: Left shoulder sprain; rotator cuff injury suspected.
+
+Instructions:
+- Apply ice to shoulder for 20 minutes every 2 hours
+- Rest and avoid strenuous activity
+- Take medications as prescribed
+- Use sling/brace as directed
+
+Medications Prescribed:
+- Ibuprofen 600 mg PO TID with food
+- Cyclobenzaprine 10 mg PO TID PRN muscle spasm
+- Acetaminophen 500 mg PO Q6H PRN
+
+Follow-Up:
+- Orthopedic/specialist follow-up within 3-5 days
+- Return to ER if symptoms worsen
+
+Return Precautions:
+- Increasing pain not controlled by medication
+- Numbness, tingling, or weakness
+- Fever > 101F
+
+Patient verbalized understanding of instructions.
+
+Discharge RN: J. Martinez, RN
+
+Encounter ID: ENC-889888 | Page 1 of 3

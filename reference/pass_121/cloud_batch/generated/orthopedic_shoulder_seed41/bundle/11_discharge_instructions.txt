@@ -1,0 +1,39 @@
+Valley Medical Center
+2011 Medical Center Dr
+Glendale, CA 91203
+Phone: (302) 555-8406  Fax: (491) 555-2041
+NPI: 1228886632
+
+Facility: Valley Medical Center
+Encounter: ENC-594745
+MRN: 5139156
+DISCHARGE INSTRUCTIONS
+Date: 02/12/2024
+
+Diagnosis: Left shoulder sprain; rotator cuff injury suspected.
+
+Instructions:
+- Apply ice to shoulder for 20 minutes every 2 hours
+- Rest and avoid strenuous activity
+- Take medications as prescribed
+- Use sling/brace as directed
+
+Medications Prescribed:
+- Ibuprofen 600 mg PO TID with food
+- Cyclobenzaprine 10 mg PO TID PRN muscle spasm
+- Acetaminophen 500 mg PO Q6H PRN
+
+Follow-Up:
+- Orthopedic/specialist follow-up within 3-5 days
+- Return to ER if symptoms worsen
+
+Return Precautions:
+- Increasing pain not controlled by medication
+- Numbness, tingling, or weakness
+- Fever > 101F
+
+Patient verbalized understanding of instructions.
+
+Discharge RN: J. Martinez, RN
+
+Page 1 of 4 | Electronically signed by Dr. Elena Park

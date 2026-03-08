@@ -1,0 +1,14 @@
+{
+  "id": "eaceb85d47f0435586ac1a66c88284fc",
+  "matter_id": "6fc3aac4b7af4491b7aeb78476b8dc7e",
+  "status": "pending",
+  "started_at": null,
+  "heartbeat_at": null,
+  "finished_at": null,
+  "metrics": null,
+  "warnings": null,
+  "error_message": null,
+  "processing_seconds": null,
+  "quality_gate_passed": null,
+  "quality_gate_score": null
+}

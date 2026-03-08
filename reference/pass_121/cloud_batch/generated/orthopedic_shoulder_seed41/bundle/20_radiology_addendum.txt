@@ -1,0 +1,22 @@
+Valley Medical Center
+2011 Medical Center Dr
+Glendale, CA 91203
+Phone: (302) 555-8406  Fax: (491) 555-2041
+NPI: 1228886632
+
+Facility: Valley Medical Center
+Encounter: ENC-905817
+MRN: 5139156
+Provider: Dr. Sarah Williams
+
+ADDENDUM
+Date: 02/15/2024
+Ref: Original report 2024-02-12
+
+Additional review of imaging demonstrates findings consistent with early degenerative change. Cannot be entirely excluded as acute. Report subsequently referenced during therapy evaluation with Jessica Davis, PT, DPT at Regional Physical Therapy on 04/29/2024. Recommend follow-up imaging in 4-6 weeks if clinically indicated.
+
+Dr. Sarah Williams, MD
+
+Comparison: prior imaging dated 02/12/2024.
+
+Encounter ID: ENC-905817

@@ -1,0 +1,72 @@
+{
+  "generated_at": "2026-03-08T01:15:27.890703+00:00",
+  "count": 2,
+  "results": [
+    {
+      "profile": "orthopedic_shoulder",
+      "seed": 41,
+      "generated_packet_pdf": "reference\\pass_121\\cloud_batch\\generated\\orthopedic_shoulder_seed41\\render\\packet_clean.pdf",
+      "generated_rasterized_pdf": "reference\\pass_121\\cloud_batch\\generated\\orthopedic_shoulder_seed41\\render\\packet_rasterized.pdf",
+      "generated_clean_pdf": "reference\\pass_121\\cloud_batch\\generated\\orthopedic_shoulder_seed41\\render\\packet_clean.pdf",
+      "run_id": "ba1d3ee806124f12b074dc9e239399da",
+      "matter_id": "37fdd1826d9b40e595b6a9ca7ce2935d",
+      "status": "needs_review",
+      "metrics": {
+        "documents": 1,
+        "pages_total": 49,
+        "pages_ocr": 0,
+        "events_total": 22,
+        "events_exported": 21,
+        "providers_total": 41,
+        "pt_events_aggregated": 7,
+        "billing_events_total": 0,
+        "processing_seconds": 8.74
+      },
+      "warnings": [
+        {
+          "code": "LITIGATION_REVIEW_FAIL",
+          "message": "Litigation Review FAILED (Score: 60). See litigation_review.md",
+          "page": null,
+          "document_id": null
+        },
+        {
+          "code": "QUALITY_GATE_FAILED",
+          "message": "Quality gates require review: export_status=BLOCKED, attorney=True, luqa=True",
+          "page": null,
+          "document_id": null
+        }
+      ],
+      "output_dir": "reference\\pass_121\\cloud_batch\\cloud_runs\\orthopedic_shoulder_seed41"
+    },
+    {
+      "profile": "ocr_rasterized",
+      "seed": 41,
+      "generated_packet_pdf": "reference\\pass_121\\cloud_batch\\generated\\ocr_rasterized_seed41\\render\\packet_rasterized.pdf",
+      "generated_rasterized_pdf": "reference\\pass_121\\cloud_batch\\generated\\ocr_rasterized_seed41\\render\\packet_rasterized.pdf",
+      "generated_clean_pdf": "reference\\pass_121\\cloud_batch\\generated\\ocr_rasterized_seed41\\render\\packet_clean.pdf",
+      "run_id": "eaceb85d47f0435586ac1a66c88284fc",
+      "matter_id": "6fc3aac4b7af4491b7aeb78476b8dc7e",
+      "status": "needs_review",
+      "metrics": {
+        "documents": 1,
+        "pages_total": 15,
+        "pages_ocr": 15,
+        "events_total": 9,
+        "events_exported": 9,
+        "providers_total": 36,
+        "pt_events_aggregated": 2,
+        "billing_events_total": 1,
+        "processing_seconds": 184.84
+      },
+      "warnings": [
+        {
+          "code": "QUALITY_GATE_FAILED",
+          "message": "Quality gates require review: export_status=REVIEW_RECOMMENDED, attorney=True, luqa=True",
+          "page": null,
+          "document_id": null
+        }
+      ],
+      "output_dir": "reference\\pass_121\\cloud_batch\\cloud_runs\\ocr_rasterized_seed41"
+    }
+  ]
+}

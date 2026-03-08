@@ -1,0 +1,17 @@
+RECORDS PRODUCTION LOG
+
+Date: 2021-11-23
+Requesting Firm: Smith & Keller LLP
+Matter: Nguyen v. Harbor Freight Lines
+Patient: [REDACTED]
+
+Bundle Summary:
+- Lakeside Family Practice (LFP)
+- Valley Medical Center (VMC)
+- Valley Radiology (VR)
+- Regional Physical Therapy (RPT)
+- Sports Medicine Specialists (SMS)
+
+Production Notes: Source packet assembled from multiple providers and may reflect partial facility responses. Each page is treated as part of one produced litigation record set.
+
+MRN: 0000041 | Encounter ID: ENC-970352 | Printed: 2021-11-23 15:24 | Electronically signed by Dr. Smith

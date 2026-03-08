@@ -1,0 +1,19 @@
+Facility: Sports Medicine Specialists
+Provider: Dr. Jordan Hale
+Date of Service: 07/16/2025
+0rthopedic Surgery Clinic
+Reason for Visit: Fo1low-up of post-traumatic shoulder injury.
+Exam: Tenderness over the lateral shoulder with guarded active range of motion to approximately 74 degrees.
+Imaging Review: MRI dated 2024-03-20 reviewed.  Partial-thickness supraspinatus tendon tear with subacromial bursitis. No acute fracture or dislocation.
+Assessment and PLAN: Continue conservative care, prescribe therapy, and reevaluate if symptoms persist.
+
+Medication Tria1:
+1. Lisinopril 10 mg PO daily
+2. Metformin 500 mg PO BID
+3. Ibuprofen 600 mg PO TID
+4. Cydobenzaprine 10 mg P0 TID PRN
+5. Acetaminophen 500 mg PO Q6H PRN
+
+Dictated but not read.
+
+Encounter ID: ENC-611239 | Electronically signed by Dr. Jordan Hale

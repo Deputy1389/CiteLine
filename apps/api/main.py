@@ -7,6 +7,7 @@ import logging
 import os
 import sys
 import time
+import threading
 import uuid
 from collections import defaultdict, deque
 from pathlib import Path
@@ -23,6 +24,8 @@ from apps.api.authz import hipaa_enforcement_enabled
 from packages.db.database import get_database_url, init_db, get_engine
 from packages.shared.storage import DATA_DIR
 from sqlalchemy import text
+
+DATABASE_URL = get_database_url()
 
 
 def _parse_csv_env(name: str, default: list[str]) -> list[str]:
@@ -47,6 +50,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("linecite")
 _worker_thread = None
+_upload_orphan_sweeper_thread = None
+_upload_orphan_sweeper_stop_event = None
 
 app = FastAPI(
     title="Linecite API",
@@ -236,6 +241,26 @@ def startup():
     else:
         logger.info("Background worker disabled (ENABLE_API_WORKER != true)")
 
+    try:
+        from apps.api.upload_orphan_sweeper import start_upload_orphan_sweeper
+
+        global _upload_orphan_sweeper_thread, _upload_orphan_sweeper_stop_event
+        started = start_upload_orphan_sweeper()
+        if started:
+            _upload_orphan_sweeper_thread, _upload_orphan_sweeper_stop_event = started
+            logger.info("Upload orphan sweeper thread started: %s", bool(_upload_orphan_sweeper_thread and _upload_orphan_sweeper_thread.is_alive()))
+        else:
+            logger.info("Upload orphan sweeper disabled (ENABLE_UPLOAD_ORPHAN_SWEEPER != true)")
+    except Exception:
+        logger.exception("Failed to start upload orphan sweeper")
+
+
+@app.on_event("shutdown")
+def shutdown():
+    global _upload_orphan_sweeper_stop_event
+    if _upload_orphan_sweeper_stop_event is not None:
+        _upload_orphan_sweeper_stop_event.set()
+
 
 # Register routes
 from apps.api.routes.documents import router as docs_router  # noqa: E402
@@ -264,6 +289,12 @@ def health():
 def health_worker():
     alive = bool(_worker_thread and _worker_thread.is_alive())
     return {"status": "ok", "worker_running": alive}
+
+
+@app.get("/health/upload-sweeper")
+def health_upload_sweeper():
+    alive = bool(_upload_orphan_sweeper_thread and _upload_orphan_sweeper_thread.is_alive())
+    return {"status": "ok", "upload_orphan_sweeper_running": alive}
 
 
 @app.get("/health/worker/details")

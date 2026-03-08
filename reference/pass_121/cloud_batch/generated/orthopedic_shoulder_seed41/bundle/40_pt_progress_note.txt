@@ -1,0 +1,29 @@
+Facility: Regional Physical Therapy
+Visit #: 567
+Therapist: Jessica Davis, PT, DPT
+Provider: Jessica Davis, PT, DPT
+Date: 05/27/2024
+
+Physical Therapy Daily Note
+
+CC: Ongoing pain and difficulty using the shoulder for daily tasks.
+
+Objective: Therapeutic exercise, manual therapy, and home exercise program review were completed.
+Therapeutic Exercises:
+- Shoulder flexion 3 sets x 10 reps
+- Resistance band rows 3 x 12
+- Scapular stabilization drills 2 x 15
+Response to Treatment: Symptoms flared during overhead activity; intensity increased briefly before settling with rest and cueing.
+
+Functional Limitation: Difficulty lifting, carrying, and performing overhead tasks.
+
+A/P: Functional use remains limited with work and daily tasks despite therapy participation.
+
+Treatment Plan: Continue therapy twice weekly and reinforce compliance with home exercise program.
+
+Jessica Davis, PT, DPT
+05/27/2024
+
+Digitally authenticated 05/27/2024 16:42
+
+MRN: 7839160 | Encounter ID: ENC-995567 | Printed: 05/27/2024 08:18

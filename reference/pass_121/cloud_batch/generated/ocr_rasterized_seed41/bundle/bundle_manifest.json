@@ -1,0 +1,114 @@
+{
+  "generator": "PacketGenerator",
+  "synthetic": true,
+  "profile_id": "ocr_rasterized",
+  "seed": 41,
+  "document_count": 15,
+  "documents": [
+    {
+      "index": 1,
+      "document_type": "radiology_report",
+      "title": "Radiology Report",
+      "variant_index": 1,
+      "filename": "01_radiology_report.txt"
+    },
+    {
+      "index": 2,
+      "document_type": "custodian_certification",
+      "title": "Custodian of Records Certification",
+      "variant_index": 1,
+      "filename": "02_custodian_certification.txt"
+    },
+    {
+      "index": 3,
+      "document_type": "fax_cover",
+      "title": "Fax Cover Sheet",
+      "variant_index": 1,
+      "filename": "03_fax_cover.txt"
+    },
+    {
+      "index": 4,
+      "document_type": "discharge_instructions",
+      "title": "Discharge Instructions",
+      "variant_index": 0,
+      "filename": "04_discharge_instructions.txt"
+    },
+    {
+      "index": 5,
+      "document_type": "radiology_report",
+      "title": "Radiology Report",
+      "variant_index": 1,
+      "filename": "05_radiology_report.txt"
+    },
+    {
+      "index": 6,
+      "document_type": "production_index",
+      "title": "Production Index",
+      "variant_index": 1,
+      "filename": "06_production_index.txt"
+    },
+    {
+      "index": 7,
+      "document_type": "er_physician_note",
+      "title": "Emergency Physician Note",
+      "variant_index": 1,
+      "filename": "07_er_physician_note.txt"
+    },
+    {
+      "index": 8,
+      "document_type": "er_triage_note",
+      "title": "Emergency Triage Note",
+      "variant_index": 2,
+      "filename": "08_er_triage_note.txt"
+    },
+    {
+      "index": 9,
+      "document_type": "hospital_charge_sheet",
+      "title": "Hospital Charge Sheet",
+      "variant_index": 0,
+      "filename": "09_hospital_charge_sheet.txt"
+    },
+    {
+      "index": 10,
+      "document_type": "vitals_flowsheet",
+      "title": "Vitals Flowsheet",
+      "variant_index": 1,
+      "filename": "10_vitals_flowsheet.txt"
+    },
+    {
+      "index": 11,
+      "document_type": "custodian_certification",
+      "title": "Custodian of Records Certification",
+      "variant_index": 0,
+      "filename": "11_custodian_certification.txt"
+    },
+    {
+      "index": 12,
+      "document_type": "fax_cover",
+      "title": "Fax Cover Sheet",
+      "variant_index": 0,
+      "filename": "12_fax_cover.txt"
+    },
+    {
+      "index": 13,
+      "document_type": "office_progress_note",
+      "title": "Office Progress Note",
+      "variant_index": 2,
+      "filename": "13_office_progress_note.txt"
+    },
+    {
+      "index": 14,
+      "document_type": "records_request_letter",
+      "title": "Records Request Letter",
+      "variant_index": 1,
+      "filename": "14_records_request_letter.txt"
+    },
+    {
+      "index": 15,
+      "document_type": "office_progress_note",
+      "title": "Office Progress Note",
+      "variant_index": 0,
+      "filename": "15_office_progress_note.txt"
+    }
+  ]
+}

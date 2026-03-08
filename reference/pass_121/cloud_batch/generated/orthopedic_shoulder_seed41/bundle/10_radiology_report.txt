@@ -1,0 +1,24 @@
+Facility: Valley Medical Center
+Encounter: ENC-594745
+MRN: 5139156
+Provider: Dr. Sarah Williams
+Date: 02/12/2024
+
+MRI left shoulder without contrast
+
+Hx: Left shoulder pain with reduced range of motion after the collision. s/p Rear-end motor vehicle collision with the left shoulder striking the driver-side door.
+
+Technique: Per protocol.
+Comparison: None.
+
+Findings:
+Partial-thickness supraspinatus tendon tear with subacromial bursitis. No acute fracture or dislocation.
+No fracture. Soft tissue swelling noted.
+
+Impression:
+1. Partial-thickness supraspinatus tendon tear with subacromial bursitis. No acute fracture or dislocation.
+2. Correlation with referring clinical history is recommended.
+
+Signed: Dr. Sarah Williams, MD
+
+Encounter ID: ENC-594745 | Printed: 02/12/2024 12:42 | Page 1 of 4 | Electronically signed by Dr. Sarah Williams

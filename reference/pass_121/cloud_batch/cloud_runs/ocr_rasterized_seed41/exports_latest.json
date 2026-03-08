@@ -1,0 +1,126 @@
+{
+  "run_id": "eaceb85d47f0435586ac1a66c88284fc",
+  "status": "needs_review",
+  "artifacts": [
+    {
+      "artifact_type": "pdf",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/chronology.pdf",
+      "sha256": "08b388b10b59a9fca7e59be7fcbeaaad672814649ac84a89d4aedd3ebfd51222",
+      "bytes": 38233
+    },
+    {
+      "artifact_type": "csv",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/chronology.csv",
+      "sha256": "283ee3fb5dc89716067baafe980b402a9a49e418de1f607817490d05ac1f5e96",
+      "bytes": 2571
+    },
+    {
+      "artifact_type": "json",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/evidence_graph.json",
+      "sha256": "0b81f9bbd16b2d587955f7d971860d556de87021b437e6f0ac2e91948d9e489b",
+      "bytes": 281880
+    },
+    {
+      "artifact_type": "docx",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/chronology.docx",
+      "sha256": "9c35869fa37bb0663f83d95e2cd29b1221b52e1ac9cd3cfe25624bc18ffc498d",
+      "bytes": 39118
+    },
+    {
+      "artifact_type": "provider_directory_csv",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/provider_directory.csv",
+      "sha256": "dbdae1e2accb0760f30dab1f681f91fd82c798dc9e16def8e2e66d3bbf3e5df2",
+      "bytes": 1356
+    },
+    {
+      "artifact_type": "provider_directory_json",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/provider_directory.json",
+      "sha256": "75aa68f69e7f8b2a0e2dd2861f6f18e39bdb3a2240d9ac852ce10b92cb354791",
+      "bytes": 11537
+    },
+    {
+      "artifact_type": "missing_records_csv",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/missing_records.csv",
+      "sha256": "83f8ea8aa22143fa3574172096b5610978bc1a4e218d555ad63768e49c81ae6d",
+      "bytes": 364
+    },
+    {
+      "artifact_type": "missing_records_json",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/missing_records.json",
+      "sha256": "b5c91c660c499123dc718f5775e1e27e6d8a6834a872c8eb2d00e88845610cac",
+      "bytes": 4550
+    },
+    {
+      "artifact_type": "missing_record_requests_csv",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/missing_record_requests.csv",
+      "sha256": "042aba0c801690a9ec7cbad09a2023e21c493d9cca80cfbe1c3f88671cb8c1f2",
+      "bytes": 184
+    },
+    {
+      "artifact_type": "missing_record_requests_json",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/missing_record_requests.json",
+      "sha256": "85102f39fec1e94202fd5b902e58b7ea237497a2de8a177b17ea77e3189d3328",
+      "bytes": 735
+    },
+    {
+      "artifact_type": "missing_record_requests_md",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/missing_record_requests.md",
+      "sha256": "4b8b1cb3c56c8d82cb3788dda2cd479a72026f7c12ab9e6c6d9b7d12269b76c4",
+      "bytes": 158
+    },
+    {
+      "artifact_type": "billing_lines_csv",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/billing_lines.csv",
+      "sha256": "d9f744b1fcec460d708217b9ea8473734aae800b21d6a104506d78ef56710421",
+      "bytes": 2833
+    },
+    {
+      "artifact_type": "billing_lines_json",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/billing_lines.json",
+      "sha256": "8858ff2e0cc3f4151421a1abae9891412c0c7be5ea0e0806faae2b25b910315f",
+      "bytes": 9455
+    },
+    {
+      "artifact_type": "specials_summary_csv",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/specials_summary.csv",
+      "sha256": "eaac621c5527b0fdb02b4b1559881b42784e1f7bef1ab7475d2d7af24f8bc2a4",
+      "bytes": 244
+    },
+    {
+      "artifact_type": "specials_summary_json",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/specials_summary.json",
+      "sha256": "406f3c72687917d7a8dceb443e86e05c0ef85ebd5537dc34c274c5e18a398cc4",
+      "bytes": 1194
+    },
+    {
+      "artifact_type": "specials_summary_pdf",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/specials_summary.pdf",
+      "sha256": "380223245e138afaf77e7dda92ec4f213ff8136f98009cfada3a90ff019141d7",
+      "bytes": 3010
+    },
+    {
+      "artifact_type": "paralegal_chronology_md",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/ParalegalChronology.md",
+      "sha256": "e58dbf9c66dff2a57feb56f586b316d230e86e33ec7f6fc1e0e02049de6ec898",
+      "bytes": 2411
+    },
+    {
+      "artifact_type": "extraction_notes_md",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/ExtractionNotes.md",
+      "sha256": "c12e8ced36ce4125648f640052b383fd800cb2a2d1d9ed188aebf40978c04711",
+      "bytes": 3014
+    },
+    {
+      "artifact_type": "patient_partitions_json",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/patient_partitions.json",
+      "sha256": "a124c380b58cd6d73d3711b469cfd0386ad8d7f4c84749d26950079eaaaa328f",
+      "bytes": 501
+    },
+    {
+      "artifact_type": "pipeline_parity_report_json",
+      "storage_uri": "/tmp/citeline_data/artifacts/eaceb85d47f0435586ac1a66c88284fc/pipeline_parity_report.json",
+      "sha256": "42f3080dcf8de038f1d5d1710496fd5642f939f524f92ab5a9b96836a45f3a99",
+      "bytes": 946
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+Facility: Community General Hospital
+FIN: ENC-949996
+MRN: 3293526
+Provider: Dr. James Chen
+Date of Service: 2/12/24
+
+ED NOTE
+
+CC: Neck, back, and generalized pain after the incident.
+
+HPI:
+Pt presents to the ED after Motor vehide collision with multi-site soft tissue injury complaints. C/o mixed pain, onset at time of incident. Denies L0C, paresthesias, weakness. No h/o prior mixed injury.
+
+PMH: HTN, DM2
+MEDS:
+See MAR
+ALLERGIES: NKDA
+
+PE:
+Pain-limited range of motion with paraspina1 tenderness documented on examination.
+
+A/P:
+1. Soft tissue strain after motor vehicle collision.
+2. Discharged home with conservative care instructions and outpatient follow-up.
+3. Ana1gesics provided, RTC precautions reviewed.
+
+Dictated but not read.
+/s/ Dr. James Chen
+2/12/24
+
+Electronically signed by Dr. James Chen

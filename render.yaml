@@ -14,6 +14,8 @@ services:
       - fromGroup: linecite-shared-env
       - key: PORT
         value: "8000"
+      - key: ENABLE_UPLOAD_ORPHAN_SWEEPER
+        value: "true"
       - key: CORS_ALLOW_ORIGINS
         value: https://linecite.com,https://linecite-website.vercel.app
       - key: ALLOWED_HOSTS

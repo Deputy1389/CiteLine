@@ -1,0 +1,27 @@
+Facility: Lakeside Family Practice
+Appointment Type: Established Patient Follow-Up
+Provider: Dr. Patricia Lawson
+Date of Service: 3/22/2025
+
+Primary Care Follow-Up Visit
+
+Reason for Visit: Patient returned after persistent symptoms and limited improvement.
+
+Current Symptoms: Left shoulder pain with reduced range of motion after the collision.
+
+Functional Limitation: Difficulty using the shoulder for daily tasks was reported.
+
+Objective: Follow-up examination and treatment response were documented.
+Tenderness over the lateral shoulder with guarded active range of motion to approximately 74 degrees.
+
+Assessment and Plan:
+Partial-thickness supraspinatus tendon tear with subacromial bursitis. Continue conservative care, monitor progression, and coordinate specialty follow-up.
+
+Medications:
+1. Medication reconciliation performed
+2. Patient reports intermittent NSAID use with partial relief
+
+Signed: Dr. Patricia Lawson
+3/22/2025
+
+MRN: 9331482 | Encounter ID: ENC-904778 | Page 1 of 4 | Electronically signed by Dr. Patricia Lawson

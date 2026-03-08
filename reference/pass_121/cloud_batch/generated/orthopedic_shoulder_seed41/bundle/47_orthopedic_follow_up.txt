@@ -1,0 +1,21 @@
+Sports Medicine Specialists
+2568 Medical Center Dr
+Pasadena, CA 91107
+Phone: (765) 555-4044  Fax: (434) 555-1638
+NPI: 1051061243
+
+Facility: Sports Medicine Specialists
+Provider: Dr. Jordan Hale
+Date of Service: 08/15/2024
+Orthopedic Surgery Clinic
+Reason for Visit: Follow-up of post-traumatic shoulder injury.
+Exam: Abduction limited to 68 degrees with 4/5 supraspinatus strength and positive Hawkins impingement testing.
+Imaging Review: MRI dated 2024-03-20 reviewed.  Partial-thickness supraspinatus tendon tear with subacromial bursitis. No acute fracture or dislocation.
+Assessment and Plan: Continue conservative care, prescribe therapy, and reevaluate if symptoms persist.
+
+Medication Trial:
+Medication reconciliation performed; patient reports intermittent use of prescribed analgesics.
+
+Dictated but not read.
+
+MRN: 1889266 | Printed: 08/15/2024 09:31

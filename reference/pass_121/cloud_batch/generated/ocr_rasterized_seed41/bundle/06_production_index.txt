@@ -1,0 +1,14 @@
+RECORDS PRODUCTION LOG
+
+Date: 2021-03-11
+Requesting Firm: Smith & Keller LLP
+Matter: Gallagher v. Transit Co.
+Patient: [REDACTED]
+
+Bundle Summary:
+- Community General Hospital (CGH)
+- Cedar Medical Group (CMG)
+
+Production Notes: Source packet assembled from multiple providers and may reflect partial facility responses. Each page is treated as part of one produced litigation record set.
+
+MRN: 0000041 | Encounter ID: ENC-207923

@@ -1,0 +1,27 @@
+Facility: Cedar Medical Group
+Appointment Type: Established Patient Follow-Up
+Provider: Dr. Morgan Reed
+Date of Service: 9/18/2022
+
+Primary Care Follow-Up Visit
+
+Reason for Visit: Follow-up for persistent pain, mobility loss, and treatment response.
+
+Current Symptoms: Neck, back, and generalized pain after the incident.
+
+Functional Limitation: Ongoing limitations with lifting, overhead activity, sleep, and household tasks were reported.
+
+Objective: Follow-up examination and treatment response were documented.
+Pain-limited range of motion with paraspinal tenderness documented on examination.
+
+Assessment and PLAN:
+Soft tissue strain after motor vehicle collision. Continue conservative care, monitor progression, and coordinate specialty follow-up.
+
+Medications:
+1. Lisinopril 10 mg PO daily
+2. Metformin 500 mg PO BID
+
+Signed: Dr. Morgan Reed
+9/18/2022
+
+Encounter ID: ENC-382879 | Electronically signed by Dr. Morgan Reed

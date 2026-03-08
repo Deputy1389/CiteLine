@@ -1,0 +1,23 @@
+Facility: Community General Hospital
+FIN: ENC-319230
+MRN: 3293526
+Provider: Dr. Sarah Williams
+Date of Service: 6/15/21
+
+RADIOLOGY REPORT
+
+Exam: Targeted diagnostic imaging
+History: Motor vehicle collision with multi-site soft tissue injury complaints.
+
+Findings:
+Imaging of the mixed demonstrates findings which may represent post-traumatic changes. No acute osseous abnormality. Correlate with ongoing symptoms.
+
+Impression:
+No acute osseous abnormality. Correlate with ongoing symptoms.
+Correlation with referring clinical history is recommended. Recommend follow-up imaging if symptoms persist.
+
+Dictated but not read.
+/s/ Dr. Sarah Williams
+Accession: RAD-6/15/21
+
+Electronically signed by Dr. Sarah Williams

@@ -1,0 +1,23 @@
+Facility: Regional Physical Therapy
+Visit #: 142
+Therapist: Jessica Davis, PT, DPT
+Provider: Jessica Davis, PT, DPT
+Date: 05/30/2024
+
+PT NOTE
+
+S: MRI dated 03/20/2024 from Valley Radiology, read by Dr. Robert Kim, showed Partial-thickness supraspinatus tendon tear with subacromial bursitis. Patient reports interval therapy with last recorded pain score approximately 8/10. Pain with overhead reaching, dressing, lifting, and sleep disruption. Pain 8/10. HEP compliance fair.
+O: Ther ex, manual tx, modalities. ROM improved. Str 4/5.
+Exercises:
+- Shoulder flexion 3 sets x 10 reps
+- Resistance band rows 3 x 12
+- Scapular stabilization drills 2 x 15
+Response: Symptoms flared during overhead activity; intensity increased briefly before settling with rest and cueing.
+A: Progressing. Tolerating tx well.
+P: Continue plan. Progress PRE. Reassess 2 wks.
+
+Jessica Davis, PT, DPT
+
+Digitally authenticated 05/30/2024 08:51
+
+Encounter ID: ENC-514142 | Printed: 05/30/2024 11:24 | Electronically signed by Jessica Davis, PT, DPT

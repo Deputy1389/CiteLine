@@ -1,0 +1,32 @@
+Facility: Regional Physical Therapy
+Visit #: 133
+Therapist: Jessica Davis, PT, DPT
+Provider: Jessica Davis, PT, DPT
+Date: 04/29/2024
+
+PT EVAL
+
+Dx: Left shoulder dysfunction with painful overhead reaching and reduced active range of motion.
+HPI: MRI dated 03/20/2024 from Valley Radiology, read by Dr. Robert Kim, showed Partial-thickness supraspinatus tendon tear with subacromial bursitis. Patient reports for PT evaluation after Rear-end motor vehide collision with the left shoulder striking the driver-side door. Reports Pain with overhead reaching, dressing, lifting, and sleep disruption. Difficulty with overhead reaching, dressing, lifting, and sustained activity.
+
+Prior Function: Independent
+
+ROM: Limited shoulder
+Strength: 3+/5 to 4-/5
+Special Tests: Pain with overhead reaching. Active abduction to approximately 60 degrees. Strength limited by pain. Difficulty carrying items over 10 pounds.
+
+Functional Limitations:
+- Lifting limited
+- 0verhead tasks 1imited
+- S1eep disrupted
+
+Goals: Pain reduction, ROM restoration, return to function
+
+PLAN: Begin supervised physical therapy twice weekly for six weeks and restrict overhead 1ifting.
+Freq: 2-3x/wk x 6 wks
+
+Jessica Davis, PT, DPT
+
+Digitally authenticated 04/29/2024 12:11
+
+MRN: 7839160 | Encounter ID: ENC-759133

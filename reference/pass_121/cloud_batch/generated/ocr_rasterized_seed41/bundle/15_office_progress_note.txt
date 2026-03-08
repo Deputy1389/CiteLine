@@ -1,0 +1,33 @@
+Facility: Cedar Medical Group
+Appointment Type: Established Patient Follow-Up
+Provider: Dr. Morgan Reed
+Date of Service: 2/19/2024
+
+OFFICE PROGRESS NOTE
+
+CC: Neck, back, and generalized pain after the incident.
+
+HISTORY OF PRESENT ILLNESS:
+Since the er visit on 02/12/2024 with Dr. James Chen at Community General Hospital, symptoms have remained under review. Patient returns for follow-up of Soft tissue strain after motor vehicle collision. Reports ongoing symptoms with partial improvement. Current medications include:
+1. Medication reconciliation performed
+2. Patient reports intermittent NSAID use with partial relief
+
+ALLERGIES: NKDA
+
+PHYSICAL EXAMINATION:
+Pain-limited range of motion with paraspinal tenderness documented on examination.
+
+A/P:
+Soft tissue strain after motor vehicle collision.
+
+PLAN:
+1. Continue current medications
+2. Continue physical therapy
+3. Follow-up in 4-6 weeks
+4. Activity modification as previously discussed
+
+Electronically Signed by:
+Dr. Morgan Reed
+2/19/2024
+
+MRN: 4144288 | Encounter ID: ENC-890787 | Electronically signed by Dr. Morgan Reed

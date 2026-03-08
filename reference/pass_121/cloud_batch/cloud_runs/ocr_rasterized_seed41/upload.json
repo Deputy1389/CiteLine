@@ -1,0 +1,16 @@
+{
+  "packetPath": "reference\\pass_121\\cloud_batch\\generated\\ocr_rasterized_seed41\\render\\packet_rasterized.pdf",
+  "filename": "packet_rasterized.pdf",
+  "caseName": "Pass67 OCR packet_rasterized.pdf 2026-03-08T01:11:59.419Z",
+  "matterId": "6fc3aac4b7af4491b7aeb78476b8dc7e",
+  "upload": {
+    "id": "5779da7d15804a1084108f9ec9377b97",
+    "matter_id": "6fc3aac4b7af4491b7aeb78476b8dc7e",
+    "filename": "packet_rasterized.pdf",
+    "mime_type": "application/pdf",
+    "sha256": "1efcf46abae214077caa9b14b648f14cb093d79f9effc00b7c3959e9c2085946",
+    "bytes": 552268,
+    "storage_uri": "C:/CiteLine/data/uploads/5779da7d15804a1084108f9ec9377b97.pdf",
+    "uploaded_at": "2026-03-08T01:11:58.524438+00:00"
+  }
+}

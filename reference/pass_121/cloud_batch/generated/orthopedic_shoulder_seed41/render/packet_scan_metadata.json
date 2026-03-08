@@ -1,0 +1,356 @@
+{
+  "mode": "clean_scan",
+  "pages": [
+    {
+      "page_number": 1,
+      "mode": "clean_scan",
+      "dpi": 163,
+      "artifacts": [
+        {
+          "type": "low_contrast",
+          "contrast": 0.904,
+          "brightness": 1.07
+        },
+        {
+          "type": "edge_crop",
+          "edge": "right",
+          "crop_px": 24
+        }
+      ]
+    },
+    {
+      "page_number": 2,
+      "mode": "clean_scan",
+      "dpi": 148,
+      "artifacts": [
+        {
+          "type": "shadow_band",
+          "width_px": 30
+        }
+      ]
+    },
+    {
+      "page_number": 3,
+      "mode": "clean_scan",
+      "dpi": 151,
+      "artifacts": []
+    },
+    {
+      "page_number": 4,
+      "mode": "clean_scan",
+      "dpi": 142,
+      "artifacts": []
+    },
+    {
+      "page_number": 5,
+      "mode": "clean_scan",
+      "dpi": 161,
+      "artifacts": []
+    },
+    {
+      "page_number": 6,
+      "mode": "clean_scan",
+      "dpi": 164,
+      "artifacts": []
+    },
+    {
+      "page_number": 7,
+      "mode": "clean_scan",
+      "dpi": 141,
+      "artifacts": []
+    },
+    {
+      "page_number": 8,
+      "mode": "clean_scan",
+      "dpi": 164,
+      "artifacts": []
+    },
+    {
+      "page_number": 9,
+      "mode": "clean_scan",
+      "dpi": 148,
+      "artifacts": []
+    },
+    {
+      "page_number": 10,
+      "mode": "clean_scan",
+      "dpi": 160,
+      "artifacts": []
+    },
+    {
+      "page_number": 11,
+      "mode": "clean_scan",
+      "dpi": 164,
+      "artifacts": []
+    },
+    {
+      "page_number": 12,
+      "mode": "clean_scan",
+      "dpi": 158,
+      "artifacts": []
+    },
+    {
+      "page_number": 13,
+      "mode": "clean_scan",
+      "dpi": 154,
+      "artifacts": []
+    },
+    {
+      "page_number": 14,
+      "mode": "clean_scan",
+      "dpi": 157,
+      "artifacts": []
+    },
+    {
+      "page_number": 15,
+      "mode": "clean_scan",
+      "dpi": 162,
+      "artifacts": []
+    },
+    {
+      "page_number": 16,
+      "mode": "clean_scan",
+      "dpi": 155,
+      "artifacts": []
+    },
+    {
+      "page_number": 17,
+      "mode": "clean_scan",
+      "dpi": 154,
+      "artifacts": []
+    },
+    {
+      "page_number": 18,
+      "mode": "clean_scan",
+      "dpi": 157,
+      "artifacts": []
+    },
+    {
+      "page_number": 19,
+      "mode": "clean_scan",
+      "dpi": 151,
+      "artifacts": []
+    },
+    {
+      "page_number": 20,
+      "mode": "clean_scan",
+      "dpi": 146,
+      "artifacts": []
+    },
+    {
+      "page_number": 21,
+      "mode": "clean_scan",
+      "dpi": 146,
+      "artifacts": []
+    },
+    {
+      "page_number": 22,
+      "mode": "clean_scan",
+      "dpi": 149,
+      "artifacts": []
+    },
+    {
+      "page_number": 23,
+      "mode": "clean_scan",
+      "dpi": 144,
+      "artifacts": []
+    },
+    {
+      "page_number": 24,
+      "mode": "clean_scan",
+      "dpi": 157,
+      "artifacts": []
+    },
+    {
+      "page_number": 25,
+      "mode": "clean_scan",
+      "dpi": 147,
+      "artifacts": []
+    },
+    {
+      "page_number": 26,
+      "mode": "clean_scan",
+      "dpi": 140,
+      "artifacts": []
+    },
+    {
+      "page_number": 27,
+      "mode": "clean_scan",
+      "dpi": 156,
+      "artifacts": [
+        {
+          "type": "skew",
+          "angle_degrees": 0.614
+        }
+      ]
+    },
+    {
+      "page_number": 28,
+      "mode": "clean_scan",
+      "dpi": 160,
+      "artifacts": []
+    },
+    {
+      "page_number": 29,
+      "mode": "clean_scan",
+      "dpi": 151,
+      "artifacts": [
+        {
+          "type": "skew",
+          "angle_degrees": 1.991
+        },
+        {
+          "type": "low_contrast",
+          "contrast": 0.814,
+          "brightness": 1.074
+        }
+      ]
+    },
+    {
+      "page_number": 30,
+      "mode": "clean_scan",
+      "dpi": 160,
+      "artifacts": []
+    },
+    {
+      "page_number": 31,
+      "mode": "clean_scan",
+      "dpi": 150,
+      "artifacts": [
+        {
+          "type": "shadow_band",
+          "width_px": 28
+        }
+      ]
+    },
+    {
+      "page_number": 32,
+      "mode": "clean_scan",
+      "dpi": 154,
+      "artifacts": [
+        {
+          "type": "skew",
+          "angle_degrees": 2.346
+        }
+      ]
+    },
+    {
+      "page_number": 33,
+      "mode": "clean_scan",
+      "dpi": 160,
+      "artifacts": []
+    },
+    {
+      "page_number": 34,
+      "mode": "clean_scan",
+      "dpi": 146,
+      "artifacts": []
+    },
+    {
+      "page_number": 35,
+      "mode": "clean_scan",
+      "dpi": 147,
+      "artifacts": []
+    },
+    {
+      "page_number": 36,
+      "mode": "clean_scan",
+      "dpi": 163,
+      "artifacts": []
+    },
+    {
+      "page_number": 37,
+      "mode": "clean_scan",
+      "dpi": 151,
+      "artifacts": []
+    },
+    {
+      "page_number": 38,
+      "mode": "clean_scan",
+      "dpi": 142,
+      "artifacts": [
+        {
+          "type": "skew",
+          "angle_degrees": -0.475
+        }
+      ]
+    },
+    {
+      "page_number": 39,
+      "mode": "clean_scan",
+      "dpi": 156,
+      "artifacts": []
+    },
+    {
+      "page_number": 40,
+      "mode": "clean_scan",
+      "dpi": 160,
+      "artifacts": []
+    },
+    {
+      "page_number": 41,
+      "mode": "clean_scan",
+      "dpi": 165,
+      "artifacts": []
+    },
+    {
+      "page_number": 42,
+      "mode": "clean_scan",
+      "dpi": 146,
+      "artifacts": []
+    },
+    {
+      "page_number": 43,
+      "mode": "clean_scan",
+      "dpi": 149,
+      "artifacts": []
+    },
+    {
+      "page_number": 44,
+      "mode": "clean_scan",
+      "dpi": 150,
+      "artifacts": []
+    },
+    {
+      "page_number": 45,
+      "mode": "clean_scan",
+      "dpi": 145,
+      "artifacts": []
+    },
+    {
+      "page_number": 46,
+      "mode": "clean_scan",
+      "dpi": 148,
+      "artifacts": []
+    },
+    {
+      "page_number": 47,
+      "mode": "clean_scan",
+      "dpi": 143,
+      "artifacts": [
+        {
+          "type": "skew",
+          "angle_degrees": -1.371
+        }
+      ]
+    },
+    {
+      "page_number": 48,
+      "mode": "clean_scan",
+      "dpi": 160,
+      "artifacts": [
+        {
+          "type": "low_contrast",
+          "contrast": 0.799,
+          "brightness": 1.02
+        }
+      ]
+    },
+    {
+      "page_number": 49,
+      "mode": "clean_scan",
+      "dpi": 164,
+      "artifacts": []
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+Valley Medical Center
+2011 Medical Center Dr
+Glendale, CA 91203
+Phone: (302) 555-8406  Fax: (491) 555-2041
+NPI: 1228886632
+
+IMAGING ORDER
+Encounter: ENC-594745
+MRN: 5139156
+
+Facility: Valley Medical Center
+Date: 02/12/2024
+Ordering Provider: Dr. Sarah Williams
+Exam Requested: MRI left shoulder without contrast
+Clinical Indication: Left shoulder pain with reduced range of motion after the collision. following Rear-end motor vehicle collision with the left shoulder striking the driver-side door.
+Priority: Routine
+Reason for Exam: Evaluate for post-traumatic pathology and correlate with ongoing symptoms.
+
+Comparison: prior imaging dated 02/12/2024.
+
+Encounter ID: ENC-594745 | Page 1 of 2

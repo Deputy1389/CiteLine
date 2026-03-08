@@ -1,0 +1,16 @@
+---- Fax Transmission ----
+FIN: ENC-949996
+MRN: 3293526
+
+ED VITALS
+Facility: Community General Hospital
+Date: 2/12/24
+
+1312  BP 145/89  HR 103  RR 18  Temp 98.4  Pain 8/10
+1324  BP 140/87  HR 99  RR 18  Temp 98.3  Pain 7/10
+1337  BP 139/83  HR 95  RR 18  Temp 98.2  Pain 6/10
+1351  BP 133/80  HR 94  RR 16  Temp 98.1  Pain 8/10
+1406  BP 129/81  HR 87  RR 16  Temp 98.0  Pain 4/10
+Disposition: stable for discharge after provider reassessment.
+
+Printed: 2/12/24 17:18 | Electronically signed by Dr. James Chen

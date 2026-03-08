@@ -1,0 +1,33 @@
+Valley Radiology
+1958 Civic Center Way
+Pasadena, CA 91107
+Phone: (877) 555-7852  Fax: (497) 555-7785
+NPI: 1608193201
+
+Facility: Valley Radiology
+Provider: Dr. Robert Kim
+Date: 03/20/2024
+
+MRI left shoulder without contrast
+
+CLINICAL INDICATION: Left shoulder pain with reduced range of motion after the collision. s/p Rear-end motor vehicle collision with the left shoulder striking the driver-side door.
+
+Technique: Per protocol.
+Comparison: None.
+
+TECHNIQUE:
+Standard protocol imaging performed.
+
+COMPARISON: No prior studies available.
+
+Findings:
+Partial-thickness supraspinatus tendon tear with subacromial bursitis. No acute fracture or dislocation.
+No fracture. Soft tissue swelling noted.
+
+IMPRESSION:
+1. Partial-thickness supraspinatus tendon tear with subacromial bursitis. No acute fracture or dislocation.
+2. Correlation with referring clinical history is recommended.
+
+Signed: Dr. Robert Kim, MD
+
+MRN: 9408232 | Printed: 03/20/2024 13:07

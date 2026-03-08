@@ -1,0 +1,39 @@
+Community General Hospital
+1516 East Valley Blvd
+Glendale, CA 91203
+Phone: (526) 555-7004  Fax: (687) 555-7886
+NPI: 1897312271
+
+Facility: Community General Hospital
+FIN: ENC-949996
+MRN: 3293526
+DISCHARGE INSTRUCTIONS
+Date: 2/12/24
+
+Diagnosis: Soft tissue strain after motor vehicle collision.
+
+Instructions:
+- Apply ice to mixed for 20 minutes every 2 hours
+- Rest and avoid strenuous activity
+- Take medications as prescribed
+- Use sling/brace as directed
+
+Medications Prescribed:
+- Ibuprofen 600 mg PO TID with food
+- Cyclobenzaprine 10 mg PO TID PRN muscle spasm
+- Acetaminophen 500 mg PO Q6H PRN
+
+Follow-Up:
+- Orthopedic/specialist follow-up within 3-5 days
+- Return to ER if symptoms worsen
+
+Return Precautions:
+- Increasing pain not controlled by medication
+- Numbness, tingling, or weakness
+- Fever > 101F
+
+Patient verbalized understanding of instructions.
+
+Discharge RN: J. Martinez, RN
+
+Encounter ID: ENC-949996 | Electronically signed by Dr. James Chen

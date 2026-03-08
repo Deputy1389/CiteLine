@@ -1,0 +1,19 @@
+PHYSICAL THERAPY INTAKE F0RM
+
+Facility: Regional Physical Therapy
+Date: 04/29/2024
+Therapist: Jessica Davis, PT, DPT
+Referral Diagnosis: Left shoulder dysfunction with painful overhead reaching and reduced active range of motion.
+Referred By: Jessica Davis, PT, DPT
+Pain Areas: shoulder
+Current Limitations:
+[ ] lifting
+[ ] reaching
+[ ] sleeping
+[ ] driving
+[ ] work to1erance
+Patient Goal: return to prior level of function
+
+Digitally authenticated 04/29/2024 13:51
+
+MRN: 7839160 | Encounter ID: ENC-759133 | Electronically signed by Jessica Davis, PT, DPT

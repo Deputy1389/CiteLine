@@ -1,0 +1,42 @@
+Valley Medical Center
+2011 Medical Center Dr
+Glendale, CA 91203
+Phone: (302) 555-8406  Fax: (491) 555-2041
+NPI: 1228886632
+
+Facility: Valley Medical Center
+Encounter: ENC-166608
+MRN: 5139156
+Provider: Dr. Elena Park
+Date of Service: 02/17/2024
+
+EMERGENCY DEPARTMENT PHYSICIAN NOTE
+
+Chief Complaint: Left shoulder pain with reduced range of motion after the collision.
+
+History of Present Illness:
+Patient presents to the ED for evaluation after Rear-end motor vehicle collision with the left shoulder striking the driver-side door. The patient reports immediate onset of shoulder pain with functional limitation. The patient denies loss of consciousness, chest pain, shortness of breath, or neurological symptoms.
+
+Review of Systems: Positive for musculoskeletal pain. Otherwise negative.
+
+Past Medical History: Hypertension
+
+Medications:
+See MAR
+
+Allergies: NKDA
+
+Physical Examination:
+Tenderness over the lateral shoulder with guarded active range of motion to approximately 55 degrees.
+
+Assessment:
+Left shoulder sprain; rotator cuff injury suspected.
+
+Disposition:
+Discharged home in a sling with ice, anti-inflammatory medication, and orthopedic follow-up in three days.
+
+Electronically Signed by:
+Dr. Elena Park, MD
+02/17/2024 16:42
+
+Encounter ID: ENC-166608

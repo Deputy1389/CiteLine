@@ -39,6 +39,8 @@ SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 
 # Feature flag: enable Supabase storage if we have the credentials
 USE_SUPABASE_STORAGE = bool(SUPABASE_REST_URL and SUPABASE_SERVICE_KEY)
+DOCUMENTS_BUCKET = "documents"
+ARTIFACTS_BUCKET = "artifacts"
 
 def ensure_dirs() -> None:
     """Create data directories if they don't exist."""
@@ -48,6 +50,16 @@ def ensure_dirs() -> None:
 def sha256_bytes(data: bytes) -> str:
     """Compute sha256 hex digest of raw bytes."""
     return hashlib.sha256(data).hexdigest()
+
+
+def direct_upload_supported() -> bool:
+    """Whether direct browser-to-storage uploads are available."""
+    return USE_SUPABASE_STORAGE
+
+
+def document_storage_path(source_document_id: str) -> str:
+    """Canonical object path for a stored source PDF."""
+    return f"{source_document_id}.pdf"
 
 def _supabase_upload(bucket: str, path: str, file_bytes: bytes, content_type: str = "application/pdf") -> None:
     """Upload a file to Supabase Object Storage."""
@@ -69,6 +81,7 @@ def _supabase_upload(bucket: str, path: str, file_bytes: bytes, content_type: st
             logger.info(f"Successfully uploaded {path} to Supabase bucket {bucket}")
     except Exception as e:
         logger.error(f"Exception uploading to Supabase: {e}")
+
 
 def _supabase_download(bucket: str, path: str, dest: Path) -> bool:
     """Download a file from Supabase Object Storage."""
@@ -95,26 +108,174 @@ def _supabase_download(bucket: str, path: str, dest: Path) -> bool:
         logger.error(f"Exception downloading from Supabase: {e}")
     return False
 
-def save_upload(source_document_id: str, file_bytes: bytes) -> Path:
-    """Save uploaded PDF to local disk and Supabase. Returns the file path."""
+
+def _supabase_download_bytes(bucket: str, path: str) -> bytes | None:
+    """Download raw bytes from Supabase Object Storage."""
+    if not USE_SUPABASE_STORAGE:
+        return None
+    url = f"{SUPABASE_REST_URL}/storage/v1/object/{bucket}/{path}"
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=60)
+        if response.status_code == 200:
+            return response.content
+        logger.warning(
+            "Failed to download bytes for %s from bucket %s: %s %s",
+            path,
+            bucket,
+            response.status_code,
+            response.text,
+        )
+    except Exception as e:
+        logger.error(f"Exception downloading bytes from Supabase: {e}")
+    return None
+
+
+def _supabase_delete(bucket: str, path: str) -> bool:
+    """Delete an object from Supabase Storage."""
+    if not USE_SUPABASE_STORAGE:
+        return False
+    url = f"{SUPABASE_REST_URL}/storage/v1/object/{bucket}/{path}"
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+    }
+    try:
+        response = requests.delete(url, headers=headers, timeout=30)
+        if response.status_code in (200, 204):
+            return True
+        logger.warning(
+            "Failed to delete %s from bucket %s: %s %s",
+            path,
+            bucket,
+            response.status_code,
+            response.text,
+        )
+    except Exception as e:
+        logger.error(f"Exception deleting from Supabase: {e}")
+    return False
+
+
+def create_signed_upload_url(bucket: str, path: str, *, upsert: bool = False) -> dict[str, str]:
+    """Create a Supabase signed upload URL for a single object path."""
+    if not USE_SUPABASE_STORAGE:
+        raise RuntimeError("Direct uploads require Supabase storage configuration")
+
+    url = f"{SUPABASE_REST_URL}/storage/v1/object/upload/sign/{bucket}/{path}"
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+    }
+    if upsert:
+        headers["x-upsert"] = "true"
+
+    response = requests.post(url, headers=headers, json={}, timeout=30)
+    if response.status_code not in (200, 201):
+        raise RuntimeError(
+            f"Failed to create signed upload URL: {response.status_code} {response.text}"
+        )
+
+    data = response.json()
+    relative_url = str(data.get("url") or "").strip()
+    if not relative_url:
+        raise RuntimeError("Signed upload response missing url")
+    signed_url = f"{SUPABASE_REST_URL}{relative_url}"
+    token = ""
+    try:
+        token = signed_url.split("token=", 1)[1]
+    except Exception:
+        token = ""
+    return {
+        "signed_url": signed_url,
+        "token": token,
+        "path": path,
+        "bucket": bucket,
+    }
+
+
+def list_objects(
+    bucket: str,
+    *,
+    prefix: str = "",
+    limit: int = 100,
+    offset: int = 0,
+    sort_column: str = "updated_at",
+    sort_order: str = "asc",
+) -> list[dict[str, object]]:
+    """List objects in a Supabase bucket."""
+    if not USE_SUPABASE_STORAGE:
+        return []
+    url = f"{SUPABASE_REST_URL}/storage/v1/object/list/{bucket}"
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+    }
+    body = {
+        "prefix": prefix,
+        "limit": int(limit),
+        "offset": int(offset),
+        "sortBy": {
+            "column": sort_column,
+            "order": sort_order,
+        },
+    }
+    response = requests.post(url, headers=headers, json=body, timeout=30)
+    if response.status_code != 200:
+        raise RuntimeError(f"Failed to list storage objects: {response.status_code} {response.text}")
+    data = response.json()
+    if isinstance(data, list):
+        return [item for item in data if isinstance(item, dict)]
+    return []
+
+
+def download_uploaded_object(bucket: str, path: str) -> bytes | None:
+    """Download a stored object from remote storage."""
+    return _supabase_download_bytes(bucket, path)
+
+
+def delete_uploaded_object(bucket: str, path: str) -> bool:
+    """Delete a stored object from remote storage."""
+    return _supabase_delete(bucket, path)
+
+
+def save_upload(source_document_id: str, file_bytes: bytes, *, mirror_remote: bool = True) -> Path:
+    """Save uploaded PDF to local disk and optionally mirror to Supabase."""
     ensure_dirs()
-    path = UPLOADS_DIR / f"{source_document_id}.pdf"
+    path = UPLOADS_DIR / document_storage_path(source_document_id)
     path.write_bytes(file_bytes)
-    
-    if USE_SUPABASE_STORAGE:
-        _supabase_upload("documents", f"{source_document_id}.pdf", file_bytes, "application/pdf")
-        
+
+    if USE_SUPABASE_STORAGE and mirror_remote:
+        _supabase_upload(DOCUMENTS_BUCKET, document_storage_path(source_document_id), file_bytes, "application/pdf")
+
     return path
 
 def get_upload_path(source_document_id: str) -> Path:
     """Return the path to a previously-saved upload, attempting remote download if local fails."""
-    path = UPLOADS_DIR / f"{source_document_id}.pdf"
-    
+    path = UPLOADS_DIR / document_storage_path(source_document_id)
+
     if not path.exists() and USE_SUPABASE_STORAGE:
         logger.info(f"Upload {source_document_id}.pdf not found locally. Fetching from Supabase...")
-        _supabase_download("documents", f"{source_document_id}.pdf", path)
-        
+        _supabase_download(DOCUMENTS_BUCKET, document_storage_path(source_document_id), path)
+
     return path
+
+
+def delete_local_upload(source_document_id: str) -> bool:
+    """Delete a mirrored local upload file if present."""
+    path = UPLOADS_DIR / document_storage_path(source_document_id)
+    try:
+        if path.exists():
+            path.unlink()
+            return True
+    except Exception as e:
+        logger.error(f"Exception deleting local upload {path}: {e}")
+    return False
 
 def save_artifact(run_id: str, filename: str, data: bytes) -> Path:
     """Save a generated artifact (PDF/CSV/JSON) to the run's artifact dir."""
@@ -135,9 +296,9 @@ def save_artifact(run_id: str, filename: str, data: bytes) -> Path:
             content_type = "application/json"
         elif filename.endswith(".md"):
             content_type = "text/markdown"
-            
-        _supabase_upload("artifacts", f"{run_id}/{filename}", data, content_type)
-        
+
+        _supabase_upload(ARTIFACTS_BUCKET, f"{run_id}/{filename}", data, content_type)
+
     return path
 
 def get_artifact_dir(run_id: str) -> Path:
@@ -150,7 +311,7 @@ def get_artifact_path(run_id: str, filename: str) -> Path | None:
 
     if not path.exists() and USE_SUPABASE_STORAGE:
         logger.info(f"Artifact {run_id}/{filename} not found locally. Fetching from Supabase...")
-        success = _supabase_download("artifacts", f"{run_id}/{filename}", path)
+        success = _supabase_download(ARTIFACTS_BUCKET, f"{run_id}/{filename}", path)
         if not success or not path.exists():
             return None
     elif not path.exists():
