@@ -61,6 +61,20 @@ def document_storage_path(source_document_id: str) -> str:
     """Canonical object path for a stored source PDF."""
     return f"{source_document_id}.pdf"
 
+
+def _normalize_supabase_signed_url(raw_url: str) -> str:
+    """Return a fully qualified Supabase signed upload URL."""
+    text = str(raw_url or "").strip()
+    if not text:
+        raise RuntimeError("Signed upload response missing url")
+    if text.startswith("http://") or text.startswith("https://"):
+        return text
+    if text.startswith("/storage/v1/"):
+        return f"{SUPABASE_REST_URL}{text}"
+    if text.startswith("/"):
+        return f"{SUPABASE_REST_URL}/storage/v1{text}"
+    return f"{SUPABASE_REST_URL}/storage/v1/{text}"
+
 def _supabase_upload(bucket: str, path: str, file_bytes: bytes, content_type: str = "application/pdf") -> None:
     """Upload a file to Supabase Object Storage."""
     if not USE_SUPABASE_STORAGE:
@@ -182,9 +196,7 @@ def create_signed_upload_url(bucket: str, path: str, *, upsert: bool = False) ->
 
     data = response.json()
     relative_url = str(data.get("url") or "").strip()
-    if not relative_url:
-        raise RuntimeError("Signed upload response missing url")
-    signed_url = f"{SUPABASE_REST_URL}{relative_url}"
+    signed_url = _normalize_supabase_signed_url(relative_url)
     token = ""
     try:
         token = signed_url.split("token=", 1)[1]
